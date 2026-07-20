@@ -1,114 +1,69 @@
-import { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
-import Dashboard from './Dashboard';
+import { useState, useEffect } from 'react'
+import { supabase } from './supabaseClient'
+// @ts-ignore
+import Dashboard from './Dashboard'
 
 export default function App() {
-  const [session, setSession] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // useState<any> behebt den Session-Fehler
+  const [session, setSession] = useState<any>(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+      setSession(session)
+    })
 
     supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-  }, []);
+      setSession(session)
+    })
+  }, [])
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  // (e: any) behebt den Parameter-Fehler
+  const handleLogin = async (e: any) => {
+    e.preventDefault()
+    setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    });
-    if (error) alert('Fehler beim Login: ' + error.message);
-  };
+    })
+    if (error) alert(error.message)
+    setLoading(false)
+  }
 
-  if (!session) {
-    return (
-      <div
-        style={{
-          padding: '40px',
-          fontFamily: 'sans-serif',
-          maxWidth: '400px',
-          margin: '0 auto',
-        }}
-      >
-        <h2>🔒 Sonar Login</h2>
-        <form
-          onSubmit={handleLogin}
-          style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}
-        >
+  if (session) {
+    return <Dashboard session={session} />
+  }
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f4f7f6' }}>
+      <form onSubmit={handleLogin} style={{ background: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+        <h2 style={{ marginBottom: '20px' }}>🔒 Sonar Login</h2>
+        <div style={{ marginBottom: '15px' }}>
           <input
             type="email"
             placeholder="Deine E-Mail"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            style={{ padding: '10px', fontSize: '16px' }}
+            style={{ padding: '10px', width: '220px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
           />
+        </div>
+        <div style={{ marginBottom: '20px' }}>
           <input
             type="password"
             placeholder="Dein Passwort"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ padding: '10px', fontSize: '16px' }}
+            style={{ padding: '10px', width: '220px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
           />
-          <button
-            type="submit"
-            style={{
-              padding: '12px',
-              background: '#3498db',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '16px',
-            }}
-          >
-            Einloggen
-          </button>
-        </form>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        padding: '40px',
-        fontFamily: 'sans-serif',
-        background: '#f4f7f6',
-        minHeight: '100vh',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <h1 style={{ margin: 0 }}>🚀 Sonar-Cockpit</h1>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          style={{
-            padding: '8px 12px',
-            background: '#e74c3c',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Ausloggen
+        </div>
+        <button disabled={loading} type="submit" style={{ padding: '10px', width: '100%', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          {loading ? 'Lädt...' : 'Einloggen'}
         </button>
-      </div>
-
-      <Dashboard session={session} />
+      </form>
     </div>
-  );
+  )
 }
