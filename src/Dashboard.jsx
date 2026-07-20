@@ -258,15 +258,8 @@ export default function Dashboard({ session }) {
   return (
     <div style={{ marginTop: '20px', padding: '20px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1 style={{ margin: 0, color: '#2c3e50' }}>🚀 Sonar-Cockpit</h1>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          style={{ padding: '8px 16px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          Ausloggen
-        </button>
-      </div>
+      {/* 1. Hauptüberschrift (zentriert) */}
+      <h1 style={{ margin: '0 0 30px 0', color: '#2c3e50', textAlign: 'center' }}>🚀 Sonar-Cockpit</h1>
 
       {/* VORDEFINIERTE LISTEN FÜR DIE DROPDOWNS */}
       <datalist id="firmen-list">
@@ -300,7 +293,16 @@ export default function Dashboard({ session }) {
         <option value="Intern (Warten)" />
       </datalist>
 
-      <h2 style={{ borderBottom: '2px solid #f5f6fa', paddingBottom: '10px', marginBottom: '20px', textAlign: 'left' }}>📊 Neuer Vorgang</h2>
+      {/* 2. Container für Bereich "Neuer Vorgang" und den "Ausloggen"-Button in einer Zeile */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #f5f6fa', paddingBottom: '10px', marginBottom: '20px' }}>
+        <h2 style={{ margin: 0, textAlign: 'left' }}>📊 Neuer Vorgang</h2>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          style={{ padding: '8px 16px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          Ausloggen
+        </button>
+      </div>
       
       <form onSubmit={speichereEintrag} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '30px', alignItems: 'end' }}>
         
