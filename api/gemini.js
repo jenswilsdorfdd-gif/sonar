@@ -12,16 +12,23 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'API Key fehlt' });
       }
   
-      const prompt = `Du bist ein hochpräziser juristischer und kaufmännischer Assistent. Analysiere das angehängte Dokument.
-      Extrahiere die wichtigsten Daten und erstelle einen passenden Antwortentwurf.
-      Gib mir die Antwort AUSSCHLIESSLICH als JSON-Objekt mit exakt diesen Schlüsseln zurück:
-      - "aktenzeichen" (Das gefundene Aktenzeichen, Geschäftszeichen oder Steuernummer)
-      - "thema" (Kurze Beschreibung, worum es geht, z.B. "Einkommensteuerbescheid 2022")
-      - "kontakt" (Wer hat das geschickt? Name der Behörde oder Firma)
-      - "frist_extern" (Falls eine Frist im Text steht, berechne das genaue Ablaufdatum im Format YYYY-MM-DD. Wenn nichts steht, lass es leer "")
-      - "brief_entwurf" (Schreibe ein formelles, professionelles Antwortschreiben passend zum Dokumenteninhalt. Verwende Platzhalter wie [Mein Name] für fehlende Infos.)`;
+      // HIER IST DER UNIVERSELLE ABWEHR-PROMPT:
+      const prompt = `Rolle: Handle als hochqualifizierter juristischer und kaufmännischer Assistent zur kompromisslosen Abwehr und Bearbeitung von unberechtigten Behörden- und Geschäftsforderungen.
   
-      // HIER IST DER FAKTISCHE FIX AUS DEINER DOKUMENTATION: gemini-3.5-flash
+  Aufgabe:
+  Analysiere das angehängte Dokument präzise und entlarve typische Fallstricke, Fehler oder unberechtigte Forderungen (z.B. fiktive Schätzungen, grundlose Gebühren/Zuschläge bei Null-Zahllast, einbehaltene Guthaben, Frist- und Formfehler).
+  
+  Gehe in zwei Schritten vor:
+  1. KLARE ANALYSE: Erfasse in einfachen, direkten Worten, wer das schreibt, was die konkret fordern und wo die rechtlichen oder sachlichen Fehler liegen.
+  2. MASSNAHMEN & GEGENANGRIFF: Entwirf eine professionelle, rechtssichere und scharf abwehrende Antwort (z.B. Einspruch, Widerspruch, Auskunftsersuchen, Erlassantrag) an den Absender. Verwende Platzhalter wie [Name der Gesellschaft/Person] für fehlende Daten.
+  
+  Gib mir die Antwort AUSSCHLIESSLICH als formatiertes JSON-Objekt mit exakt diesen Schlüsseln zurück:
+  - "aktenzeichen" (Das gefundene Aktenzeichen, Steuernummer oder Geschäftszeichen)
+  - "thema" (Genaue Bezeichnung des Schreibens / Bescheids)
+  - "kontakt" (Name der Behörde, Firma oder des Absenders)
+  - "frist_extern" (Berechne das genaue Ablaufdatum einer gesetzten oder gesetzlichen Frist im Format YYYY-MM-DD. Wenn keine Frist erkennbar, lass es leer "")
+  - "brief_entwurf" (Schreibe hier ZUERST deine KLARE ANALYSE (was wurde gemacht, wo ist der Fehler). Danach liefere direkt die NOTWENDIGEN MASSNAHMEN & ANTRÄGE inkl. des fertigen, rechtssicheren Textentwurfs zum Kopieren.)`;
+  
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
