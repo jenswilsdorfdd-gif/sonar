@@ -258,8 +258,8 @@ export default function Dashboard({ session }) {
   return (
     <div style={{ marginTop: '20px', padding: '20px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
       
-      {/* 1. Hauptüberschrift (zentriert) */}
-      <h1 style={{ margin: '0 0 30px 0', color: '#2c3e50', textAlign: 'center' }}>🚀 Sonar-Cockpit</h1>
+      {/* 1. Hauptüberschrift zentriert mit Antenne */}
+      <h1 style={{ margin: '0 0 30px 0', color: '#2c3e50', textAlign: 'center' }}>📡 Sonar-Cockpit</h1>
 
       {/* VORDEFINIERTE LISTEN FÜR DIE DROPDOWNS */}
       <datalist id="firmen-list">
@@ -293,7 +293,7 @@ export default function Dashboard({ session }) {
         <option value="Intern (Warten)" />
       </datalist>
 
-      {/* 2. Container für Bereich "Neuer Vorgang" und den "Ausloggen"-Button in einer Zeile */}
+      {/* 2. Neuer Vorgang und Ausloggen auf einer Höhe */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #f5f6fa', paddingBottom: '10px', marginBottom: '20px' }}>
         <h2 style={{ margin: 0, textAlign: 'left' }}>📊 Neuer Vorgang</h2>
         <button
