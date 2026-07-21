@@ -15,6 +15,10 @@ export default function Dashboard({ session }) {
   const [status, setStatus] = useState('Offen')
   const [datei, setDatei] = useState(null)
   
+  // --- NEUE KI-STATE-VARIABLEN ---
+  const [briefEntwurf, setBriefEntwurf] = useState('')
+  const [kiLaedt, setKiLaedt] = useState(false)
+
   const [vorgaenge, setVorgaenge] = useState([])
   const [laedt, setLaedt] = useState(false)
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
@@ -48,12 +52,58 @@ export default function Dashboard({ session }) {
     ladeDaten()
   }, [])
 
+  // --- DIE NEUE KI-ANALYSE FUNKTION BEIM UPLOAD ---
+  const handleDateiAuswahl = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setDatei(file)
+
+    // Nur Bilder und PDFs können zur KI geschickt werden
+    if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) return;
+
+    setKiLaedt(true)
+
+    // Datei in lesbaren Code (Base64) verwandeln
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = async () => {
+      const base64String = reader.result.split(',')[1]
+
+      try {
+        const res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Data: base64String, mimeType: file.type })
+        })
+
+        if (res.ok) {
+          const kiDaten = await res.json()
+          
+          // Formular wie von Geisterhand ausfüllen!
+          if (kiDaten.aktenzeichen) setAktenzeichen(kiDaten.aktenzeichen)
+          if (kiDaten.thema) setThema(kiDaten.thema)
+          if (kiDaten.kontakt) setKontakt(kiDaten.kontakt)
+          if (kiDaten.frist_extern) setFristExtern(kiDaten.frist_extern)
+          if (kiDaten.brief_entwurf) setBriefEntwurf(kiDaten.brief_entwurf)
+          
+          // Eingangsdatum direkt auf heute setzen
+          setEingangsdatum(new Date().toISOString().split('T')[0])
+        }
+      } catch (err) {
+        console.error("KI-Fehler:", err)
+      }
+      setKiLaedt(false)
+    }
+  }
+
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
     
     let dokumentUrl = null
+    let antwortUrl = null // Unser neues Ausgangsdokument!
 
+    // 1. Originaldatei (Eingang) hochladen
     if (datei) {
       const sichererDateiname = datei.name.replace(/[^a-zA-Z0-9.-]/g, '_')
       const dateiName = `${Date.now()}_${sichererDateiname}` 
@@ -62,19 +112,37 @@ export default function Dashboard({ session }) {
         .from('dokumente')
         .upload(dateiName, datei)
 
-      if (uploadError) {
-        alert("Fehler beim Upload: " + uploadError.message)
-        setLaedt(false)
-        return
+      if (!uploadError) {
+        const { data: linkData } = supabase.storage
+          .from('dokumente')
+          .getPublicUrl(dateiName)
+          
+        dokumentUrl = linkData.publicUrl
+      } else {
+        alert("Fehler beim Upload des Originals: " + uploadError.message)
       }
-
-      const { data: linkData } = supabase.storage
-        .from('dokumente')
-        .getPublicUrl(dateiName)
-        
-      dokumentUrl = linkData.publicUrl
     }
 
+    // 2. KI-Antwortschreiben als Text-Datei speichern und hochladen!
+    if (briefEntwurf) {
+      const antwortName = `Antwortschreiben_${Date.now()}.txt`
+      // Den Text aus dem Feld in eine echte Datei verwandeln
+      const blob = new Blob([briefEntwurf], { type: "text/plain;charset=utf-8" })
+      const { error: antwortUploadError } = await supabase.storage
+        .from('dokumente')
+        .upload(antwortName, blob)
+
+      if (!antwortUploadError) {
+        const { data: antwortLinkData } = supabase.storage
+          .from('dokumente')
+          .getPublicUrl(antwortName)
+        antwortUrl = antwortLinkData.publicUrl
+      } else {
+        alert("Fehler beim Upload der Antwort: " + antwortUploadError.message)
+      }
+    }
+
+    // Alles zusammen in die Datenbank eintragen
     const { error } = await supabase
       .from('vorgaenge')
       .insert([{ 
@@ -90,17 +158,19 @@ export default function Dashboard({ session }) {
         wiedervorlage: wiedervorlage || null,
         ueberwachung: ueberwachung || null,
         status: status, 
-        dokument_url: dokumentUrl 
+        dokument_url: dokumentUrl,
+        antwort_url: antwortUrl // Hier fließt unser neues Feld rein!
       }])
 
     if (!error) {
       setAktenzeichen(''); setKontakt(''); setPerson(''); setThema('');
       setEingangsdatum(''); setAktion(''); setKanal(''); setFristExtern('');
       setWiedervorlage(''); setUeberwachung(''); setStatus('Offen'); setDatei(null);
+      setBriefEntwurf(''); // Brief löschen
       document.getElementById('datei-upload').value = '';
       ladeDaten();
     } else {
-      alert("Fehler beim Speichern: " + error.message)
+      alert("Fehler beim Speichern in der Datenbank: " + error.message)
     }
     setLaedt(false)
   }
@@ -306,6 +376,13 @@ export default function Dashboard({ session }) {
       
       <form onSubmit={speichereEintrag} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '30px', alignItems: 'end' }}>
         
+        {/* Datei Upload OBERHALB platziert, da es jetzt der Startpunkt ist! */}
+        <div style={{ gridColumn: '1 / -1', background: '#e1f5fe', padding: '15px', borderRadius: '8px', border: '2px dashed #0288d1' }}>
+          <label style={{...labelStyle, color: '#0277bd', fontSize: '14px'}}>1. Dokument anhängen & KI analysieren lassen 🪄</label>
+          <input id="datei-upload" type="file" onChange={handleDateiAuswahl} style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} />
+          {kiLaedt && <div style={{ color: '#0277bd', fontWeight: 'bold', marginTop: '10px' }}>⏳ KI liest das Dokument und verfasst eine Antwort... Bitte warten...</div>}
+        </div>
+
         <div>
           <label style={labelStyle}>Aktenzeichen</label>
           <input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} />
@@ -363,12 +440,20 @@ export default function Dashboard({ session }) {
           <input type="text" value={ueberwachung} onChange={(e) => setUeberwachung(e.target.value)} style={inputStyle} />
         </div>
 
-        <div>
-          <label style={labelStyle}>Dokument anhängen</label>
-          <input id="datei-upload" type="file" onChange={(e) => setDatei(e.target.files[0])} style={{...inputStyle, padding: '7px', backgroundColor: '#fff'}} />
-        </div>
+        {/* NEU: Das Antwortschreiben-Vorschaufeld */}
+        {briefEntwurf && (
+          <div style={{ gridColumn: '1 / -1', background: '#f9f9f9', padding: '15px', border: '1px solid #ddd', borderRadius: '8px', marginTop: '10px' }}>
+            <label style={labelStyle}>📄 Generiertes Antwortschreiben (Du kannst den Text hier noch anpassen!)</label>
+            <textarea 
+              value={briefEntwurf} 
+              onChange={(e) => setBriefEntwurf(e.target.value)} 
+              style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', resize: 'vertical' }} 
+            />
+            <small style={{color: '#7f8c8d'}}>Wird beim Speichern automatisch als Datei hochgeladen.</small>
+          </div>
+        )}
 
-        <button disabled={laedt} type="submit" style={{ padding: '12px', background: laedt ? '#95a5a6' : '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', cursor: laedt ? 'not-allowed' : 'pointer', fontWeight: 'bold', gridColumn: '1 / -1', fontSize: '16px', marginTop: '10px', transition: 'background 0.2s' }}>
+        <button disabled={laedt || kiLaedt} type="submit" style={{ padding: '12px', background: (laedt || kiLaedt) ? '#95a5a6' : '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', cursor: (laedt || kiLaedt) ? 'not-allowed' : 'pointer', fontWeight: 'bold', gridColumn: '1 / -1', fontSize: '16px', marginTop: '10px', transition: 'background 0.2s' }}>
           {laedt ? 'Speichere...' : '+ Vorgang speichern'}
         </button>
       </form>
@@ -439,7 +524,12 @@ export default function Dashboard({ session }) {
                     <td style={{ padding: '5px' }}><input type="text" value={editUeberwachung} onChange={(e) => setEditUeberwachung(e.target.value)} style={{ width: '80px', padding: '4px' }} /></td>
                     <td style={{ padding: '5px' }}><input type="date" value={editErledigtAm} onChange={(e) => setEditErledigtAm(e.target.value)} style={{ padding: '4px' }}/></td>
                     <td style={{ padding: '10px' }}>{vorgang.status}</td>
-                    <td style={{ padding: '10px' }}>{vorgang.dokument_url ? '📄' : '-'}</td>
+                    
+                    {/* HIER WURDE DIE BEARBEITUNGSZEILE FÜR DOKUMENTE ANGEPASST */}
+                    <td style={{ padding: '10px' }}>
+                      {vorgang.dokument_url || vorgang.antwort_url ? '📄' : '-'}
+                    </td>
+                    
                     <td style={{ padding: '10px', textAlign: 'right', minWidth: '100px' }}>
                       <button onClick={() => speichereBearbeitung(vorgang.id)} style={{ padding: '6px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '4px' }}>💾</button>
                       <button onClick={abbrechenBearbeiten} style={{ padding: '6px', background: '#95a5a6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>❌</button>
@@ -469,9 +559,14 @@ export default function Dashboard({ session }) {
                         <option value="Erledigt" style={{ background: '#fff', color: '#333' }}>Erledigt</option>
                       </select>
                     </td>
-                    <td style={{ padding: '10px' }}>
-                      {vorgang.dokument_url ? <a href={vorgang.dokument_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', fontSize: '16px' }}>📄</a> : '-'}
+                    
+                    {/* NEU: HIER WERDEN BEIDE DOKUMENTE ANGEZEIGT (Eingang & Ausgang) in der normalen Tabellenansicht */}
+                    <td style={{ padding: '10px', fontSize: '18px', whiteSpace: 'nowrap' }}>
+                      {vorgang.dokument_url && <a href={vorgang.dokument_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '4px' }} title="Eingang (Bescheid)">📥</a>}
+                      {vorgang.antwort_url && <a href={vorgang.antwort_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }} title="Ausgang (Antwortschreiben)">📤</a>}
+                      {!vorgang.dokument_url && !vorgang.antwort_url && <span style={{fontSize: '12px'}}>-</span>}
                     </td>
+
                     <td style={{ padding: '10px', textAlign: 'right', minWidth: '120px' }}>
                       <button onClick={() => erstelleFolgeaktion(vorgang)} title="Folgeaktion anlegen" style={{ padding: '6px', background: '#f39c12', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '4px' }}>➡️</button>
                       <button onClick={() => startBearbeiten(vorgang)} title="Bearbeiten" style={{ padding: '6px', background: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '4px' }}>✏️</button>
