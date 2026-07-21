@@ -21,8 +21,8 @@ export default async function handler(req, res) {
       - "frist_extern" (Falls eine Frist im Text steht, berechne das genaue Ablaufdatum im Format YYYY-MM-DD. Wenn nichts steht, lass es leer "")
       - "brief_entwurf" (Schreibe ein formelles, professionelles Antwortschreiben passend zum Dokumenteninhalt. Verwende Platzhalter wie [Mein Name] für fehlende Infos.)`;
   
-      // HIER IST DAS UPDATE: Wir nutzen jetzt das aktuelle Gemini 2.5 Flash Modell!
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      // HIER IST DER FAKTISCHE FIX AUS DEINER DOKUMENTATION: gemini-3.5-flash
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
