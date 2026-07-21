@@ -167,7 +167,11 @@ export default function Dashboard({ session }) {
       setEingangsdatum(''); setAktion(''); setKanal(''); setFristExtern('');
       setWiedervorlage(''); setUeberwachung(''); setStatus('Offen'); setDatei(null);
       setBriefEntwurf(''); // Brief löschen
-      document.getElementById('datei-upload').value = '';
+      
+      // Upload-Felder leeren
+      if (document.getElementById('datei-upload')) document.getElementById('datei-upload').value = '';
+      if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
+      
       ladeDaten();
     } else {
       alert("Fehler beim Speichern in der Datenbank: " + error.message)
@@ -376,11 +380,32 @@ export default function Dashboard({ session }) {
       
       <form onSubmit={speichereEintrag} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '30px', alignItems: 'end' }}>
         
-        {/* Datei Upload OBERHALB platziert, da es jetzt der Startpunkt ist! */}
-        <div style={{ gridColumn: '1 / -1', background: '#e1f5fe', padding: '15px', borderRadius: '8px', border: '2px dashed #0288d1' }}>
-          <label style={{...labelStyle, color: '#0277bd', fontSize: '14px'}}>1. Dokument anhängen & KI analysieren lassen 🪄</label>
-          <input id="datei-upload" type="file" onChange={handleDateiAuswahl} style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} />
-          {kiLaedt && <div style={{ color: '#0277bd', fontWeight: 'bold', marginTop: '10px' }}>⏳ KI liest das Dokument und verfasst eine Antwort... Bitte warten...</div>}
+        {/* NEU: Flex-Container für BEIDE Upload-Varianten nebeneinander */}
+        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+          
+          {/* Box 1: Klassischer Upload */}
+          <div style={{ flex: 1, background: '#f5f6fa', padding: '15px', borderRadius: '8px', border: '2px dashed #bdc3c7', minWidth: '250px' }}>
+            <label style={{...labelStyle, color: '#2c3e50', fontSize: '14px'}}>1a. Klassischer Upload (ohne KI) 📎</label>
+            <input 
+              id="datei-upload-manuell" 
+              type="file" 
+              onChange={(e) => setDatei(e.target.files[0])} 
+              style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} 
+            />
+          </div>
+
+          {/* Box 2: KI-Upload */}
+          <div style={{ flex: 1, background: '#e1f5fe', padding: '15px', borderRadius: '8px', border: '2px dashed #0288d1', minWidth: '250px' }}>
+            <label style={{...labelStyle, color: '#0277bd', fontSize: '14px'}}>1b. KI-Analyse (Autom. Ausfüllen) 🪄</label>
+            <input 
+              id="datei-upload" 
+              type="file" 
+              onChange={handleDateiAuswahl} 
+              style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} 
+            />
+            {kiLaedt && <div style={{ color: '#0277bd', fontWeight: 'bold', marginTop: '10px' }}>⏳ KI liest das Dokument und verfasst eine Antwort... Bitte warten...</div>}
+          </div>
+
         </div>
 
         <div>
@@ -440,7 +465,7 @@ export default function Dashboard({ session }) {
           <input type="text" value={ueberwachung} onChange={(e) => setUeberwachung(e.target.value)} style={inputStyle} />
         </div>
 
-        {/* NEU: Das Antwortschreiben-Vorschaufeld */}
+        {/* Das Antwortschreiben-Vorschaufeld */}
         {briefEntwurf && (
           <div style={{ gridColumn: '1 / -1', background: '#f9f9f9', padding: '15px', border: '1px solid #ddd', borderRadius: '8px', marginTop: '10px' }}>
             <label style={labelStyle}>📄 Generiertes Antwortschreiben (Du kannst den Text hier noch anpassen!)</label>
@@ -525,7 +550,6 @@ export default function Dashboard({ session }) {
                     <td style={{ padding: '5px' }}><input type="date" value={editErledigtAm} onChange={(e) => setEditErledigtAm(e.target.value)} style={{ padding: '4px' }}/></td>
                     <td style={{ padding: '10px' }}>{vorgang.status}</td>
                     
-                    {/* HIER WURDE DIE BEARBEITUNGSZEILE FÜR DOKUMENTE ANGEPASST */}
                     <td style={{ padding: '10px' }}>
                       {vorgang.dokument_url || vorgang.antwort_url ? '📄' : '-'}
                     </td>
@@ -560,7 +584,6 @@ export default function Dashboard({ session }) {
                       </select>
                     </td>
                     
-                    {/* NEU: HIER WERDEN BEIDE DOKUMENTE ANGEZEIGT (Eingang & Ausgang) in der normalen Tabellenansicht */}
                     <td style={{ padding: '10px', fontSize: '18px', whiteSpace: 'nowrap' }}>
                       {vorgang.dokument_url && <a href={vorgang.dokument_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '4px' }} title="Eingang (Bescheid)">📥</a>}
                       {vorgang.antwort_url && <a href={vorgang.antwort_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }} title="Ausgang (Antwortschreiben)">📤</a>}
