@@ -83,6 +83,10 @@ export default function Dashboard({ session }) {
         if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
         if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
         if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
+        
+        // Die "Wir"-Felder aus dem JSON übernehmen
+        if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
+        if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
       }
       
       if (obj.frist_extern) setFristExtern(obj.frist_extern)
@@ -131,6 +135,10 @@ export default function Dashboard({ session }) {
             if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
             if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
             if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
+            
+            // Die "Wir"-Felder aus dem JSON übernehmen
+            if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
+            if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
           }
 
           if (obj.frist_extern) setFristExtern(obj.frist_extern)
@@ -400,7 +408,7 @@ export default function Dashboard({ session }) {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h2 style={{ margin: 0 }}>🗄️ Deine Akten</h2>
+        <h2 style={{ margin: '0' }}>🗄️ Deine Akten</h2>
         <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 15px', background: zeigeErledigte ? '#34495e' : '#ecf0f1', color: zeigeErledigte ? '#fff' : '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           {zeigeErledigte ? '🙈 Erledigte ausblenden' : '👁️ Erledigte einblenden'}
         </button>
@@ -455,7 +463,7 @@ export default function Dashboard({ session }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
                     <div>
                       <h4 style={{ margin: '0 0 5px 0', color: '#34495e' }}>Verlauf & Dokumente</h4>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#7f8c8d' }}>Mandant: {akte.unsere_firma} ({akte.unser_ansprechpartner}) | AZ: {akte.aktenzeichen}</p>
+                      <p style={{ margin: '0', fontSize: '12px', color: '#7f8c8d' }}>Mandant: {akte.unsere_firma} ({akte.unser_ansprechpartner}) | AZ: {akte.aktenzeichen}</p>
                     </div>
                     <div>
                       {akte.status !== 'Erledigt' ? 
