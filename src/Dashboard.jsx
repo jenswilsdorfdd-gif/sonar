@@ -1,16 +1,31 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
+// --- HILFSFUNKTION FÜR DATEINAMEN ---
+const extractFilename = (url) => {
+  if (!url) return 'Datei';
+  try {
+    const decodedUrl = decodeURIComponent(url);
+    const parts = decodedUrl.split('/');
+    const fullName = parts[parts.length - 1];
+    // Entfernt den System-Timestamp am Anfang (z.B. "171562384723_mein-dokument.pdf" -> "mein-dokument.pdf")
+    const cleanName = fullName.replace(/^\d+_/, '');
+    return cleanName;
+  } catch (e) {
+    return 'Datei';
+  }
+};
+
 export default function Dashboard({ session }) {
   const [akten, setAkten] = useState([])
   const [laedt, setLaedt] = useState(false)
-  const [uploadingHistId, setUploadingHistId] = useState(null) // Neu: Zeigt Lade-Spinner in der Tabelle
+  const [uploadingHistId, setUploadingHistId] = useState(null)
   
   // --- FORMULAR STATE ---
   const [modus, setModus] = useState('neu') 
   const [selectedAkteId, setSelectedAkteId] = useState('')
   
-  // Akten-Stammdaten
+  // Akten-Stammdaten (Rollen)
   const [aktenzeichen, setAktenzeichen] = useState('')
   const [gegnerName, setGegnerName] = useState('')
   const [gegnerAnsprechpartner, setGegnerAnsprechpartner] = useState('')
@@ -84,6 +99,7 @@ export default function Dashboard({ session }) {
         if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
         if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
         if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
+        
         if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
         if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
       }
@@ -166,7 +182,6 @@ export default function Dashboard({ session }) {
     if (!uploadError) {
       const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
       const newUrl = linkData.publicUrl;
-      // Kombiniert alte Links mit dem neuen (Kommagetrennt)
       const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
 
       const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
@@ -540,16 +555,21 @@ export default function Dashboard({ session }) {
                             <td style={{ padding: '8px' }}>{formatDatum(hist.wiedervorlage)}</td>
                             <td style={{ padding: '8px' }}>
                               
-                              {/* DOKUMENTE ANZEIGEN (Kommagetrennt möglich) */}
-                              {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => (
-                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '10px', display: 'inline-block', marginBottom: '4px' }} title="Dokument öffnen">📄 Datei {idx + 1}</a>
-                              ))}
+                              {/* DOKUMENTE ANZEIGEN (Mit echtem Dateinamen) */}
+                              {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                const fileName = extractFilename(url);
+                                return (
+                                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '6px', display: 'inline-block', marginBottom: '4px', background: '#ecf0f1', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', color: '#2c3e50', border: '1px solid #bdc3c7' }} title={fileName}>
+                                    📄 {fileName.length > 25 ? fileName.substring(0, 22) + '...' : fileName}
+                                  </a>
+                                )
+                              })}
                               
-                              {/* NEU: NACHTRÄGLICHER UPLOAD BUTTON */}
+                              {/* NACHTRÄGLICHER UPLOAD BUTTON */}
                               {uploadingHistId === hist.id ? (
                                 <span style={{ fontSize: '11px', color: '#3498db' }}>⏳ Upload...</span>
                               ) : (
-                                <label style={{ cursor: 'pointer', fontSize: '11px', background: '#ecf0f1', padding: '2px 6px', borderRadius: '4px', border: '1px solid #bdc3c7', display: 'inline-block', marginBottom: '4px' }}>
+                                <label style={{ cursor: 'pointer', fontSize: '11px', background: '#fff', padding: '2px 8px', borderRadius: '4px', border: '1px dashed #bdc3c7', display: 'inline-block', marginBottom: '4px', color: '#7f8c8d' }} title="Weitere Datei an diesen Schritt anhängen">
                                   + Datei
                                   <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUpload(hist.id, hist.dokument_url, e)} />
                                 </label>
