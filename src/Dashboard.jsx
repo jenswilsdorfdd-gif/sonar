@@ -18,7 +18,7 @@ const extractFilename = (url) => {
 export default function Dashboard({ session }) {
   // --- GENERELLE STATES ---
   const [activeTab, setActiveTab] = useState('akten') 
-  const [isDarkMode, setIsDarkMode] = useState(true) // Startet im Dark Mode (wie das Bild)
+  const [isDarkMode, setIsDarkMode] = useState(true) 
   const [laedt, setLaedt] = useState(false)
   
   // --- AKTEN STATES ---
@@ -74,24 +74,25 @@ export default function Dashboard({ session }) {
 
   // --- DESIGN THEME (Light & Dark) ---
   const theme = isDarkMode ? {
-    bg: '#0f172a', // Tiefes Blaugrau (App Hintergrund)
-    cardBg: '#1e293b', // Etwas helleres Blaugrau (Panels)
+    bg: '#0f172a', 
+    cardBg: '#1e293b', 
     border: '#334155',
     textMain: '#f8fafc',
     textMuted: '#94a3b8',
-    accent: '#00d2ff', // Cyan/Neon-Blau aus dem Bild
+    accent: '#00d2ff', 
     accentHover: '#00b4cc',
     inputBg: '#0f172a',
     inputBorder: '#475569',
     
-    // Farbvorgaben Nutzer:
-    warningBg: '#4a044e', // Dunkles Magenta
-    warningBorder: '#d946ef', // Pink/Violett
+    // Transparentes Magenta für edlen Glow
+    warningBg: 'rgba(217, 70, 239, 0.1)', 
+    warningBorder: '#d946ef', 
     warningText: '#f0abfc',
     
-    hintBg: '#422006', // Dunkles Gelb/Braun
-    hintBorder: '#eab308',
-    hintText: '#fef08a' // Hellgelb
+    // Halbtransparentes Gelb/Gold - KEIN BRAUN MEHR!
+    hintBg: 'rgba(250, 204, 21, 0.1)', 
+    hintBorder: '#facc15',
+    hintText: '#fef08a' 
   } : {
     bg: '#f1f5f9',
     cardBg: '#ffffff',
@@ -103,14 +104,13 @@ export default function Dashboard({ session }) {
     inputBg: '#f8fafc',
     inputBorder: '#cbd5e1',
     
-    // Farbvorgaben Nutzer:
     warningBg: '#fdf4ff',
-    warningBorder: '#d946ef', // Pink/Violett
-    warningText: '#c026d3', // Magenta
+    warningBorder: '#d946ef', 
+    warningText: '#c026d3', 
     
     hintBg: '#fefce8',
     hintBorder: '#fde047',
-    hintText: '#854d0e' // Dunkleres Gelb für Lesbarkeit auf hell
+    hintText: '#854d0e' 
   };
 
   const ladeDaten = async () => {
@@ -463,8 +463,8 @@ export default function Dashboard({ session }) {
         </div>
       </div>
 
-      {/* MAGIC IMPORT (Volle Breite, Helle Farben wie besprochen) */}
-      <div style={{ ...panelStyle, background: theme.hintBg, border: `2px solid ${theme.hintBorder}` }}>
+      {/* MAGIC IMPORT (Volle Breite) */}
+      <div style={{ ...panelStyle, background: theme.hintBg, border: `1px solid ${theme.hintBorder}` }}>
         <label style={{...labelStyle, color: theme.hintText, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}>
           ✨ Magic Import
         </label>
