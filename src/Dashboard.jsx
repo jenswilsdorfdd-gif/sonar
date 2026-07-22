@@ -15,6 +15,50 @@ const extractFilename = (url) => {
   }
 };
 
+// --- ECHTE VEKTOR-ICONS (Keine Emojis mehr!) ---
+const Icon = ({ name, size = 18, style }) => {
+  const UI_ICONS = {
+    radar: <><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></>,
+    sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></>,
+    moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
+    bulb: <><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></>,
+    wand: <><path d="M15 4V2m0 14v-2M8 9h2m10 0h2m-13.8 6.2 1.4-1.4m11.2-8.6 1.4-1.4M6.2 6.2l1.4 1.4m8.6 11.2 1.4 1.4M3 21l9-9m3.5-3.5L17 7"/></>,
+    paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
+    cabinet: <><rect width="20" height="20" x="2" y="2" rx="2" ry="2"/><path d="M2 12h20M6 7h12M6 17h12"/></>,
+    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01M16 14h.01"/></>,
+    alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4m0 4h.01"/></>,
+    folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6m-3-3h6"/></>,
+    link: <><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>,
+    file: <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>,
+    eyeOff: <><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24m-4.24-4.24a3 3 0 0 1 4.24 4.24m-4.24-4.24L2 2m20 20-9.88-9.88M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/></>,
+    eye: <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
+    down: <path d="m6 9 6 6 6-6"/>,
+    right: <path d="m9 18 6-6-6-6"/>,
+    user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+    check: <path d="M20 6 9 17l-5-5"/>,
+    refresh: <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></>,
+    trash: <><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>,
+    in: <><polyline points="8 12 12 16 16 12"/><line x1="12" x2="12" y1="8" y2="16"/><path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6"/><path d="M22 12 19 6H5l-3 6"/></>,
+    out: <><polyline points="16 12 12 8 8 12"/><line x1="12" x2="12" y1="16" y2="8"/><path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6"/><path d="M22 12 19 6H5l-3 6"/></>,
+    note: <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>,
+    phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>,
+    mail: <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>
+  };
+
+  return (
+    <svg 
+      width={size} height={size} 
+      viewBox="0 0 24 24" fill="none" 
+      stroke="currentColor" strokeWidth="2" 
+      strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0, ...style }}
+    >
+      {UI_ICONS[name]}
+    </svg>
+  );
+};
+
+
 export default function Dashboard({ session }) {
   // --- GENERELLE STATES ---
   const [activeTab, setActiveTab] = useState('akten') 
@@ -106,7 +150,7 @@ export default function Dashboard({ session }) {
     textMuted: '#64748b',
     accent: '#0284c7', 
     accentHover: '#0369a1',
-    tresorAccent: '#0f766e', // Sattes Dunkelgrün/Teal für den Light Mode
+    tresorAccent: '#0f766e', 
     tresorBg: '#f0fdfa',
     inputBg: '#f8fafc',
     inputBorder: '#cbd5e1',
@@ -123,13 +167,6 @@ export default function Dashboard({ session }) {
     document.body.style.backgroundColor = theme.bg;
     document.body.style.transition = 'background-color 0.3s ease';
   }, [isDarkMode, theme.bg]);
-
-  // --- ICON KOMPONENTE ---
-  const Icon = ({ symbol }) => (
-    <span style={{ filter: isDarkMode ? 'brightness(0) invert(1)' : 'grayscale(1) brightness(0)' }}>
-      {symbol}
-    </span>
-  );
 
   const ladeDaten = async () => {
     const { data: aktenData, error: aktenError } = await supabase
@@ -482,22 +519,22 @@ export default function Dashboard({ session }) {
       {/* HEADER & THEME TOGGLE */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1 style={{ margin: 0, color: theme.textMain, fontSize: '28px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Icon symbol="📡" /> Sonar-Cockpit
+          <Icon name="radar" size={28} style={{ color: activeTab === 'akten' ? theme.accent : theme.tresorAccent }} /> Sonar-Cockpit
         </h1>
         <button 
           onClick={() => setIsDarkMode(!isDarkMode)} 
           style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-          <Icon symbol={isDarkMode ? '☀️' : '🌙'} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+          <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
       </div>
 
-      {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
+      {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE (Nebeneinander) */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px' }}>
         
         {/* LINKS: MAGIC IMPORT */}
         <div style={{ ...panelStyle, flex: 1, minWidth: '300px', margin: 0, background: theme.hintBg, border: `1px dashed ${theme.hintBorder}` }}>
           <label style={{...labelStyle, color: theme.hintText, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <Icon symbol="✨" /> Magic Import (JSON)
+            <Icon name="wand" size={18} /> Magic Import (JSON)
           </label>
           <textarea 
             value={jsonImport} onChange={handleJsonImport} 
@@ -508,7 +545,7 @@ export default function Dashboard({ session }) {
 
         {/* RECHTS: SONAR GUIDE */}
         <div style={{ ...panelStyle, flex: 1, minWidth: '300px', margin: 0, background: theme.hintBg, border: `1px solid ${theme.hintBorder}`, color: theme.hintText, display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
-          <div style={{ fontSize: '24px', marginTop: '2px' }}><Icon symbol="💡" /></div>
+          <div style={{ marginTop: '2px', color: theme.hintText }}><Icon name="bulb" size={24} /></div>
           <div style={{ textAlign: 'left' }}>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.hintText }}>Sonar Guide: {activeTab === 'akten' ? 'Der Workflow' : 'Firmen & Dokumente verwalten'}</h4>
             {activeTab === 'akten' ? (
@@ -530,27 +567,27 @@ export default function Dashboard({ session }) {
 
       </div>
 
-      {/* EBENE 2: TABS & MANUELLER UPLOAD */}
+      {/* EBENE 2: TABS & MANUELLER UPLOAD (Gedrittelt) */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
         
         {/* TAB 1: AKTEN */}
         <button 
           onClick={() => setActiveTab('akten')} 
-          style={{ flex: 1, minWidth: '200px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}><Icon symbol="🗄️" /></span> Akten-Cockpit
+          style={{ flex: 1, minWidth: '200px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <Icon name="cabinet" size={24} /> Akten-Cockpit
         </button>
 
-        {/* TAB 2: TRESOR - NEUE LOGIK FÜR DARK/LIGHT BACKGROUND */}
+        {/* TAB 2: TRESOR */}
         <button 
           onClick={() => setActiveTab('tresor')} 
-          style={{ flex: 1, minWidth: '200px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}><Icon symbol="🏢" /></span> Firmen-Tresor
+          style={{ flex: 1, minWidth: '200px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <Icon name="building" size={24} /> Firmen-Tresor
         </button>
 
         {/* UPLOAD BEREICH */}
         <div style={{ flex: 1, minWidth: '200px', ...panelStyle, margin: 0, padding: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
-             <Icon symbol="📎" /> Manueller Upload (PDF/Scan)
+             <Icon name="paperclip" size={16} /> Manueller Upload (PDF/Scan)
           </label>
           <input 
             id="datei-upload-manuell" 
@@ -576,9 +613,9 @@ export default function Dashboard({ session }) {
       <>
         {/* WARNUNGEN & FRISTEN */}
         {(ustRadar.length > 0 || fristenWarnungen.length > 0) && (
-          <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}` }}>
+          <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '20px' }}>
             <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Icon symbol="🚨" /> Dringende Alarme & Fristen
+              <Icon name="alert" size={20} /> Dringende Alarme & Fristen
             </h4>
             <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '15px', textAlign: 'left', color: theme.warningText }}>
               {fristenWarnungen.map(w => (
@@ -601,16 +638,16 @@ export default function Dashboard({ session }) {
           </div>
         )}
 
-        <form onSubmit={speichereEintrag} style={panelStyle}>
+        <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
           
           <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left' }}>
-            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted }}>
-              <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '8px'}}/>
-              <Icon symbol="📁" /> Neue Akte anlegen
+            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '4px'}}/>
+              <Icon name="folder" size={16} /> Neue Akte anlegen
             </label>
-            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted }}>
-              <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '8px'}}/>
-              <Icon symbol="🔗" /> Zu bestehender Akte {selectedAkteId && '(Match!)'}
+            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '4px'}}/>
+              <Icon name="link" size={16} /> Zu bestehender Akte {selectedAkteId && '(Match!)'}
             </label>
           </div>
 
@@ -662,11 +699,16 @@ export default function Dashboard({ session }) {
 
             <div>
               <label style={labelStyle}>Typ*</label>
-              <select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}>
-                <option value="Eingang">📥 Eingang</option>
-                <option value="Ausgang">📤 Ausgang</option>
-                <option value="Intern">📝 Intern</option>
-              </select>
+              <div style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: typ === 'Eingang' ? theme.hintBorder : (typ === 'Ausgang' ? theme.accent : theme.textMuted), pointerEvents: 'none' }}>
+                  <Icon name={typ === 'Eingang' ? 'in' : (typ === 'Ausgang' ? 'out' : 'note')} size={16} />
+                </div>
+                <select value={typ} onChange={(e) => setTyp(e.target.value)} style={{...inputStyle, paddingLeft: '36px'}}>
+                  <option value="Eingang">Eingang</option>
+                  <option value="Ausgang">Ausgang</option>
+                  <option value="Intern">Intern</option>
+                </select>
+              </div>
             </div>
             <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
             <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} style={inputStyle} /></div>
@@ -677,7 +719,7 @@ export default function Dashboard({ session }) {
 
           {briefEntwurf && (
             <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '30px', textAlign: 'left' }}>
-              <label style={{...labelStyle, color: theme.accent}}><Icon symbol="📄" /> KI Analyse / Textentwurf</label>
+              <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px'}}><Icon name="file" size={16} /> KI Analyse / Textentwurf</label>
               <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', border: 'none', background: 'transparent', padding: 0, marginTop: '10px' }} />
             </div>
           )}
@@ -688,9 +730,11 @@ export default function Dashboard({ session }) {
         </form>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px' }}>
-          <h2 style={{ margin: '0', color: theme.textMain }}><Icon symbol="🗄️" /> Deine Akten</h2>
-          <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '10px 20px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-            <Icon symbol={zeigeErledigte ? '🙈' : '👁️'} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
+          <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Icon name="cabinet" size={24} /> Deine Akten
+          </h2>
+          <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '10px 20px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Icon name={zeigeErledigte ? 'eyeOff' : 'eye'} size={16} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
           </button>
         </div>
 
@@ -706,13 +750,13 @@ export default function Dashboard({ session }) {
             return (
               <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, opacity: akte.status === 'Erledigt' ? 0.6 : 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '20px', cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => toggleAkte(akte.id)}>
-                  <div style={{ fontSize: '20px', width: '40px', color: theme.accent, textAlign: 'center' }}>
-                    <Icon symbol={isExpanded ? '🔽' : '▶️'} />
+                  <div style={{ width: '40px', color: theme.accent, textAlign: 'center' }}>
+                    <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                   </div>
                   <div style={{ flex: 2 }}>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
-                    <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px' }}>
-                      <Icon symbol="👤" /> {akte.gegner_ansprechpartner || '-'}
+                    <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon name="user" size={14} /> {akte.gegner_ansprechpartner || '-'}
                     </div>
                   </div>
                   <div style={{ flex: 3 }}>
@@ -734,11 +778,11 @@ export default function Dashboard({ session }) {
                       </div>
                       <div style={{display: 'flex', gap: '10px'}}>
                         {akte.status !== 'Erledigt' ? 
-                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}><Icon symbol="✔️" /> Schließen</button>
+                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="check" size={14} /> Schließen</button>
                           :
-                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}><Icon symbol="🔄" /> Wiedereröffnen</button>
+                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="refresh" size={14} /> Wiedereröffnen</button>
                         }
-                        <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}><Icon symbol="🗑️" /> Löschen</button>
+                        <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Löschen</button>
                       </div>
                     </div>
 
@@ -756,7 +800,9 @@ export default function Dashboard({ session }) {
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
                             <td style={{ padding: '12px', fontWeight: 'bold', color: hist.typ === 'Eingang' ? theme.hintBorder : (hist.typ === 'Ausgang' ? theme.accent : theme.textMuted) }}>
-                              {hist.typ === 'Eingang' && <Icon symbol="📥" />} {hist.typ === 'Ausgang' && <Icon symbol="📤" />} {hist.typ === 'Intern' && <Icon symbol="📝" />} {hist.typ}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Icon name={hist.typ === 'Eingang' ? 'in' : (hist.typ === 'Ausgang' ? 'out' : 'note')} size={16} /> {hist.typ}
+                              </div>
                             </td>
                             <td style={{ padding: '12px' }}>{formatDatum(hist.datum)}</td>
                             <td style={{ padding: '12px' }}>{hist.aktion} <br/><span style={{fontSize: '12px', color: theme.textMuted}}>{hist.kanal}</span></td>
@@ -765,8 +811,8 @@ export default function Dashboard({ session }) {
                               {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
                                 const fileName = extractFilename(url);
                                 return (
-                                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-block', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '12px', color: theme.textMain }} title={fileName}>
-                                    <Icon symbol="📄" /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '12px', color: theme.textMain }} title={fileName}>
+                                    <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
                                   </a>
                                 )
                               })}
@@ -781,7 +827,7 @@ export default function Dashboard({ session }) {
                               {hist.brief_entwurf && (
                                 <details style={{ cursor: 'pointer', marginTop: '8px' }}>
                                   <summary style={{ color: theme.accent, fontWeight: 'bold', fontSize: '13px', outline: 'none' }}>Analyse / Text</summary>
-                                  <div style={{ padding: '12px', background: theme.bg, border: `1px solid ${theme.border}`, marginTop: '8px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '12px', maxHeight: '200px', overflowY: 'auto', borderRadius: '6px' }}>
+                                  <div style={{ padding: '12px', background: theme.bg, border: `1px solid ${theme.border}`, marginTop: '8px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '12px', maxHeight: '200px', overflowY: 'auto', borderRadius: '6px', color: theme.textMain }}>
                                     {hist.brief_entwurf}
                                   </div>
                                 </details>
@@ -806,8 +852,10 @@ export default function Dashboard({ session }) {
 
       {activeTab === 'tresor' && (
       <div>
-        <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left' }}><Icon symbol="🏢" /> Neuer Mandant / Firma</h2>
-        <form onSubmit={speichereMandant} style={panelStyle}>
+        <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Icon name="building" size={24} /> Neuer Mandant / Firma
+        </h2>
+        <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', textAlign: 'left' }}>
             <div style={{ gridColumn: '1 / -1' }}><h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten</h4></div>
@@ -826,7 +874,7 @@ export default function Dashboard({ session }) {
             
             <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
               <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px'}}>
-                 <Icon symbol="📎" /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
+                 <Icon name="paperclip" size={16} /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
               </label>
               <input id="tresor-datei-upload" type="file" multiple onChange={(e) => setM_dateien(Array.from(e.target.files))} style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}} />
               {m_dateien.length > 0 && <span style={{fontSize: '13px', color: theme.tresorAccent, marginTop: '8px'}}>Gewählt: {m_dateien.length} Datei(en)</span>}
@@ -862,10 +910,13 @@ export default function Dashboard({ session }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', textAlign: 'left' }}>
           {mandanten.map(m => (
             <div key={m.id} style={{ ...panelStyle, position: 'relative', marginBottom: 0 }}>
-              <button onClick={() => loescheMandant(m.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px' }} title="Löschen"><Icon symbol="🗑️" /></button>
+              <button onClick={() => loescheMandant(m.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px' }} title="Löschen"><Icon name="trash" size={18} /></button>
               
               <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '20px' }}>{m.firmenname}</h3>
-              <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: theme.textMuted }}><Icon symbol="👤" /> {m.ansprechpartner || '-'} <br/> <Icon symbol="📞" /> {m.telefon || '-'} | <Icon symbol="✉️" /> {m.email || '-'}</p>
+              <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="user" size={14} /> {m.ansprechpartner || '-'}</span>
+                <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="phone" size={14} /> {m.telefon || '-'} | <Icon name="mail" size={14} /> {m.email || '-'}</span>
+              </p>
               
               <div style={{ fontSize: '13px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{m.steuernummer || '-'}</div>
@@ -880,8 +931,8 @@ export default function Dashboard({ session }) {
                   {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
                     const fileName = extractFilename(url);
                     return (
-                      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-block', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '12px', color: theme.textMain }} title={fileName}>
-                        <Icon symbol="📄" /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '12px', color: theme.textMain }} title={fileName}>
+                        <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
                       </a>
                     )
                   })}
