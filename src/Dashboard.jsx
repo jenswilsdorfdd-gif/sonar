@@ -9,10 +9,12 @@ export default function Dashboard({ session }) {
   const [modus, setModus] = useState('neu') // 'neu' oder 'bestehend'
   const [selectedAkteId, setSelectedAkteId] = useState('')
   
-  // Akten-Stammdaten
+  // Akten-Stammdaten (Rollen)
   const [aktenzeichen, setAktenzeichen] = useState('')
-  const [kontakt, setKontakt] = useState('')
-  const [person, setPerson] = useState('')
+  const [gegnerName, setGegnerName] = useState('')
+  const [gegnerAnsprechpartner, setGegnerAnsprechpartner] = useState('')
+  const [unsereFirma, setUnsereFirma] = useState('')
+  const [unserAnsprechpartner, setUnserAnsprechpartner] = useState('')
   const [thema, setThema] = useState('')
   
   // Historien-Daten (Das einzelne Blatt)
@@ -22,7 +24,6 @@ export default function Dashboard({ session }) {
   const [kanal, setKanal] = useState('')
   const [fristExtern, setFristExtern] = useState('')
   const [wiedervorlage, setWiedervorlage] = useState('')
-  const [ueberwachung, setUeberwachung] = useState('')
   
   const [datei, setDatei] = useState(null)
   const [briefEntwurf, setBriefEntwurf] = useState('')
@@ -34,7 +35,6 @@ export default function Dashboard({ session }) {
 
   // --- DATEN LADEN ---
   const ladeDaten = async () => {
-    // Lädt Akten INKLUSIVE ihrer Historie
     const { data, error } = await supabase
       .from('akten')
       .select(`
@@ -44,7 +44,6 @@ export default function Dashboard({ session }) {
       .order('created_at', { ascending: false })
 
     if (!error && data) {
-      // Sortiere die Historie chronologisch aufsteigend
       data.forEach(akte => {
         if(akte.akten_historie) {
           akte.akten_historie.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -58,27 +57,41 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // --- MAGIC JSON IMPORT ---
+  // --- MAGIC JSON IMPORT & AUTO-MATCHING ---
   const handleJsonImport = (e) => {
     const val = e.target.value
     setJsonImport(val)
     try {
       const obj = JSON.parse(val)
-      if (obj.aktenzeichen) setAktenzeichen(obj.aktenzeichen)
-      if (obj.thema) setThema(obj.thema)
-      if (obj.kontakt) setKontakt(obj.kontakt)
+      
+      let matchedAkteId = null;
+      if (obj.aktenzeichen) {
+        setAktenzeichen(obj.aktenzeichen)
+        // Prüfen, ob eine offene Akte mit diesem Aktenzeichen existiert
+        const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
+        if (match) {
+          matchedAkteId = match.id;
+          setModus('bestehend');
+          setSelectedAkteId(match.id);
+        } else {
+          setModus('neu');
+        }
+      }
+      
+      if (obj.thema && !matchedAkteId) setThema(obj.thema)
+      if (obj.kontakt && !matchedAkteId) setGegnerName(obj.kontakt) // Aus Abwärtskompatibilität 'kontakt' genannt
+      if (obj.ansprechpartner && !matchedAkteId) setGegnerAnsprechpartner(obj.ansprechpartner)
       if (obj.frist_extern) setFristExtern(obj.frist_extern)
       if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
       
       setTyp('Eingang')
       setDatum(new Date().toISOString().split('T')[0])
-      setModus('neu') // Bei komplett neuen Datensätzen legen wir meist eine neue Akte an
     } catch(err) {
-      // JSON noch nicht vollständig oder fehlerhaft - ignorieren bis es klappt
+      // Warten bis JSON komplett ist
     }
   }
 
-  // --- ALTERNATIVE: KI UPLOAD (1b) ---
+  // --- KI UPLOAD (1b) ---
   const handleDateiAuswahlKI = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -97,14 +110,27 @@ export default function Dashboard({ session }) {
         })
         if (res.ok) {
           const obj = await res.json()
-          if (obj.aktenzeichen) setAktenzeichen(obj.aktenzeichen)
-          if (obj.thema) setThema(obj.thema)
-          if (obj.kontakt) setKontakt(obj.kontakt)
+          
+          let matchedAkteId = null;
+          if (obj.aktenzeichen) {
+            setAktenzeichen(obj.aktenzeichen)
+            const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
+            if (match) {
+              matchedAkteId = match.id;
+              setModus('bestehend');
+              setSelectedAkteId(match.id);
+            } else {
+              setModus('neu');
+            }
+          }
+
+          if (obj.thema && !matchedAkteId) setThema(obj.thema)
+          if (obj.kontakt && !matchedAkteId) setGegnerName(obj.kontakt)
           if (obj.frist_extern) setFristExtern(obj.frist_extern)
           if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
+          
           setDatum(new Date().toISOString().split('T')[0])
           setTyp('Eingang')
-          setModus('neu')
         }
       } catch (err) { console.error("KI-Fehler:", err) }
       setKiLaedt(false)
@@ -115,10 +141,8 @@ export default function Dashboard({ session }) {
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
-    
     let dokumentUrl = null
 
-    // 1. Datei hochladen
     if (datei) {
       const sichererDateiname = datei.name.replace(/[^a-zA-Z0-9.-]/g, '_')
       const dateiName = `${Date.now()}_${sichererDateiname}` 
@@ -129,7 +153,6 @@ export default function Dashboard({ session }) {
       }
     }
 
-    // 2. Akte ermitteln oder neu anlegen
     let aktuelleAkteId = selectedAkteId
 
     if (modus === 'neu') {
@@ -138,8 +161,10 @@ export default function Dashboard({ session }) {
         .insert([{ 
           user_id: session.user.id, 
           aktenzeichen: aktenzeichen || null,
-          kontakt: kontakt || null,
-          person: person || null,
+          gegner_name: gegnerName || null,
+          gegner_ansprechpartner: gegnerAnsprechpartner || null,
+          unsere_firma: unsereFirma || null,
+          unser_ansprechpartner: unserAnsprechpartner || null,
           thema: thema || null,
           status: 'Offen'
         }]).select()
@@ -148,7 +173,6 @@ export default function Dashboard({ session }) {
       aktuelleAkteId = neueAkte[0].id
     }
 
-    // 3. Das Blatt (Historie) in die Akte heften
     const { error: histError } = await supabase
       .from('akten_historie')
       .insert([{ 
@@ -160,20 +184,17 @@ export default function Dashboard({ session }) {
         kanal: kanal || null,
         frist_extern: fristExtern || null,
         wiedervorlage: wiedervorlage || null,
-        ueberwachung: ueberwachung || null,
         dokument_url: dokumentUrl,
-        brief_entwurf: briefEntwurf || null // Speichert den generierten Text in der Datenbank
+        brief_entwurf: briefEntwurf || null 
       }])
 
     if (!histError) {
-      // Formular leeren
-      setAktenzeichen(''); setKontakt(''); setPerson(''); setThema('');
-      setAktion(''); setKanal(''); setFristExtern('');
-      setWiedervorlage(''); setUeberwachung(''); setDatei(null);
-      setBriefEntwurf(''); setJsonImport('');
+      setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); 
+      setUnsereFirma(''); setUnserAnsprechpartner(''); setThema('');
+      setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); 
+      setDatei(null); setBriefEntwurf(''); setJsonImport('');
       if (document.getElementById('datei-upload')) document.getElementById('datei-upload').value = '';
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
-      
       ladeDaten()
     } else {
       alert("Fehler Historie: " + histError.message)
@@ -203,6 +224,7 @@ export default function Dashboard({ session }) {
     ladeDaten()
   }
 
+  // --- 7-4-2 FRISTEN AMPEL ---
   const berechneTageBisFrist = (datum) => {
     if (!datum) return null;
     const heute = new Date(); heute.setHours(0, 0, 0, 0);
@@ -210,15 +232,26 @@ export default function Dashboard({ session }) {
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
   };
 
-  // Fristenwarnung sucht jetzt in allen offene Akten nach Einträgen in der Historie
   const fristenWarnungen = [];
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if(akte.akten_historie) {
       akte.akten_historie.forEach(hist => {
         if(hist.frist_extern) {
           const tage = berechneTageBisFrist(hist.frist_extern);
-          if (tage !== null && tage <= 3) {
-            fristenWarnungen.push({ ...hist, akte_thema: akte.thema, akte_kontakt: akte.kontakt, tageUebrig: tage })
+          if (tage !== null && tage <= 7) { 
+            let alarmStufe = '🟡 1. Erinnerung';
+            let farbe = '#f39c12';
+            if (tage <= 4 && tage > 2) { alarmStufe = '🟠 2. Erinnerung'; farbe = '#d35400'; }
+            if (tage <= 2) { alarmStufe = '🔴 ALARM'; farbe = '#c0392b'; }
+
+            fristenWarnungen.push({ 
+              ...hist, 
+              akte_thema: akte.thema, 
+              akte_gegner: akte.gegner_name, 
+              tageUebrig: tage,
+              alarmStufe: alarmStufe,
+              farbe: farbe
+            })
           }
         }
       })
@@ -236,16 +269,16 @@ export default function Dashboard({ session }) {
     <div style={{ marginTop: '20px', padding: '20px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
       <h1 style={{ margin: '0 0 30px 0', color: '#2c3e50', textAlign: 'center' }}>📡 Sonar-Cockpit (Akten-System)</h1>
 
-      {/* --- IMPORT & UPLOAD BEREICH --- */}
+      {/* --- IMPORT BEREICH --- */}
       <div style={{ background: '#fcf3cf', padding: '15px', borderRadius: '8px', border: '2px solid #f1c40f', marginBottom: '20px' }}>
         <label style={{...labelStyle, color: '#d35400', fontSize: '14px'}}>✨ Magic Import: Gemini-Datensatz hier einfügen</label>
         <textarea 
           value={jsonImport} 
           onChange={handleJsonImport} 
-          placeholder='{"aktenzeichen": "...", "thema": "..."}'
-          style={{ width: '100%', height: '80px', marginTop: '5px', fontFamily: 'monospace', padding: '10px', border: '1px solid #f39c12', borderRadius: '4px' }} 
+          placeholder='{"aktenzeichen": "...", "thema": "...", "kontakt": "..."}'
+          style={{ width: '100%', boxSizing: 'border-box', height: '80px', marginTop: '5px', fontFamily: 'monospace', padding: '10px', border: '1px solid #f39c12', borderRadius: '4px' }} 
         />
-        <small style={{color: '#d35400'}}>Kopiere den JSON-Block aus dem Chat und füge ihn hier ein. Das Formular füllt sich automatisch!</small>
+        <small style={{color: '#d35400'}}>Fügt sich automatisch ein & checkt, ob das Aktenzeichen schon existiert!</small>
       </div>
 
       <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '20px' }}>
@@ -263,15 +296,14 @@ export default function Dashboard({ session }) {
       {/* --- FORMULAR --- */}
       <form onSubmit={speichereEintrag} style={{ background: '#fdfdfd', padding: '20px', borderRadius: '8px', border: '1px solid #eee', marginBottom: '30px' }}>
         
-        {/* AKTEN MODUS */}
         <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
           <label style={{ fontWeight: 'bold', cursor: 'pointer' }}>
             <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '8px'}}/>
             📁 Neue Akte anlegen
           </label>
-          <label style={{ fontWeight: 'bold', cursor: 'pointer' }}>
+          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: selectedAkteId ? '#27ae60' : 'inherit' }}>
             <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '8px'}}/>
-            🔗 Zu bestehender Akte hinzufügen
+            🔗 Zu bestehender Akte hinzufügen {selectedAkteId && '(Match gefunden!)'}
           </label>
         </div>
 
@@ -280,26 +312,31 @@ export default function Dashboard({ session }) {
             <label style={labelStyle}>Ziel-Akte auswählen*</label>
             <select value={selectedAkteId} onChange={(e) => setSelectedAkteId(e.target.value)} required style={inputStyle}>
               <option value="">-- Bitte wählen --</option>
-              {akten.map(a => <option key={a.id} value={a.id}>{a.kontakt} | {a.thema} (AZ: {a.aktenzeichen || '-'})</option>)}
+              {akten.map(a => <option key={a.id} value={a.id}>{a.gegner_name} | {a.thema} (AZ: {a.aktenzeichen || '-'})</option>)}
             </select>
           </div>
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
           
-          {/* Diese Felder nur bei neuer Akte zeigen */}
           {modus === 'neu' && (
             <>
-              <div><label style={labelStyle}>Firma / Gegner (Behörde)*</label><input type="text" value={kontakt} onChange={(e) => setKontakt(e.target.value)} required style={inputStyle} /></div>
+              <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>1. Der Gegner (Behörde/Firma)</h4></div>
+              <div><label style={labelStyle}>Name des Gegners*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ansprechpartner & Kontakt</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} placeholder="Z.B. Herr Müller, Tel: 0351..." style={inputStyle} /></div>
+              
+              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>2. Wir (Mandant)</h4></div>
+              <div><label style={labelStyle}>Unsere Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Unser Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+              
+              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>3. Akten-Stammdaten</h4></div>
               <div><label style={labelStyle}>Bescheid / Thema*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Aktenzeichen</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Unsere Person/Firma</label><input type="text" value={person} onChange={(e) => setPerson(e.target.value)} style={inputStyle} /></div>
             </>
           )}
 
-          {/* Diese Felder (Das Blatt) immer zeigen */}
           <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #eee', paddingTop: '15px', marginTop: '10px' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#7f8c8d' }}>Details zum aktuellen Schreiben/Aktion</h4>
+            <h4 style={{ margin: '0 0 10px 0', color: '#7f8c8d' }}>Details zum aktuellen Dokument / Schritt</h4>
           </div>
 
           <div>
@@ -312,9 +349,8 @@ export default function Dashboard({ session }) {
           </div>
           <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
           <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} placeholder="z.B. Einspruch eingelegt" style={inputStyle} /></div>
-          <div><label style={labelStyle}>Frist (Extern)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
-          <div><label style={labelStyle}>Wiedervorlage</label><input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} /></div>
-          <div><label style={labelStyle}>Überwachung (Info)</label><input type="text" value={ueberwachung} onChange={(e) => setUeberwachung(e.target.value)} style={inputStyle} /></div>
+          <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
+          <div><label style={labelStyle}>Wiedervorlage (Intern)</label><input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} /></div>
         </div>
 
         {briefEntwurf && (
@@ -329,16 +365,17 @@ export default function Dashboard({ session }) {
         </button>
       </form>
 
-      {/* --- FRISTEN WARNUNG --- */}
+      {/* --- 7-4-2 FRISTEN AMPEL --- */}
       {fristenWarnungen.length > 0 && (
-        <div style={{ background: '#ffefef', borderLeft: '5px solid #e74c3c', padding: '15px', marginBottom: '20px', borderRadius: '4px' }}>
-          <h4 style={{ color: '#c0392b', margin: '0 0 10px 0', textAlign: 'left' }}>⚠️ Achtung: Dringende Fristen</h4>
+        <div style={{ background: '#fff5f5', borderLeft: '5px solid #c0392b', padding: '15px', marginBottom: '20px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+          <h4 style={{ color: '#c0392b', margin: '0 0 10px 0', textAlign: 'left' }}>🚨 Dringende Fristen & Alarme</h4>
           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', textAlign: 'left' }}>
             {fristenWarnungen.map(w => (
-              <li key={`warn-${w.id}`} style={{ marginBottom: '5px' }}>
-                <strong>{w.akte_kontakt} ({w.akte_thema})</strong> - Frist: {formatDatum(w.frist_extern)} 
-                <span style={{ color: '#e74c3c', fontWeight: 'bold', marginLeft: '10px' }}>
-                  {w.tageUebrig < 0 ? `(Bereits ${Math.abs(w.tageUebrig)} Tage überfällig!)` : w.tageUebrig === 0 ? '(Verfristet HEUTE!)' : `(Verfristet in ${w.tageUebrig} Tag(en))` }
+              <li key={`warn-${w.id}`} style={{ marginBottom: '8px' }}>
+                <span style={{ color: w.farbe, fontWeight: 'bold', marginRight: '10px' }}>{w.alarmStufe}</span>
+                <strong>{w.akte_gegner} ({w.akte_thema})</strong> - Frist: {formatDatum(w.frist_extern)} 
+                <span style={{ color: w.farbe, fontWeight: 'bold', marginLeft: '10px' }}>
+                  {w.tageUebrig < 0 ? `(Bereits ${Math.abs(w.tageUebrig)} Tage überfällig!)` : w.tageUebrig === 0 ? '(Verfristet HEUTE!)' : `(Noch ${w.tageUebrig} Tage)` }
                 </span>
               </li>
             ))}
@@ -360,26 +397,41 @@ export default function Dashboard({ session }) {
         {gefilterteAkten.map((akte) => {
           const isExpanded = aufgeklappteAkten.includes(akte.id);
           const bgColor = akte.status === 'Erledigt' ? '#f8fdf9' : '#fff';
+          
+          // Infos für die Hauptzeile ermitteln
+          const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[akte.akten_historie.length - 1] : null;
+          const offeneFristen = akte.akten_historie ? akte.akten_historie.filter(h => h.frist_extern).sort((a,b) => new Date(a.frist_extern) - new Date(b.frist_extern)) : [];
+          const naechsteFrist = offeneFristen.length > 0 ? offeneFristen[0].frist_extern : null;
 
           return (
             <div key={akte.id} style={{ borderBottom: '1px solid #ecf0f1', background: bgColor }}>
               
-              {/* AKTEN-KOPF (Die Klammer) */}
-              <div style={{ display: 'flex', alignItems: 'center', padding: '12px 15px', cursor: 'pointer' }} onClick={() => toggleAkte(akte.id)}>
+              {/* AKTEN-KOPF (Die Vorschau-Klammer) */}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '15px', cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => toggleAkte(akte.id)} onMouseOver={(e) => e.currentTarget.style.background = '#f1f2f6'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                 <div style={{ fontSize: '20px', width: '30px', color: '#3498db' }}>
                   {isExpanded ? '🔽' : '▶️'}
                 </div>
+                
                 <div style={{ flex: 2 }}>
-                  <strong>{akte.kontakt}</strong> <span style={{color: '#7f8c8d'}}>({akte.person || 'Keine Person'})</span>
+                  <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#2c3e50' }}>{akte.gegner_name || 'Kein Gegner'}</div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d' }}>👤 {akte.gegner_ansprechpartner || '-'}</div>
                 </div>
+                
                 <div style={{ flex: 3 }}>
-                  <strong>{akte.thema}</strong> <span style={{fontSize: '12px', color: '#95a5a6', marginLeft: '10px'}}>AZ: {akte.aktenzeichen || '-'}</span>
+                  <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#2c3e50' }}>{akte.thema}</div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d' }}>
+                    Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} (${letzteAktion.typ})` : '-'}
+                  </div>
                 </div>
-                <div style={{ flex: 1, textAlign: 'right' }}>
+
+                <div style={{ flex: 1, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px' }}>
                   {akte.status === 'Erledigt' ? (
                     <span style={{ background: '#2ecc71', color: '#fff', padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Erledigt</span>
                   ) : (
                     <span style={{ background: '#e74c3c', color: '#fff', padding: '4px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>
+                  )}
+                  {naechsteFrist && akte.status !== 'Erledigt' && (
+                    <span style={{ fontSize: '11px', color: '#e74c3c', fontWeight: 'bold' }}>Frist: {formatDatum(naechsteFrist)}</span>
                   )}
                 </div>
               </div>
@@ -389,7 +441,10 @@ export default function Dashboard({ session }) {
                 <div style={{ background: '#fafbfc', padding: '15px 20px 20px 45px', borderTop: '1px dashed #bdc3c7' }}>
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-                    <h4 style={{ margin: 0, color: '#34495e' }}>Verlauf / Dokumente</h4>
+                    <div>
+                      <h4 style={{ margin: '0 0 5px 0', color: '#34495e' }}>Verlauf & Dokumente</h4>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#7f8c8d' }}>Mandant: {akte.unsere_firma} ({akte.unser_ansprechpartner}) | AZ: {akte.aktenzeichen}</p>
+                    </div>
                     <div>
                       {akte.status !== 'Erledigt' ? 
                         <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '4px 8px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', marginRight: '8px' }}>✔️ Akte schließen</button>
@@ -409,28 +464,28 @@ export default function Dashboard({ session }) {
                           <th style={{ padding: '8px', textAlign: 'left' }}>Typ</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Datum</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Aktion</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Frist (Ext)</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>WV</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Frist (Behörde)</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>WV (Intern)</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Dokumente / Text</th>
                         </tr>
                       </thead>
                       <tbody>
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: '1px solid #f5f6fa' }}>
-                            <td style={{ padding: '8px' }}>
+                            <td style={{ padding: '8px', fontWeight: 'bold', color: hist.typ === 'Eingang' ? '#e67e22' : (hist.typ === 'Ausgang' ? '#2980b9' : '#7f8c8d') }}>
                               {hist.typ === 'Eingang' && '📥 Eingang'}
                               {hist.typ === 'Ausgang' && '📤 Ausgang'}
                               {hist.typ === 'Intern' && '📝 Intern'}
                             </td>
                             <td style={{ padding: '8px' }}>{formatDatum(hist.datum)}</td>
                             <td style={{ padding: '8px' }}>{hist.aktion || '-'}</td>
-                            <td style={{ padding: '8px', color: '#e74c3c', fontWeight: 'bold' }}>{formatDatum(hist.frist_extern)}</td>
-                            <td style={{ padding: '8px' }}>{formatDatum(hist.wiedervorlage)} <br/><span style={{fontSize:'11px', color:'#7f8c8d'}}>{hist.ueberwachung}</span></td>
+                            <td style={{ padding: '8px', color: '#c0392b', fontWeight: 'bold' }}>{formatDatum(hist.frist_extern)}</td>
+                            <td style={{ padding: '8px' }}>{formatDatum(hist.wiedervorlage)}</td>
                             <td style={{ padding: '8px' }}>
                               {hist.dokument_url && <a href={hist.dokument_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '10px' }} title="Scan öffnen">📄 Scan</a>}
                               {hist.brief_entwurf && (
                                 <details style={{ cursor: 'pointer', marginTop: '4px' }}>
-                                  <summary style={{ color: '#2980b9', fontWeight: 'bold' }}>Antwort-Text anzeigen</summary>
+                                  <summary style={{ color: '#2980b9', fontWeight: 'bold' }}>Text anzeigen</summary>
                                   <div style={{ padding: '10px', background: '#f9f9f9', border: '1px solid #eee', marginTop: '5px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '11px', maxHeight: '150px', overflowY: 'auto' }}>
                                     {hist.brief_entwurf}
                                   </div>
