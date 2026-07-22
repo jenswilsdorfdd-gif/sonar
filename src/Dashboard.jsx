@@ -92,7 +92,16 @@ export default function Dashboard({ session }) {
       if (obj.frist_extern) setFristExtern(obj.frist_extern)
       if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
       
-      setTyp('Eingang')
+      // NEU: Aktion, Kanal und Typ auslesen
+      if (obj.aktion) setAktion(obj.aktion)
+      if (obj.kanal) setKanal(obj.kanal)
+      
+      if (obj.typ) {
+        setTyp(obj.typ)
+      } else {
+        setTyp('Eingang')
+      }
+
       setDatum(new Date().toISOString().split('T')[0])
     } catch(err) { }
   }
@@ -135,17 +144,22 @@ export default function Dashboard({ session }) {
             if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
             if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
             if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
-            
-            // Die "Wir"-Felder aus dem JSON übernehmen
             if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
             if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
           }
 
           if (obj.frist_extern) setFristExtern(obj.frist_extern)
           if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
+          if (obj.aktion) setAktion(obj.aktion)
+          if (obj.kanal) setKanal(obj.kanal)
           
+          if (obj.typ) {
+            setTyp(obj.typ)
+          } else {
+            setTyp('Eingang')
+          }
+
           setDatum(new Date().toISOString().split('T')[0])
-          setTyp('Eingang')
         }
       } catch (err) { }
       setKiLaedt(false)
@@ -373,14 +387,18 @@ export default function Dashboard({ session }) {
             </select>
           </div>
           <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
+          
+          {/* NEU: Aktion und Kanal Felder (auch für Magic Import relevant) */}
           <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} placeholder="z.B. Einspruch eingelegt" style={inputStyle} /></div>
+          <div><label style={labelStyle}>Kanal (Versand/Empfang)</label><input type="text" value={kanal} onChange={(e) => setKanal(e.target.value)} placeholder="z.B. ELSTER, E-Mail, Post" style={inputStyle} /></div>
+          
           <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
           <div><label style={labelStyle}>Wiedervorlage (Intern)</label><input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} /></div>
         </div>
 
         {briefEntwurf && (
           <div style={{ background: '#f9f9f9', padding: '15px', border: '1px solid #ddd', borderRadius: '8px', marginTop: '20px', textAlign: 'left' }}>
-            <label style={labelStyle}>📄 Generierter Text (Wird direkt als Text in der Akte gespeichert!)</label>
+            <label style={labelStyle}>📄 Text / Analyse / Entwurf</label>
             <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '150px', fontFamily: 'monospace' }} />
           </div>
         )}
@@ -441,7 +459,7 @@ export default function Dashboard({ session }) {
                 <div style={{ flex: 3 }}>
                   <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#2c3e50' }}>{akte.thema}</div>
                   <div style={{ fontSize: '12px', color: '#7f8c8d' }}>
-                    Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} (${letzteAktion.typ})` : '-'}
+                    Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} (${letzteAktion.typ}) - ${letzteAktion.aktion || ''}` : '-'}
                   </div>
                 </div>
 
@@ -483,7 +501,7 @@ export default function Dashboard({ session }) {
                         <tr style={{ background: '#ecf0f1', color: '#333' }}>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Typ</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Datum</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Aktion</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Aktion & Kanal</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Frist (Behörde)</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>WV (Intern)</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Dokumente / Text</th>
@@ -498,7 +516,10 @@ export default function Dashboard({ session }) {
                               {hist.typ === 'Intern' && '📝 Intern'}
                             </td>
                             <td style={{ padding: '8px' }}>{formatDatum(hist.datum)}</td>
-                            <td style={{ padding: '8px' }}>{hist.aktion || '-'}</td>
+                            <td style={{ padding: '8px' }}>
+                              {hist.aktion || '-'} <br/>
+                              <span style={{fontSize: '11px', color: '#7f8c8d'}}>{hist.kanal}</span>
+                            </td>
                             <td style={{ padding: '8px', color: '#c0392b', fontWeight: 'bold' }}>{formatDatum(hist.frist_extern)}</td>
                             <td style={{ padding: '8px' }}>{formatDatum(hist.wiedervorlage)}</td>
                             <td style={{ padding: '8px' }}>
