@@ -124,20 +124,15 @@ export default function Dashboard({ session }) {
     border: '#1e293b', 
     textMain: '#ffffff', 
     textMuted: '#94a3b8',
-    
     accent: '#00e5ff', 
     accentHover: '#00b8cc',
-    
     tresorAccent: '#2dd4bf', 
     tresorBg: 'rgba(45, 212, 191, 0.1)',
-    
     inputBg: '#020617',
     inputBorder: '#334155',
-    
     warningBg: 'rgba(244, 63, 94, 0.1)', 
     warningBorder: '#f43f5e', 
     warningText: '#fda4af',
-    
     hintBg: 'rgba(250, 204, 21, 0.1)', 
     hintBorder: '#facc15',
     hintText: '#fef08a' 
@@ -161,23 +156,20 @@ export default function Dashboard({ session }) {
     hintText: '#854d0e' 
   };
 
-  // --- GLOBALER HINTERGRUND & RESET FÜR MOBILE (Weisse Linien entfernen) ---
+  // --- GLOBALER HINTERGRUND & RESET ---
   useEffect(() => {
     document.body.style.backgroundColor = theme.bg;
     document.body.style.transition = 'background-color 0.3s ease';
     document.body.style.margin = '0';
     document.body.style.padding = '0';
-    document.documentElement.style.margin = '0';
-    document.documentElement.style.padding = '0';
-
-    // Löscht versteckte Rahmen von Standard React-Containern
+    
+    // Verhindert das Rausfallen bei Standard React Containern
     const rootNode = document.getElementById('root');
     if (rootNode) {
       rootNode.style.maxWidth = '100%';
+      rootNode.style.overflowX = 'hidden';
       rootNode.style.margin = '0';
       rootNode.style.padding = '0';
-      rootNode.style.overflowX = 'hidden';
-      rootNode.style.border = 'none';
     }
   }, [isDarkMode, theme.bg]);
 
@@ -227,7 +219,6 @@ export default function Dashboard({ session }) {
           setModus('neu');
         }
       }
-      
       if (!matchedAkteId) {
         if (obj.thema) setThema(obj.thema)
         if (obj.kontakt) setGegnerName(obj.kontakt) 
@@ -237,12 +228,10 @@ export default function Dashboard({ session }) {
         if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
         if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
       }
-      
       if (obj.frist_extern) setFristExtern(obj.frist_extern)
       if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
       if (obj.aktion) setAktion(obj.aktion)
       if (obj.kanal) setKanal(obj.kanal)
-      
       if (obj.typ) { setTyp(obj.typ) } else { setTyp('Eingang') }
       setDatum(new Date().toISOString().split('T')[0])
     } catch(err) { }
@@ -520,459 +509,459 @@ export default function Dashboard({ session }) {
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   // --- STYLES ---
-  // boxSizing: 'border-box' verhindert das Rausfallen der Elemente
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
-  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: isDarkMode ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '20px', boxSizing: 'border-box' };
+  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: isDarkMode ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '20px', boxSizing: 'border-box', width: '100%' };
 
   return (
-    // width: '100%' und overflowX: 'hidden' zwingt die App sauber in den mobilen Screen
-    <div style={{ minHeight: '100vh', padding: 'max(15px, 3vw)', background: theme.bg, color: theme.textMain, transition: 'all 0.3s ease', fontFamily: "'Inter', system-ui, sans-serif", boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
-      
-      {/* HEADER & THEME TOGGLE */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Icon name="radar" size={24} style={{ color: activeTab === 'akten' ? theme.accent : theme.tresorAccent }} /> Sonar-Cockpit
-        </h1>
-        <button 
-          onClick={() => setIsDarkMode(!isDarkMode)} 
-          style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 12px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '13px' }}>
-          <Icon name={isDarkMode ? 'sun' : 'moon'} size={16} /> <span style={{display: 'none', '@media (min-width: 500px)': {display: 'inline'}}}>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-        </button>
-      </div>
-
-      {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE (Nebeneinander, flexibel) */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px', justifyContent: 'center' }}>
+    // ZENTRIERTER MASTER-WRAPPER FÜR MOBILE & DESKTOP
+    <div style={{ minHeight: '100vh', background: theme.bg, color: theme.textMain, transition: 'all 0.3s ease', fontFamily: "'Inter', system-ui, sans-serif", width: '100%', overflowX: 'hidden', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ width: '100%', maxWidth: '1200px', padding: '20px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
         
-        {/* LINKS: MAGIC IMPORT */}
-        <div style={{ ...panelStyle, flex: '1 1 280px', minWidth: '260px', margin: 0, background: theme.hintBg, border: `1px dashed ${theme.hintBorder}` }}>
-          <label style={{...labelStyle, color: theme.hintText, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <Icon name="wand" size={18} /> Magic Import (JSON)
-          </label>
-          <textarea 
-            value={jsonImport} onChange={handleJsonImport} 
-            placeholder='{"typ": "Eingang", "aktenzeichen": "...", "thema": "..."}'
-            style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.hintBorder}`, color: theme.hintText, height: '80px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px' }} 
-          />
+        {/* HEADER & THEME TOGGLE */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
+          <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="radar" size={24} style={{ color: activeTab === 'akten' ? theme.accent : theme.tresorAccent }} /> Sonar-Cockpit
+          </h1>
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)} 
+            style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+            <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> <span style={{display: 'none', '@media (min-width: 400px)': {display: 'inline'}}}>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+          </button>
         </div>
 
-        {/* RECHTS: SONAR GUIDE */}
-        <div style={{ ...panelStyle, flex: '1 1 280px', minWidth: '260px', margin: 0, background: theme.hintBg, border: `1px solid ${theme.hintBorder}`, color: theme.hintText, display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
-          <div style={{ marginTop: '2px', color: theme.hintText }}><Icon name="bulb" size={24} /></div>
-          <div style={{ textAlign: 'left' }}>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.hintText }}>Sonar Guide: {activeTab === 'akten' ? 'Der Workflow' : 'Firmen & Dokumente verwalten'}</h4>
-            {activeTab === 'akten' ? (
-              <p style={{ margin: 0, fontSize: '13px', opacity: 0.9, lineHeight: '1.5' }}>
-                1. Dokument in deinem <strong>Gemini Gem</strong> hochladen. <br/>
-                2. <strong>JSON 1 (Eingang)</strong> hier drüben in den Magic Import einfügen. <br/>
-                3. Entwurf im Gem freigeben & verschicken. <br/>
-                4. <strong>JSON 2 (Ausgang)</strong> in den Magic Import einfügen und PDF anhängen. Fertig!
-              </p>
-            ) : (
-              <p style={{ margin: 0, fontSize: '13px', opacity: 0.9, lineHeight: '1.5' }}>
-                1. <strong>Stammdaten:</strong> Lege hier deine Firmen, UGs oder Einzelunternehmen zentral an.<br/>
-                2. <strong>Dokumente:</strong> Hänge essenzielle Papiere (HR-Auszug, Gewerbeanmeldung) direkt an das Firmenprofil (beliebig viele).<br/>
-                3. <strong>DFV & Radar:</strong> Setze den Haken bei Dauerfristverlängerung, damit das USt-Radar deine Fristen im Akten-Cockpit korrekt berechnet!
-              </p>
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* EBENE 2: TABS & MANUELLER UPLOAD (Gedrittelt, flexibel) */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '30px', justifyContent: 'center' }}>
-        
-        {/* TAB 1: AKTEN */}
-        <button 
-          onClick={() => setActiveTab('akten')} 
-          style={{ flex: '1 1 150px', minWidth: '150px', padding: '15px', fontSize: '14px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', boxSizing: 'border-box' }}>
-          <Icon name="cabinet" size={24} /> Akten-Cockpit
-        </button>
-
-        {/* TAB 2: TRESOR */}
-        <button 
-          onClick={() => setActiveTab('tresor')} 
-          style={{ flex: '1 1 150px', minWidth: '150px', padding: '15px', fontSize: '14px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', boxSizing: 'border-box' }}>
-          <Icon name="building" size={24} /> Firmen-Tresor
-        </button>
-
-        {/* UPLOAD BEREICH */}
-        <div style={{ flex: '1 1 150px', minWidth: '150px', ...panelStyle, margin: 0, padding: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontSize: '11px'}}>
-             <Icon name="paperclip" size={14} /> Manueller Upload
-          </label>
-          <input 
-            id="datei-upload-manuell" 
-            type="file" 
-            multiple 
-            onChange={(e) => { setDateien(Array.from(e.target.files)); setActiveTab('akten'); }} 
-            style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '8px', fontSize: '12px'}} 
-          />
-          {dateien.length > 0 ? (
-            <span style={{fontSize: '11px', color: theme.accent, marginTop: '5px'}}>Gewählt: {dateien.length} Datei(en)</span>
-          ) : (
-            <small style={{ color: theme.textMuted, marginTop: '5px', display: 'block', fontSize: '10px' }}>Für 1 bis 10 Dokumente.</small>
-          )}
-        </div>
-
-      </div>
-
-      {/* ========================================= */}
-      {/* ============= AKTEN COCKPIT ============= */}
-      {/* ========================================= */}
-      
-      {activeTab === 'akten' && (
-      <>
-        {/* WARNUNGEN & FRISTEN */}
-        {(ustRadar.length > 0 || fristenWarnungen.length > 0) && (
-          <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '20px' }}>
-            <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Icon name="alert" size={20} /> Dringende Alarme & Fristen
-            </h4>
-            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '15px', textAlign: 'left', color: theme.warningText }}>
-              {fristenWarnungen.map(w => (
-                <li key={`warn-${w.id}`} style={{ marginBottom: '8px' }}>
-                  <strong>{w.akte_gegner} ({w.akte_thema})</strong> - Frist: {formatDatum(w.frist_extern)} 
-                  <span style={{ fontWeight: 'bold', marginLeft: '10px', textTransform: 'uppercase' }}>
-                    {w.tageUebrig < 0 ? `(Überfällig: ${Math.abs(w.tageUebrig)} Tage!)` : w.tageUebrig === 0 ? '(Verfristet HEUTE!)' : `(${w.alarmStufe}: Noch ${w.tageUebrig} Tage)` }
-                  </span>
-                </li>
-              ))}
-              {ustRadar.map((r, i) => (
-                <li key={`ust-${i}`} style={{ marginBottom: '8px' }}>
-                  <strong>{r.firma}</strong>: {r.bezeichnung} am {formatDatum(r.datum)} 
-                  <span style={{ fontWeight: 'bold', marginLeft: '10px', textTransform: 'uppercase' }}>
-                    (Noch {r.tageUebrig} Tage)
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
+        {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE (Perfektes CSS Grid) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '20px', width: '100%' }}>
           
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
-            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '4px'}}/>
-              <Icon name="folder" size={16} /> Neue Akte anlegen
+          {/* LINKS: MAGIC IMPORT */}
+          <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.hintBorder}` }}>
+            <label style={{...labelStyle, color: theme.hintText, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+              <Icon name="wand" size={18} /> Magic Import (JSON)
             </label>
-            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '4px'}}/>
-              <Icon name="link" size={16} /> Zu bestehender Akte {selectedAkteId && '(Match!)'}
-            </label>
+            <textarea 
+              value={jsonImport} onChange={handleJsonImport} 
+              placeholder='{"typ": "Eingang", "aktenzeichen": "...", "thema": "..."}'
+              style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.hintBorder}`, color: theme.hintText, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px' }} 
+            />
           </div>
 
-          {modus === 'bestehend' && (
-            <div style={{ marginBottom: '25px', textAlign: 'left' }}>
-              <label style={labelStyle}>Ziel-Akte auswählen*</label>
-              <select value={selectedAkteId} onChange={(e) => setSelectedAkteId(e.target.value)} required style={inputStyle}>
-                <option value="">-- Bitte wählen --</option>
-                {akten.map(a => <option key={a.id} value={a.id}>{a.gegner_name} | {a.thema} (AZ: {a.aktenzeichen || '-'})</option>)}
-              </select>
+          {/* RECHTS: SONAR GUIDE */}
+          <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px solid ${theme.hintBorder}`, color: theme.hintText, display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+            <div style={{ marginTop: '2px', color: theme.hintText }}><Icon name="bulb" size={24} /></div>
+            <div style={{ textAlign: 'left' }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.hintText }}>Sonar Guide: {activeTab === 'akten' ? 'Der Workflow' : 'Firmen & Dokumente verwalten'}</h4>
+              {activeTab === 'akten' ? (
+                <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+                  1. Dokument in deinem <strong>Gemini Gem</strong> hochladen. <br/>
+                  2. <strong>JSON 1 (Eingang)</strong> hier drüben in den Magic Import einfügen. <br/>
+                  3. Entwurf im Gem freigeben & verschicken. <br/>
+                  4. <strong>JSON 2 (Ausgang)</strong> in den Magic Import einfügen und PDF anhängen.
+                </p>
+              ) : (
+                <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+                  1. <strong>Stammdaten:</strong> Lege hier deine Firmen, UGs oder Einzelunternehmen zentral an.<br/>
+                  2. <strong>Dokumente:</strong> Hänge essenzielle Papiere (HR-Auszug, Gewerbeanmeldung) direkt an das Firmenprofil (beliebig viele).<br/>
+                  3. <strong>DFV & Radar:</strong> Setze den Haken bei Dauerfristverlängerung, damit das USt-Radar deine Fristen im Akten-Cockpit korrekt berechnet!
+                </p>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* EBENE 2: TABS & MANUELLER UPLOAD (Flex für smarte Button-Aufteilung) */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '30px', width: '100%' }}>
+          
+          {/* TAB 1: AKTEN */}
+          <button 
+            onClick={() => setActiveTab('akten')} 
+            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', boxSizing: 'border-box' }}>
+            <Icon name="cabinet" size={24} /> Akten-Cockpit
+          </button>
+
+          {/* TAB 2: TRESOR */}
+          <button 
+            onClick={() => setActiveTab('tresor')} 
+            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', boxSizing: 'border-box' }}>
+            <Icon name="building" size={24} /> Firmen-Tresor
+          </button>
+
+          {/* UPLOAD BEREICH */}
+          <div style={{ flex: '1 1 300px', minWidth: '260px', ...panelStyle, margin: 0, padding: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+               <Icon name="paperclip" size={16} /> Manueller Upload (PDF/Scan)
+            </label>
+            <input 
+              id="datei-upload-manuell" 
+              type="file" 
+              multiple 
+              onChange={(e) => { setDateien(Array.from(e.target.files)); setActiveTab('akten'); }} 
+              style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '8px', fontSize: '13px'}} 
+            />
+            {dateien.length > 0 ? (
+              <span style={{fontSize: '12px', color: theme.accent, marginTop: '5px'}}>Gewählt: {dateien.length} Datei(en)</span>
+            ) : (
+              <small style={{ color: theme.textMuted, marginTop: '5px', display: 'block', fontSize: '11px' }}>Für 1 bis 10 Dokumente zur Akte.</small>
+            )}
+          </div>
+
+        </div>
+
+        {/* ========================================= */}
+        {/* ============= AKTEN COCKPIT ============= */}
+        {/* ========================================= */}
+        
+        {activeTab === 'akten' && (
+        <>
+          {/* WARNUNGEN & FRISTEN */}
+          {(ustRadar.length > 0 || fristenWarnungen.length > 0) && (
+            <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '20px' }}>
+              <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Icon name="alert" size={20} /> Dringende Alarme & Fristen
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '15px', textAlign: 'left', color: theme.warningText }}>
+                {fristenWarnungen.map(w => (
+                  <li key={`warn-${w.id}`} style={{ marginBottom: '8px' }}>
+                    <strong>{w.akte_gegner} ({w.akte_thema})</strong> - Frist: {formatDatum(w.frist_extern)} 
+                    <span style={{ fontWeight: 'bold', marginLeft: '10px', textTransform: 'uppercase' }}>
+                      {w.tageUebrig < 0 ? `(Überfällig: ${Math.abs(w.tageUebrig)} Tage!)` : w.tageUebrig === 0 ? '(Verfristet HEUTE!)' : `(${w.alarmStufe}: Noch ${w.tageUebrig} Tage)` }
+                    </span>
+                  </li>
+                ))}
+                {ustRadar.map((r, i) => (
+                  <li key={`ust-${i}`} style={{ marginBottom: '8px' }}>
+                    <strong>{r.firma}</strong>: {r.bezeichnung} am {formatDatum(r.datum)} 
+                    <span style={{ fontWeight: 'bold', marginLeft: '10px', textTransform: 'uppercase' }}>
+                      (Noch {r.tageUebrig} Tage)
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+          <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
             
-            {modus === 'neu' && (
-              <>
-                <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>1. Gegenpartei</h4></div>
-                <div><label style={labelStyle}>Name (Behörde)*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
-                <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
-                <div><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
-                
-                <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                    <h4 style={{margin: 0, color: theme.textMain, fontSize: '16px'}}>2. Wir</h4>
-                    {mandanten.length > 0 && (
-                      <select onChange={handleTresorAuswahl} style={{padding: '6px 12px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain, maxWidth: '100%'}}>
-                        <option value="">+ Aus Tresor laden...</option>
-                        {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
-                      </select>
-                    )}
-                  </div>
-                </div>
-                <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
-                <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-                <div><label style={labelStyle}>Telefon</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} style={inputStyle} /></div>
-                <div><label style={labelStyle}>E-Mail</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
-                
-                <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}><h4 style={h4StyleAkten}>3. Akten-Stammdaten</h4></div>
-                <div><label style={labelStyle}>Bescheid / Thema*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
-                <div><label style={labelStyle}>Aktenzeichen</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
-              </>
-            )}
-
-            <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}>
-              <h4 style={{ ...h4StyleAkten, color: theme.textMuted }}>Details zum aktuellen Dokument</h4>
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
+              <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '4px'}}/>
+                <Icon name="folder" size={16} /> Neue Akte anlegen
+              </label>
+              <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '4px'}}/>
+                <Icon name="link" size={16} /> Zu bestehender Akte {selectedAkteId && '(Match!)'}
+              </label>
             </div>
 
-            <div>
-              <label style={labelStyle}>Typ*</label>
-              <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: typ === 'Eingang' ? theme.hintBorder : (typ === 'Ausgang' ? theme.accent : theme.textMuted), pointerEvents: 'none' }}>
-                  <Icon name={typ === 'Eingang' ? 'in' : (typ === 'Ausgang' ? 'out' : 'note')} size={16} />
-                </div>
-                <select value={typ} onChange={(e) => setTyp(e.target.value)} style={{...inputStyle, paddingLeft: '36px'}}>
-                  <option value="Eingang">Eingang</option>
-                  <option value="Ausgang">Ausgang</option>
-                  <option value="Intern">Intern</option>
+            {modus === 'bestehend' && (
+              <div style={{ marginBottom: '25px', textAlign: 'left' }}>
+                <label style={labelStyle}>Ziel-Akte auswählen*</label>
+                <select value={selectedAkteId} onChange={(e) => setSelectedAkteId(e.target.value)} required style={inputStyle}>
+                  <option value="">-- Bitte wählen --</option>
+                  {akten.map(a => <option key={a.id} value={a.id}>{a.gegner_name} | {a.thema} (AZ: {a.aktenzeichen || '-'})</option>)}
                 </select>
               </div>
-            </div>
-            <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
-            <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} style={inputStyle} /></div>
-            <div><label style={labelStyle}>Kanal</label><input type="text" value={kanal} onChange={(e) => setKanal(e.target.value)} style={inputStyle} /></div>
-            <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
-            <div><label style={labelStyle}>WV (Intern)</label><input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} /></div>
-          </div>
+            )}
 
-          {briefEntwurf && (
-            <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '30px', textAlign: 'left', boxSizing: 'border-box' }}>
-              <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px'}}><Icon name="file" size={16} /> KI Analyse / Textentwurf</label>
-              <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', border: 'none', background: 'transparent', padding: 0, marginTop: '10px' }} />
-            </div>
-          )}
-
-          <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.accent}40` : 'none' }}>
-            {laedt ? 'Speichere...' : '+ In Akte abheften'}
-          </button>
-        </form>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px', flexWrap: 'wrap', gap: '10px' }}>
-          <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-            <Icon name="cabinet" size={24} /> Deine Akten
-          </h2>
-          <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 16px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Icon name={zeigeErledigte ? 'eyeOff' : 'eye'} size={16} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
-          </button>
-        </div>
-
-        <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg }}>
-          {gefilterteAkten.length === 0 && <div style={{padding: '30px', color: theme.textMuted, textAlign: 'center'}}>Keine Akten gefunden.</div>}
-          
-          {gefilterteAkten.map((akte) => {
-            const isExpanded = aufgeklappteAkten.includes(akte.id);
-            const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[akte.akten_historie.length - 1] : null;
-            const offeneFristen = akte.akten_historie ? akte.akten_historie.filter(h => h.frist_extern).sort((a,b) => new Date(a.frist_extern) - new Date(b.frist_extern)) : [];
-            const naechsteFrist = offeneFristen.length > 0 ? offeneFristen[0].frist_extern : null;
-
-            return (
-              <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, opacity: akte.status === 'Erledigt' ? 0.6 : 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', transition: 'background 0.2s', flexWrap: 'wrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
-                  <div style={{ width: '30px', color: theme.accent, textAlign: 'center' }}>
-                    <Icon name={isExpanded ? 'down' : 'right'} size={20} />
-                  </div>
-                  <div style={{ flex: '1 1 200px' }}>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: theme.textMain }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
-                    <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Icon name="user" size={14} /> {akte.gegner_ansprechpartner || '-'}
-                    </div>
-                  </div>
-                  <div style={{ flex: '1 1 200px' }}>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: theme.textMain }}>{akte.thema}</div>
-                    <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion || ''}` : '-'}</div>
-                  </div>
-                  <div style={{ flex: '1 1 100px', textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                    {akte.status === 'Erledigt' ? <span style={{ background: theme.border, color: theme.textMain, padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Erledigt</span> : <span style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
-                    {naechsteFrist && akte.status !== 'Erledigt' && <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold' }}>Frist: {formatDatum(naechsteFrist)}</span>}
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}`, overflowX: 'auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
-                        <h4 style={{ margin: '0 0 5px 0', color: theme.accent, fontSize: '15px' }}>Verlauf & Dokumente</h4>
-                        <p style={{ margin: '0', fontSize: '12px', color: theme.textMuted }}>Mandant: {akte.unsere_firma} | AZ: {akte.aktenzeichen}</p>
-                      </div>
-                      <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
-                        {akte.status !== 'Erledigt' ? 
-                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="check" size={14} /> Schließen</button>
-                          :
-                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="refresh" size={14} /> Wiedereröffnen</button>
-                        }
-                        <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Löschen</button>
-                      </div>
-                    </div>
-
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden', minWidth: '600px' }}>
-                      <thead>
-                        <tr style={{ background: theme.border, color: theme.textMain }}>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Typ</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Datum</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Aktion</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Frist</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Dokumente</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {akte.akten_historie.map((hist) => (
-                          <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                            <td style={{ padding: '12px', fontWeight: 'bold', color: hist.typ === 'Eingang' ? theme.hintBorder : (hist.typ === 'Ausgang' ? theme.accent : theme.textMuted) }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Icon name={hist.typ === 'Eingang' ? 'in' : (hist.typ === 'Ausgang' ? 'out' : 'note')} size={16} /> {hist.typ}
-                              </div>
-                            </td>
-                            <td style={{ padding: '12px' }}>{formatDatum(hist.datum)}</td>
-                            <td style={{ padding: '12px' }}>{hist.aktion} <br/><span style={{fontSize: '11px', color: theme.textMuted}}>{hist.kanal}</span></td>
-                            <td style={{ padding: '12px', color: theme.warningBorder, fontWeight: 'bold' }}>{formatDatum(hist.frist_extern)}</td>
-                            <td style={{ padding: '12px' }}>
-                              {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
-                                const fileName = extractFilename(url);
-                                return (
-                                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '11px', color: theme.textMain }} title={fileName}>
-                                    <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
-                                  </a>
-                                )
-                              })}
-                              {uploadingHistId === hist.id ? (
-                                <span style={{ fontSize: '11px', color: theme.accent }}>⏳...</span>
-                              ) : (
-                                <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
-                                  + Datei
-                                  <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUpload(hist.id, hist.dokument_url, e)} />
-                                </label>
-                              )}
-                              {hist.brief_entwurf && (
-                                <details style={{ cursor: 'pointer', marginTop: '8px' }}>
-                                  <summary style={{ color: theme.accent, fontWeight: 'bold', fontSize: '12px', outline: 'none' }}>Analyse / Text</summary>
-                                  <div style={{ padding: '12px', background: theme.bg, border: `1px solid ${theme.border}`, marginTop: '8px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '11px', maxHeight: '200px', overflowY: 'auto', borderRadius: '6px', color: theme.textMain }}>
-                                    {hist.brief_entwurf}
-                                  </div>
-                                </details>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </>
-      )}
-
-      {/* ========================================= */}
-      {/* ============= FIRMEN-TRESOR ============= */}
-      {/* ========================================= */}
-
-      {activeTab === 'tresor' && (
-      <div>
-        <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-          <Icon name="building" size={24} /> Neuer Mandant / Firma
-        </h2>
-        <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', textAlign: 'left' }}>
-            <div style={{ gridColumn: '1 / -1' }}><h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten</h4></div>
-            <div><label style={labelStyle}>Firma / Person*</label><input required value={m_firmenname} onChange={e=>setM_firmenname(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>Ansprechpartner</label><input value={m_ansprechpartner} onChange={e=>setM_ansprechpartner(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>Adresse</label><input value={m_adresse} onChange={e=>setM_adresse(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>Telefon</label><input value={m_telefon} onChange={e=>setM_telefon(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
-
-            <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>2. Wichtige Nummern & Dokumente</h4></div>
-            <div><label style={labelStyle}>Steuernummer</label><input value={m_steuernummer} onChange={e=>setM_steuernummer(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>USt-IdNr.</label><input value={m_ust_id} onChange={e=>setM_ust_id(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>Betriebsnummer</label><input value={m_betriebsnummer} onChange={e=>setM_betriebsnummer(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>VBG-Nummer</label><input value={m_vbg_nummer} onChange={e=>setM_vbg_nummer(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>Handelsregister</label><input value={m_handelsregister} onChange={e=>setM_handelsregister(e.target.value)} style={inputStyle}/></div>
-            
-            <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-              <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px'}}>
-                 <Icon name="paperclip" size={16} /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
-              </label>
-              <input id="tresor-datei-upload" type="file" multiple onChange={(e) => setM_dateien(Array.from(e.target.files))} style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}} />
-              {m_dateien.length > 0 && <span style={{fontSize: '13px', color: theme.tresorAccent, marginTop: '8px'}}>Gewählt: {m_dateien.length} Datei(en)</span>}
-            </div>
-
-            <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
-            <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
-            <div><label style={labelStyle}>Bank</label><input value={m_bank_name} onChange={e=>setM_bank_name(e.target.value)} style={inputStyle}/></div>
-            
-            <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
-              <label style={labelStyle}>USt-Voranmeldung</label>
-              <select value={m_ust_intervall} onChange={e=>setM_ust_intervall(e.target.value)} style={inputStyle}>
-                <option value="Monatlich">Monatlich</option>
-                <option value="Vierteljährlich">Vierteljährlich</option>
-                <option value="Jährlich">Jährlich (Keine VA)</option>
-              </select>
-            </div>
-            
-            <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center' }}>
-              <label style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <input type="checkbox" checked={m_dauerfrist} onChange={e=>setM_dauerfrist(e.target.checked)} style={{ transform: 'scale(1.3)', accentColor: theme.tresorAccent }}/>
-                Dauerfristverlängerung (DFV)
-              </label>
-            </div>
-          </div>
-          
-          <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.tresorAccent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.tresorAccent}40` : 'none' }}>
-            {laedt ? 'Speichere...' : '+ Im Tresor ablegen'}
-          </button>
-        </form>
-
-        <h2 style={{ margin: '40px 0 20px 0', color: theme.textMain, textAlign: 'left', fontSize: '20px' }}>🗃️ Gespeicherte Firmen</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', textAlign: 'left' }}>
-          {mandanten.map(m => (
-            <div key={m.id} style={{ ...panelStyle, position: 'relative', marginBottom: 0 }}>
-              <button onClick={() => loescheMandant(m.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px' }} title="Löschen"><Icon name="trash" size={18} /></button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
               
-              <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px' }}>{m.firmenname}</h3>
-              <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="user" size={14} /> {m.ansprechpartner || '-'}</span>
-                <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="phone" size={14} /> {m.telefon || '-'} | <Icon name="mail" size={14} /> {m.email || '-'}</span>
-              </p>
-              
-              <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{m.steuernummer || '-'}</div>
-                <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{m.ust_id || '-'}</div>
-                <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{m.vbg_nummer || '-'}</div>
-                <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{m.betriebsnummer || '-'}</div>
-                <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>Bank:</strong> {m.iban ? `${m.iban} (${m.bank_name})` : '-'}</div>
-                
-                {/* DOKUMENTE ANZEIGEN & NACHTRAG UPLOAD */}
-                <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                  <strong style={{color: theme.textMuted, display: 'block', marginBottom: '8px'}}>Dokumente:</strong>
-                  {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
-                    const fileName = extractFilename(url);
-                    return (
-                      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '11px', color: theme.textMain }} title={fileName}>
-                        <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
-                      </a>
-                    )
-                  })}
+              {modus === 'neu' && (
+                <>
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>1. Gegenpartei</h4></div>
+                  <div><label style={labelStyle}>Name (Behörde)*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
                   
-                  {uploadingMandantId === m.id ? (
-                    <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
-                  ) : (
-                    <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
-                      + Datei
-                      <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
-                    </label>
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                      <h4 style={{margin: 0, color: theme.textMain, fontSize: '16px'}}>2. Wir</h4>
+                      {mandanten.length > 0 && (
+                        <select onChange={handleTresorAuswahl} style={{padding: '6px 12px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
+                          <option value="">+ Aus Tresor laden...</option>
+                          {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                  <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Telefon</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>E-Mail</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
+                  
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}><h4 style={h4StyleAkten}>3. Akten-Stammdaten</h4></div>
+                  <div><label style={labelStyle}>Bescheid / Thema*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Aktenzeichen</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
+                </>
+              )}
+
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}>
+                <h4 style={{ ...h4StyleAkten, color: theme.textMuted }}>Details zum aktuellen Dokument</h4>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Typ*</label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: typ === 'Eingang' ? theme.hintBorder : (typ === 'Ausgang' ? theme.accent : theme.textMuted), pointerEvents: 'none' }}>
+                    <Icon name={typ === 'Eingang' ? 'in' : (typ === 'Ausgang' ? 'out' : 'note')} size={16} />
+                  </div>
+                  <select value={typ} onChange={(e) => setTyp(e.target.value)} style={{...inputStyle, paddingLeft: '36px'}}>
+                    <option value="Eingang">Eingang</option>
+                    <option value="Ausgang">Ausgang</option>
+                    <option value="Intern">Intern</option>
+                  </select>
+                </div>
+              </div>
+              <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Kanal</label><input type="text" value={kanal} onChange={(e) => setKanal(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>WV (Intern)</label><input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} /></div>
+            </div>
+
+            {briefEntwurf && (
+              <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '30px', textAlign: 'left' }}>
+                <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px'}}><Icon name="file" size={16} /> KI Analyse / Textentwurf</label>
+                <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', border: 'none', background: 'transparent', padding: 0, marginTop: '10px' }} />
+              </div>
+            )}
+
+            <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.accent}40` : 'none' }}>
+              {laedt ? 'Speichere...' : '+ In Akte abheften'}
+            </button>
+          </form>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px', flexWrap: 'wrap', gap: '10px' }}>
+            <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
+              <Icon name="cabinet" size={24} /> Deine Akten
+            </h2>
+            <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 16px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon name={zeigeErledigte ? 'eyeOff' : 'eye'} size={16} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
+            </button>
+          </div>
+
+          <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg }}>
+            {gefilterteAkten.length === 0 && <div style={{padding: '30px', color: theme.textMuted, textAlign: 'center'}}>Keine Akten gefunden.</div>}
+            
+            {gefilterteAkten.map((akte) => {
+              const isExpanded = aufgeklappteAkten.includes(akte.id);
+              const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[akte.akten_historie.length - 1] : null;
+              const offeneFristen = akte.akten_historie ? akte.akten_historie.filter(h => h.frist_extern).sort((a,b) => new Date(a.frist_extern) - new Date(b.frist_extern)) : [];
+              const naechsteFrist = offeneFristen.length > 0 ? offeneFristen[0].frist_extern : null;
+
+              return (
+                <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, opacity: akte.status === 'Erledigt' ? 0.6 : 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', transition: 'background 0.2s', flexWrap: 'wrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
+                    <div style={{ width: '30px', color: theme.accent, textAlign: 'center' }}>
+                      <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                    </div>
+                    <div style={{ flex: '1 1 200px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: theme.textMain }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
+                      <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Icon name="user" size={14} /> {akte.gegner_ansprechpartner || '-'}
+                      </div>
+                    </div>
+                    <div style={{ flex: '1 1 200px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: theme.textMain }}>{akte.thema}</div>
+                      <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion || ''}` : '-'}</div>
+                    </div>
+                    <div style={{ flex: '1 1 100px', textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                      {akte.status === 'Erledigt' ? <span style={{ background: theme.border, color: theme.textMain, padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Erledigt</span> : <span style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
+                      {naechsteFrist && akte.status !== 'Erledigt' && <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold' }}>Frist: {formatDatum(naechsteFrist)}</span>}
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}`, overflowX: 'auto' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 5px 0', color: theme.accent, fontSize: '15px' }}>Verlauf & Dokumente</h4>
+                          <p style={{ margin: '0', fontSize: '12px', color: theme.textMuted }}>Mandant: {akte.unsere_firma} | AZ: {akte.aktenzeichen}</p>
+                        </div>
+                        <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                          {akte.status !== 'Erledigt' ? 
+                            <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="check" size={14} /> Schließen</button>
+                            :
+                            <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="refresh" size={14} /> Wiedereröffnen</button>
+                          }
+                          <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Löschen</button>
+                        </div>
+                      </div>
+
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden', minWidth: '600px' }}>
+                        <thead>
+                          <tr style={{ background: theme.border, color: theme.textMain }}>
+                            <th style={{ padding: '12px', textAlign: 'left' }}>Typ</th>
+                            <th style={{ padding: '12px', textAlign: 'left' }}>Datum</th>
+                            <th style={{ padding: '12px', textAlign: 'left' }}>Aktion</th>
+                            <th style={{ padding: '12px', textAlign: 'left' }}>Frist</th>
+                            <th style={{ padding: '12px', textAlign: 'left' }}>Dokumente</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {akte.akten_historie.map((hist) => (
+                            <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                              <td style={{ padding: '12px', fontWeight: 'bold', color: hist.typ === 'Eingang' ? theme.hintBorder : (hist.typ === 'Ausgang' ? theme.accent : theme.textMuted) }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Icon name={hist.typ === 'Eingang' ? 'in' : (hist.typ === 'Ausgang' ? 'out' : 'note')} size={16} /> {hist.typ}
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px' }}>{formatDatum(hist.datum)}</td>
+                              <td style={{ padding: '12px' }}>{hist.aktion} <br/><span style={{fontSize: '11px', color: theme.textMuted}}>{hist.kanal}</span></td>
+                              <td style={{ padding: '12px', color: theme.warningBorder, fontWeight: 'bold' }}>{formatDatum(hist.frist_extern)}</td>
+                              <td style={{ padding: '12px' }}>
+                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                  const fileName = extractFilename(url);
+                                  return (
+                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '11px', color: theme.textMain }} title={fileName}>
+                                      <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                                    </a>
+                                  )
+                                })}
+                                {uploadingHistId === hist.id ? (
+                                  <span style={{ fontSize: '11px', color: theme.accent }}>⏳...</span>
+                                ) : (
+                                  <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
+                                    + Datei
+                                    <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUpload(hist.id, hist.dokument_url, e)} />
+                                  </label>
+                                )}
+                                {hist.brief_entwurf && (
+                                  <details style={{ cursor: 'pointer', marginTop: '8px' }}>
+                                    <summary style={{ color: theme.accent, fontWeight: 'bold', fontSize: '12px', outline: 'none' }}>Analyse / Text</summary>
+                                    <div style={{ padding: '12px', background: theme.bg, border: `1px solid ${theme.border}`, marginTop: '8px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '11px', maxHeight: '200px', overflowY: 'auto', borderRadius: '6px', color: theme.textMain }}>
+                                      {hist.brief_entwurf}
+                                    </div>
+                                  </details>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
+              )
+            })}
+          </div>
+        </>
+        )}
 
-                <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px', background: theme.bg, borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-                  <strong style={{color: theme.tresorAccent}}>USt-Radar:</strong> {m.ust_intervall} {m.dauerfrist ? '(mit DFV)' : ''}
-                </div>
+        {/* ========================================= */}
+        {/* ============= FIRMEN-TRESOR ============= */}
+        {/* ========================================= */}
+
+        {activeTab === 'tresor' && (
+        <div>
+          <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
+            <Icon name="building" size={24} /> Neuer Mandant / Firma
+          </h2>
+          <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', textAlign: 'left' }}>
+              <div style={{ gridColumn: '1 / -1' }}><h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten</h4></div>
+              <div><label style={labelStyle}>Firma / Person*</label><input required value={m_firmenname} onChange={e=>setM_firmenname(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>Ansprechpartner</label><input value={m_ansprechpartner} onChange={e=>setM_ansprechpartner(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>Adresse</label><input value={m_adresse} onChange={e=>setM_adresse(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>Telefon</label><input value={m_telefon} onChange={e=>setM_telefon(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
+
+              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>2. Wichtige Nummern & Dokumente</h4></div>
+              <div><label style={labelStyle}>Steuernummer</label><input value={m_steuernummer} onChange={e=>setM_steuernummer(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>USt-IdNr.</label><input value={m_ust_id} onChange={e=>setM_ust_id(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>Betriebsnummer</label><input value={m_betriebsnummer} onChange={e=>setM_betriebsnummer(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>VBG-Nummer</label><input value={m_vbg_nummer} onChange={e=>setM_vbg_nummer(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>Handelsregister</label><input value={m_handelsregister} onChange={e=>setM_handelsregister(e.target.value)} style={inputStyle}/></div>
+              
+              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+                <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px'}}>
+                   <Icon name="paperclip" size={16} /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
+                </label>
+                <input id="tresor-datei-upload" type="file" multiple onChange={(e) => setM_dateien(Array.from(e.target.files))} style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}} />
+                {m_dateien.length > 0 && <span style={{fontSize: '13px', color: theme.tresorAccent, marginTop: '8px'}}>Gewählt: {m_dateien.length} Datei(en)</span>}
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
+              <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
+              <div><label style={labelStyle}>Bank</label><input value={m_bank_name} onChange={e=>setM_bank_name(e.target.value)} style={inputStyle}/></div>
+              
+              <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                <label style={labelStyle}>USt-Voranmeldung</label>
+                <select value={m_ust_intervall} onChange={e=>setM_ust_intervall(e.target.value)} style={inputStyle}>
+                  <option value="Monatlich">Monatlich</option>
+                  <option value="Vierteljährlich">Vierteljährlich</option>
+                  <option value="Jährlich">Jährlich (Keine VA)</option>
+                </select>
+              </div>
+              
+              <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center' }}>
+                <label style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input type="checkbox" checked={m_dauerfrist} onChange={e=>setM_dauerfrist(e.target.checked)} style={{ transform: 'scale(1.3)', accentColor: theme.tresorAccent }}/>
+                  Dauerfristverlängerung (DFV)
+                </label>
               </div>
             </div>
-          ))}
-          {mandanten.length === 0 && <div style={{ color: theme.textMuted }}>Noch keine Firmen im Tresor.</div>}
-        </div>
-      </div>
-      )}
+            
+            <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.tresorAccent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.tresorAccent}40` : 'none' }}>
+              {laedt ? 'Speichere...' : '+ Im Tresor ablegen'}
+            </button>
+          </form>
 
+          <h2 style={{ margin: '40px 0 20px 0', color: theme.textMain, textAlign: 'left', fontSize: '20px' }}>🗃️ Gespeicherte Firmen</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', textAlign: 'left' }}>
+            {mandanten.map(m => (
+              <div key={m.id} style={{ ...panelStyle, position: 'relative', marginBottom: 0 }}>
+                <button onClick={() => loescheMandant(m.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px' }} title="Löschen"><Icon name="trash" size={18} /></button>
+                
+                <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px' }}>{m.firmenname}</h3>
+                <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="user" size={14} /> {m.ansprechpartner || '-'}</span>
+                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="phone" size={14} /> {m.telefon || '-'} | <Icon name="mail" size={14} /> {m.email || '-'}</span>
+                </p>
+                
+                <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{m.steuernummer || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{m.ust_id || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{m.vbg_nummer || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{m.betriebsnummer || '-'}</div>
+                  <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>Bank:</strong> {m.iban ? `${m.iban} (${m.bank_name})` : '-'}</div>
+                  
+                  {/* DOKUMENTE ANZEIGEN & NACHTRAG UPLOAD */}
+                  <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+                    <strong style={{color: theme.textMuted, display: 'block', marginBottom: '8px'}}>Dokumente:</strong>
+                    {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
+                      const fileName = extractFilename(url);
+                      return (
+                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '11px', color: theme.textMain }} title={fileName}>
+                          <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                        </a>
+                      )
+                    })}
+                    
+                    {uploadingMandantId === m.id ? (
+                      <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
+                    ) : (
+                      <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
+                        + Datei
+                        <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
+                      </label>
+                    )}
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px', background: theme.bg, borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                    <strong style={{color: theme.tresorAccent}}>USt-Radar:</strong> {m.ust_intervall} {m.dauerfrist ? '(mit DFV)' : ''}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {mandanten.length === 0 && <div style={{ color: theme.textMuted }}>Noch keine Firmen im Tresor.</div>}
+          </div>
+        </div>
+        )}
+      </div>
     </div>
   )
 }
