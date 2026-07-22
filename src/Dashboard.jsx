@@ -106,7 +106,7 @@ export default function Dashboard({ session }) {
     textMuted: '#64748b',
     accent: '#0284c7', 
     accentHover: '#0369a1',
-    tresorAccent: '#0d9488', 
+    tresorAccent: '#0f766e', // Sattes Dunkelgrün/Teal für den Light Mode
     tresorBg: '#f0fdfa',
     inputBg: '#f8fafc',
     inputBorder: '#cbd5e1',
@@ -117,6 +117,19 @@ export default function Dashboard({ session }) {
     hintBorder: '#fde047',
     hintText: '#854d0e' 
   };
+
+  // --- GLOBALER HINTERGRUND EFFEKT ---
+  useEffect(() => {
+    document.body.style.backgroundColor = theme.bg;
+    document.body.style.transition = 'background-color 0.3s ease';
+  }, [isDarkMode, theme.bg]);
+
+  // --- ICON KOMPONENTE ---
+  const Icon = ({ symbol }) => (
+    <span style={{ filter: isDarkMode ? 'brightness(0) invert(1)' : 'grayscale(1) brightness(0)' }}>
+      {symbol}
+    </span>
+  );
 
   const ladeDaten = async () => {
     const { data: aktenData, error: aktenError } = await supabase
@@ -457,7 +470,6 @@ export default function Dashboard({ session }) {
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   // --- STYLES ---
-  // WICHTIG: colorScheme: isDarkMode ? 'dark' : 'light' sorgt dafür, dass das Kalender-Icon bei date-inputs sichtbar bleibt!
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
@@ -470,22 +482,22 @@ export default function Dashboard({ session }) {
       {/* HEADER & THEME TOGGLE */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1 style={{ margin: 0, color: theme.textMain, fontSize: '28px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          📡 Sonar-Cockpit
+          <Icon symbol="📡" /> Sonar-Cockpit
         </h1>
         <button 
           onClick={() => setIsDarkMode(!isDarkMode)} 
           style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-          {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          <Icon symbol={isDarkMode ? '☀️' : '🌙'} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
         </button>
       </div>
 
-      {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE (Nebeneinander) */}
+      {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px' }}>
         
         {/* LINKS: MAGIC IMPORT */}
         <div style={{ ...panelStyle, flex: 1, minWidth: '300px', margin: 0, background: theme.hintBg, border: `1px dashed ${theme.hintBorder}` }}>
           <label style={{...labelStyle, color: theme.hintText, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-            ✨ Magic Import (JSON)
+            <Icon symbol="✨" /> Magic Import (JSON)
           </label>
           <textarea 
             value={jsonImport} onChange={handleJsonImport} 
@@ -496,7 +508,7 @@ export default function Dashboard({ session }) {
 
         {/* RECHTS: SONAR GUIDE */}
         <div style={{ ...panelStyle, flex: 1, minWidth: '300px', margin: 0, background: theme.hintBg, border: `1px solid ${theme.hintBorder}`, color: theme.hintText, display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
-          <div style={{ fontSize: '24px', marginTop: '2px' }}>💡</div>
+          <div style={{ fontSize: '24px', marginTop: '2px' }}><Icon symbol="💡" /></div>
           <div style={{ textAlign: 'left' }}>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.hintText }}>Sonar Guide: {activeTab === 'akten' ? 'Der Workflow' : 'Firmen & Dokumente verwalten'}</h4>
             {activeTab === 'akten' ? (
@@ -518,27 +530,27 @@ export default function Dashboard({ session }) {
 
       </div>
 
-      {/* EBENE 2: TABS & MANUELLER UPLOAD (Gedrittelt, Nebeneinander, Kleiner) */}
+      {/* EBENE 2: TABS & MANUELLER UPLOAD */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
         
         {/* TAB 1: AKTEN */}
         <button 
           onClick={() => setActiveTab('akten')} 
           style={{ flex: 1, minWidth: '200px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}>🗄️</span> Akten-Cockpit
+          <span style={{ fontSize: '20px' }}><Icon symbol="🗄️" /></span> Akten-Cockpit
         </button>
 
-        {/* TAB 2: TRESOR */}
+        {/* TAB 2: TRESOR - NEUE LOGIK FÜR DARK/LIGHT BACKGROUND */}
         <button 
           onClick={() => setActiveTab('tresor')} 
-          style={{ flex: 1, minWidth: '200px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? theme.tresorBg : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}>🏢</span> Firmen-Tresor
+          style={{ flex: 1, minWidth: '200px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '20px' }}><Icon symbol="🏢" /></span> Firmen-Tresor
         </button>
 
         {/* UPLOAD BEREICH */}
         <div style={{ flex: 1, minWidth: '200px', ...panelStyle, margin: 0, padding: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
-             📎 Manueller Upload (PDF/Scan)
+             <Icon symbol="📎" /> Manueller Upload (PDF/Scan)
           </label>
           <input 
             id="datei-upload-manuell" 
@@ -566,7 +578,7 @@ export default function Dashboard({ session }) {
         {(ustRadar.length > 0 || fristenWarnungen.length > 0) && (
           <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}` }}>
             <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              🚨 Dringende Alarme & Fristen
+              <Icon symbol="🚨" /> Dringende Alarme & Fristen
             </h4>
             <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '15px', textAlign: 'left', color: theme.warningText }}>
               {fristenWarnungen.map(w => (
@@ -594,11 +606,11 @@ export default function Dashboard({ session }) {
           <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left' }}>
             <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted }}>
               <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '8px'}}/>
-              📁 Neue Akte anlegen
+              <Icon symbol="📁" /> Neue Akte anlegen
             </label>
             <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted }}>
               <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '8px'}}/>
-              🔗 Zu bestehender Akte {selectedAkteId && '(Match!)'}
+              <Icon symbol="🔗" /> Zu bestehender Akte {selectedAkteId && '(Match!)'}
             </label>
           </div>
 
@@ -665,20 +677,20 @@ export default function Dashboard({ session }) {
 
           {briefEntwurf && (
             <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '30px', textAlign: 'left' }}>
-              <label style={{...labelStyle, color: theme.accent}}>📄 KI Analyse / Textentwurf</label>
+              <label style={{...labelStyle, color: theme.accent}}><Icon symbol="📄" /> KI Analyse / Textentwurf</label>
               <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', border: 'none', background: 'transparent', padding: 0, marginTop: '10px' }} />
             </div>
           )}
 
-          <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.accent}40` : 'none' }}>
+          <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.accent}40` : 'none' }}>
             {laedt ? 'Speichere...' : '+ In Akte abheften'}
           </button>
         </form>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px' }}>
-          <h2 style={{ margin: '0', color: theme.textMain }}>🗄️ Deine Akten</h2>
+          <h2 style={{ margin: '0', color: theme.textMain }}><Icon symbol="🗄️" /> Deine Akten</h2>
           <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '10px 20px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-            {zeigeErledigte ? '🙈 Erledigte ausblenden' : '👁️ Erledigte einblenden'}
+            <Icon symbol={zeigeErledigte ? '🙈' : '👁️'} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
           </button>
         </div>
 
@@ -695,12 +707,12 @@ export default function Dashboard({ session }) {
               <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, opacity: akte.status === 'Erledigt' ? 0.6 : 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', padding: '20px', cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => toggleAkte(akte.id)}>
                   <div style={{ fontSize: '20px', width: '40px', color: theme.accent, textAlign: 'center' }}>
-                    {isExpanded ? '🔽' : '▶️'}
+                    <Icon symbol={isExpanded ? '🔽' : '▶️'} />
                   </div>
                   <div style={{ flex: 2 }}>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
                     <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px' }}>
-                      👤 {akte.gegner_ansprechpartner || '-'}
+                      <Icon symbol="👤" /> {akte.gegner_ansprechpartner || '-'}
                     </div>
                   </div>
                   <div style={{ flex: 3 }}>
@@ -708,7 +720,7 @@ export default function Dashboard({ session }) {
                     <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px' }}>Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion || ''}` : '-'}</div>
                   </div>
                   <div style={{ flex: 1, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                    {akte.status === 'Erledigt' ? <span style={{ background: theme.border, color: theme.textMain, padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Erledigt</span> : <span style={{ background: theme.accent, color: '#000', padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
+                    {akte.status === 'Erledigt' ? <span style={{ background: theme.border, color: theme.textMain, padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Erledigt</span> : <span style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
                     {naechsteFrist && akte.status !== 'Erledigt' && <span style={{ fontSize: '12px', color: theme.warningBorder, fontWeight: 'bold' }}>Frist: {formatDatum(naechsteFrist)}</span>}
                   </div>
                 </div>
@@ -722,11 +734,11 @@ export default function Dashboard({ session }) {
                       </div>
                       <div style={{display: 'flex', gap: '10px'}}>
                         {akte.status !== 'Erledigt' ? 
-                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>✔️ Schließen</button>
+                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}><Icon symbol="✔️" /> Schließen</button>
                           :
-                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>🔄 Wiedereröffnen</button>
+                          <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}><Icon symbol="🔄" /> Wiedereröffnen</button>
                         }
-                        <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>🗑️ Löschen</button>
+                        <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}><Icon symbol="🗑️" /> Löschen</button>
                       </div>
                     </div>
 
@@ -744,7 +756,7 @@ export default function Dashboard({ session }) {
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
                             <td style={{ padding: '12px', fontWeight: 'bold', color: hist.typ === 'Eingang' ? theme.hintBorder : (hist.typ === 'Ausgang' ? theme.accent : theme.textMuted) }}>
-                              {hist.typ === 'Eingang' && '📥 '} {hist.typ === 'Ausgang' && '📤 '} {hist.typ === 'Intern' && '📝 '} {hist.typ}
+                              {hist.typ === 'Eingang' && <Icon symbol="📥" />} {hist.typ === 'Ausgang' && <Icon symbol="📤" />} {hist.typ === 'Intern' && <Icon symbol="📝" />} {hist.typ}
                             </td>
                             <td style={{ padding: '12px' }}>{formatDatum(hist.datum)}</td>
                             <td style={{ padding: '12px' }}>{hist.aktion} <br/><span style={{fontSize: '12px', color: theme.textMuted}}>{hist.kanal}</span></td>
@@ -754,7 +766,7 @@ export default function Dashboard({ session }) {
                                 const fileName = extractFilename(url);
                                 return (
                                   <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-block', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '12px', color: theme.textMain }} title={fileName}>
-                                    📄 {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                                    <Icon symbol="📄" /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
                                   </a>
                                 )
                               })}
@@ -794,7 +806,7 @@ export default function Dashboard({ session }) {
 
       {activeTab === 'tresor' && (
       <div>
-        <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left' }}>🏢 Neuer Mandant / Firma</h2>
+        <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left' }}><Icon symbol="🏢" /> Neuer Mandant / Firma</h2>
         <form onSubmit={speichereMandant} style={panelStyle}>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', textAlign: 'left' }}>
@@ -814,7 +826,7 @@ export default function Dashboard({ session }) {
             
             <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
               <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px'}}>
-                 📎 Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
+                 <Icon symbol="📎" /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
               </label>
               <input id="tresor-datei-upload" type="file" multiple onChange={(e) => setM_dateien(Array.from(e.target.files))} style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}} />
               {m_dateien.length > 0 && <span style={{fontSize: '13px', color: theme.tresorAccent, marginTop: '8px'}}>Gewählt: {m_dateien.length} Datei(en)</span>}
@@ -841,7 +853,7 @@ export default function Dashboard({ session }) {
             </div>
           </div>
           
-          <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.tresorAccent}40` : 'none' }}>
+          <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.tresorAccent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.tresorAccent}40` : 'none' }}>
             {laedt ? 'Speichere...' : '+ Im Tresor ablegen'}
           </button>
         </form>
@@ -850,10 +862,10 @@ export default function Dashboard({ session }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', textAlign: 'left' }}>
           {mandanten.map(m => (
             <div key={m.id} style={{ ...panelStyle, position: 'relative', marginBottom: 0 }}>
-              <button onClick={() => loescheMandant(m.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px' }} title="Löschen">🗑️</button>
+              <button onClick={() => loescheMandant(m.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px' }} title="Löschen"><Icon symbol="🗑️" /></button>
               
               <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '20px' }}>{m.firmenname}</h3>
-              <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: theme.textMuted }}>👤 {m.ansprechpartner || '-'} <br/> 📞 {m.telefon || '-'} | ✉️ {m.email || '-'}</p>
+              <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: theme.textMuted }}><Icon symbol="👤" /> {m.ansprechpartner || '-'} <br/> <Icon symbol="📞" /> {m.telefon || '-'} | <Icon symbol="✉️" /> {m.email || '-'}</p>
               
               <div style={{ fontSize: '13px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{m.steuernummer || '-'}</div>
@@ -869,7 +881,7 @@ export default function Dashboard({ session }) {
                     const fileName = extractFilename(url);
                     return (
                       <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-block', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '12px', color: theme.textMain }} title={fileName}>
-                        📄 {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                        <Icon symbol="📄" /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
                       </a>
                     )
                   })}
