@@ -4,12 +4,13 @@ import { supabase } from './supabaseClient'
 export default function Dashboard({ session }) {
   const [akten, setAkten] = useState([])
   const [laedt, setLaedt] = useState(false)
+  const [uploadingHistId, setUploadingHistId] = useState(null) // Neu: Zeigt Lade-Spinner in der Tabelle
   
   // --- FORMULAR STATE ---
   const [modus, setModus] = useState('neu') 
   const [selectedAkteId, setSelectedAkteId] = useState('')
   
-  // Akten-Stammdaten (Rollen)
+  // Akten-Stammdaten
   const [aktenzeichen, setAktenzeichen] = useState('')
   const [gegnerName, setGegnerName] = useState('')
   const [gegnerAnsprechpartner, setGegnerAnsprechpartner] = useState('')
@@ -83,25 +84,16 @@ export default function Dashboard({ session }) {
         if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
         if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
         if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
-        
-        // Die "Wir"-Felder aus dem JSON übernehmen
         if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
         if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
       }
       
       if (obj.frist_extern) setFristExtern(obj.frist_extern)
       if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
-      
-      // NEU: Aktion, Kanal und Typ auslesen
       if (obj.aktion) setAktion(obj.aktion)
       if (obj.kanal) setKanal(obj.kanal)
       
-      if (obj.typ) {
-        setTyp(obj.typ)
-      } else {
-        setTyp('Eingang')
-      }
-
+      if (obj.typ) { setTyp(obj.typ) } else { setTyp('Eingang') }
       setDatum(new Date().toISOString().split('T')[0])
     } catch(err) { }
   }
@@ -152,19 +144,44 @@ export default function Dashboard({ session }) {
           if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
           if (obj.aktion) setAktion(obj.aktion)
           if (obj.kanal) setKanal(obj.kanal)
-          
-          if (obj.typ) {
-            setTyp(obj.typ)
-          } else {
-            setTyp('Eingang')
-          }
-
+          if (obj.typ) { setTyp(obj.typ) } else { setTyp('Eingang') }
           setDatum(new Date().toISOString().split('T')[0])
         }
       } catch (err) { }
       setKiLaedt(false)
     }
   }
+
+  // --- NACHTRÄGLICHER UPLOAD IN DER HISTORIE ---
+  const handleNachtragUpload = async (histId, currentUrls, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingHistId(histId);
+    
+    const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const dateiName = `${Date.now()}_${sichererDateiname}`; 
+    const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
+
+    if (!uploadError) {
+      const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
+      const newUrl = linkData.publicUrl;
+      // Kombiniert alte Links mit dem neuen (Kommagetrennt)
+      const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
+
+      const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
+      if (!error) {
+        ladeDaten();
+      } else {
+        alert("Fehler in der Datenbank: " + error.message);
+      }
+    } else {
+      alert("Fehler beim Datei-Upload: " + uploadError.message);
+    }
+    
+    setUploadingHistId(null);
+    e.target.value = ''; 
+  };
 
   const speichereEintrag = async (e) => {
     e.preventDefault()
@@ -388,7 +405,6 @@ export default function Dashboard({ session }) {
           </div>
           <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
           
-          {/* NEU: Aktion und Kanal Felder (auch für Magic Import relevant) */}
           <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} placeholder="z.B. Einspruch eingelegt" style={inputStyle} /></div>
           <div><label style={labelStyle}>Kanal (Versand/Empfang)</label><input type="text" value={kanal} onChange={(e) => setKanal(e.target.value)} placeholder="z.B. ELSTER, E-Mail, Post" style={inputStyle} /></div>
           
@@ -504,7 +520,7 @@ export default function Dashboard({ session }) {
                           <th style={{ padding: '8px', textAlign: 'left' }}>Aktion & Kanal</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Frist (Behörde)</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>WV (Intern)</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Dokumente / Text</th>
+                          <th style={{ padding: '8px', textAlign: 'left', minWidth: '150px' }}>Dokumente / Text</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -523,7 +539,22 @@ export default function Dashboard({ session }) {
                             <td style={{ padding: '8px', color: '#c0392b', fontWeight: 'bold' }}>{formatDatum(hist.frist_extern)}</td>
                             <td style={{ padding: '8px' }}>{formatDatum(hist.wiedervorlage)}</td>
                             <td style={{ padding: '8px' }}>
-                              {hist.dokument_url && <a href={hist.dokument_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '10px' }} title="Scan öffnen">📄 Scan</a>}
+                              
+                              {/* DOKUMENTE ANZEIGEN (Kommagetrennt möglich) */}
+                              {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => (
+                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '10px', display: 'inline-block', marginBottom: '4px' }} title="Dokument öffnen">📄 Datei {idx + 1}</a>
+                              ))}
+                              
+                              {/* NEU: NACHTRÄGLICHER UPLOAD BUTTON */}
+                              {uploadingHistId === hist.id ? (
+                                <span style={{ fontSize: '11px', color: '#3498db' }}>⏳ Upload...</span>
+                              ) : (
+                                <label style={{ cursor: 'pointer', fontSize: '11px', background: '#ecf0f1', padding: '2px 6px', borderRadius: '4px', border: '1px solid #bdc3c7', display: 'inline-block', marginBottom: '4px' }}>
+                                  + Datei
+                                  <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUpload(hist.id, hist.dokument_url, e)} />
+                                </label>
+                              )}
+
                               {hist.brief_entwurf && (
                                 <details style={{ cursor: 'pointer', marginTop: '4px' }}>
                                   <summary style={{ color: '#2980b9', fontWeight: 'bold' }}>Text anzeigen</summary>
