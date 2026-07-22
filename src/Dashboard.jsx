@@ -6,18 +6,24 @@ export default function Dashboard({ session }) {
   const [laedt, setLaedt] = useState(false)
   
   // --- FORMULAR STATE ---
-  const [modus, setModus] = useState('neu') // 'neu' oder 'bestehend'
+  const [modus, setModus] = useState('neu') 
   const [selectedAkteId, setSelectedAkteId] = useState('')
   
   // Akten-Stammdaten (Rollen)
   const [aktenzeichen, setAktenzeichen] = useState('')
   const [gegnerName, setGegnerName] = useState('')
   const [gegnerAnsprechpartner, setGegnerAnsprechpartner] = useState('')
+  const [gegnerTelefon, setGegnerTelefon] = useState('')
+  const [gegnerEmail, setGegnerEmail] = useState('')
+  
   const [unsereFirma, setUnsereFirma] = useState('')
   const [unserAnsprechpartner, setUnserAnsprechpartner] = useState('')
+  const [unserTelefon, setUnserTelefon] = useState('')
+  const [unserEmail, setUnserEmail] = useState('')
+  
   const [thema, setThema] = useState('')
   
-  // Historien-Daten (Das einzelne Blatt)
+  // Historien-Daten
   const [typ, setTyp] = useState('Eingang')
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
   const [aktion, setAktion] = useState('')
@@ -33,14 +39,10 @@ export default function Dashboard({ session }) {
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
-  // --- DATEN LADEN ---
   const ladeDaten = async () => {
     const { data, error } = await supabase
       .from('akten')
-      .select(`
-        *,
-        akten_historie (*)
-      `)
+      .select(`*, akten_historie (*)`)
       .order('created_at', { ascending: false })
 
     if (!error && data) {
@@ -50,14 +52,12 @@ export default function Dashboard({ session }) {
         }
       })
       setAkten(data)
-    } else {
-      console.error("Fehler beim Laden:", error)
     }
   }
 
   useEffect(() => { ladeDaten() }, [])
 
-  // --- MAGIC JSON IMPORT & AUTO-MATCHING ---
+  // --- MAGIC JSON IMPORT ---
   const handleJsonImport = (e) => {
     const val = e.target.value
     setJsonImport(val)
@@ -67,7 +67,6 @@ export default function Dashboard({ session }) {
       let matchedAkteId = null;
       if (obj.aktenzeichen) {
         setAktenzeichen(obj.aktenzeichen)
-        // Prüfen, ob eine offene Akte mit diesem Aktenzeichen existiert
         const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
         if (match) {
           matchedAkteId = match.id;
@@ -78,17 +77,20 @@ export default function Dashboard({ session }) {
         }
       }
       
-      if (obj.thema && !matchedAkteId) setThema(obj.thema)
-      if (obj.kontakt && !matchedAkteId) setGegnerName(obj.kontakt) // Aus Abwärtskompatibilität 'kontakt' genannt
-      if (obj.ansprechpartner && !matchedAkteId) setGegnerAnsprechpartner(obj.ansprechpartner)
+      if (!matchedAkteId) {
+        if (obj.thema) setThema(obj.thema)
+        if (obj.kontakt) setGegnerName(obj.kontakt) 
+        if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
+        if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
+        if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
+      }
+      
       if (obj.frist_extern) setFristExtern(obj.frist_extern)
       if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
       
       setTyp('Eingang')
       setDatum(new Date().toISOString().split('T')[0])
-    } catch(err) {
-      // Warten bis JSON komplett ist
-    }
+    } catch(err) { }
   }
 
   // --- KI UPLOAD (1b) ---
@@ -110,7 +112,6 @@ export default function Dashboard({ session }) {
         })
         if (res.ok) {
           const obj = await res.json()
-          
           let matchedAkteId = null;
           if (obj.aktenzeichen) {
             setAktenzeichen(obj.aktenzeichen)
@@ -124,20 +125,25 @@ export default function Dashboard({ session }) {
             }
           }
 
-          if (obj.thema && !matchedAkteId) setThema(obj.thema)
-          if (obj.kontakt && !matchedAkteId) setGegnerName(obj.kontakt)
+          if (!matchedAkteId) {
+            if (obj.thema) setThema(obj.thema)
+            if (obj.kontakt) setGegnerName(obj.kontakt)
+            if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
+            if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
+            if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
+          }
+
           if (obj.frist_extern) setFristExtern(obj.frist_extern)
           if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
           
           setDatum(new Date().toISOString().split('T')[0])
           setTyp('Eingang')
         }
-      } catch (err) { console.error("KI-Fehler:", err) }
+      } catch (err) { }
       setKiLaedt(false)
     }
   }
 
-  // --- SPEICHERN ---
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -163,8 +169,12 @@ export default function Dashboard({ session }) {
           aktenzeichen: aktenzeichen || null,
           gegner_name: gegnerName || null,
           gegner_ansprechpartner: gegnerAnsprechpartner || null,
+          gegner_telefon: gegnerTelefon || null,
+          gegner_email: gegnerEmail || null,
           unsere_firma: unsereFirma || null,
           unser_ansprechpartner: unserAnsprechpartner || null,
+          unser_telefon: unserTelefon || null,
+          unser_email: unserEmail || null,
           thema: thema || null,
           status: 'Offen'
         }]).select()
@@ -190,8 +200,9 @@ export default function Dashboard({ session }) {
 
     if (!histError) {
       setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); 
-      setUnsereFirma(''); setUnserAnsprechpartner(''); setThema('');
-      setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); 
+      setGegnerTelefon(''); setGegnerEmail(''); setUnsereFirma(''); 
+      setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); 
+      setThema(''); setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); 
       setDatei(null); setBriefEntwurf(''); setJsonImport('');
       if (document.getElementById('datei-upload')) document.getElementById('datei-upload').value = '';
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
@@ -202,7 +213,6 @@ export default function Dashboard({ session }) {
     setLaedt(false)
   }
 
-  // --- AKTIONEN ---
   const toggleAkte = (id) => {
     if (aufgeklappteAkten.includes(id)) {
       setAufgeklappteAkten(aufgeklappteAkten.filter(aId => aId !== id))
@@ -224,7 +234,6 @@ export default function Dashboard({ session }) {
     ladeDaten()
   }
 
-  // --- 7-4-2 FRISTEN AMPEL ---
   const berechneTageBisFrist = (datum) => {
     if (!datum) return null;
     const heute = new Date(); heute.setHours(0, 0, 0, 0);
@@ -269,8 +278,7 @@ export default function Dashboard({ session }) {
     <div style={{ marginTop: '20px', padding: '20px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
       <h1 style={{ margin: '0 0 30px 0', color: '#2c3e50', textAlign: 'center' }}>📡 Sonar-Cockpit (Akten-System)</h1>
 
-      {/* --- IMPORT BEREICH --- */}
-      <div style={{ background: '#fcf3cf', padding: '15px', borderRadius: '8px', border: '2px solid #f1c40f', marginBottom: '20px' }}>
+      <div style={{ background: '#fcf3cf', padding: '15px', borderRadius: '8px', border: '2px solid #f1c40f', marginBottom: '20px', textAlign: 'left' }}>
         <label style={{...labelStyle, color: '#d35400', fontSize: '14px'}}>✨ Magic Import: Gemini-Datensatz hier einfügen</label>
         <textarea 
           value={jsonImport} 
@@ -289,14 +297,13 @@ export default function Dashboard({ session }) {
         <div style={{ flex: 1, background: '#e1f5fe', padding: '15px', borderRadius: '8px', border: '2px dashed #0288d1', minWidth: '250px' }}>
           <label style={{...labelStyle, color: '#0277bd'}}>1b. Direkte KI-Analyse 🪄</label>
           <input id="datei-upload" type="file" onChange={handleDateiAuswahlKI} style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} />
-          {kiLaedt && <div style={{ color: '#0277bd', fontWeight: 'bold', marginTop: '5px', fontSize: '12px' }}>⏳ KI liest...</div>}
+          {kiLaedt && <div style={{ color: '#0277bd', fontWeight: 'bold', marginTop: '5px', fontSize: '12px', textAlign: 'left' }}>⏳ KI liest...</div>}
         </div>
       </div>
 
-      {/* --- FORMULAR --- */}
       <form onSubmit={speichereEintrag} style={{ background: '#fdfdfd', padding: '20px', borderRadius: '8px', border: '1px solid #eee', marginBottom: '30px' }}>
         
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '15px', textAlign: 'left' }}>
           <label style={{ fontWeight: 'bold', cursor: 'pointer' }}>
             <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '8px'}}/>
             📁 Neue Akte anlegen
@@ -308,7 +315,7 @@ export default function Dashboard({ session }) {
         </div>
 
         {modus === 'bestehend' && (
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '20px', textAlign: 'left' }}>
             <label style={labelStyle}>Ziel-Akte auswählen*</label>
             <select value={selectedAkteId} onChange={(e) => setSelectedAkteId(e.target.value)} required style={inputStyle}>
               <option value="">-- Bitte wählen --</option>
@@ -317,26 +324,36 @@ export default function Dashboard({ session }) {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
           
           {modus === 'neu' && (
             <>
-              <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>1. Der Gegner (Behörde/Firma)</h4></div>
-              <div><label style={labelStyle}>Name des Gegners*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>Ansprechpartner & Kontakt</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} placeholder="Z.B. Herr Müller, Tel: 0351..." style={inputStyle} /></div>
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '5px' }}>
+                <h4 style={{ margin: '0', color: '#2c3e50', borderBottom: '2px solid #ecf0f1', paddingBottom: '8px' }}>1. Gegenpartei</h4>
+              </div>
+              <div><label style={labelStyle}>Name (Behörde/Firma)*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} placeholder="Z.B. Herr Müller" style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} placeholder="0351..." style={inputStyle} /></div>
+              <div><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} placeholder="mail@..." style={inputStyle} /></div>
               
-              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>2. Wir (Mandant)</h4></div>
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '15px' }}>
+                <h4 style={{ margin: '0', color: '#2c3e50', borderBottom: '2px solid #ecf0f1', paddingBottom: '8px' }}>2. Wir</h4>
+              </div>
               <div><label style={labelStyle}>Unsere Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Unser Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>E-Mail</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
               
-              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>3. Akten-Stammdaten</h4></div>
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '15px' }}>
+                <h4 style={{ margin: '0', color: '#2c3e50', borderBottom: '2px solid #ecf0f1', paddingBottom: '8px' }}>3. Akten-Stammdaten</h4>
+              </div>
               <div><label style={labelStyle}>Bescheid / Thema*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Aktenzeichen</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
             </>
           )}
 
-          <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #eee', paddingTop: '15px', marginTop: '10px' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#7f8c8d' }}>Details zum aktuellen Dokument / Schritt</h4>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '15px' }}>
+            <h4 style={{ margin: '0', color: '#7f8c8d', borderBottom: '2px solid #ecf0f1', paddingBottom: '8px' }}>Details zum aktuellen Dokument / Schritt</h4>
           </div>
 
           <div>
@@ -354,7 +371,7 @@ export default function Dashboard({ session }) {
         </div>
 
         {briefEntwurf && (
-          <div style={{ background: '#f9f9f9', padding: '15px', border: '1px solid #ddd', borderRadius: '8px', marginTop: '15px' }}>
+          <div style={{ background: '#f9f9f9', padding: '15px', border: '1px solid #ddd', borderRadius: '8px', marginTop: '20px', textAlign: 'left' }}>
             <label style={labelStyle}>📄 Generierter Text (Wird direkt als Text in der Akte gespeichert!)</label>
             <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '150px', fontFamily: 'monospace' }} />
           </div>
@@ -365,7 +382,6 @@ export default function Dashboard({ session }) {
         </button>
       </form>
 
-      {/* --- 7-4-2 FRISTEN AMPEL --- */}
       {fristenWarnungen.length > 0 && (
         <div style={{ background: '#fff5f5', borderLeft: '5px solid #c0392b', padding: '15px', marginBottom: '20px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
           <h4 style={{ color: '#c0392b', margin: '0 0 10px 0', textAlign: 'left' }}>🚨 Dringende Fristen & Alarme</h4>
@@ -383,7 +399,6 @@ export default function Dashboard({ session }) {
         </div>
       )}
 
-      {/* --- AKTEN LISTE --- */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h2 style={{ margin: 0 }}>🗄️ Deine Akten</h2>
         <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 15px', background: zeigeErledigte ? '#34495e' : '#ecf0f1', color: zeigeErledigte ? '#fff' : '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -391,14 +406,13 @@ export default function Dashboard({ session }) {
         </button>
       </div>
 
-      <div style={{ borderRadius: '8px', border: '1px solid #bdc3c7', overflow: 'hidden' }}>
+      <div style={{ borderRadius: '8px', border: '1px solid #bdc3c7', overflow: 'hidden', textAlign: 'left' }}>
         {gefilterteAkten.length === 0 && <div style={{padding: '20px', color: '#7f8c8d'}}>Keine Akten gefunden.</div>}
         
         {gefilterteAkten.map((akte) => {
           const isExpanded = aufgeklappteAkten.includes(akte.id);
           const bgColor = akte.status === 'Erledigt' ? '#f8fdf9' : '#fff';
           
-          // Infos für die Hauptzeile ermitteln
           const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[akte.akten_historie.length - 1] : null;
           const offeneFristen = akte.akten_historie ? akte.akten_historie.filter(h => h.frist_extern).sort((a,b) => new Date(a.frist_extern) - new Date(b.frist_extern)) : [];
           const naechsteFrist = offeneFristen.length > 0 ? offeneFristen[0].frist_extern : null;
@@ -406,15 +420,14 @@ export default function Dashboard({ session }) {
           return (
             <div key={akte.id} style={{ borderBottom: '1px solid #ecf0f1', background: bgColor }}>
               
-              {/* AKTEN-KOPF (Die Vorschau-Klammer) */}
               <div style={{ display: 'flex', alignItems: 'center', padding: '15px', cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => toggleAkte(akte.id)} onMouseOver={(e) => e.currentTarget.style.background = '#f1f2f6'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                 <div style={{ fontSize: '20px', width: '30px', color: '#3498db' }}>
                   {isExpanded ? '🔽' : '▶️'}
                 </div>
                 
                 <div style={{ flex: 2 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#2c3e50' }}>{akte.gegner_name || 'Kein Gegner'}</div>
-                  <div style={{ fontSize: '12px', color: '#7f8c8d' }}>👤 {akte.gegner_ansprechpartner || '-'}</div>
+                  <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#2c3e50' }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
+                  <div style={{ fontSize: '12px', color: '#7f8c8d' }}>👤 {akte.gegner_ansprechpartner || '-'} {akte.gegner_telefon && `📞 ${akte.gegner_telefon}`}</div>
                 </div>
                 
                 <div style={{ flex: 3 }}>
@@ -436,7 +449,6 @@ export default function Dashboard({ session }) {
                 </div>
               </div>
 
-              {/* AKTEN-HISTORIE (Die Blätter) - Nur sichtbar wenn aufgeklappt */}
               {isExpanded && (
                 <div style={{ background: '#fafbfc', padding: '15px 20px 20px 45px', borderTop: '1px dashed #bdc3c7' }}>
                   
