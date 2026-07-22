@@ -74,7 +74,6 @@ export default function Dashboard({ session }) {
 
   // --- DATEN LADEN ---
   const ladeDaten = async () => {
-    // Akten laden
     const { data: aktenData, error: aktenError } = await supabase
       .from('akten')
       .select(`*, akten_historie (*)`)
@@ -89,7 +88,6 @@ export default function Dashboard({ session }) {
       setAkten(aktenData)
     }
 
-    // Mandanten laden
     const { data: mandantenData, error: mandantenError } = await supabase
       .from('mandanten')
       .select('*')
@@ -104,6 +102,7 @@ export default function Dashboard({ session }) {
 
   // --- AKTEN LOGIK ---
   const handleJsonImport = (e) => {
+    setActiveTab('akten') // Springt automatisch ins Cockpit
     const val = e.target.value
     setJsonImport(val)
     try {
@@ -143,6 +142,7 @@ export default function Dashboard({ session }) {
   }
 
   const handleDateiAuswahlKI = async (e) => {
+    setActiveTab('akten') // Springt automatisch ins Cockpit
     const file = e.target.files[0]
     if (!file) return
     setDatei(file)
@@ -268,7 +268,6 @@ export default function Dashboard({ session }) {
       }])
 
     if (!histError) {
-      // Reset Formular
       setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); 
       setGegnerTelefon(''); setGegnerEmail(''); setUnsereFirma(''); 
       setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); 
@@ -343,8 +342,6 @@ export default function Dashboard({ session }) {
       setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer('');
       setM_handelsregister(''); setM_iban(''); setM_bank_name('');
       ladeDaten()
-    } else {
-      alert("Fehler beim Speichern: " + error.message)
     }
     setLaedt(false)
   }
@@ -363,7 +360,6 @@ export default function Dashboard({ session }) {
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
   };
 
-  // Fristen aus den Akten
   const fristenWarnungen = [];
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if(akte.akten_historie) {
@@ -383,11 +379,10 @@ export default function Dashboard({ session }) {
   });
   fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
 
-  // USt Radar
   const ustRadar = [];
   const heuteDate = new Date();
   const actYear = heuteDate.getFullYear();
-  const actMonth = heuteDate.getMonth(); // 0 = Jan
+  const actMonth = heuteDate.getMonth(); 
 
   mandanten.forEach(m => {
     if (m.ust_intervall === 'Jährlich' || !m.ust_intervall) return;
@@ -403,7 +398,6 @@ export default function Dashboard({ session }) {
       nextFristDate = new Date(targetYear, targetMonth, 10);
       bezeichnung = `USt (Monat ${targetMonth === 0 ? 12 : targetMonth})`;
       
-      // Falls der 10. diesen Monat noch kommt, müssen wir für "ohne Dauerfrist" den Vormonat checken
       if (heuteDate.getDate() <= 10) {
          let currentShift = m.dauerfrist ? 1 : 0;
          let checkM = actMonth + currentShift;
@@ -414,17 +408,13 @@ export default function Dashboard({ session }) {
       }
     } 
     else if (m.ust_intervall === 'Vierteljährlich') {
-      // Quartals-Enden: März(2), Juni(5), Sep(8), Dez(11)
-      // Fällig: Apr 10, Jul 10, Okt 10, Jan 10 (ohne DFV) -> Verschoben mit DFV um 1 Monat
-      const fälligkeitsMonate = m.dauerfrist ? [4, 7, 10, 1] : [3, 6, 9, 0]; // 0-based
-      
-      // Finde den nächsten fälligen Monat
+      const fälligkeitsMonate = m.dauerfrist ? [4, 7, 10, 1] : [3, 6, 9, 0]; 
       let foundFrist = null;
       for (let i = 0; i < 4; i++) {
         let testMonth = fälligkeitsMonate[i];
         let testYear = actYear;
-        if (m.dauerfrist && testMonth === 1) testYear++; // Feb = nächstes Jahr
-        if (!m.dauerfrist && testMonth === 0) testYear++; // Jan = nächstes Jahr
+        if (m.dauerfrist && testMonth === 1) testYear++; 
+        if (!m.dauerfrist && testMonth === 0) testYear++; 
         
         let testDate = new Date(testYear, testMonth, 10);
         if (testDate >= heuteDate || (testDate.getMonth() === actMonth && heuteDate.getDate() <= 10)) {
@@ -438,7 +428,7 @@ export default function Dashboard({ session }) {
 
     if (nextFristDate) {
       const tage = berechneTageBis(nextFristDate.toISOString().split('T')[0]);
-      if (tage !== null && tage <= 14) { // USt Warnung 14 Tage vorher
+      if (tage !== null && tage <= 14) { 
          ustRadar.push({
            firma: m.firmenname,
            bezeichnung: bezeichnung,
@@ -462,18 +452,51 @@ export default function Dashboard({ session }) {
     <div style={{ marginTop: '20px', padding: '20px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
       <h1 style={{ margin: '0 0 20px 0', color: '#2c3e50', textAlign: 'center' }}>📡 Sonar-Cockpit</h1>
 
-      {/* --- TAB NAVIGATION --- */}
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '30px' }}>
-        <button 
-          onClick={() => setActiveTab('akten')} 
-          style={{ padding: '12px 25px', fontSize: '16px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'akten' ? '#2980b9' : '#ecf0f1', color: activeTab === 'akten' ? '#fff' : '#7f8c8d', transition: '0.2s' }}>
-          🗄️ Akten-Cockpit
-        </button>
-        <button 
-          onClick={() => setActiveTab('tresor')} 
-          style={{ padding: '12px 25px', fontSize: '16px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'tresor' ? '#8e44ad' : '#ecf0f1', color: activeTab === 'tresor' ? '#fff' : '#7f8c8d', transition: '0.2s' }}>
-          🏢 Firmen-Tresor
-        </button>
+      {/* ========================================= */}
+      {/* GLOBALER HEADER (Magic Import + Grid)     */}
+      {/* ========================================= */}
+      
+      {/* 1. MAGIC IMPORT (Volle Breite) */}
+      <div style={{ background: '#fcf3cf', padding: '15px', borderRadius: '8px', border: '2px solid #f1c40f', marginBottom: '20px', textAlign: 'left' }}>
+        <label style={{...labelStyle, color: '#d35400', fontSize: '14px'}}>✨ Magic Import: JSON-Datensatz hier einfügen</label>
+        <textarea 
+          value={jsonImport} 
+          onChange={handleJsonImport} 
+          placeholder='{"typ": "Eingang", "aktenzeichen": "...", "thema": "..."}'
+          style={{ width: '100%', boxSizing: 'border-box', height: '80px', marginTop: '5px', fontFamily: 'monospace', padding: '10px', border: '1px solid #f39c12', borderRadius: '4px' }} 
+        />
+      </div>
+
+      {/* 2. DAS 2x2 GRID (Links Uploads, Rechts Navigation) */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
+        
+        {/* LINKE SPALTE (1a und 1b untereinander) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1, minWidth: '300px' }}>
+          <div style={{ background: '#f5f6fa', padding: '15px', borderRadius: '8px', border: '2px dashed #bdc3c7' }}>
+            <label style={{...labelStyle, color: '#2c3e50'}}>1a. Klassischer Upload (PDF/Scan) 📎</label>
+            <input id="datei-upload-manuell" type="file" onChange={(e) => { setDatei(e.target.files[0]); setActiveTab('akten'); }} style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} />
+          </div>
+          <div style={{ background: '#e1f5fe', padding: '15px', borderRadius: '8px', border: '2px dashed #0288d1' }}>
+            <label style={{...labelStyle, color: '#0277bd'}}>1b. Direkte KI-Analyse 🪄</label>
+            <input id="datei-upload" type="file" onChange={handleDateiAuswahlKI} style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} />
+            {kiLaedt && <div style={{ color: '#0277bd', fontWeight: 'bold', marginTop: '5px', fontSize: '12px', textAlign: 'left' }}>⏳ KI liest...</div>}
+          </div>
+        </div>
+
+        {/* RECHTE SPALTE (Die Tab-Buttons untereinander) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1, minWidth: '300px' }}>
+          <button 
+            onClick={() => setActiveTab('akten')} 
+            style={{ flex: 1, padding: '15px', fontSize: '18px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'akten' ? '#2980b9' : '#ecf0f1', color: activeTab === 'akten' ? '#fff' : '#7f8c8d', transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            🗄️ Akten-Cockpit
+          </button>
+          <button 
+            onClick={() => setActiveTab('tresor')} 
+            style={{ flex: 1, padding: '15px', fontSize: '18px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer', background: activeTab === 'tresor' ? '#8e44ad' : '#ecf0f1', color: activeTab === 'tresor' ? '#fff' : '#7f8c8d', transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            🏢 Firmen-Tresor
+          </button>
+        </div>
+
       </div>
 
       {/* ========================================= */}
@@ -498,28 +521,6 @@ export default function Dashboard({ session }) {
             </ul>
           </div>
         )}
-
-        <div style={{ background: '#fcf3cf', padding: '15px', borderRadius: '8px', border: '2px solid #f1c40f', marginBottom: '20px', textAlign: 'left' }}>
-          <label style={{...labelStyle, color: '#d35400', fontSize: '14px'}}>✨ Magic Import: JSON-Datensatz hier einfügen</label>
-          <textarea 
-            value={jsonImport} 
-            onChange={handleJsonImport} 
-            placeholder='{"typ": "Eingang", "aktenzeichen": "...", "thema": "..."}'
-            style={{ width: '100%', boxSizing: 'border-box', height: '80px', marginTop: '5px', fontFamily: 'monospace', padding: '10px', border: '1px solid #f39c12', borderRadius: '4px' }} 
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '20px' }}>
-          <div style={{ flex: 1, background: '#f5f6fa', padding: '15px', borderRadius: '8px', border: '2px dashed #bdc3c7', minWidth: '250px' }}>
-            <label style={{...labelStyle, color: '#2c3e50'}}>1a. Klassischer Upload (PDF/Scan) 📎</label>
-            <input id="datei-upload-manuell" type="file" onChange={(e) => setDatei(e.target.files[0])} style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} />
-          </div>
-          <div style={{ flex: 1, background: '#e1f5fe', padding: '15px', borderRadius: '8px', border: '2px dashed #0288d1', minWidth: '250px' }}>
-            <label style={{...labelStyle, color: '#0277bd'}}>1b. Direkte KI-Analyse 🪄</label>
-            <input id="datei-upload" type="file" onChange={handleDateiAuswahlKI} style={{...inputStyle, padding: '7px', backgroundColor: '#fff', border: 'none'}} />
-            {kiLaedt && <div style={{ color: '#0277bd', fontWeight: 'bold', marginTop: '5px', fontSize: '12px', textAlign: 'left' }}>⏳ KI liest...</div>}
-          </div>
-        </div>
 
         <form onSubmit={speichereEintrag} style={{ background: '#fdfdfd', padding: '20px', borderRadius: '8px', border: '1px solid #eee', marginBottom: '30px' }}>
           
