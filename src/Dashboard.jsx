@@ -117,7 +117,7 @@ export default function Dashboard({ session }) {
   const [m_dauerfrist, setM_dauerfrist] = useState(false)
   const [m_dateien, setM_dateien] = useState([])
 
-  // --- DESIGN THEME (Light & Dark) ---
+  // --- DESIGN THEME ---
   const theme = isDarkMode ? {
     bg: '#020617', 
     cardBg: '#0f172a', 
@@ -156,21 +156,38 @@ export default function Dashboard({ session }) {
     hintText: '#854d0e' 
   };
 
-  // --- GLOBALER HINTERGRUND & RESET ---
+  // --- GLOBALER HINTERGRUND-KILLER FÜR VITE/REACT DEFAULTS ---
   useEffect(() => {
-    document.body.style.backgroundColor = theme.bg;
-    document.body.style.transition = 'background-color 0.3s ease';
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
+    // Erzwingt, dass die gesamte Seite die Hintergrundfarbe übernimmt und eliminiert jegliche Framework-Ränder
+    const styleId = 'sonar-global-styles';
+    let styleTag = document.getElementById(styleId);
     
-    // Verhindert das Rausfallen bei Standard React Containern
-    const rootNode = document.getElementById('root');
-    if (rootNode) {
-      rootNode.style.maxWidth = '100%';
-      rootNode.style.overflowX = 'hidden';
-      rootNode.style.margin = '0';
-      rootNode.style.padding = '0';
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = styleId;
+      document.head.appendChild(styleTag);
     }
+    
+    styleTag.innerHTML = `
+      html, body, #root {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        min-height: 100vh !important;
+        background-color: ${theme.bg} !important;
+        overflow-x: hidden !important;
+      }
+      * {
+        box-sizing: border-box !important;
+      }
+    `;
+    
+    return () => {
+      // Cleanup falls die Komponente jemals unmounted wird
+      if (styleTag) {
+        document.head.removeChild(styleTag);
+      }
+    };
   }, [isDarkMode, theme.bg]);
 
   const ladeDaten = async () => {
@@ -509,16 +526,16 @@ export default function Dashboard({ session }) {
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   // --- STYLES ---
-  const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
+  const inputStyle = { width: '100%', padding: '12px', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
-  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: isDarkMode ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '20px', boxSizing: 'border-box', width: '100%' };
+  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: isDarkMode ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '20px', width: '100%' };
 
   return (
-    // ZENTRIERTER MASTER-WRAPPER FÜR MOBILE & DESKTOP
-    <div style={{ minHeight: '100vh', background: theme.bg, color: theme.textMain, transition: 'all 0.3s ease', fontFamily: "'Inter', system-ui, sans-serif", width: '100%', overflowX: 'hidden', display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: '1200px', padding: '20px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+    // ZENTRIERTER MASTER-WRAPPER: Stellt sicher, dass auf großen Bildschirmen alles mittig sitzt und auf Mobile nichts herausfällt.
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh' }}>
+      <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
         
         {/* HEADER & THEME TOGGLE */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
@@ -532,8 +549,8 @@ export default function Dashboard({ session }) {
           </button>
         </div>
 
-        {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE (Perfektes CSS Grid) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '20px', width: '100%' }}>
+        {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '20px', width: '100%' }}>
           
           {/* LINKS: MAGIC IMPORT */}
           <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.hintBorder}` }}>
@@ -571,20 +588,20 @@ export default function Dashboard({ session }) {
 
         </div>
 
-        {/* EBENE 2: TABS & MANUELLER UPLOAD (Flex für smarte Button-Aufteilung) */}
+        {/* EBENE 2: TABS & MANUELLER UPLOAD */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '30px', width: '100%' }}>
           
           {/* TAB 1: AKTEN */}
           <button 
             onClick={() => setActiveTab('akten')} 
-            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', boxSizing: 'border-box' }}>
+            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
             <Icon name="cabinet" size={24} /> Akten-Cockpit
           </button>
 
           {/* TAB 2: TRESOR */}
           <button 
             onClick={() => setActiveTab('tresor')} 
-            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', boxSizing: 'border-box' }}>
+            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
             <Icon name="building" size={24} /> Firmen-Tresor
           </button>
 
@@ -758,13 +775,13 @@ export default function Dashboard({ session }) {
                       <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                     </div>
                     <div style={{ flex: '1 1 200px' }}>
-                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: theme.textMain }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
                       <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Icon name="user" size={14} /> {akte.gegner_ansprechpartner || '-'}
                       </div>
                     </div>
                     <div style={{ flex: '1 1 200px' }}>
-                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: theme.textMain }}>{akte.thema}</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>{akte.thema}</div>
                       <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion || ''}` : '-'}</div>
                     </div>
                     <div style={{ flex: '1 1 100px', textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
