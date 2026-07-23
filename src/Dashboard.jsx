@@ -42,7 +42,8 @@ const Icon = ({ name, size = 18, style }) => {
     out: <><polyline points="16 12 12 8 8 12"/><line x1="12" x2="12" y1="16" y2="8"/><path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6"/><path d="M22 12 19 6H5l-3 6"/></>,
     note: <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>,
     phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>,
-    mail: <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>
+    mail: <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>,
+    x: <path d="M18 6L6 18M6 6l12 12"/>
   };
 
   return (
@@ -156,7 +157,7 @@ export default function Dashboard({ session }) {
     hintText: '#854d0e' 
   };
 
-  // --- GLOBALER HINTERGRUND-KILLER FÜR VITE/REACT DEFAULTS ---
+  // --- GLOBALER HINTERGRUND-KILLER ---
   useEffect(() => {
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
@@ -177,7 +178,6 @@ export default function Dashboard({ session }) {
       * {
         box-sizing: border-box !important;
       }
-      /* Entfernt die Kalender-Pfeile in Chrome/Edge, damit sie schöner aussehen */
       input[type="date"]::-webkit-calendar-picker-indicator {
         cursor: pointer;
         opacity: 0.6;
@@ -219,7 +219,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // --- INLINE EDITING FÜR HISTORIE ---
+  // --- INLINE EDITING ---
   const handleInlineEdit = async (histId, feld, wert) => {
     const { error } = await supabase.from('akten_historie').update({ [feld]: wert || null }).eq('id', histId);
     if (!error) {
@@ -235,7 +235,34 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
-  // --- WIEDERVORLAGE QUICK BUTTONS LOGIK ---
+  // --- DATEI LÖSCHEN LOGIK (Akten Historie) ---
+  const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
+    if (!window.confirm("Diese Datei wirklich entfernen?")) return;
+
+    // 1. URL aus dem String entfernen
+    const urlArray = aktuelleUrls.split(',');
+    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
+    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
+
+    // 2. Datenbank Update
+    const { error: dbError } = await supabase.from('akten_historie').update({ dokument_url: neuerUrlString }).eq('id', histId);
+
+    if (!dbError) {
+       // 3. Aus Storage löschen, um Platz zu sparen
+       try {
+          const parts = decodeURIComponent(urlZumLoeschen).split('/');
+          const fileName = parts[parts.length - 1];
+          await supabase.storage.from('dokumente').remove([fileName]);
+       } catch (e) {
+          console.error("Storage delete error", e);
+       }
+       ladeDaten();
+    } else {
+       alert("Fehler beim Löschen der Datei: " + dbError.message);
+    }
+  };
+
+  // --- WIEDERVORLAGE QUICK BUTTONS ---
   const setzeWV = (tage, monate = 0) => {
     const d = new Date();
     d.setDate(d.getDate() + tage);
@@ -362,10 +389,7 @@ export default function Dashboard({ session }) {
       setGegnerTelefon(''); setGegnerEmail(''); setUnsereFirma(''); 
       setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); 
       setThema(''); setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); 
-      
-      // HIER WAR DER FREEZE-FEHLER: Es hieß setDatei statt setDateien!
       setDateien([]); 
-      
       setBriefEntwurf(''); setJsonImport('');
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten()
@@ -425,6 +449,28 @@ export default function Dashboard({ session }) {
     }
     setUploadingMandantId(null);
     e.target.value = ''; 
+  };
+
+  // --- DATEI LÖSCHEN LOGIK (Firmen-Tresor) ---
+  const loescheDateiAusMandant = async (mId, aktuelleUrls, urlZumLoeschen) => {
+    if (!window.confirm("Diese Datei wirklich aus dem Firmen-Profil entfernen?")) return;
+
+    const urlArray = aktuelleUrls.split(',');
+    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
+    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
+
+    const { error: dbError } = await supabase.from('mandanten').update({ dokument_url: neuerUrlString }).eq('id', mId);
+
+    if (!dbError) {
+       try {
+          const parts = decodeURIComponent(urlZumLoeschen).split('/');
+          const fileName = parts[parts.length - 1];
+          await supabase.storage.from('dokumente').remove([fileName]);
+       } catch (e) { }
+       ladeDaten();
+    } else {
+       alert("Fehler beim Löschen: " + dbError.message);
+    }
   };
 
   const speichereMandant = async (e) => {
@@ -700,17 +746,16 @@ export default function Dashboard({ session }) {
                 <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '4px'}}/>
                 <Icon name="link" size={16} /> Zu bestehender Akte {selectedAkteId && '(Match!)'}
               </label>
-            </div>
 
-            {modus === 'bestehend' && (
-              <div style={{ marginBottom: '25px', textAlign: 'left' }}>
-                <label style={labelStyle}>Ziel-Akte auswählen*</label>
-                <select value={selectedAkteId} onChange={(e) => setSelectedAkteId(e.target.value)} required style={inputStyle}>
-                  <option value="">-- Bitte wählen --</option>
-                  {akten.map(a => <option key={a.id} value={a.id}>{a.gegner_name} | {a.thema} (AZ: {a.aktenzeichen || '-'})</option>)}
-                </select>
-              </div>
-            )}
+              {modus === 'bestehend' && (
+                <div style={{ flex: '1 1 200px', marginLeft: 'auto' }}>
+                  <select value={selectedAkteId} onChange={(e) => setSelectedAkteId(e.target.value)} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
+                    <option value="">-- Ziel-Akte wählen --</option>
+                    {akten.map(a => <option key={a.id} value={a.id}>[#{a.id.substring(0,6).toUpperCase()}] {a.gegner_name} | {a.thema}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
               
@@ -766,7 +811,6 @@ export default function Dashboard({ session }) {
               <div><label style={labelStyle}>Kanal</label><input type="text" value={kanal} onChange={(e) => setKanal(e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
               
-              {/* WIEDERVORLAGE QUICK BUTTONS */}
               <div>
                 <label style={labelStyle}>WV (Intern)</label>
                 <input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} />
@@ -815,7 +859,10 @@ export default function Dashboard({ session }) {
                       <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                     </div>
                     <div style={{ flex: '1 1 200px' }}>
-                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>{akte.gegner_name || 'Keine Gegenpartei'}</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>
+                        {akte.gegner_name || 'Keine Gegenpartei'}
+                        <span style={{background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', marginLeft: '8px', color: theme.accent}}>#{akte.id.substring(0,6).toUpperCase()}</span>
+                      </div>
                       <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Icon name="user" size={14} /> {akte.gegner_ansprechpartner || '-'}
                       </div>
@@ -835,7 +882,7 @@ export default function Dashboard({ session }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                           <h4 style={{ margin: '0 0 5px 0', color: theme.accent, fontSize: '15px' }}>Verlauf & Dokumente</h4>
-                          <p style={{ margin: '0', fontSize: '12px', color: theme.textMuted }}>Mandant: {akte.unsere_firma} | AZ: {akte.aktenzeichen}</p>
+                          <p style={{ margin: '0', fontSize: '12px', color: theme.textMuted }}>Interne Sonar-ID: <strong style={{color: theme.textMain}}>#{akte.id.substring(0,6).toUpperCase()}</strong> | Mandant: {akte.unsere_firma} | AZ: {akte.aktenzeichen}</p>
                         </div>
                         <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
                           {akte.status !== 'Erledigt' ? 
@@ -909,9 +956,14 @@ export default function Dashboard({ session }) {
                                 {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
                                   const fileName = extractFilename(url);
                                   return (
-                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '11px', color: theme.textMain }} title={fileName}>
-                                      <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
-                                    </a>
+                                    <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '8px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
+                                        <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                                      </a>
+                                      <button onClick={(e) => { e.preventDefault(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => e.currentTarget.style.color = theme.warningBorder} onMouseOut={(e) => e.currentTarget.style.color = theme.textMuted} title="Datei löschen">
+                                        <Icon name="x" size={12} />
+                                      </button>
+                                    </div>
                                   )
                                 })}
                                 {uploadingHistId === hist.id ? (
@@ -932,7 +984,6 @@ export default function Dashboard({ session }) {
                                 )}
                               </td>
 
-                              {/* LÖSCHEN BUTTON FÜR EINZELNEN EINTRAG */}
                               <td style={{ padding: '12px', textAlign: 'center' }}>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); loescheHistorieEintrag(hist.id); }} 
@@ -1043,9 +1094,14 @@ export default function Dashboard({ session }) {
                     {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
                       const fileName = extractFilename(url);
                       return (
-                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginRight: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px', background: theme.border, padding: '4px 10px', borderRadius: '6px', fontSize: '11px', color: theme.textMain }} title={fileName}>
-                          <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
-                        </a>
+                        <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '8px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
+                            <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
+                          </a>
+                          <button onClick={(e) => { e.preventDefault(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => e.currentTarget.style.color = theme.warningBorder} onMouseOut={(e) => e.currentTarget.style.color = theme.textMuted} title="Datei löschen">
+                            <Icon name="x" size={12} />
+                          </button>
+                        </div>
                       )
                     })}
                     
