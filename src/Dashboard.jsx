@@ -158,16 +158,13 @@ export default function Dashboard({ session }) {
 
   // --- GLOBALER HINTERGRUND-KILLER FÜR VITE/REACT DEFAULTS ---
   useEffect(() => {
-    // Erzwingt, dass die gesamte Seite die Hintergrundfarbe übernimmt und eliminiert jegliche Framework-Ränder
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
-    
     if (!styleTag) {
       styleTag = document.createElement('style');
       styleTag.id = styleId;
       document.head.appendChild(styleTag);
     }
-    
     styleTag.innerHTML = `
       html, body, #root {
         margin: 0 !important;
@@ -180,13 +177,18 @@ export default function Dashboard({ session }) {
       * {
         box-sizing: border-box !important;
       }
-    `;
-    
-    return () => {
-      // Cleanup falls die Komponente jemals unmounted wird
-      if (styleTag) {
-        document.head.removeChild(styleTag);
+      /* Entfernt die Kalender-Pfeile in Chrome/Edge, damit sie schöner aussehen */
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.6;
+        transition: 0.2s;
       }
+      input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        opacity: 1;
+      }
+    `;
+    return () => {
+      if (styleTag) document.head.removeChild(styleTag);
     };
   }, [isDarkMode, theme.bg]);
 
@@ -216,6 +218,30 @@ export default function Dashboard({ session }) {
   }
 
   useEffect(() => { ladeDaten() }, [])
+
+  // --- INLINE EDITING FÜR HISTORIE ---
+  const handleInlineEdit = async (histId, feld, wert) => {
+    const { error } = await supabase.from('akten_historie').update({ [feld]: wert || null }).eq('id', histId);
+    if (!error) {
+      ladeDaten();
+    } else {
+      alert("Fehler beim Speichern: " + error.message);
+    }
+  };
+
+  const loescheHistorieEintrag = async (histId) => {
+    if(!window.confirm("Diesen einzelnen Eintrag aus der Akte löschen?")) return;
+    await supabase.from('akten_historie').delete().eq('id', histId);
+    ladeDaten();
+  };
+
+  // --- WIEDERVORLAGE QUICK BUTTONS LOGIK ---
+  const setzeWV = (tage, monate = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + tage);
+    if (monate > 0) d.setMonth(d.getMonth() + monate);
+    setWiedervorlage(d.toISOString().split('T')[0]);
+  };
 
   // --- AKTEN LOGIK ---
   const handleJsonImport = (e) => {
@@ -336,7 +362,11 @@ export default function Dashboard({ session }) {
       setGegnerTelefon(''); setGegnerEmail(''); setUnsereFirma(''); 
       setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); 
       setThema(''); setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); 
-      setDatei([]); setBriefEntwurf(''); setJsonImport('');
+      
+      // HIER WAR DER FREEZE-FEHLER: Es hieß setDatei statt setDateien!
+      setDateien([]); 
+      
+      setBriefEntwurf(''); setJsonImport('');
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten()
     }
@@ -526,14 +556,14 @@ export default function Dashboard({ session }) {
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   // --- STYLES ---
-  const inputStyle = { width: '100%', padding: '12px', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
+  const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: isDarkMode ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '20px', width: '100%' };
+  const quickBtnStyle = { background: theme.border, color: theme.textMain, border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' };
 
   return (
-    // ZENTRIERTER MASTER-WRAPPER: Stellt sicher, dass auf großen Bildschirmen alles mittig sitzt und auf Mobile nichts herausfällt.
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh' }}>
       <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
         
@@ -735,7 +765,17 @@ export default function Dashboard({ session }) {
               <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>Kanal</label><input type="text" value={kanal} onChange={(e) => setKanal(e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>WV (Intern)</label><input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} /></div>
+              
+              {/* WIEDERVORLAGE QUICK BUTTONS */}
+              <div>
+                <label style={labelStyle}>WV (Intern)</label>
+                <input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button type="button" onClick={() => setzeWV(7)} style={quickBtnStyle}>+1W</button>
+                  <button type="button" onClick={() => setzeWV(14)} style={quickBtnStyle}>+2W</button>
+                  <button type="button" onClick={() => setzeWV(0, 1)} style={quickBtnStyle}>+1M</button>
+                </div>
+              </div>
             </div>
 
             {briefEntwurf && (
@@ -803,31 +843,68 @@ export default function Dashboard({ session }) {
                             :
                             <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="refresh" size={14} /> Wiedereröffnen</button>
                           }
-                          <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Löschen</button>
+                          <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
                         </div>
                       </div>
 
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden', minWidth: '600px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden', minWidth: '700px' }}>
                         <thead>
                           <tr style={{ background: theme.border, color: theme.textMain }}>
-                            <th style={{ padding: '12px', textAlign: 'left' }}>Typ</th>
-                            <th style={{ padding: '12px', textAlign: 'left' }}>Datum</th>
+                            <th style={{ padding: '12px', textAlign: 'left', width: '100px' }}>Typ</th>
+                            <th style={{ padding: '12px', textAlign: 'left', width: '140px' }}>Datum</th>
                             <th style={{ padding: '12px', textAlign: 'left' }}>Aktion</th>
-                            <th style={{ padding: '12px', textAlign: 'left' }}>Frist</th>
+                            <th style={{ padding: '12px', textAlign: 'left', width: '140px' }}>Frist</th>
                             <th style={{ padding: '12px', textAlign: 'left' }}>Dokumente</th>
+                            <th style={{ padding: '12px', textAlign: 'center', width: '40px' }}></th>
                           </tr>
                         </thead>
                         <tbody>
                           {akte.akten_historie.map((hist) => (
                             <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                              
                               <td style={{ padding: '12px', fontWeight: 'bold', color: hist.typ === 'Eingang' ? theme.hintBorder : (hist.typ === 'Ausgang' ? theme.accent : theme.textMuted) }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <Icon name={hist.typ === 'Eingang' ? 'in' : (hist.typ === 'Ausgang' ? 'out' : 'note')} size={16} /> {hist.typ}
                                 </div>
                               </td>
-                              <td style={{ padding: '12px' }}>{formatDatum(hist.datum)}</td>
-                              <td style={{ padding: '12px' }}>{hist.aktion} <br/><span style={{fontSize: '11px', color: theme.textMuted}}>{hist.kanal}</span></td>
-                              <td style={{ padding: '12px', color: theme.warningBorder, fontWeight: 'bold' }}>{formatDatum(hist.frist_extern)}</td>
+
+                              {/* INLINE EDIT: Datum */}
+                              <td style={{ padding: '12px' }}>
+                                <input 
+                                  type="date" 
+                                  defaultValue={hist.datum || ''} 
+                                  onBlur={(e) => { if(e.target.value !== (hist.datum||'')) handleInlineEdit(hist.id, 'datum', e.target.value) }} 
+                                  style={{ background: 'transparent', border: '1px dashed transparent', color: theme.textMain, fontSize: '13px', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light', cursor: 'text', padding: '4px', borderRadius: '4px' }} 
+                                  onFocus={(e) => e.target.style.border = `1px dashed ${theme.accent}`} 
+                                  onBlurCapture={(e) => e.target.style.border = '1px dashed transparent'}
+                                />
+                              </td>
+
+                              {/* INLINE EDIT: Aktion */}
+                              <td style={{ padding: '12px' }}>
+                                <input 
+                                  type="text" 
+                                  defaultValue={hist.aktion || ''} 
+                                  onBlur={(e) => { if(e.target.value !== (hist.aktion||'')) handleInlineEdit(hist.id, 'aktion', e.target.value) }} 
+                                  style={{ background: 'transparent', border: '1px dashed transparent', color: theme.textMain, fontSize: '13px', outline: 'none', cursor: 'text', width: '100%', padding: '4px', borderRadius: '4px' }} 
+                                  onFocus={(e) => e.target.style.border = `1px dashed ${theme.accent}`} 
+                                  onBlurCapture={(e) => e.target.style.border = '1px dashed transparent'}
+                                />
+                                <br/><span style={{fontSize: '11px', color: theme.textMuted, marginLeft: '4px'}}>{hist.kanal}</span>
+                              </td>
+
+                              {/* INLINE EDIT: Frist */}
+                              <td style={{ padding: '12px' }}>
+                                <input 
+                                  type="date" 
+                                  defaultValue={hist.frist_extern || ''} 
+                                  onBlur={(e) => { if(e.target.value !== (hist.frist_extern||'')) handleInlineEdit(hist.id, 'frist_extern', e.target.value) }} 
+                                  style={{ background: 'transparent', border: '1px dashed transparent', color: theme.warningBorder, fontWeight: 'bold', fontSize: '13px', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light', cursor: 'text', padding: '4px', borderRadius: '4px' }} 
+                                  onFocus={(e) => e.target.style.border = `1px dashed ${theme.accent}`} 
+                                  onBlurCapture={(e) => e.target.style.border = '1px dashed transparent'}
+                                />
+                              </td>
+
                               <td style={{ padding: '12px' }}>
                                 {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
                                   const fileName = extractFilename(url);
@@ -854,6 +931,20 @@ export default function Dashboard({ session }) {
                                   </details>
                                 )}
                               </td>
+
+                              {/* LÖSCHEN BUTTON FÜR EINZELNEN EINTRAG */}
+                              <td style={{ padding: '12px', textAlign: 'center' }}>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); loescheHistorieEintrag(hist.id); }} 
+                                  style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px', opacity: 0.6, transition: '0.2s' }} 
+                                  onMouseOver={(e) => e.currentTarget.style.opacity = 1} 
+                                  onMouseOut={(e) => e.currentTarget.style.opacity = 0.6} 
+                                  title="Eintrag löschen"
+                                >
+                                  <Icon name="trash" size={14} />
+                                </button>
+                              </td>
+
                             </tr>
                           ))}
                         </tbody>
