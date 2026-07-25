@@ -208,7 +208,7 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- CHECKBOX TOGGLE FUNKTION ---
+  // --- FUNKTION FÜR CHECKBOX-STEUERUNG IM TRESOR-ASSISTENT ---
   const toggleTresorUpdateKey = (key) => {
     setTresorPrompt(prev => {
       if (!prev) return prev;
@@ -219,7 +219,7 @@ export default function Dashboard({ session }) {
     });
   };
 
-  // --- JSON IMPORT INKLUSIVE FUZZY SEARCH & CHECKBOX-LOGIK ---
+  // --- JSON IMPORT INKLUSIVE FUZZY SEARCH & STRENGER NULL-KONTROLLE ---
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
@@ -269,10 +269,14 @@ export default function Dashboard({ session }) {
            setUnserEmail(obj.unser_email || existingMandant.email || '');
 
            let updates = {};
+           
+           // HIER IST DIE MAGIE GEGEN DAS NULL-PROBLEM!
+           // n ist nur dann ein gültiger Wert, wenn er echten Inhalt hat (kein "null", "undefined" oder leer).
+           // Es wird NUR ein Update vorgeschlagen, wenn n existiert UND abweicht.
            const checkUpdate = (oldVal, newVal) => {
-             const o = oldVal || '';
-             const n = newVal || '';
-             return (n && o !== n) ? n : null;
+             const o = (!oldVal || oldVal === 'null' || oldVal === 'undefined') ? '' : String(oldVal).trim();
+             const n = (!newVal || newVal === 'null' || newVal === 'undefined') ? '' : String(newVal).trim();
+             return (n !== '' && o !== n) ? n : null;
            };
            
            let u1 = checkUpdate(existingMandant.ansprechpartner, obj.unser_ansprechpartner); if(u1) updates.ansprechpartner = u1;
@@ -310,16 +314,16 @@ export default function Dashboard({ session }) {
       const { data, error } = await supabase.from('mandanten').insert([{
         user_id: session.user.id,
         firmenname: tresorPrompt.obj.unsere_firma,
-        ansprechpartner: tresorPrompt.obj.unser_ansprechpartner || '',
-        telefon: tresorPrompt.obj.unser_telefon || '',
-        email: tresorPrompt.obj.unser_email || '',
-        adresse: tresorPrompt.obj.unsere_adresse || '',
-        steuernummer: tresorPrompt.obj.unsere_steuernummer || '',
-        ust_id: tresorPrompt.obj.unsere_ust_id || '',
-        handelsregister: tresorPrompt.obj.unsere_handelsregister || '',
-        betriebsnummer: tresorPrompt.obj.unsere_betriebsnummer || '',
-        vbg_nummer: tresorPrompt.obj.unsere_vbg_nummer || '',
-        iban: tresorPrompt.obj.unsere_iban || ''
+        ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
+        telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '',
+        email: cleanVal(tresorPrompt.obj.unser_email) || '',
+        adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
+        steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
+        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
+        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
+        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
+        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
+        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
       if (!error && data) setMandanten(prev => [...prev, data[0]]);
     } else if (tresorPrompt.typ === 'update') {
@@ -386,16 +390,16 @@ export default function Dashboard({ session }) {
         await supabase.from('mandanten').insert([{
           user_id: session.user.id,
           firmenname: tresorPrompt.obj.unsere_firma,
-          ansprechpartner: tresorPrompt.obj.unser_ansprechpartner || '',
-          telefon: tresorPrompt.obj.unser_telefon || '',
-          email: tresorPrompt.obj.unser_email || '',
-          adresse: tresorPrompt.obj.unsere_adresse || '',
-          steuernummer: tresorPrompt.obj.unsere_steuernummer || '',
-          ust_id: tresorPrompt.obj.unsere_ust_id || '',
-          handelsregister: tresorPrompt.obj.unsere_handelsregister || '',
-          betriebsnummer: tresorPrompt.obj.unsere_betriebsnummer || '',
-          vbg_nummer: tresorPrompt.obj.unsere_vbg_nummer || '',
-          iban: tresorPrompt.obj.unsere_iban || ''
+          ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
+          telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '',
+          email: cleanVal(tresorPrompt.obj.unser_email) || '',
+          adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
+          steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
+          ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
+          handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
+          betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
+          vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
+          iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
         }]);
       } else if (tresorPrompt.typ === 'update') {
         let finalUpdates = {};
