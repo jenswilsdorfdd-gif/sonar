@@ -191,16 +191,36 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- NEUE LOGIK: AUTOMATISCHER TRESOR-ABGLEICH BEIM IMPORT ---
+  // --- REPARIERTER JSON IMPORT ---
   const handleJsonImport = async (e) => {
     setActiveTab('akten')
     const val = e.target.value
     setJsonImport(val)
+    
     try {
       const obj = JSON.parse(val)
+
+      // 1. IMMER alle Felder befüllen (Löst das Problem mit dem leeren Formular!)
+      if (obj.aktenzeichen) setAktenzeichen(obj.aktenzeichen)
+      if (obj.thema) setThema(obj.thema)
+      if (obj.kontakt) setGegnerName(obj.kontakt) 
+      if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
+      if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
+      if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
+      if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
+      if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
+      if (obj.unser_telefon) setUnserTelefon(obj.unser_telefon)
+      if (obj.unser_email) setUnserEmail(obj.unser_email)
+      if (obj.frist_extern) setFristExtern(obj.frist_extern)
+      if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
+      if (obj.aktion) setAktion(obj.aktion)
+      if (obj.kanal) setKanal(obj.kanal)
+      if (obj.typ) { setTyp(obj.typ) } else { setTyp('Eingang') }
+      setDatum(new Date().toISOString().split('T')[0])
+
+      // 2. Prüfen, ob wir das Aktenzeichen schon kennen
       let matchedAkteId = null;
       if (obj.aktenzeichen) {
-        setAktenzeichen(obj.aktenzeichen)
         const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
         if (match) {
           matchedAkteId = match.id;
@@ -209,61 +229,49 @@ export default function Dashboard({ session }) {
         } else {
           setModus('neu');
         }
+      } else {
+        setModus('neu');
       }
-      
-      if (!matchedAkteId) {
-        if (obj.thema) setThema(obj.thema)
-        if (obj.kontakt) setGegnerName(obj.kontakt) 
-        if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
-        if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
-        if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
-        if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
-        if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
-        if (obj.unser_telefon) setUnserTelefon(obj.unser_telefon)
-        if (obj.unser_email) setUnserEmail(obj.unser_email)
-      }
-      
-      if (obj.frist_extern) setFristExtern(obj.frist_extern)
-      if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
-      if (obj.aktion) setAktion(obj.aktion)
-      if (obj.kanal) setKanal(obj.kanal)
-      if (obj.typ) { setTyp(obj.typ) } else { setTyp('Eingang') }
-      setDatum(new Date().toISOString().split('T')[0])
 
-      // === FEATURE 1: AUTO-MANDANT ANLEGEN / ERGÄNZEN ===
-      if (obj.unsere_firma) {
-        const existingMandant = mandanten.find(m => m.firmenname.toLowerCase() === obj.unsere_firma.toLowerCase());
-        
-        if (!existingMandant) {
-          if (window.confirm(`Die Firma "${obj.unsere_firma}" ist noch nicht im Tresor.\nSoll sie automatisch als neuer Mandant angelegt werden?`)) {
-             const { data, error } = await supabase.from('mandanten').insert([{
-               user_id: session.user.id,
-               firmenname: obj.unsere_firma,
-               ansprechpartner: obj.unser_ansprechpartner || '',
-               telefon: obj.unser_telefon || '',
-               email: obj.unser_email || ''
-             }]).select();
-             if (!error && data) {
-               setMandanten([...mandanten, data[0]]);
+      // 3. AUTO-MANDANT ANLEGEN / ERGÄNZEN (Verzögert, damit React das Formular zuerst zeichnet!)
+      setTimeout(async () => {
+        if (obj.unsere_firma) {
+          // Sichere Abfrage mit ?. gegen Abstürze bei leeren Tresoreinträgen
+          const existingMandant = mandanten.find(m => m.firmenname?.toLowerCase() === obj.unsere_firma?.toLowerCase());
+          
+          if (!existingMandant) {
+            if (window.confirm(`Die Firma "${obj.unsere_firma}" ist noch nicht im Tresor.\nSoll sie automatisch als neuer Mandant angelegt werden?`)) {
+               const { data, error } = await supabase.from('mandanten').insert([{
+                 user_id: session.user.id,
+                 firmenname: obj.unsere_firma,
+                 ansprechpartner: obj.unser_ansprechpartner || '',
+                 telefon: obj.unser_telefon || '',
+                 email: obj.unser_email || ''
+               }]).select();
+               if (!error && data) {
+                 setMandanten(prev => [...prev, data[0]]);
+               }
+            }
+          } else {
+             // Update-Logik für fehlende Daten
+             let updates = {};
+             if (obj.unser_ansprechpartner && !existingMandant.ansprechpartner) updates.ansprechpartner = obj.unser_ansprechpartner;
+             if (obj.unser_telefon && !existingMandant.telefon) updates.telefon = obj.unser_telefon;
+             if (obj.unser_email && !existingMandant.email) updates.email = obj.unser_email;
+
+             if (Object.keys(updates).length > 0) {
+               if(window.confirm(`Für "${obj.unsere_firma}" gibt es neue Kontaktdaten im JSON.\nSollen die leeren Tresor-Felder ergänzt werden?`)) {
+                 await supabase.from('mandanten').update(updates).eq('id', existingMandant.id);
+                 ladeDaten();
+               }
              }
           }
-        } else {
-           // Firma existiert. Prüfen, ob JSON neue Kontakt-Daten hat, die im Tresor fehlen.
-           let updates = {};
-           if (obj.unser_ansprechpartner && !existingMandant.ansprechpartner) updates.ansprechpartner = obj.unser_ansprechpartner;
-           if (obj.unser_telefon && !existingMandant.telefon) updates.telefon = obj.unser_telefon;
-           if (obj.unser_email && !existingMandant.email) updates.email = obj.unser_email;
-
-           if (Object.keys(updates).length > 0) {
-             if(window.confirm(`Für "${obj.unsere_firma}" gibt es neue Kontaktdaten im JSON.\nSollen die leeren Tresor-Felder ergänzt werden?`)) {
-               await supabase.from('mandanten').update(updates).eq('id', existingMandant.id);
-               ladeDaten();
-             }
-           }
         }
-      }
+      }, 150); // 150ms Pause, damit das Dashboard nicht einfriert
       
-    } catch(err) { }
+    } catch(err) { 
+      console.error("JSON Error:", err);
+    }
   }
 
   // --- AUTOMATISCHER VERSAND (E-Mail / E-Fax) ---
@@ -282,7 +290,7 @@ export default function Dashboard({ session }) {
       alert("⚠️ Bitte trage zuerst eine Telefon- oder Faxnummer der Gegenseite ein!");
       return;
     }
-    const faxNr = gegnerTelefon.replace(/[^0-9+]/g, ''); // Nur Zahlen filtern
+    const faxNr = gegnerTelefon.replace(/[^0-9+]/g, ''); 
     const subject = encodeURIComponent(`FAX-Versand zu Aktenzeichen: ${aktenzeichen || 'Neu'}`);
     const body = encodeURIComponent(briefEntwurf || '');
     
