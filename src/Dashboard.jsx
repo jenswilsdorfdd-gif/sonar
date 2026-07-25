@@ -208,7 +208,6 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- FUNKTION FÜR CHECKBOX-STEUERUNG IM TRESOR-ASSISTENT ---
   const toggleTresorUpdateKey = (key) => {
     setTresorPrompt(prev => {
       if (!prev) return prev;
@@ -219,7 +218,6 @@ export default function Dashboard({ session }) {
     });
   };
 
-  // --- JSON IMPORT INKLUSIVE FUZZY SEARCH & STRENGER NULL-KONTROLLE ---
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
@@ -484,7 +482,6 @@ export default function Dashboard({ session }) {
     }
   }
 
-  // --- DATEN IN FORMULAR LADEN (KLICKBARE KARTE) ---
   const ladeInFormular = (m) => {
     setEditMandantId(m.id);
     setM_firmenname(cleanVal(m.firmenname) || '');
@@ -718,9 +715,12 @@ export default function Dashboard({ session }) {
               {activeTab === 'akten' ? (
                 <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
                   1. Dokument in der <strong>SONAR KI</strong> hochladen. <br/>
-                  2. Aktion wählen & Daten per <strong>grünem Button</strong> ans Cockpit senden (Eingang). <br/>
-                  3. Entwurf in der KI freigeben & verschicken. <br/>
-                  4. Finale Daten per <strong>grünem Button</strong> senden (Ausgang) & Dokument anhängen.
+                  2. Geführter Beratungsprozess startet. <br/>
+                  3. Für Datenablage freigeben oder Antwort erzeugen. <br/>
+                  4. Ergebnis freigeben. <br/>
+                  5. <strong>Grüner Button</strong> zur Datenübergabe wird erzeugt. <br/>
+                  6. Im Cockpit: Neue Akte anlegen oder beilegen. <br/>
+                  7. (Ggf. Dokument an Gegenpartei versenden).
                 </p>
               ) : (
                 <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
