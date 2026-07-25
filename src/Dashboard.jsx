@@ -683,7 +683,7 @@ export default function Dashboard({ session }) {
         {/* HEADER & THEME TOGGLE */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icon name="radar" size={24} style={{ color: activeTab === 'akten' ? theme.accent : theme.tresorAccent }} /> Sonar-Cockpit
+            <Icon name="radar" size={24} style={{ color: theme.accent }} /> SONAR COCKPIT
           </h1>
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)} 
