@@ -93,6 +93,7 @@ export default function Dashboard({ session }) {
   const [dateien, setDateien] = useState([])
   const [briefEntwurf, setBriefEntwurf] = useState('')
   const [jsonImport, setJsonImport] = useState('')
+  const [tresorPrompt, setTresorPrompt] = useState(null) // NEU: Steuert die UI-Tresor-Abfrage
 
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
@@ -192,7 +193,7 @@ export default function Dashboard({ session }) {
   };
 
   // --- REPARIERTER JSON IMPORT ---
-  const handleJsonImport = async (e) => {
+  const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
     setJsonImport(val)
@@ -200,30 +201,28 @@ export default function Dashboard({ session }) {
     try {
       const obj = JSON.parse(val)
 
-      // 1. IMMER alle Felder befüllen (Löst das Problem mit dem leeren Formular!)
-      if (obj.aktenzeichen) setAktenzeichen(obj.aktenzeichen)
-      if (obj.thema) setThema(obj.thema)
-      if (obj.kontakt) setGegnerName(obj.kontakt) 
-      if (obj.ansprechpartner) setGegnerAnsprechpartner(obj.ansprechpartner)
-      if (obj.gegner_telefon) setGegnerTelefon(obj.gegner_telefon)
-      if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
-      if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
-      if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
-      if (obj.unser_telefon) setUnserTelefon(obj.unser_telefon)
-      if (obj.unser_email) setUnserEmail(obj.unser_email)
-      if (obj.frist_extern) setFristExtern(obj.frist_extern)
-      if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
-      if (obj.aktion) setAktion(obj.aktion)
-      if (obj.kanal) setKanal(obj.kanal)
-      if (obj.typ) { setTyp(obj.typ) } else { setTyp('Eingang') }
+      // 1. IMMER alle Felder radikal befüllen, egal was passiert!
+      setAktenzeichen(obj.aktenzeichen || '')
+      setThema(obj.thema || '')
+      setGegnerName(obj.kontakt || '') 
+      setGegnerAnsprechpartner(obj.ansprechpartner || '')
+      setGegnerTelefon(obj.gegner_telefon || '')
+      setGegnerEmail(obj.gegner_email || '')
+      setUnsereFirma(obj.unsere_firma || '')
+      setUnserAnsprechpartner(obj.unser_ansprechpartner || '')
+      setUnserTelefon(obj.unser_telefon || '')
+      setUnserEmail(obj.unser_email || '')
+      setFristExtern(obj.frist_extern || '')
+      setBriefEntwurf(obj.brief_entwurf || '')
+      setAktion(obj.aktion || '')
+      setKanal(obj.kanal || '')
+      setTyp(obj.typ || 'Eingang')
       setDatum(new Date().toISOString().split('T')[0])
 
-      // 2. Prüfen, ob wir das Aktenzeichen schon kennen
-      let matchedAkteId = null;
+      // 2. Prüfen, ob wir das Aktenzeichen schon kennen (nur für die visuelle Umschaltung)
       if (obj.aktenzeichen) {
         const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
         if (match) {
-          matchedAkteId = match.id;
           setModus('bestehend');
           setSelectedAkteId(match.id);
         } else {
@@ -233,46 +232,50 @@ export default function Dashboard({ session }) {
         setModus('neu');
       }
 
-      // 3. AUTO-MANDANT ANLEGEN / ERGÄNZEN (Verzögert, damit React das Formular zuerst zeichnet!)
-      setTimeout(async () => {
-        if (obj.unsere_firma) {
-          // Sichere Abfrage mit ?. gegen Abstürze bei leeren Tresoreinträgen
-          const existingMandant = mandanten.find(m => m.firmenname?.toLowerCase() === obj.unsere_firma?.toLowerCase());
-          
-          if (!existingMandant) {
-            if (window.confirm(`Die Firma "${obj.unsere_firma}" ist noch nicht im Tresor.\nSoll sie automatisch als neuer Mandant angelegt werden?`)) {
-               const { data, error } = await supabase.from('mandanten').insert([{
-                 user_id: session.user.id,
-                 firmenname: obj.unsere_firma,
-                 ansprechpartner: obj.unser_ansprechpartner || '',
-                 telefon: obj.unser_telefon || '',
-                 email: obj.unser_email || ''
-               }]).select();
-               if (!error && data) {
-                 setMandanten(prev => [...prev, data[0]]);
-               }
-            }
-          } else {
-             // Update-Logik für fehlende Daten
-             let updates = {};
-             if (obj.unser_ansprechpartner && !existingMandant.ansprechpartner) updates.ansprechpartner = obj.unser_ansprechpartner;
-             if (obj.unser_telefon && !existingMandant.telefon) updates.telefon = obj.unser_telefon;
-             if (obj.unser_email && !existingMandant.email) updates.email = obj.unser_email;
+      // 3. AUTO-MANDANT ANLEGEN / ERGÄNZEN (Jetzt sauber via React-State statt blockierendem Alert)
+      if (obj.unsere_firma) {
+        const existingMandant = mandanten.find(m => m.firmenname?.toLowerCase() === obj.unsere_firma?.toLowerCase());
+        
+        if (!existingMandant) {
+          // Neues Firmen-Objekt für den Prompt merken
+          setTresorPrompt({ typ: 'neu', obj });
+        } else {
+           // Update-Logik für fehlende Daten
+           let updates = {};
+           if (obj.unser_ansprechpartner && !existingMandant.ansprechpartner) updates.ansprechpartner = obj.unser_ansprechpartner;
+           if (obj.unser_telefon && !existingMandant.telefon) updates.telefon = obj.unser_telefon;
+           if (obj.unser_email && !existingMandant.email) updates.email = obj.unser_email;
 
-             if (Object.keys(updates).length > 0) {
-               if(window.confirm(`Für "${obj.unsere_firma}" gibt es neue Kontaktdaten im JSON.\nSollen die leeren Tresor-Felder ergänzt werden?`)) {
-                 await supabase.from('mandanten').update(updates).eq('id', existingMandant.id);
-                 ladeDaten();
-               }
-             }
-          }
+           if (Object.keys(updates).length > 0) {
+              setTresorPrompt({ typ: 'update', existingId: existingMandant.id, updates, firma: obj.unsere_firma });
+           }
         }
-      }, 150); // 150ms Pause, damit das Dashboard nicht einfriert
+      }
       
     } catch(err) { 
       console.error("JSON Error:", err);
     }
   }
+
+  // --- LOGIK FÜR DEN TRESOR-ASSISTENTEN (JA-BUTTON) ---
+  const handleTresorPromptAccept = async () => {
+    if (!tresorPrompt) return;
+    
+    if (tresorPrompt.typ === 'neu') {
+      const { data, error } = await supabase.from('mandanten').insert([{
+        user_id: session.user.id,
+        firmenname: tresorPrompt.obj.unsere_firma,
+        ansprechpartner: tresorPrompt.obj.unser_ansprechpartner || '',
+        telefon: tresorPrompt.obj.unser_telefon || '',
+        email: tresorPrompt.obj.unser_email || ''
+      }]).select();
+      if (!error && data) setMandanten(prev => [...prev, data[0]]);
+    } else if (tresorPrompt.typ === 'update') {
+      await supabase.from('mandanten').update(tresorPrompt.updates).eq('id', tresorPrompt.existingId);
+      ladeDaten();
+    }
+    setTresorPrompt(null);
+  };
 
   // --- AUTOMATISCHER VERSAND (E-Mail / E-Fax) ---
   const handleSendEmail = () => {
@@ -360,7 +363,7 @@ export default function Dashboard({ session }) {
       setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
-      setBriefEntwurf(''); setJsonImport('');
+      setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null);
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten()
     }
@@ -677,6 +680,22 @@ export default function Dashboard({ session }) {
           )}
 
           <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
+
+            {/* NEU: TRESOR-ASSISTENT UI-BOX STATT WINDOW.CONFIRM */}
+            {tresorPrompt && (
+              <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
+                  <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '16px', marginBottom: '4px' }}><Icon name="building" size={18} /> Tresor-Assistent</strong>
+                  {tresorPrompt.typ === 'neu' 
+                    ? `Die Firma "${tresorPrompt.obj.unsere_firma}" ist noch nicht im Tresor. Soll sie automatisch angelegt werden?` 
+                    : `Für "${tresorPrompt.firma}" gibt es neue Kontaktdaten. Sollen die leeren Felder im Tresor ergänzt werden?`}
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Ja, speichern</button>
+                  <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid rgba(0,0,0,0.3)', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Nein</button>
+                </div>
+              </div>
+            )}
             
             <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
               <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
