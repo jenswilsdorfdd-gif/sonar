@@ -192,7 +192,18 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- JSON IMPORT INKLUSIVE STEUERNUMMER & CO ---
+  // --- CHECKBOX TOGGLE FUNKTION ---
+  const toggleTresorUpdateKey = (key) => {
+    setTresorPrompt(prev => {
+      if (!prev) return prev;
+      const keys = prev.selectedKeys.includes(key)
+        ? prev.selectedKeys.filter(k => k !== key)
+        : [...prev.selectedKeys, key];
+      return { ...prev, selectedKeys: keys };
+    });
+  };
+
+  // --- JSON IMPORT INKLUSIVE CHECKBOX-LOGIK ---
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
@@ -237,17 +248,31 @@ export default function Dashboard({ session }) {
           setTresorPrompt({ typ: 'neu', obj });
         } else {
            let updates = {};
-           if (obj.unser_ansprechpartner && !existingMandant.ansprechpartner) updates.ansprechpartner = obj.unser_ansprechpartner;
-           if (obj.unser_telefon && !existingMandant.telefon) updates.telefon = obj.unser_telefon;
-           if (obj.unser_email && !existingMandant.email) updates.email = obj.unser_email;
-           // NEUE FELDER PRÜFEN:
-           if (obj.unsere_adresse && !existingMandant.adresse) updates.adresse = obj.unsere_adresse;
-           if (obj.unsere_steuernummer && !existingMandant.steuernummer) updates.steuernummer = obj.unsere_steuernummer;
-           if (obj.unsere_ust_id && !existingMandant.ust_id) updates.ust_id = obj.unsere_ust_id;
-           if (obj.unsere_iban && !existingMandant.iban) updates.iban = obj.unsere_iban;
+           
+           // Hilfsfunktion: Vergleicht sicher und gibt den neuen Wert zurück, falls abweichend
+           const checkUpdate = (oldVal, newVal) => {
+             const o = oldVal || '';
+             const n = newVal || '';
+             return (n && o !== n) ? n : null;
+           };
+           
+           let u1 = checkUpdate(existingMandant.ansprechpartner, obj.unser_ansprechpartner); if(u1) updates.ansprechpartner = u1;
+           let u2 = checkUpdate(existingMandant.telefon, obj.unser_telefon); if(u2) updates.telefon = u2;
+           let u3 = checkUpdate(existingMandant.email, obj.unser_email); if(u3) updates.email = u3;
+           let u4 = checkUpdate(existingMandant.adresse, obj.unsere_adresse); if(u4) updates.adresse = u4;
+           let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) updates.steuernummer = u5;
+           let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
+           let u7 = checkUpdate(existingMandant.iban, obj.unsere_iban); if(u7) updates.iban = u7;
 
            if (Object.keys(updates).length > 0) {
-              setTresorPrompt({ typ: 'update', existingId: existingMandant.id, updates, firma: obj.unsere_firma });
+              // Speichere die Updates UND ein Array der ausgewählten Keys (anfangs alle an)
+              setTresorPrompt({ 
+                typ: 'update', 
+                existingId: existingMandant.id, 
+                updates, 
+                selectedKeys: Object.keys(updates), 
+                firma: obj.unsere_firma 
+              });
            }
         }
       }
@@ -274,8 +299,15 @@ export default function Dashboard({ session }) {
       }]).select();
       if (!error && data) setMandanten(prev => [...prev, data[0]]);
     } else if (tresorPrompt.typ === 'update') {
-      await supabase.from('mandanten').update(tresorPrompt.updates).eq('id', tresorPrompt.existingId);
-      ladeDaten();
+      // Nur die Keys filtern, die auch angekreuzt wurden!
+      let finalUpdates = {};
+      tresorPrompt.selectedKeys.forEach(k => {
+        finalUpdates[k] = tresorPrompt.updates[k];
+      });
+      if (Object.keys(finalUpdates).length > 0) {
+        await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
+        ladeDaten();
+      }
     }
     setTresorPrompt(null);
   };
@@ -326,8 +358,7 @@ export default function Dashboard({ session }) {
     e.preventDefault()
     setLaedt(true)
 
-    // --- NEU: AUTO-SAVE FÜR DEN TRESOR ---
-    // Rettet die Tresor-Daten automatisch, falls der blaue Button ignoriert wurde
+    // --- AUTO-SAVE FÜR DEN TRESOR INKL. CHECKBOXEN ---
     if (tresorPrompt) {
       if (tresorPrompt.typ === 'neu') {
         await supabase.from('mandanten').insert([{
@@ -342,7 +373,13 @@ export default function Dashboard({ session }) {
           iban: tresorPrompt.obj.unsere_iban || ''
         }]);
       } else if (tresorPrompt.typ === 'update') {
-        await supabase.from('mandanten').update(tresorPrompt.updates).eq('id', tresorPrompt.existingId);
+        let finalUpdates = {};
+        tresorPrompt.selectedKeys.forEach(k => {
+          finalUpdates[k] = tresorPrompt.updates[k];
+        });
+        if (Object.keys(finalUpdates).length > 0) {
+          await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
+        }
       }
     }
 
@@ -702,19 +739,41 @@ export default function Dashboard({ session }) {
 
           <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
 
-            {/* TRESOR-ASSISTENT UI-BOX */}
+            {/* TRESOR-ASSISTENT UI-BOX MIT CHECKBOXEN */}
             {tresorPrompt && (
-              <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
-                  <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '16px', marginBottom: '4px' }}><Icon name="building" size={18} /> Tresor-Assistent</strong>
-                  {tresorPrompt.typ === 'neu' 
-                    ? `Die Firma "${tresorPrompt.obj.unsere_firma}" ist noch nicht im Tresor. Soll sie automatisch angelegt werden?` 
-                    : `Für "${tresorPrompt.firma}" gibt es neue Kontaktdaten. Sollen die leeren Felder im Tresor ergänzt werden?`}
+              <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
+                  <div style={{ fontSize: '14px', lineHeight: '1.4', flex: 1 }}>
+                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '16px', marginBottom: '4px' }}><Icon name="building" size={18} /> Tresor-Assistent</strong>
+                    {tresorPrompt.typ === 'neu' 
+                      ? `Die Firma "${tresorPrompt.obj.unsere_firma}" ist noch nicht im Tresor. Soll sie automatisch angelegt werden?` 
+                      : `Für "${tresorPrompt.firma}" wurden abweichende oder neue Daten erkannt. Welche Felder sollen überschrieben werden?`}
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Ja, speichern</button>
+                    <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid rgba(0,0,0,0.3)', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Nein</button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Ja, speichern</button>
-                  <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid rgba(0,0,0,0.3)', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Nein</button>
-                </div>
+
+                {tresorPrompt.typ === 'update' && (
+                  <div style={{ background: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '6px' }}>
+                    <strong style={{display: 'block', marginBottom: '8px', fontSize: '13px'}}>Folgende Felder aktualisieren:</strong>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                      {Object.entries(tresorPrompt.updates).map(([k, v]) => (
+                        <label key={k} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={tresorPrompt.selectedKeys.includes(k)} 
+                            onChange={() => toggleTresorUpdateKey(k)}
+                            style={{ accentColor: '#000', transform: 'scale(1.2)' }}
+                          />
+                          <span style={{textTransform: 'capitalize'}}>{k.replace('_', ' ')}:</span> 
+                          <span style={{fontWeight: 'normal', color: '#333'}}>{v}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             
@@ -1071,6 +1130,7 @@ export default function Dashboard({ session }) {
                 <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px' }}>{m.firmenname}</h3>
                 <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="user" size={14} /> {m.ansprechpartner || '-'}</span>
+                  <span style={{display: 'flex', alignItems: 'flex-start', gap: '6px'}}><Icon name="building" size={14} style={{marginTop: '2px'}}/> {m.adresse || '-'}</span>
                   <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="phone" size={14} /> {m.telefon || '-'} | <Icon name="mail" size={14} /> {m.email || '-'}</span>
                 </p>
                 
@@ -1079,6 +1139,7 @@ export default function Dashboard({ session }) {
                   <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{m.ust_id || '-'}</div>
                   <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{m.vbg_nummer || '-'}</div>
                   <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{m.betriebsnummer || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>HR-Nr:</strong><br/>{m.handelsregister || '-'}</div>
                   <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>Bank:</strong> {m.iban ? `${m.iban} (${m.bank_name})` : '-'}</div>
                   
                   <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
