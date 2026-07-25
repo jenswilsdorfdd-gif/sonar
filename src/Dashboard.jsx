@@ -270,9 +270,6 @@ export default function Dashboard({ session }) {
 
            let updates = {};
            
-           // HIER IST DIE MAGIE GEGEN DAS NULL-PROBLEM!
-           // n ist nur dann ein gültiger Wert, wenn er echten Inhalt hat (kein "null", "undefined" oder leer).
-           // Es wird NUR ein Update vorgeschlagen, wenn n existiert UND abweicht.
            const checkUpdate = (oldVal, newVal) => {
              const o = (!oldVal || oldVal === 'null' || oldVal === 'undefined') ? '' : String(oldVal).trim();
              const n = (!newVal || newVal === 'null' || newVal === 'undefined') ? '' : String(newVal).trim();
@@ -720,10 +717,10 @@ export default function Dashboard({ session }) {
               <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.hintText }}>Sonar Guide: {activeTab === 'akten' ? 'Der Workflow' : 'Firmen & Dokumente verwalten'}</h4>
               {activeTab === 'akten' ? (
                 <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
-                  1. Dokument in deinem <strong>Gemini Gem</strong> hochladen. <br/>
-                  2. <strong>JSON 1 (Eingang)</strong> hier drüben in den Magic Import einfügen. <br/>
-                  3. Entwurf im Gem freigeben & verschicken. <br/>
-                  4. <strong>JSON 2 (Ausgang)</strong> in den Magic Import einfügen und PDF anhängen.
+                  1. Dokument in der <strong>SONAR KI</strong> hochladen. <br/>
+                  2. Aktion wählen & Daten per <strong>grünem Button</strong> ans Cockpit senden (Eingang). <br/>
+                  3. Entwurf in der KI freigeben & verschicken. <br/>
+                  4. Finale Daten per <strong>grünem Button</strong> senden (Ausgang) & Dokument anhängen.
                 </p>
               ) : (
                 <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
