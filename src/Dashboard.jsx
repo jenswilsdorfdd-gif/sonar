@@ -19,9 +19,15 @@ const extractFilename = (url) => {
 const normalizeCompanyName = (name) => {
   if (!name) return '';
   return name.toLowerCase()
-    .replace(/\b(gmbh|ug|ag|gbr|ohg|kg|haftungsbeschränkt|ev)\b/g, '') // Rechtsformen filtern
-    .replace(/&/g, 'und') // & zu und machen
-    .replace(/[^a-z0-9]/g, ''); // Alle Leerzeichen und Sonderzeichen entfernen
+    .replace(/\b(gmbh|ug|ag|gbr|ohg|kg|haftungsbeschränkt|ev)\b/g, '') 
+    .replace(/&/g, 'und') 
+    .replace(/[^a-z0-9]/g, ''); 
+};
+
+// --- FILTER GEGEN "null" STRINGS ---
+const cleanVal = (val) => {
+  if (!val || val === 'null' || val === 'undefined' || String(val).trim() === '') return null;
+  return val;
 };
 
 // --- ECHTE VEKTOR-ICONS ---
@@ -109,6 +115,7 @@ export default function Dashboard({ session }) {
 
   const [mandanten, setMandanten] = useState([])
   const [uploadingMandantId, setUploadingMandantId] = useState(null)
+  const [editMandantId, setEditMandantId] = useState(null)
   
   const [m_firmenname, setM_firmenname] = useState('')
   const [m_ansprechpartner, setM_ansprechpartner] = useState('')
@@ -201,7 +208,7 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- FUNKTION FÜR CHECKBOX-STEUERUNG IM TRESOR-ASSISTENT ---
+  // --- CHECKBOX TOGGLE FUNKTION ---
   const toggleTresorUpdateKey = (key) => {
     setTresorPrompt(prev => {
       if (!prev) return prev;
@@ -247,26 +254,21 @@ export default function Dashboard({ session }) {
       }
 
       if (obj.unsere_firma) {
-        // Tolerante Suche (Fuzzy Match) mit der neuen normalize Funktion
         const existingMandant = mandanten.find(m => normalizeCompanyName(m.firmenname) === normalizeCompanyName(obj.unsere_firma));
         
         if (!existingMandant) {
-          // Firma komplett unbekannt
           setUnsereFirma(obj.unsere_firma || '');
           setUnserAnsprechpartner(obj.unser_ansprechpartner || '');
           setUnserTelefon(obj.unser_telefon || '');
           setUnserEmail(obj.unser_email || '');
           setTresorPrompt({ typ: 'neu', obj });
         } else {
-           // Firma erkannt -> Auto-Fill der Eingabemaske im Cockpit!
            setUnsereFirma(existingMandant.firmenname); 
            setUnserAnsprechpartner(obj.unser_ansprechpartner || existingMandant.ansprechpartner || '');
            setUnserTelefon(obj.unser_telefon || existingMandant.telefon || '');
            setUnserEmail(obj.unser_email || existingMandant.email || '');
 
            let updates = {};
-           
-           // Hilfsfunktion: Prüfen, ob der neue Wert aus dem JSON vom bestehenden Tresor-Wert abweicht
            const checkUpdate = (oldVal, newVal) => {
              const o = oldVal || '';
              const n = newVal || '';
@@ -289,7 +291,7 @@ export default function Dashboard({ session }) {
                 typ: 'update', 
                 existingId: existingMandant.id, 
                 updates, 
-                selectedKeys: Object.keys(updates), // Standardmäßig sind alle neuen Felder zum Überschreiben angehakt
+                selectedKeys: Object.keys(updates), 
                 firma: existingMandant.firmenname 
               });
            }
@@ -379,7 +381,6 @@ export default function Dashboard({ session }) {
     e.preventDefault()
     setLaedt(true)
 
-    // --- AUTO-SAVE FÜR DEN TRESOR (Berücksichtigt die Checkboxen) ---
     if (tresorPrompt) {
       if (tresorPrompt.typ === 'neu') {
         await supabase.from('mandanten').insert([{
@@ -482,6 +483,34 @@ export default function Dashboard({ session }) {
     }
   }
 
+  // --- DATEN IN FORMULAR LADEN (KLICKBARE KARTE) ---
+  const ladeInFormular = (m) => {
+    setEditMandantId(m.id);
+    setM_firmenname(cleanVal(m.firmenname) || '');
+    setM_ansprechpartner(cleanVal(m.ansprechpartner) || '');
+    setM_adresse(cleanVal(m.adresse) || '');
+    setM_telefon(cleanVal(m.telefon) || '');
+    setM_email(cleanVal(m.email) || '');
+    setM_steuernummer(cleanVal(m.steuernummer) || '');
+    setM_ust_id(cleanVal(m.ust_id) || '');
+    setM_betriebsnummer(cleanVal(m.betriebsnummer) || '');
+    setM_vbg_nummer(cleanVal(m.vbg_nummer) || '');
+    setM_handelsregister(cleanVal(m.handelsregister) || '');
+    setM_iban(cleanVal(m.iban) || '');
+    setM_bank_name(cleanVal(m.bank_name) || '');
+    setM_ust_intervall(m.ust_intervall || 'Vierteljährlich');
+    setM_dauerfrist(m.dauerfrist || false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resetTresorForm = () => {
+    setEditMandantId(null);
+    setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon(''); setM_email('');
+    setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
+    setM_iban(''); setM_bank_name(''); setM_dateien([]);
+    if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
+  }
+
   const handleNachtragUploadMandant = async (mId, currentUrls, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -531,23 +560,37 @@ export default function Dashboard({ session }) {
         }
       }
     }
-    const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
+    let neuDokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
+    let finalDocs = neuDokumentUrl;
+    
+    if (editMandantId) {
+        const existing = mandanten.find(x => x.id === editMandantId);
+        if (existing && existing.dokument_url) {
+            finalDocs = neuDokumentUrl ? `${existing.dokument_url},${neuDokumentUrl}` : existing.dokument_url;
+        }
+    }
 
-    const { error } = await supabase.from('mandanten').insert([{
+    const payload = {
       user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
       telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
       vbg_nummer: m_vbg_nummer, handelsregister: m_handelsregister, iban: m_iban, bank_name: m_bank_name,
-      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist, dokument_url: dokumentUrl
-    }])
+      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist, dokument_url: finalDocs
+    };
 
-    if (!error) {
-      setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon(''); setM_email('');
-      setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
-      setM_iban(''); setM_bank_name(''); setM_dateien([]);
-      if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
-      ladeDaten()
+    let saveError = null;
+    if (editMandantId) {
+        const { error } = await supabase.from('mandanten').update(payload).eq('id', editMandantId);
+        saveError = error;
+    } else {
+        const { error } = await supabase.from('mandanten').insert([payload]);
+        saveError = error;
     }
-    setLaedt(false)
+
+    if (!saveError) {
+      resetTresorForm();
+      ladeDaten();
+    }
+    setLaedt(false);
   }
 
   const loescheMandant = async (id) => {
@@ -1092,7 +1135,7 @@ export default function Dashboard({ session }) {
         {activeTab === 'tresor' && (
         <div>
           <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-            <Icon name="building" size={24} /> Neuer Mandant / Firma
+            <Icon name="building" size={24} /> {editMandantId ? 'Firma bearbeiten' : 'Neuer Mandant / Firma'}
           </h2>
           <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
             
@@ -1140,42 +1183,51 @@ export default function Dashboard({ session }) {
               </div>
             </div>
             
-            <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.tresorAccent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.tresorAccent}40` : 'none' }}>
-              {laedt ? 'Speichere...' : '+ Im Tresor ablegen'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '30px', flexWrap: 'wrap' }}>
+              <button disabled={laedt} type="submit" style={{ flex: '1 1 200px', padding: '15px', background: theme.tresorAccent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.tresorAccent}40` : 'none' }}>
+                {laedt ? 'Speichere...' : (editMandantId ? '💾 Änderungen speichern' : '+ Im Tresor ablegen')}
+              </button>
+              {editMandantId && (
+                <button type="button" onClick={resetTresorForm} style={{ flex: '1 1 150px', padding: '15px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+                  Abbrechen
+                </button>
+              )}
+            </div>
           </form>
 
           <h2 style={{ margin: '40px 0 20px 0', color: theme.textMain, textAlign: 'left', fontSize: '20px' }}>🗃️ Gespeicherte Firmen</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', textAlign: 'left' }}>
             {mandanten.map(m => (
-              <div key={m.id} style={{ ...panelStyle, position: 'relative', marginBottom: 0 }}>
-                <button onClick={() => loescheMandant(m.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px' }} title="Löschen"><Icon name="trash" size={18} /></button>
+              <div key={m.id} onClick={() => ladeInFormular(m)} style={{ ...panelStyle, position: 'relative', marginBottom: 0, cursor: 'pointer', transition: '0.2s', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }}>
+                <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Löschen">
+                  <Icon name="trash" size={18} />
+                </button>
                 
-                <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px' }}>{m.firmenname}</h3>
+                <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
                 <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="user" size={14} /> {m.ansprechpartner || '-'}</span>
-                  <span style={{display: 'flex', alignItems: 'flex-start', gap: '6px'}}><Icon name="building" size={14} style={{marginTop: '2px'}}/> {m.adresse || '-'}</span>
-                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="phone" size={14} /> {m.telefon || '-'} | <Icon name="mail" size={14} /> {m.email || '-'}</span>
+                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="user" size={14} /> {cleanVal(m.ansprechpartner) || '-'}</span>
+                  <span style={{display: 'flex', alignItems: 'flex-start', gap: '6px'}}><Icon name="building" size={14} style={{marginTop: '2px'}}/> {cleanVal(m.adresse) || '-'}</span>
+                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="phone" size={14} /> {cleanVal(m.telefon) || '-'} | <Icon name="mail" size={14} /> {cleanVal(m.email) || '-'}</span>
                 </p>
                 
                 <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{m.steuernummer || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{m.ust_id || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{m.vbg_nummer || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{m.betriebsnummer || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>HR-Nr:</strong><br/>{m.handelsregister || '-'}</div>
-                  <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>Bank:</strong> {m.iban ? `${m.iban} (${m.bank_name})` : '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{cleanVal(m.steuernummer) || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{cleanVal(m.ust_id) || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{cleanVal(m.vbg_nummer) || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{cleanVal(m.betriebsnummer) || '-'}</div>
+                  <div><strong style={{color: theme.textMuted}}>HR-Nr:</strong><br/>{cleanVal(m.handelsregister) || '-'}</div>
+                  <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>Bank:</strong> {cleanVal(m.iban) ? `${m.iban} (${cleanVal(m.bank_name) || '?'})` : '-'}</div>
                   
                   <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
                     <strong style={{color: theme.textMuted, display: 'block', marginBottom: '8px'}}>Dokumente:</strong>
                     {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
                       const fileName = extractFilename(url);
                       return (
-                        <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '8px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                        <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '8px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
                           <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
                             <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
                           </a>
-                          <button onClick={(e) => { e.preventDefault(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => e.currentTarget.style.color = theme.warningBorder} onMouseOut={(e) => e.currentTarget.style.color = theme.textMuted} title="Datei löschen">
+                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => e.currentTarget.style.color = theme.warningBorder} onMouseOut={(e) => e.currentTarget.style.color = theme.textMuted} title="Datei löschen">
                             <Icon name="x" size={12} />
                           </button>
                         </div>
@@ -1185,7 +1237,7 @@ export default function Dashboard({ session }) {
                     {uploadingMandantId === m.id ? (
                       <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
                     ) : (
-                      <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
+                      <label onClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
                         + Datei
                         <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
                       </label>
