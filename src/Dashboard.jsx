@@ -43,7 +43,8 @@ const Icon = ({ name, size = 18, style }) => {
     note: <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>,
     phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>,
     mail: <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>,
-    x: <path d="M18 6L6 18M6 6l12 12"/>
+    x: <path d="M18 6L6 18M6 6l12 12"/>,
+    send: <><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></>
   };
 
   return (
@@ -60,12 +61,10 @@ const Icon = ({ name, size = 18, style }) => {
 };
 
 export default function Dashboard({ session }) {
-  // --- GENERELLE STATES ---
   const [activeTab, setActiveTab] = useState('akten') 
   const [isDarkMode, setIsDarkMode] = useState(true) 
   const [laedt, setLaedt] = useState(false)
   
-  // --- AKTEN STATES ---
   const [akten, setAkten] = useState([])
   const [uploadingHistId, setUploadingHistId] = useState(null)
   
@@ -98,7 +97,6 @@ export default function Dashboard({ session }) {
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
-  // --- TRESOR (MANDANTEN) STATES ---
   const [mandanten, setMandanten] = useState([])
   const [uploadingMandantId, setUploadingMandantId] = useState(null)
   
@@ -118,46 +116,18 @@ export default function Dashboard({ session }) {
   const [m_dauerfrist, setM_dauerfrist] = useState(false)
   const [m_dateien, setM_dateien] = useState([])
 
-  // --- DESIGN THEME ---
   const theme = isDarkMode ? {
-    bg: '#020617', 
-    cardBg: '#0f172a', 
-    border: '#1e293b', 
-    textMain: '#ffffff', 
-    textMuted: '#94a3b8',
-    accent: '#00e5ff', 
-    accentHover: '#00b8cc',
-    tresorAccent: '#2dd4bf', 
-    tresorBg: 'rgba(45, 212, 191, 0.1)',
-    inputBg: '#020617',
-    inputBorder: '#334155',
-    warningBg: 'rgba(244, 63, 94, 0.1)', 
-    warningBorder: '#f43f5e', 
-    warningText: '#fda4af',
-    hintBg: 'rgba(250, 204, 21, 0.1)', 
-    hintBorder: '#facc15',
-    hintText: '#fef08a' 
+    bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
+    accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
+    inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e', 
+    warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a' 
   } : {
-    bg: '#f8fafc',
-    cardBg: '#ffffff',
-    border: '#e2e8f0',
-    textMain: '#0f172a',
-    textMuted: '#64748b',
-    accent: '#0284c7', 
-    accentHover: '#0369a1',
-    tresorAccent: '#0f766e', 
-    tresorBg: '#f0fdfa',
-    inputBg: '#f8fafc',
-    inputBorder: '#cbd5e1',
-    warningBg: '#fff1f2',
-    warningBorder: '#e11d48', 
-    warningText: '#be123c', 
-    hintBg: '#fefce8',
-    hintBorder: '#fde047',
-    hintText: '#854d0e' 
+    bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
+    accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e', tresorBg: '#f0fdfa',
+    inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48', 
+    warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e' 
   };
 
-  // --- GLOBALER HINTERGRUND-KILLER ---
   useEffect(() => {
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
@@ -167,66 +137,29 @@ export default function Dashboard({ session }) {
       document.head.appendChild(styleTag);
     }
     styleTag.innerHTML = `
-      html, body, #root {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-        min-height: 100vh !important;
-        background-color: ${theme.bg} !important;
-        overflow-x: hidden !important;
-      }
-      * {
-        box-sizing: border-box !important;
-      }
-      input[type="date"]::-webkit-calendar-picker-indicator {
-        cursor: pointer;
-        opacity: 0.6;
-        transition: 0.2s;
-      }
-      input[type="date"]::-webkit-calendar-picker-indicator:hover {
-        opacity: 1;
-      }
+      html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100vh !important; background-color: ${theme.bg} !important; overflow-x: hidden !important; }
+      * { box-sizing: border-box !important; }
+      input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; transition: 0.2s; }
+      input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     `;
-    return () => {
-      if (styleTag) document.head.removeChild(styleTag);
-    };
+    return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
 
   const ladeDaten = async () => {
-    const { data: aktenData, error: aktenError } = await supabase
-      .from('akten')
-      .select(`*, akten_historie (*)`)
-      .order('created_at', { ascending: false })
-
+    const { data: aktenData, error: aktenError } = await supabase.from('akten').select(`*, akten_historie (*)`).order('created_at', { ascending: false })
     if (!aktenError && aktenData) {
-      aktenData.forEach(akte => {
-        if(akte.akten_historie) {
-          akte.akten_historie.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-        }
-      })
+      aktenData.forEach(akte => { if(akte.akten_historie) akte.akten_historie.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)) })
       setAkten(aktenData)
     }
-
-    const { data: mandantenData, error: mandantenError } = await supabase
-      .from('mandanten')
-      .select('*')
-      .order('firmenname', { ascending: true })
-      
-    if (!mandantenError && mandantenData) {
-      setMandanten(mandantenData)
-    }
+    const { data: mandantenData, error: mandantenError } = await supabase.from('mandanten').select('*').order('firmenname', { ascending: true })
+    if (!mandantenError && mandantenData) setMandanten(mandantenData)
   }
 
   useEffect(() => { ladeDaten() }, [])
 
-  // --- INLINE EDITING ---
   const handleInlineEdit = async (histId, feld, wert) => {
     const { error } = await supabase.from('akten_historie').update({ [feld]: wert || null }).eq('id', histId);
-    if (!error) {
-      ladeDaten();
-    } else {
-      alert("Fehler beim Speichern: " + error.message);
-    }
+    if (!error) ladeDaten(); else alert("Fehler beim Speichern: " + error.message);
   };
 
   const loescheHistorieEintrag = async (histId) => {
@@ -235,34 +168,22 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
-  // --- DATEI LÖSCHEN LOGIK (Akten Historie) ---
   const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
     if (!window.confirm("Diese Datei wirklich entfernen?")) return;
-
-    // 1. URL aus dem String entfernen
     const urlArray = aktuelleUrls.split(',');
     const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
     const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
-
-    // 2. Datenbank Update
     const { error: dbError } = await supabase.from('akten_historie').update({ dokument_url: neuerUrlString }).eq('id', histId);
-
     if (!dbError) {
-       // 3. Aus Storage löschen, um Platz zu sparen
        try {
           const parts = decodeURIComponent(urlZumLoeschen).split('/');
           const fileName = parts[parts.length - 1];
           await supabase.storage.from('dokumente').remove([fileName]);
-       } catch (e) {
-          console.error("Storage delete error", e);
-       }
+       } catch (e) { }
        ladeDaten();
-    } else {
-       alert("Fehler beim Löschen der Datei: " + dbError.message);
     }
   };
 
-  // --- WIEDERVORLAGE QUICK BUTTONS ---
   const setzeWV = (tage, monate = 0) => {
     const d = new Date();
     d.setDate(d.getDate() + tage);
@@ -270,8 +191,8 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- AKTEN LOGIK ---
-  const handleJsonImport = (e) => {
+  // --- NEUE LOGIK: AUTOMATISCHER TRESOR-ABGLEICH BEIM IMPORT ---
+  const handleJsonImport = async (e) => {
     setActiveTab('akten')
     const val = e.target.value
     setJsonImport(val)
@@ -289,6 +210,7 @@ export default function Dashboard({ session }) {
           setModus('neu');
         }
       }
+      
       if (!matchedAkteId) {
         if (obj.thema) setThema(obj.thema)
         if (obj.kontakt) setGegnerName(obj.kontakt) 
@@ -297,25 +219,85 @@ export default function Dashboard({ session }) {
         if (obj.gegner_email) setGegnerEmail(obj.gegner_email)
         if (obj.unsere_firma) setUnsereFirma(obj.unsere_firma)
         if (obj.unser_ansprechpartner) setUnserAnsprechpartner(obj.unser_ansprechpartner)
+        if (obj.unser_telefon) setUnserTelefon(obj.unser_telefon)
+        if (obj.unser_email) setUnserEmail(obj.unser_email)
       }
+      
       if (obj.frist_extern) setFristExtern(obj.frist_extern)
       if (obj.brief_entwurf) setBriefEntwurf(obj.brief_entwurf)
       if (obj.aktion) setAktion(obj.aktion)
       if (obj.kanal) setKanal(obj.kanal)
       if (obj.typ) { setTyp(obj.typ) } else { setTyp('Eingang') }
       setDatum(new Date().toISOString().split('T')[0])
+
+      // === FEATURE 1: AUTO-MANDANT ANLEGEN / ERGÄNZEN ===
+      if (obj.unsere_firma) {
+        const existingMandant = mandanten.find(m => m.firmenname.toLowerCase() === obj.unsere_firma.toLowerCase());
+        
+        if (!existingMandant) {
+          if (window.confirm(`Die Firma "${obj.unsere_firma}" ist noch nicht im Tresor.\nSoll sie automatisch als neuer Mandant angelegt werden?`)) {
+             const { data, error } = await supabase.from('mandanten').insert([{
+               user_id: session.user.id,
+               firmenname: obj.unsere_firma,
+               ansprechpartner: obj.unser_ansprechpartner || '',
+               telefon: obj.unser_telefon || '',
+               email: obj.unser_email || ''
+             }]).select();
+             if (!error && data) {
+               setMandanten([...mandanten, data[0]]);
+             }
+          }
+        } else {
+           // Firma existiert. Prüfen, ob JSON neue Kontakt-Daten hat, die im Tresor fehlen.
+           let updates = {};
+           if (obj.unser_ansprechpartner && !existingMandant.ansprechpartner) updates.ansprechpartner = obj.unser_ansprechpartner;
+           if (obj.unser_telefon && !existingMandant.telefon) updates.telefon = obj.unser_telefon;
+           if (obj.unser_email && !existingMandant.email) updates.email = obj.unser_email;
+
+           if (Object.keys(updates).length > 0) {
+             if(window.confirm(`Für "${obj.unsere_firma}" gibt es neue Kontaktdaten im JSON.\nSollen die leeren Tresor-Felder ergänzt werden?`)) {
+               await supabase.from('mandanten').update(updates).eq('id', existingMandant.id);
+               ladeDaten();
+             }
+           }
+        }
+      }
+      
     } catch(err) { }
   }
+
+  // --- AUTOMATISCHER VERSAND (E-Mail / E-Fax) ---
+  const handleSendEmail = () => {
+    if (!gegnerEmail) {
+      alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
+      return;
+    }
+    const subject = encodeURIComponent(`Aktenzeichen: ${aktenzeichen || 'Neu'} - ${thema || 'Vorgang'}`);
+    const body = encodeURIComponent(briefEntwurf || '');
+    window.location.href = `mailto:${gegnerEmail}?subject=${subject}&body=${body}`;
+  };
+
+  const handleSendFax = () => {
+    if (!gegnerTelefon) {
+      alert("⚠️ Bitte trage zuerst eine Telefon- oder Faxnummer der Gegenseite ein!");
+      return;
+    }
+    const faxNr = gegnerTelefon.replace(/[^0-9+]/g, ''); // Nur Zahlen filtern
+    const subject = encodeURIComponent(`FAX-Versand zu Aktenzeichen: ${aktenzeichen || 'Neu'}`);
+    const body = encodeURIComponent(briefEntwurf || '');
+    
+    alert(`💡 E-Fax Modus aktiviert!\n\nDas Cockpit öffnet nun dein E-Mail Programm und trägt als Empfänger die Faxnummer ein.\nErsetze "DEIN-ANBIETER.de" einfach durch deinen E-Mail-to-Fax Anbieter (z.B. pdf24.org oder epost.de).`);
+    
+    window.location.href = `mailto:${faxNr}@DEIN-ANBIETER.de?subject=${subject}&body=${body}`;
+  };
 
   const handleNachtragUpload = async (histId, currentUrls, e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingHistId(histId);
-    
     const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const dateiName = `${Date.now()}_${sichererDateiname}`; 
     const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
-
     if (!uploadError) {
       const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
       const newUrl = linkData.publicUrl;
@@ -330,7 +312,6 @@ export default function Dashboard({ session }) {
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
-    
     let alleUrls = [];
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
@@ -344,27 +325,17 @@ export default function Dashboard({ session }) {
       }
     }
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
-
     let aktuelleAkteId = selectedAkteId
 
     if (modus === 'neu') {
       const { data: neueAkte, error: aktenError } = await supabase
         .from('akten')
         .insert([{ 
-          user_id: session.user.id, 
-          aktenzeichen: aktenzeichen || null,
-          gegner_name: gegnerName || null,
-          gegner_ansprechpartner: gegnerAnsprechpartner || null,
-          gegner_telefon: gegnerTelefon || null,
-          gegner_email: gegnerEmail || null,
-          unsere_firma: unsereFirma || null,
-          unser_ansprechpartner: unserAnsprechpartner || null,
-          unser_telefon: unserTelefon || null,
-          unser_email: unserEmail || null,
-          thema: thema || null,
-          status: 'Offen'
+          user_id: session.user.id, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null,
+          gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null,
+          gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: unserAnsprechpartner || null,
+          unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen'
         }]).select()
-        
       if (aktenError) { alert("Fehler Akte: " + aktenError.message); setLaedt(false); return; }
       aktuelleAkteId = neueAkte[0].id
     }
@@ -372,24 +343,15 @@ export default function Dashboard({ session }) {
     const { error: histError } = await supabase
       .from('akten_historie')
       .insert([{ 
-        akte_id: aktuelleAkteId,
-        user_id: session.user.id, 
-        typ: typ,
-        datum: datum || null,
-        aktion: aktion || null,
-        kanal: kanal || null,
-        frist_extern: fristExtern || null,
-        wiedervorlage: wiedervorlage || null,
-        dokument_url: dokumentUrl,
-        brief_entwurf: briefEntwurf || null 
+        akte_id: aktuelleAkteId, user_id: session.user.id, typ: typ, datum: datum || null,
+        aktion: aktion || null, kanal: kanal || null, frist_extern: fristExtern || null,
+        wiedervorlage: wiedervorlage || null, dokument_url: dokumentUrl, brief_entwurf: briefEntwurf || null 
       }])
 
     if (!histError) {
-      setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); 
-      setGegnerTelefon(''); setGegnerEmail(''); setUnsereFirma(''); 
-      setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); 
-      setThema(''); setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); 
-      setDateien([]); 
+      setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerEmail(''); 
+      setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
+      setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
       setBriefEntwurf(''); setJsonImport('');
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten()
@@ -398,11 +360,8 @@ export default function Dashboard({ session }) {
   }
 
   const toggleAkte = (id) => {
-    if (aufgeklappteAkten.includes(id)) {
-      setAufgeklappteAkten(aufgeklappteAkten.filter(aId => aId !== id))
-    } else {
-      setAufgeklappteAkten([...aufgeklappteAkten, id])
-    }
+    if (aufgeklappteAkten.includes(id)) setAufgeklappteAkten(aufgeklappteAkten.filter(aId => aId !== id))
+    else setAufgeklappteAkten([...aufgeklappteAkten, id])
   }
 
   const loescheAkte = async (id) => {
@@ -424,10 +383,8 @@ export default function Dashboard({ session }) {
     if(!mId) return
     const m = mandanten.find(x => x.id === mId)
     if(m) {
-      setUnsereFirma(m.firmenname || '')
-      setUnserAnsprechpartner(m.ansprechpartner || '')
-      setUnserTelefon(m.telefon || '')
-      setUnserEmail(m.email || '')
+      setUnsereFirma(m.firmenname || ''); setUnserAnsprechpartner(m.ansprechpartner || '');
+      setUnserTelefon(m.telefon || ''); setUnserEmail(m.email || '');
     }
   }
 
@@ -435,11 +392,9 @@ export default function Dashboard({ session }) {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingMandantId(mId);
-    
     const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
     const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
-
     if (!uploadError) {
       const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
       const newUrl = linkData.publicUrl;
@@ -451,16 +406,12 @@ export default function Dashboard({ session }) {
     e.target.value = ''; 
   };
 
-  // --- DATEI LÖSCHEN LOGIK (Firmen-Tresor) ---
   const loescheDateiAusMandant = async (mId, aktuelleUrls, urlZumLoeschen) => {
     if (!window.confirm("Diese Datei wirklich aus dem Firmen-Profil entfernen?")) return;
-
     const urlArray = aktuelleUrls.split(',');
     const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
     const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
-
     const { error: dbError } = await supabase.from('mandanten').update({ dokument_url: neuerUrlString }).eq('id', mId);
-
     if (!dbError) {
        try {
           const parts = decodeURIComponent(urlZumLoeschen).split('/');
@@ -468,15 +419,12 @@ export default function Dashboard({ session }) {
           await supabase.storage.from('dokumente').remove([fileName]);
        } catch (e) { }
        ladeDaten();
-    } else {
-       alert("Fehler beim Löschen: " + dbError.message);
     }
   };
 
   const speichereMandant = async (e) => {
     e.preventDefault()
     setLaedt(true)
-    
     let alleUrls = [];
     if (m_dateien && m_dateien.length > 0) {
       for (const f of m_dateien) {
@@ -492,30 +440,16 @@ export default function Dashboard({ session }) {
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
 
     const { error } = await supabase.from('mandanten').insert([{
-      user_id: session.user.id,
-      firmenname: m_firmenname,
-      ansprechpartner: m_ansprechpartner,
-      adresse: m_adresse,
-      telefon: m_telefon,
-      email: m_email,
-      steuernummer: m_steuernummer,
-      ust_id: m_ust_id,
-      betriebsnummer: m_betriebsnummer,
-      vbg_nummer: m_vbg_nummer,
-      handelsregister: m_handelsregister,
-      iban: m_iban,
-      bank_name: m_bank_name,
-      ust_intervall: m_ust_intervall,
-      dauerfrist: m_dauerfrist,
-      dokument_url: dokumentUrl
+      user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
+      telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
+      vbg_nummer: m_vbg_nummer, handelsregister: m_handelsregister, iban: m_iban, bank_name: m_bank_name,
+      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist, dokument_url: dokumentUrl
     }])
 
     if (!error) {
-      setM_firmenname(''); setM_ansprechpartner(''); setM_adresse('');
-      setM_telefon(''); setM_email(''); setM_steuernummer('');
-      setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer('');
-      setM_handelsregister(''); setM_iban(''); setM_bank_name('');
-      setM_dateien([]);
+      setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon(''); setM_email('');
+      setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
+      setM_iban(''); setM_bank_name(''); setM_dateien([]);
       if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
       ladeDaten()
     }
@@ -601,7 +535,6 @@ export default function Dashboard({ session }) {
   const gefilterteAkten = akten.filter((akte) => zeigeErledigte ? true : akte.status !== 'Erledigt')
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
-  // --- STYLES ---
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
@@ -822,10 +755,25 @@ export default function Dashboard({ session }) {
               </div>
             </div>
 
+            {/* KI ANALYSE & VERSAND-BUTTONS */}
             {briefEntwurf && (
               <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '30px', textAlign: 'left' }}>
-                <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px'}}><Icon name="file" size={16} /> KI Analyse / Textentwurf</label>
-                <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', border: 'none', background: 'transparent', padding: 0, marginTop: '10px' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                  <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', margin: 0}}>
+                    <Icon name="file" size={16} /> KI Analyse / Textentwurf
+                  </label>
+                  
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="button" onClick={handleSendEmail} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                      <Icon name="mail" size={14} /> E-Mail vorbereiten
+                    </button>
+                    <button type="button" onClick={handleSendFax} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                      <Icon name="phone" size={14} /> E-Fax vorbereiten
+                    </button>
+                  </div>
+                </div>
+
+                <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', border: 'none', background: 'transparent', padding: 0 }} />
               </div>
             )}
 
@@ -915,7 +863,6 @@ export default function Dashboard({ session }) {
                                 </div>
                               </td>
 
-                              {/* INLINE EDIT: Datum */}
                               <td style={{ padding: '12px' }}>
                                 <input 
                                   type="date" 
@@ -927,7 +874,6 @@ export default function Dashboard({ session }) {
                                 />
                               </td>
 
-                              {/* INLINE EDIT: Aktion */}
                               <td style={{ padding: '12px' }}>
                                 <input 
                                   type="text" 
@@ -940,7 +886,6 @@ export default function Dashboard({ session }) {
                                 <br/><span style={{fontSize: '11px', color: theme.textMuted, marginLeft: '4px'}}>{hist.kanal}</span>
                               </td>
 
-                              {/* INLINE EDIT: Frist */}
                               <td style={{ padding: '12px' }}>
                                 <input 
                                   type="date" 
@@ -1088,7 +1033,6 @@ export default function Dashboard({ session }) {
                   <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{m.betriebsnummer || '-'}</div>
                   <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>Bank:</strong> {m.iban ? `${m.iban} (${m.bank_name})` : '-'}</div>
                   
-                  {/* DOKUMENTE ANZEIGEN & NACHTRAG UPLOAD */}
                   <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
                     <strong style={{color: theme.textMuted, display: 'block', marginBottom: '8px'}}>Dokumente:</strong>
                     {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
