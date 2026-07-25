@@ -93,7 +93,7 @@ export default function Dashboard({ session }) {
   const [dateien, setDateien] = useState([])
   const [briefEntwurf, setBriefEntwurf] = useState('')
   const [jsonImport, setJsonImport] = useState('')
-  const [tresorPrompt, setTresorPrompt] = useState(null) // NEU: Steuert die UI-Tresor-Abfrage
+  const [tresorPrompt, setTresorPrompt] = useState(null) 
 
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
@@ -192,7 +192,7 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- REPARIERTER JSON IMPORT ---
+  // --- JSON IMPORT INKLUSIVE STEUERNUMMER & CO ---
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
@@ -201,7 +201,6 @@ export default function Dashboard({ session }) {
     try {
       const obj = JSON.parse(val)
 
-      // 1. IMMER alle Felder radikal befüllen, egal was passiert!
       setAktenzeichen(obj.aktenzeichen || '')
       setThema(obj.thema || '')
       setGegnerName(obj.kontakt || '') 
@@ -219,7 +218,6 @@ export default function Dashboard({ session }) {
       setTyp(obj.typ || 'Eingang')
       setDatum(new Date().toISOString().split('T')[0])
 
-      // 2. Prüfen, ob wir das Aktenzeichen schon kennen (nur für die visuelle Umschaltung)
       if (obj.aktenzeichen) {
         const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
         if (match) {
@@ -232,19 +230,21 @@ export default function Dashboard({ session }) {
         setModus('neu');
       }
 
-      // 3. AUTO-MANDANT ANLEGEN / ERGÄNZEN (Jetzt sauber via React-State statt blockierendem Alert)
       if (obj.unsere_firma) {
         const existingMandant = mandanten.find(m => m.firmenname?.toLowerCase() === obj.unsere_firma?.toLowerCase());
         
         if (!existingMandant) {
-          // Neues Firmen-Objekt für den Prompt merken
           setTresorPrompt({ typ: 'neu', obj });
         } else {
-           // Update-Logik für fehlende Daten
            let updates = {};
            if (obj.unser_ansprechpartner && !existingMandant.ansprechpartner) updates.ansprechpartner = obj.unser_ansprechpartner;
            if (obj.unser_telefon && !existingMandant.telefon) updates.telefon = obj.unser_telefon;
            if (obj.unser_email && !existingMandant.email) updates.email = obj.unser_email;
+           // NEUE FELDER PRÜFEN:
+           if (obj.unsere_adresse && !existingMandant.adresse) updates.adresse = obj.unsere_adresse;
+           if (obj.unsere_steuernummer && !existingMandant.steuernummer) updates.steuernummer = obj.unsere_steuernummer;
+           if (obj.unsere_ust_id && !existingMandant.ust_id) updates.ust_id = obj.unsere_ust_id;
+           if (obj.unsere_iban && !existingMandant.iban) updates.iban = obj.unsere_iban;
 
            if (Object.keys(updates).length > 0) {
               setTresorPrompt({ typ: 'update', existingId: existingMandant.id, updates, firma: obj.unsere_firma });
@@ -257,7 +257,6 @@ export default function Dashboard({ session }) {
     }
   }
 
-  // --- LOGIK FÜR DEN TRESOR-ASSISTENTEN (JA-BUTTON) ---
   const handleTresorPromptAccept = async () => {
     if (!tresorPrompt) return;
     
@@ -267,7 +266,11 @@ export default function Dashboard({ session }) {
         firmenname: tresorPrompt.obj.unsere_firma,
         ansprechpartner: tresorPrompt.obj.unser_ansprechpartner || '',
         telefon: tresorPrompt.obj.unser_telefon || '',
-        email: tresorPrompt.obj.unser_email || ''
+        email: tresorPrompt.obj.unser_email || '',
+        adresse: tresorPrompt.obj.unsere_adresse || '',
+        steuernummer: tresorPrompt.obj.unsere_steuernummer || '',
+        ust_id: tresorPrompt.obj.unsere_ust_id || '',
+        iban: tresorPrompt.obj.unsere_iban || ''
       }]).select();
       if (!error && data) setMandanten(prev => [...prev, data[0]]);
     } else if (tresorPrompt.typ === 'update') {
@@ -277,7 +280,6 @@ export default function Dashboard({ session }) {
     setTresorPrompt(null);
   };
 
-  // --- AUTOMATISCHER VERSAND (E-Mail / E-Fax) ---
   const handleSendEmail = () => {
     if (!gegnerEmail) {
       alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
@@ -323,6 +325,27 @@ export default function Dashboard({ session }) {
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
+
+    // --- NEU: AUTO-SAVE FÜR DEN TRESOR ---
+    // Rettet die Tresor-Daten automatisch, falls der blaue Button ignoriert wurde
+    if (tresorPrompt) {
+      if (tresorPrompt.typ === 'neu') {
+        await supabase.from('mandanten').insert([{
+          user_id: session.user.id,
+          firmenname: tresorPrompt.obj.unsere_firma,
+          ansprechpartner: tresorPrompt.obj.unser_ansprechpartner || '',
+          telefon: tresorPrompt.obj.unser_telefon || '',
+          email: tresorPrompt.obj.unser_email || '',
+          adresse: tresorPrompt.obj.unsere_adresse || '',
+          steuernummer: tresorPrompt.obj.unsere_steuernummer || '',
+          ust_id: tresorPrompt.obj.unsere_ust_id || '',
+          iban: tresorPrompt.obj.unsere_iban || ''
+        }]);
+      } else if (tresorPrompt.typ === 'update') {
+        await supabase.from('mandanten').update(tresorPrompt.updates).eq('id', tresorPrompt.existingId);
+      }
+    }
+
     let alleUrls = [];
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
@@ -388,7 +411,6 @@ export default function Dashboard({ session }) {
     ladeDaten()
   }
 
-  // --- TRESOR LOGIK ---
   const handleTresorAuswahl = (e) => {
     const mId = e.target.value
     if(!mId) return
@@ -473,7 +495,6 @@ export default function Dashboard({ session }) {
     ladeDaten()
   }
 
-  // --- BERECHNUNGEN ---
   const berechneTageBis = (datumStr) => {
     if (!datumStr) return null;
     const heute = new Date(); heute.setHours(0, 0, 0, 0);
@@ -681,7 +702,7 @@ export default function Dashboard({ session }) {
 
           <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
 
-            {/* NEU: TRESOR-ASSISTENT UI-BOX STATT WINDOW.CONFIRM */}
+            {/* TRESOR-ASSISTENT UI-BOX */}
             {tresorPrompt && (
               <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                 <div style={{ fontSize: '14px', lineHeight: '1.4' }}>
