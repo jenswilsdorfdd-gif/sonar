@@ -33,6 +33,7 @@ const cleanVal = (val) => {
 // --- ECHTE VEKTOR-ICONS ---
 const Icon = ({ name, size = 18, style }) => {
   const UI_ICONS = {
+    signal: <><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0 8"/></>,
     radar: <><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></>,
     moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
@@ -146,6 +147,7 @@ export default function Dashboard({ session }) {
   };
 
   useEffect(() => {
+    // STYLE INJECTION
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
     if (!styleTag) {
@@ -159,6 +161,16 @@ export default function Dashboard({ session }) {
       input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; transition: 0.2s; }
       input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     `;
+
+    // FAVICON INJECTION
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0 8"/></svg>`;
+
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
 
@@ -683,7 +695,7 @@ export default function Dashboard({ session }) {
         {/* HEADER & THEME TOGGLE */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icon name="radar" size={24} style={{ color: theme.accent }} /> SONAR COCKPIT
+            <Icon name="signal" size={24} style={{ color: activeTab === 'akten' ? theme.accent : theme.tresorAccent }} /> SONAR COCKPIT
           </h1>
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)} 
