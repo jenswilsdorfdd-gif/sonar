@@ -15,6 +15,15 @@ const extractFilename = (url) => {
   }
 };
 
+// --- HILFSFUNKTION FÜR TOLERANTE FIRMEN-SUCHE (Fuzzy Search) ---
+const normalizeCompanyName = (name) => {
+  if (!name) return '';
+  return name.toLowerCase()
+    .replace(/\b(gmbh|ug|ag|gbr|ohg|kg|haftungsbeschränkt|ev)\b/g, '') // Rechtsformen filtern
+    .replace(/&/g, 'und') // & zu und machen
+    .replace(/[^a-z0-9]/g, ''); // Alle Leerzeichen und Sonderzeichen entfernen
+};
+
 // --- ECHTE VEKTOR-ICONS ---
 const Icon = ({ name, size = 18, style }) => {
   const UI_ICONS = {
@@ -192,7 +201,7 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  // --- CHECKBOX TOGGLE FUNKTION ---
+  // --- FUNKTION FÜR CHECKBOX-STEUERUNG IM TRESOR-ASSISTENT ---
   const toggleTresorUpdateKey = (key) => {
     setTresorPrompt(prev => {
       if (!prev) return prev;
@@ -203,7 +212,7 @@ export default function Dashboard({ session }) {
     });
   };
 
-  // --- JSON IMPORT INKLUSIVE CHECKBOX-LOGIK ---
+  // --- JSON IMPORT INKLUSIVE FUZZY SEARCH & CHECKBOX-LOGIK ---
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
@@ -218,10 +227,6 @@ export default function Dashboard({ session }) {
       setGegnerAnsprechpartner(obj.ansprechpartner || '')
       setGegnerTelefon(obj.gegner_telefon || '')
       setGegnerEmail(obj.gegner_email || '')
-      setUnsereFirma(obj.unsere_firma || '')
-      setUnserAnsprechpartner(obj.unser_ansprechpartner || '')
-      setUnserTelefon(obj.unser_telefon || '')
-      setUnserEmail(obj.unser_email || '')
       setFristExtern(obj.frist_extern || '')
       setBriefEntwurf(obj.brief_entwurf || '')
       setAktion(obj.aktion || '')
@@ -242,14 +247,26 @@ export default function Dashboard({ session }) {
       }
 
       if (obj.unsere_firma) {
-        const existingMandant = mandanten.find(m => m.firmenname?.toLowerCase() === obj.unsere_firma?.toLowerCase());
+        // Tolerante Suche (Fuzzy Match) mit der neuen normalize Funktion
+        const existingMandant = mandanten.find(m => normalizeCompanyName(m.firmenname) === normalizeCompanyName(obj.unsere_firma));
         
         if (!existingMandant) {
+          // Firma komplett unbekannt
+          setUnsereFirma(obj.unsere_firma || '');
+          setUnserAnsprechpartner(obj.unser_ansprechpartner || '');
+          setUnserTelefon(obj.unser_telefon || '');
+          setUnserEmail(obj.unser_email || '');
           setTresorPrompt({ typ: 'neu', obj });
         } else {
+           // Firma erkannt -> Auto-Fill der Eingabemaske im Cockpit!
+           setUnsereFirma(existingMandant.firmenname); 
+           setUnserAnsprechpartner(obj.unser_ansprechpartner || existingMandant.ansprechpartner || '');
+           setUnserTelefon(obj.unser_telefon || existingMandant.telefon || '');
+           setUnserEmail(obj.unser_email || existingMandant.email || '');
+
            let updates = {};
            
-           // Hilfsfunktion: Vergleicht sicher und gibt den neuen Wert zurück, falls abweichend
+           // Hilfsfunktion: Prüfen, ob der neue Wert aus dem JSON vom bestehenden Tresor-Wert abweicht
            const checkUpdate = (oldVal, newVal) => {
              const o = oldVal || '';
              const n = newVal || '';
@@ -263,15 +280,17 @@ export default function Dashboard({ session }) {
            let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) updates.steuernummer = u5;
            let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
            let u7 = checkUpdate(existingMandant.iban, obj.unsere_iban); if(u7) updates.iban = u7;
+           let u8 = checkUpdate(existingMandant.handelsregister, obj.unsere_handelsregister); if(u8) updates.handelsregister = u8;
+           let u9 = checkUpdate(existingMandant.betriebsnummer, obj.unsere_betriebsnummer); if(u9) updates.betriebsnummer = u9;
+           let u10 = checkUpdate(existingMandant.vbg_nummer, obj.unsere_vbg_nummer); if(u10) updates.vbg_nummer = u10;
 
            if (Object.keys(updates).length > 0) {
-              // Speichere die Updates UND ein Array der ausgewählten Keys (anfangs alle an)
               setTresorPrompt({ 
                 typ: 'update', 
                 existingId: existingMandant.id, 
                 updates, 
-                selectedKeys: Object.keys(updates), 
-                firma: obj.unsere_firma 
+                selectedKeys: Object.keys(updates), // Standardmäßig sind alle neuen Felder zum Überschreiben angehakt
+                firma: existingMandant.firmenname 
               });
            }
         }
@@ -295,11 +314,13 @@ export default function Dashboard({ session }) {
         adresse: tresorPrompt.obj.unsere_adresse || '',
         steuernummer: tresorPrompt.obj.unsere_steuernummer || '',
         ust_id: tresorPrompt.obj.unsere_ust_id || '',
+        handelsregister: tresorPrompt.obj.unsere_handelsregister || '',
+        betriebsnummer: tresorPrompt.obj.unsere_betriebsnummer || '',
+        vbg_nummer: tresorPrompt.obj.unsere_vbg_nummer || '',
         iban: tresorPrompt.obj.unsere_iban || ''
       }]).select();
       if (!error && data) setMandanten(prev => [...prev, data[0]]);
     } else if (tresorPrompt.typ === 'update') {
-      // Nur die Keys filtern, die auch angekreuzt wurden!
       let finalUpdates = {};
       tresorPrompt.selectedKeys.forEach(k => {
         finalUpdates[k] = tresorPrompt.updates[k];
@@ -358,7 +379,7 @@ export default function Dashboard({ session }) {
     e.preventDefault()
     setLaedt(true)
 
-    // --- AUTO-SAVE FÜR DEN TRESOR INKL. CHECKBOXEN ---
+    // --- AUTO-SAVE FÜR DEN TRESOR (Berücksichtigt die Checkboxen) ---
     if (tresorPrompt) {
       if (tresorPrompt.typ === 'neu') {
         await supabase.from('mandanten').insert([{
@@ -370,6 +391,9 @@ export default function Dashboard({ session }) {
           adresse: tresorPrompt.obj.unsere_adresse || '',
           steuernummer: tresorPrompt.obj.unsere_steuernummer || '',
           ust_id: tresorPrompt.obj.unsere_ust_id || '',
+          handelsregister: tresorPrompt.obj.unsere_handelsregister || '',
+          betriebsnummer: tresorPrompt.obj.unsere_betriebsnummer || '',
+          vbg_nummer: tresorPrompt.obj.unsere_vbg_nummer || '',
           iban: tresorPrompt.obj.unsere_iban || ''
         }]);
       } else if (tresorPrompt.typ === 'update') {
