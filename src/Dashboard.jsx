@@ -19,7 +19,7 @@ const extractFilename = (url) => {
 const normalizeCompanyName = (name) => {
   if (!name) return '';
   return name.toLowerCase()
-    .replace(/\b(gmbh|ug|ag|gbr|ohg|kg|haftungsbeschränkt|ev)\b/g, '') 
+    .replace(/\b(gmbh|ug|ag|gbr|ohg|kg|haftungsbeschränkt|ev|familie)\b/g, '') 
     .replace(/&/g, 'und') 
     .replace(/[^a-z0-9]/g, ''); 
 };
@@ -41,7 +41,7 @@ const Icon = ({ name, size = 18, style }) => {
     wand: <><path d="M15 4V2m0 14v-2M8 9h2m10 0h2m-13.8 6.2 1.4-1.4m11.2-8.6 1.4-1.4M6.2 6.2l1.4 1.4m8.6 11.2 1.4 1.4M3 21l9-9m3.5-3.5L17 7"/></>,
     paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
     cabinet: <><rect width="20" height="20" x="2" y="2" rx="2" ry="2"/><path d="M2 12h20M6 7h12M6 17h12"/></>,
-    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01M16 14h.01"/></>,
+    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
     alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4m0 4h.01"/></>,
     folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6m-3-3h6"/></>,
     link: <><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>,
@@ -158,8 +158,8 @@ export default function Dashboard({ session }) {
     styleTag.innerHTML = `
       html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100vh !important; background-color: ${theme.bg} !important; overflow-x: hidden !important; }
       * { box-sizing: border-box !important; }
-      input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; transition: 0.2s; }
-      input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+      input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; transition: 0.2s; }
+      input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     `;
 
     // FAVICON INJECTION
@@ -230,6 +230,7 @@ export default function Dashboard({ session }) {
     });
   };
 
+  // --- JSON IMPORT INKL. MANDANTEN-ERKENNUNG & EXAKTEM DIFF-CHECK ---
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
@@ -268,15 +269,15 @@ export default function Dashboard({ session }) {
         
         if (!existingMandant) {
           setUnsereFirma(obj.unsere_firma || '');
-          setUnserAnsprechpartner(obj.unser_ansprechpartner || '');
-          setUnserTelefon(obj.unser_telefon || '');
-          setUnserEmail(obj.unser_email || '');
+          setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || '');
+          setUnserTelefon(cleanVal(obj.unser_telefon) || '');
+          setUnserEmail(cleanVal(obj.unser_email) || '');
           setTresorPrompt({ typ: 'neu', obj });
         } else {
            setUnsereFirma(existingMandant.firmenname); 
-           setUnserAnsprechpartner(obj.unser_ansprechpartner || existingMandant.ansprechpartner || '');
-           setUnserTelefon(obj.unser_telefon || existingMandant.telefon || '');
-           setUnserEmail(obj.unser_email || existingMandant.email || '');
+           setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || cleanVal(existingMandant.ansprechpartner) || '');
+           setUnserTelefon(cleanVal(obj.unser_telefon) || cleanVal(existingMandant.telefon) || '');
+           setUnserEmail(cleanVal(obj.unser_email) || cleanVal(existingMandant.email) || '');
 
            let updates = {};
            
@@ -305,6 +306,8 @@ export default function Dashboard({ session }) {
                 selectedKeys: Object.keys(updates), 
                 firma: existingMandant.firmenname 
               });
+           } else {
+              setTresorPrompt(null);
            }
         }
       }
@@ -332,7 +335,10 @@ export default function Dashboard({ session }) {
         vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
         iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
-      if (!error && data) setMandanten(prev => [...prev, data[0]]);
+      if (!error && data) {
+        setMandanten(prev => [...prev, data[0]]);
+        alert(`✅ Mandant/Firma "${tresorPrompt.obj.unsere_firma}" wurde im Tresor angelegt!`);
+      }
     } else if (tresorPrompt.typ === 'update') {
       let finalUpdates = {};
       tresorPrompt.selectedKeys.forEach(k => {
@@ -341,6 +347,7 @@ export default function Dashboard({ session }) {
       if (Object.keys(finalUpdates).length > 0) {
         await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
         ladeDaten();
+        alert(`✅ Tresor-Eintrag für "${tresorPrompt.firma}" wurde aktualisiert!`);
       }
     }
     setTresorPrompt(null);
@@ -392,30 +399,30 @@ export default function Dashboard({ session }) {
     e.preventDefault()
     setLaedt(true)
 
-    if (tresorPrompt) {
-      if (tresorPrompt.typ === 'neu') {
-        await supabase.from('mandanten').insert([{
-          user_id: session.user.id,
-          firmenname: tresorPrompt.obj.unsere_firma,
-          ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
-          telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '',
-          email: cleanVal(tresorPrompt.obj.unser_email) || '',
-          adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
-          steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
-          ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
-          handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
-          betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
-          vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
-          iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
-        }]);
-      } else if (tresorPrompt.typ === 'update') {
-        let finalUpdates = {};
-        tresorPrompt.selectedKeys.forEach(k => {
-          finalUpdates[k] = tresorPrompt.updates[k];
-        });
-        if (Object.keys(finalUpdates).length > 0) {
-          await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
-        }
+    // AUTOMATISCHES TRESOR-ANLEGEN BEIM ABHEFTEN EINER AKTE
+    if (tresorPrompt && tresorPrompt.typ === 'neu') {
+      const { data: mData } = await supabase.from('mandanten').insert([{
+        user_id: session.user.id,
+        firmenname: tresorPrompt.obj.unsere_firma,
+        ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
+        telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '',
+        email: cleanVal(tresorPrompt.obj.unser_email) || '',
+        adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
+        steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
+        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
+        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
+        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
+        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
+        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
+      }]).select();
+      if (mData) setMandanten(prev => [...prev, mData[0]]);
+    } else if (tresorPrompt && tresorPrompt.typ === 'update') {
+      let finalUpdates = {};
+      tresorPrompt.selectedKeys.forEach(k => {
+        finalUpdates[k] = tresorPrompt.updates[k];
+      });
+      if (Object.keys(finalUpdates).length > 0) {
+        await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
       }
     }
 
@@ -819,19 +826,21 @@ export default function Dashboard({ session }) {
 
           <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
 
-            {/* TRESOR-ASSISTENT UI-BOX MIT CHECKBOXEN */}
+            {/* TRESOR-ASSISTENT UI-BOX MIT CHECKBOXEN & AUTO-ANLAGE */}
             {tresorPrompt && (
               <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
                   <div style={{ fontSize: '14px', lineHeight: '1.4', flex: 1 }}>
                     <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '16px', marginBottom: '4px' }}><Icon name="building" size={18} /> Tresor-Assistent</strong>
                     {tresorPrompt.typ === 'neu' 
-                      ? `Die Firma "${tresorPrompt.obj.unsere_firma}" ist noch nicht im Tresor. Soll sie automatisch angelegt werden?` 
-                      : `Für "${tresorPrompt.firma}" wurden abweichende oder neue Daten erkannt. Welche Felder sollen überschrieben werden?`}
+                      ? `Der Mandant / die Firma "${tresorPrompt.obj.unsere_firma}" ist noch nicht im Tresor gespeichert. Soll dieser Mandant automatisch angelegt werden?` 
+                      : `Für "${tresorPrompt.firma}" wurden neue/abweichende Stammdaten im Schreiben erkannt. Welche Felder sollen aktualisiert werden?`}
                   </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Ja, speichern</button>
-                    <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid rgba(0,0,0,0.3)', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Nein</button>
+                    <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                      {tresorPrompt.typ === 'neu' ? 'Jetzt im Tresor anlegen' : 'Änderungen übernehmen'}
+                    </button>
+                    <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid rgba(0,0,0,0.3)', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Überspringen</button>
                   </div>
                 </div>
 
@@ -889,7 +898,7 @@ export default function Dashboard({ session }) {
                   
                   <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                      <h4 style={{margin: 0, color: theme.textMain, fontSize: '16px'}}>2. Wir</h4>
+                      <h4 style={{margin: 0, color: theme.textMain, fontSize: '16px'}}>2. Wir (Mandant)</h4>
                       {mandanten.length > 0 && (
                         <select onChange={handleTresorAuswahl} style={{padding: '6px 12px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
                           <option value="">+ Aus Tresor laden...</option>
@@ -1148,7 +1157,7 @@ export default function Dashboard({ session }) {
         {activeTab === 'tresor' && (
         <div>
           <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-            <Icon name="building" size={24} /> {editMandantId ? 'Firma bearbeiten' : 'Neuer Mandant / Firma'}
+            <Icon name="building" size={24} /> {editMandantId ? 'Firma / Person bearbeiten' : 'Neuer Mandant / Firma'}
           </h2>
           <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
             
@@ -1208,7 +1217,7 @@ export default function Dashboard({ session }) {
             </div>
           </form>
 
-          <h2 style={{ margin: '40px 0 20px 0', color: theme.textMain, textAlign: 'left', fontSize: '20px' }}>🗃️ Gespeicherte Firmen</h2>
+          <h2 style={{ margin: '40px 0 20px 0', color: theme.textMain, textAlign: 'left', fontSize: '20px' }}>🗃️ Gespeicherte Mandanten & Firmen</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', textAlign: 'left' }}>
             {mandanten.map(m => (
               <div key={m.id} onClick={() => ladeInFormular(m)} style={{ ...panelStyle, position: 'relative', marginBottom: 0, cursor: 'pointer', transition: '0.2s', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }}>
@@ -1263,7 +1272,7 @@ export default function Dashboard({ session }) {
                 </div>
               </div>
             ))}
-            {mandanten.length === 0 && <div style={{ color: theme.textMuted }}>Noch keine Firmen im Tresor.</div>}
+            {mandanten.length === 0 && <div style={{ color: theme.textMuted }}>Noch keine Mandanten im Tresor.</div>}
           </div>
         </div>
         )}
