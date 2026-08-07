@@ -41,7 +41,7 @@ const Icon = ({ name, size = 18, style }) => {
     wand: <><path d="M15 4V2m0 14v-2M8 9h2m10 0h2m-13.8 6.2 1.4-1.4m11.2-8.6 1.4-1.4M6.2 6.2l1.4 1.4m8.6 11.2 1.4 1.4M3 21l9-9m3.5-3.5L17 7"/></>,
     paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
     cabinet: <><rect width="20" height="20" x="2" y="2" rx="2" ry="2"/><path d="M2 12h20M6 7h12M6 17h12"/></>,
-    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
+    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4m0 4h.01"/></>,
     folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6m-3-3h6"/></>,
@@ -151,13 +151,15 @@ export default function Dashboard({ session }) {
     accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf',
     gegnerAccent: '#f43f5e',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e', 
-    warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a' 
+    warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a',
+    cardItemBg: 'rgba(15, 23, 42, 0.7)' // Dark mode Kachel
   } : {
     bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
     accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e',
     gegnerAccent: '#e11d48',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48', 
-    warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e' 
+    warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e',
+    cardItemBg: '#ffffff' // Light mode Kachel (sehr hell)
   };
 
   useEffect(() => {
@@ -735,24 +737,23 @@ export default function Dashboard({ session }) {
                       key={`warn-${w.id}`} 
                       onClick={() => handleAlarmKlick(w.akte_id)}
                       style={{ 
-                        background: 'rgba(15, 23, 42, 0.7)', 
-                        padding: '12px 18px', 
+                        background: theme.cardItemBg, 
+                        padding: '14px 18px', 
                         borderRadius: '8px', 
                         border: `1px solid ${theme.border}`,
-                        borderLeft: `4px solid ${theme.warningBorder}`,
+                        borderLeft: `5px solid ${theme.warningBorder}`,
+                        boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)',
                         cursor: 'pointer', 
                         transition: 'all 0.2s ease',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '8px'
                       }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.95)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.7)'}
                       title="Klicken, um diese Akte unten zu fokussieren!"
                     >
                       {/* ZEILE 1: BEHÖRDE LINKS - BUTTONS RECHTS (NO WRAP) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
-                        <strong style={{ color: theme.warningText, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           🏢 {w.akte_gegner}
                         </strong>
 
@@ -774,12 +775,12 @@ export default function Dashboard({ session }) {
                               else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
                             }} 
                             style={{ 
-                              background: shiftDisabled ? '#334155' : theme.border, 
-                              color: shiftDisabled ? '#64748b' : theme.textMain, 
+                              background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, 
+                              color: shiftDisabled ? theme.textMuted : theme.textMain, 
                               border: 'none', padding: '6px 12px', borderRadius: '4px', 
                               cursor: shiftDisabled ? 'not-allowed' : 'pointer', 
                               fontSize: '12px', fontWeight: 'bold',
-                              opacity: shiftDisabled ? 0.5 : 1,
+                              opacity: shiftDisabled ? 0.6 : 1,
                               whiteSpace: 'nowrap'
                             }}
                             title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
@@ -791,10 +792,10 @@ export default function Dashboard({ session }) {
 
                       {/* ZEILE 2: THEMA & DATUMS-DETAILS (NO WRAP BADGES) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
-                        <span style={{ color: theme.textMain, opacity: 0.9 }}>📋 {w.akte_thema}</span>
+                        <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
                           <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
-                          {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.7}}>(Frist: {formatDatum(w.frist_extern)})</span>}
+                          {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8}}>(Frist: {formatDatum(w.frist_extern)})</span>}
                           
                           <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                             {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
