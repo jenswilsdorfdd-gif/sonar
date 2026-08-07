@@ -41,7 +41,7 @@ const Icon = ({ name, size = 18, style }) => {
     wand: <><path d="M15 4V2m0 14v-2M8 9h2m10 0h2m-13.8 6.2 1.4-1.4m11.2-8.6 1.4-1.4M6.2 6.2l1.4 1.4m8.6 11.2 1.4 1.4M3 21l9-9m3.5-3.5L17 7"/></>,
     paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
     cabinet: <><rect width="20" height="20" x="2" y="2" rx="2" ry="2"/><path d="M2 12h20M6 7h12M6 17h12"/></>,
-    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
+    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4m0 4h.01"/></>,
     folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6m-3-3h6"/></>,
@@ -84,7 +84,6 @@ export default function Dashboard({ session }) {
   const [laedt, setLaedt] = useState(false)
   
   const [akten, setAkten] = useState([])
-  const [uploadingHistId, setUploadingHistId] = useState(null)
   
   const [modus, setModus] = useState('neu') 
   const [selectedAkteId, setSelectedAkteId] = useState('')
@@ -119,7 +118,7 @@ export default function Dashboard({ session }) {
   // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null)
 
-  // MANDANTEN CRM
+  // MANDANTEN CRM (VOLLSTÄNDIGE STAMMDATEN)
   const [mandanten, setMandanten] = useState([])
   const [editMandantId, setEditMandantId] = useState(null)
   const [m_firmenname, setM_firmenname] = useState('')
@@ -129,6 +128,13 @@ export default function Dashboard({ session }) {
   const [m_email, setM_email] = useState('')
   const [m_steuernummer, setM_steuernummer] = useState('')
   const [m_ust_id, setM_ust_id] = useState('')
+  const [m_betriebsnummer, setM_betriebsnummer] = useState('')
+  const [m_vbg_nummer, setM_vbg_nummer] = useState('')
+  const [m_handelsregister, setM_handelsregister] = useState('')
+  const [m_iban, setM_iban] = useState('')
+  const [m_bank_name, setM_bank_name] = useState('')
+  const [m_ust_intervall, setM_ust_intervall] = useState('Vierteljährlich')
+  const [m_dauerfrist, setM_dauerfrist] = useState(false)
 
   // GEGNER / BEHÖRDEN CRM
   const [gegnerListe, setGegnerListe] = useState([])
@@ -152,14 +158,14 @@ export default function Dashboard({ session }) {
     gegnerAccent: '#f43f5e',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e', 
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a',
-    cardItemBg: 'rgba(15, 23, 42, 0.7)' // Dark mode Kachel
+    cardItemBg: 'rgba(15, 23, 42, 0.7)'
   } : {
     bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
     accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e',
     gegnerAccent: '#e11d48',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48', 
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e',
-    cardItemBg: '#ffffff' // Light mode Kachel (sehr hell)
+    cardItemBg: '#ffffff'
   };
 
   useEffect(() => {
@@ -297,6 +303,10 @@ export default function Dashboard({ session }) {
            let u4 = checkUpdate(existingMandant.adresse, obj.unsere_adresse); if(u4) updates.adresse = u4;
            let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) updates.steuernummer = u5;
            let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
+           let u7 = checkUpdate(existingMandant.betriebsnummer, obj.unsere_betriebsnummer); if(u7) updates.betriebsnummer = u7;
+           let u8 = checkUpdate(existingMandant.vbg_nummer, obj.unsere_vbg_nummer); if(u8) updates.vbg_nummer = u8;
+           let u9 = checkUpdate(existingMandant.handelsregister, obj.unsere_handelsregister); if(u9) updates.handelsregister = u9;
+           let u10 = checkUpdate(existingMandant.iban, obj.unsere_iban); if(u10) updates.iban = u10;
 
            if (Object.keys(updates).length > 0) {
               setTresorPrompt({ 
@@ -324,7 +334,11 @@ export default function Dashboard({ session }) {
         email: cleanVal(tresorPrompt.obj.unser_email) || '',
         adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
-        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || ''
+        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
+        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
+        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
+        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
+        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
       if (!error && data) {
         setMandanten(prev => [...prev, data[0]]);
@@ -379,7 +393,11 @@ export default function Dashboard({ session }) {
         email: cleanVal(tresorPrompt.obj.unser_email) || '',
         adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
-        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || ''
+        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
+        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
+        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
+        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
+        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
       if (mData) setMandanten(prev => [...prev, mData[0]]);
     }
@@ -503,7 +521,21 @@ export default function Dashboard({ session }) {
     setM_email(cleanVal(m.email) || '');
     setM_steuernummer(cleanVal(m.steuernummer) || '');
     setM_ust_id(cleanVal(m.ust_id) || '');
+    setM_betriebsnummer(cleanVal(m.betriebsnummer) || '');
+    setM_vbg_nummer(cleanVal(m.vbg_nummer) || '');
+    setM_handelsregister(cleanVal(m.handelsregister) || '');
+    setM_iban(cleanVal(m.iban) || '');
+    setM_bank_name(cleanVal(m.bank_name) || '');
+    setM_ust_intervall(m.ust_intervall || 'Vierteljährlich');
+    setM_dauerfrist(m.dauerfrist || false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resetMandantForm = () => {
+    setEditMandantId(null);
+    setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon(''); setM_email('');
+    setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
+    setM_iban(''); setM_bank_name(''); setM_ust_intervall('Vierteljährlich'); setM_dauerfrist(false);
   };
 
   const speichereMandant = async (e) => {
@@ -511,7 +543,9 @@ export default function Dashboard({ session }) {
     setLaedt(true)
     const payload = {
       user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
-      telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id
+      telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
+      vbg_nummer: m_vbg_nummer, handelsregister: m_handelsregister, iban: m_iban, bank_name: m_bank_name,
+      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist
     };
 
     if (editMandantId) {
@@ -519,7 +553,7 @@ export default function Dashboard({ session }) {
     } else {
       await supabase.from('mandanten').insert([payload]);
     }
-    setEditMandantId(null); setM_firmenname(''); ladeDaten(); setLaedt(false);
+    resetMandantForm(); ladeDaten(); setLaedt(false);
   }
 
   const speichereGegner = async (e) => {
@@ -627,6 +661,7 @@ export default function Dashboard({ session }) {
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
+  const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%' };
   const quickBtnStyle = { background: theme.border, color: theme.textMain, border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' };
 
@@ -1054,26 +1089,84 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'tresor' && (
           <div>
-            <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left' }}>🏢 Firmen-Tresor (Mandanten)</h2>
+            <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
+              <Icon name="building" size={24} /> {editMandantId ? 'Firma / Person bearbeiten' : 'Neuer Mandant / Firma im Tresor'}
+            </h2>
             <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', textAlign: 'left' }}>
-                <div><label style={labelStyle}>Firma / Name*</label><input required value={m_firmenname} onChange={e=>setM_firmenname(e.target.value)} style={inputStyle}/></div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', textAlign: 'left' }}>
+                <div style={{ gridColumn: '1 / -1' }}><h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten</h4></div>
+                <div><label style={labelStyle}>Firma / Person*</label><input required value={m_firmenname} onChange={e=>setM_firmenname(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>Ansprechpartner</label><input value={m_ansprechpartner} onChange={e=>setM_ansprechpartner(e.target.value)} style={inputStyle}/></div>
-                <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Adresse</label><input value={m_adresse} onChange={e=>setM_adresse(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>Telefon</label><input value={m_telefon} onChange={e=>setM_telefon(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
+
+                <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>2. Wichtige Nummern & Register</h4></div>
                 <div><label style={labelStyle}>Steuernummer</label><input value={m_steuernummer} onChange={e=>setM_steuernummer(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>USt-IdNr.</label><input value={m_ust_id} onChange={e=>setM_ust_id(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Betriebsnummer</label><input value={m_betriebsnummer} onChange={e=>setM_betriebsnummer(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>VBG-Nummer</label><input value={m_vbg_nummer} onChange={e=>setM_vbg_nummer(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Handelsregister</label><input value={m_handelsregister} onChange={e=>setM_handelsregister(e.target.value)} style={inputStyle}/></div>
+
+                <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
+                <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Bank Name</label><input value={m_bank_name} onChange={e=>setM_bank_name(e.target.value)} style={inputStyle}/></div>
+                
+                <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                  <label style={labelStyle}>USt-Voranmeldung</label>
+                  <select value={m_ust_intervall} onChange={e=>setM_ust_intervall(e.target.value)} style={inputStyle}>
+                    <option value="Monatlich">Monatlich</option>
+                    <option value="Vierteljährlich">Vierteljährlich</option>
+                    <option value="Jährlich">Jährlich (Keine VA)</option>
+                  </select>
+                </div>
+                
+                <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center' }}>
+                  <label style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input type="checkbox" checked={m_dauerfrist} onChange={e=>setM_dauerfrist(e.target.checked)} style={{ transform: 'scale(1.3)', accentColor: theme.tresorAccent }}/>
+                    Dauerfristverlängerung (DFV)
+                  </label>
+                </div>
               </div>
-              <button type="submit" style={{ padding: '12px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', width: '100%' }}>
-                {editMandantId ? 'Speichern' : '+ Mandant im Tresor ablegen'}
-              </button>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '25px' }}>
+                <button type="submit" style={{ padding: '14px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: 1 }}>
+                  {editMandantId ? '💾 Änderungen speichern' : '+ Mandant im Tresor ablegen'}
+                </button>
+                {editMandantId && (
+                  <button type="button" onClick={resetMandantForm} style={{ padding: '14px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Abbrechen
+                  </button>
+                )}
+              </div>
             </form>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', textAlign: 'left' }}>
+            <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>🗃️ Gespeicherte Mandanten & Firmen</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', textAlign: 'left' }}>
               {mandanten.map(m => (
-                <div key={m.id} style={{ ...panelStyle, cursor: 'pointer' }} onClick={() => ladeInFormularMandant(m)}>
-                  <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent }}>{m.firmenname}</h3>
-                  <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted }}>{m.ansprechpartner} | {m.email}</p>
+                <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
+                  <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px' }}>{m.firmenname}</h3>
+                  
+                  <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '15px' }}>
+                    <span>👤 {cleanVal(m.ansprechpartner) || '-'}</span>
+                    <span>📍 {cleanVal(m.adresse) || '-'}</span>
+                    <span>📞 {cleanVal(m.telefon) || '-'} | ✉️ {cleanVal(m.email) || '-'}</span>
+                  </div>
+
+                  <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: theme.inputBg, padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                    <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{cleanVal(m.steuernummer) || '-'}</div>
+                    <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{cleanVal(m.ust_id) || '-'}</div>
+                    <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{cleanVal(m.vbg_nummer) || '-'}</div>
+                    <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{cleanVal(m.betriebsnummer) || '-'}</div>
+                    <div><strong style={{color: theme.textMuted}}>HR-Nr:</strong><br/>{cleanVal(m.handelsregister) || '-'}</div>
+                    <div><strong style={{color: theme.textMuted}}>Bank:</strong><br/>{cleanVal(m.bank_name) || '-'}</div>
+                    <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>IBAN:</strong> {cleanVal(m.iban) || '-'}</div>
+                  </div>
+
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: theme.tresorAccent, fontWeight: 'bold' }}>
+                    USt-Radar: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(mit DFV)' : ''}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1085,7 +1178,9 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'gegner' && (
           <div>
-            <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left' }}>🛡️ Behörden & Gegner CRM</h2>
+            <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
+              <Icon name="shield" size={24} /> Behörden & Gegner CRM
+            </h2>
             <form onSubmit={speichereGegner} style={{ ...panelStyle, marginBottom: '20px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', textAlign: 'left' }}>
                 <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
