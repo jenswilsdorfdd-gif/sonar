@@ -577,23 +577,19 @@ export default function Dashboard({ session }) {
 
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if (akte.akten_historie && akte.akten_historie.length > 0) {
-      // 1. Suche nach Einträgen mit Fristen/WV in dieser Akte
       const relevanteEintraege = akte.akten_historie.filter(h => h.wiedervorlage || h.frist_extern);
       
       if (relevanteEintraege.length > 0) {
-        // Das neueste Schreiben liegt wegen der Sortierung an Index 0
         const neuestesDokument = relevanteEintraege[0];
         
         let zielDatum = neuestesDokument.wiedervorlage || neuestesDokument.frist_extern;
         let isWV = !!neuestesDokument.wiedervorlage;
 
-        // REGEL: Wenn behördliche Frist existiert UND Wichtiger/Prioritärer ist (WV liegt nach Frist):
         if (neuestesDokument.frist_extern && neuestesDokument.wiedervorlage) {
           const wvDate = new Date(neuestesDokument.wiedervorlage);
           const fristDate = new Date(neuestesDokument.frist_extern);
           
           if (wvDate >= fristDate) {
-            // Harte Behördenfrist hat Vorrang!
             zielDatum = neuestesDokument.frist_extern;
             isWV = false;
           }
@@ -601,7 +597,6 @@ export default function Dashboard({ session }) {
 
         const tage = berechneTageBis(zielDatum);
         
-        // Füge MAXIMAL 1 Alarm pro Akte hinzu, wenn Termin <= 14 Tage
         if (tage !== null && tage <= 14) {
           let alarmStufe = '1. ERINNERUNG';
           if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
@@ -1109,7 +1104,7 @@ export default function Dashboard({ session }) {
                 <div key={g.id} style={{ ...panelStyle }}>
                   <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent }}>{g.name}</h3>
                   <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '8px' }}>{g.abteilung || 'Hauptstelle'}</div>
-                  <div style={{ fontSize: '13px', color theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <span>👤 {g.ansprechpartner || '-'}</span>
                     <span>📞 {g.telefon || '-'} | Fax: {g.fax || '-'}</span>
                     <span>✉️ {g.email || '-'}</span>
