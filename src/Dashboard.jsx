@@ -126,13 +126,6 @@ export default function Dashboard({ session }) {
   const [m_email, setM_email] = useState('')
   const [m_steuernummer, setM_steuernummer] = useState('')
   const [m_ust_id, setM_ust_id] = useState('')
-  const [m_betriebsnummer, setM_betriebsnummer] = useState('')
-  const [m_vbg_nummer, setM_vbg_nummer] = useState('')
-  const [m_handelsregister, setM_handelsregister] = useState('')
-  const [m_iban, setM_iban] = useState('')
-  const [m_bank_name, setM_bank_name] = useState('')
-  const [m_ust_intervall, setM_ust_intervall] = useState('Vierteljährlich')
-  const [m_dauerfrist, setM_dauerfrist] = useState(false)
 
   // GEGNER / BEHÖRDEN CRM
   const [gegnerListe, setGegnerListe] = useState([])
@@ -368,24 +361,6 @@ export default function Dashboard({ session }) {
     setLaedt(false);
   };
 
-  const handleNachtragUpload = async (histId, currentUrls, e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploadingHistId(histId);
-    const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const dateiName = `${Date.now()}_${sichererDateiname}`; 
-    const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
-    if (!uploadError) {
-      const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
-      const newUrl = linkData.publicUrl;
-      const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
-      const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
-      if (!error) ladeDaten();
-    }
-    setUploadingHistId(null);
-    e.target.value = ''; 
-  };
-
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -494,13 +469,6 @@ export default function Dashboard({ session }) {
     ladeDaten()
   }
 
-  const setzeAkteErledigt = async (id, isErledigt) => {
-    const status = isErledigt ? 'Erledigt' : 'Offen'
-    const d = isErledigt ? new Date().toISOString().split('T')[0] : null
-    await supabase.from('akten').update({ status: status, erledigt_am: d }).eq('id', id)
-    ladeDaten()
-  }
-
   const handleTresorAuswahl = (e) => {
     const mId = e.target.value
     if(!mId) return
@@ -565,26 +533,55 @@ export default function Dashboard({ session }) {
     setEditGegnerId(null); setG_name(''); setG_abteilung(''); setG_ansprechpartner(''); ladeDaten(); setLaedt(false);
   }
 
+  // ROBUSTE TAGE-BERECH NUNG MIT PLAUSIBILITÄTS-CHECK
   const berechneTageBis = (datumStr) => {
     if (!datumStr) return null;
+    let rawDate = String(datumStr).trim();
+    
+    if (rawDate.length === 8 && rawDate.endsWith('206')) {
+      rawDate = rawDate.replace('206', '2026');
+    }
+    
     const heute = new Date(); heute.setHours(0, 0, 0, 0);
-    const frist = new Date(datumStr); frist.setHours(0, 0, 0, 0);
+    const frist = new Date(rawDate);
+    
+    if (frist.getFullYear() < 2000) {
+      frist.setFullYear(2026);
+    }
+    
+    frist.setHours(0, 0, 0, 0);
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
+  };
+
+  // HANDLER ZUM SCROLLEN UND AUFKLAPPEN DER AKTE BEI KLICK AUF DEN ALARM
+  const handleAlarmKlick = (akteId) => {
+    setActiveTab('akten');
+    if (!aufgeklappteAkten.includes(akteId)) {
+      setAufgeklappteAkten(prev => [...prev, akteId]);
+    }
+    setTimeout(() => {
+      const el = document.getElementById(`akte-karte-${akteId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
   };
 
   // --- WIEDERVORLAGE UND FRISTEN LEISTE ---
   const fristenWarnungen = [];
+  const aktenMitWarnungIds = new Set();
+
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if(akte.akten_historie) {
       akte.akten_historie.forEach(hist => {
-        // Prüfe sowohl Frist als auch Wiedervorlage
         const zielDatum = hist.wiedervorlage || hist.frist_extern;
         if(zielDatum) {
           const tage = berechneTageBis(zielDatum);
-          if (tage !== null && tage <= 7) { 
+          if (tage !== null && tage <= 14) { 
             let alarmStufe = '1. ERINNERUNG';
             if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
             if (tage <= 2) alarmStufe = 'ALARM';
+            
             fristenWarnungen.push({ 
               ...hist, 
               akte_id: akte.id,
@@ -594,7 +591,9 @@ export default function Dashboard({ session }) {
               alarmStufe,
               isWiedervorlage: !!hist.wiedervorlage,
               aktivesDatum: zielDatum
-            })
+            });
+            
+            aktenMitWarnungIds.add(akte.id);
           }
         }
       })
@@ -699,18 +698,14 @@ export default function Dashboard({ session }) {
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left' }}>
                 {fristenWarnungen.map(w => {
-                  const heute = new Date();
                   const zielDatum = new Date(w.aktivesDatum);
                   
-                  // BERECHNE +3 TAGE ZUKUNFT
                   const plusDreiDate = new Date(zielDatum);
                   plusDreiDate.setDate(plusDreiDate.getDate() + 3);
 
-                  // STRIKTE PRÜFUNG: Darf niemals hinter der originalen Frist_extern liegen!
                   let shiftDisabled = false;
                   if (w.frist_extern) {
                     const originalFristDate = new Date(w.frist_extern);
-                    // Wenn +3 Tage hinter der Originalfrist liegen würde -> SPERRE!
                     if (plusDreiDate > originalFristDate) {
                       shiftDisabled = true;
                     }
@@ -719,16 +714,26 @@ export default function Dashboard({ session }) {
                   const plusDreiIso = plusDreiDate.toISOString().split('T')[0];
 
                   return (
-                    <div key={`warn-${w.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 15px', borderRadius: '6px', flexWrap: 'wrap', gap: '10px' }}>
+                    <div 
+                      key={`warn-${w.id}`} 
+                      onClick={() => handleAlarmKlick(w.akte_id)}
+                      style={{ 
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                        background: 'rgba(0,0,0,0.25)', padding: '10px 15px', borderRadius: '6px', 
+                        flexWrap: 'wrap', gap: '10px', cursor: 'pointer', transition: '0.2s',
+                        borderLeft: `4px solid ${theme.warningBorder}`
+                      }}
+                      title="Klicken, um direkt zur Akte zu springen!"
+                    >
                       <div>
-                        <strong style={{color: theme.warningText}}>{w.akte_gegner}</strong> ({w.akte_thema}) — <span style={{fontWeight: 'bold'}}>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: {formatDatum(w.aktivesDatum)}</span>
+                        <strong style={{color: theme.warningText, textDecoration: 'underline'}}>{w.akte_gegner}</strong> ({w.akte_thema}) — <span style={{fontWeight: 'bold'}}>{w.isWiedervorlage ? 'WV' : 'Frist'}: {formatDatum(w.aktivesDatum)}</span>
                         {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8, marginLeft: '8px'}}>(Hartes Fristdatum: {formatDatum(w.frist_extern)})</span>}
                         <span style={{ marginLeft: '10px', fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold' }}>
                           {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {/* 1. GRÜNER ERLEDIGT BUTTON */}
+                      
+                      <div style={{ display: 'flex', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
                         <button 
                           onClick={() => {
                             if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
@@ -739,7 +744,6 @@ export default function Dashboard({ session }) {
                           ✓ Erledigt
                         </button>
 
-                        {/* 2. MAXIMAL +3 TAGE VERSCHIEBEN (MIT STRIKTER SPERRE) */}
                         <button 
                           disabled={shiftDisabled}
                           onClick={() => {
@@ -849,12 +853,16 @@ export default function Dashboard({ session }) {
               </div>
               <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
+              
+              {/* VOLLSTÄNDIGE SCHNELLWAHL-BUTTONS FÜR WIEDERVORLAGE */}
               <div>
                 <label style={labelStyle}>WV (Intern)</label>
                 <input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} />
-                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                   <button type="button" onClick={() => setzeWV(3)} style={quickBtnStyle}>+3T</button>
                   <button type="button" onClick={() => setzeWV(7)} style={quickBtnStyle}>+1W</button>
+                  <button type="button" onClick={() => setzeWV(14)} style={quickBtnStyle}>+2W</button>
+                  <button type="button" onClick={() => setzeWV(0, 1)} style={quickBtnStyle}>+1M</button>
                 </div>
               </div>
             </div>
@@ -899,15 +907,27 @@ export default function Dashboard({ session }) {
             {gefilterteAkten.map((akte) => {
               const isExpanded = aufgeklappteAkten.includes(akte.id);
               const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
+              
+              const hatAlarm = aktenMitWarnungIds.has(akte.id);
 
               return (
-                <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                <div 
+                  id={`akte-karte-${akte.id}`} 
+                  key={akte.id} 
+                  style={{ 
+                    borderBottom: `1px solid ${theme.border}`,
+                    background: hatAlarm ? (isDarkMode ? 'rgba(244, 63, 94, 0.08)' : '#fff1f2') : 'transparent',
+                    borderLeft: hatAlarm ? `4px solid ${theme.warningBorder}` : '4px solid transparent',
+                    transition: '0.3s'
+                  }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', flexWrap: 'wrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
-                    <div style={{ width: '30px', color: theme.accent }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
+                    <div style={{ width: '30px', color: hatAlarm ? theme.warningBorder : theme.accent }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
                     <div style={{ flex: '1 1 200px' }}>
                       <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>
                         {akte.gegner_name}
                         {akte.vorgaenger_gegner && <span style={{fontSize: '11px', color: theme.textMuted, marginLeft: '8px'}}>(vormals: {akte.vorgaenger_gegner})</span>}
+                        {hatAlarm && <span style={{marginLeft: '8px', fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold'}}>⚠️ DRINGEND</span>}
                       </div>
                       <div style={{ fontSize: '12px', color: theme.textMuted }}>AZ: {akte.aktenzeichen || '-'}</div>
                     </div>
@@ -916,7 +936,7 @@ export default function Dashboard({ session }) {
                       <div style={{ fontSize: '12px', color: theme.textMuted }}>Letzter Eintrag: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion}` : '-'}</div>
                     </div>
                     <div style={{ flex: '1 1 100px', textAlign: 'right' }}>
-                      {akte.status === 'Erledigt' ? <span style={{ background: theme.border, padding: '4px 10px', borderRadius: '20px', fontSize: '11px' }}>Erledigt</span> : <span style={{ background: theme.accent, color: '#000', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
+                      {akte.status === 'Erledigt' ? <span style={{ background: theme.border, padding: '4px 10px', borderRadius: '20px', fontSize: '11px' }}>Erledigt</span> : <span style={{ background: hatAlarm ? theme.warningBorder : theme.accent, color: hatAlarm ? '#fff' : '#000', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
                     </div>
                   </div>
 
@@ -956,7 +976,6 @@ export default function Dashboard({ session }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {/* OBERSTES DOKUMENT ZUERST (DESC) */}
                           {akte.akten_historie.map((hist) => (
                             <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
                               <td style={{ padding: '10px', fontWeight: 'bold' }}>{hist.typ}</td>
