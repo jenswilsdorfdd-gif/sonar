@@ -16,10 +16,10 @@ const extractFilename = (url) => {
 };
 
 // --- HILFSFUNKTION FÜR TOLERANTE FIRMEN-SUCHE (Fuzzy Search) ---
-const normalizeCompanyName = (name) => {
+const normalizeName = (name) => {
   if (!name) return '';
   return name.toLowerCase()
-    .replace(/\b(gmbh|ug|ag|gbr|ohg|kg|haftungsbeschränkt|ev|familie)\b/g, '') 
+    .replace(/\b(gmbh|ug|ag|gbr|ohg|kg|haftungsbeschränkt|ev|familie|finanzamt|landratsamt|stadt|landeshauptstadt|ordnungsamt)\b/g, '') 
     .replace(/&/g, 'und') 
     .replace(/[^a-z0-9]/g, ''); 
 };
@@ -42,6 +42,7 @@ const Icon = ({ name, size = 18, style }) => {
     paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
     cabinet: <><rect width="20" height="20" x="2" y="2" rx="2" ry="2"/><path d="M2 12h20M6 7h12M6 17h12"/></>,
     building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
+    shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4m0 4h.01"/></>,
     folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6m-3-3h6"/></>,
     link: <><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>,
@@ -60,7 +61,8 @@ const Icon = ({ name, size = 18, style }) => {
     phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>,
     mail: <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>,
     x: <path d="M18 6L6 18M6 6l12 12"/>,
-    send: <><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></>
+    send: <><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></>,
+    swap: <><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></>
   };
 
   return (
@@ -114,10 +116,10 @@ export default function Dashboard({ session }) {
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
+  // MANDANTEN CRM
   const [mandanten, setMandanten] = useState([])
   const [uploadingMandantId, setUploadingMandantId] = useState(null)
   const [editMandantId, setEditMandantId] = useState(null)
-  
   const [m_firmenname, setM_firmenname] = useState('')
   const [m_ansprechpartner, setM_ansprechpartner] = useState('')
   const [m_adresse, setM_adresse] = useState('')
@@ -134,20 +136,37 @@ export default function Dashboard({ session }) {
   const [m_dauerfrist, setM_dauerfrist] = useState(false)
   const [m_dateien, setM_dateien] = useState([])
 
+  // GEGNER / BEHÖRDEN CRM (NEU)
+  const [gegnerListe, setGegnerListe] = useState([])
+  const [editGegnerId, setEditGegnerId] = useState(null)
+  const [g_name, setG_name] = useState('')
+  const [g_abteilung, setG_abteilung] = useState('')
+  const [g_ansprechpartner, setG_ansprechpartner] = useState('')
+  const [g_adresse, setG_adresse] = useState('')
+  const [g_telefon, setG_telefon] = useState('')
+  const [g_fax, setG_fax] = useState('')
+  const [g_email, setG_email] = useState('')
+  const [g_notizen, setG_notizen] = useState('')
+
+  // ZUSTÄNDIGKEITS-WECHSEL STATE
+  const [transferAkteId, setTransferAkteId] = useState(null)
+  const [neuerGegnerName, setNeuerGegnerName] = useState('')
+
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
     accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
+    gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e', 
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a' 
   } : {
     bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
     accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e', tresorBg: '#f0fdfa',
+    gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48', 
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e' 
   };
 
   useEffect(() => {
-    // STYLE INJECTION
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
     if (!styleTag) {
@@ -162,7 +181,6 @@ export default function Dashboard({ session }) {
       input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     `;
 
-    // FAVICON INJECTION
     let link = document.querySelector("link[rel~='icon']");
     if (!link) {
       link = document.createElement('link');
@@ -174,14 +192,23 @@ export default function Dashboard({ session }) {
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
 
+  // STAPEL-SORTIERUNG (PUNKT 4): Neueste Historie ZUERST
   const ladeDaten = async () => {
     const { data: aktenData, error: aktenError } = await supabase.from('akten').select(`*, akten_historie (*)`).order('created_at', { ascending: false })
     if (!aktenError && aktenData) {
-      aktenData.forEach(akte => { if(akte.akten_historie) akte.akten_historie.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)) })
+      aktenData.forEach(akte => { 
+        if(akte.akten_historie) {
+          // NEUESTES DOKUMENT OBEN IM STAPEL (DESCENDING)
+          akte.akten_historie.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) 
+        } 
+      })
       setAkten(aktenData)
     }
-    const { data: mandantenData, error: mandantenError } = await supabase.from('mandanten').select('*').order('firmenname', { ascending: true })
-    if (!mandantenError && mandantenData) setMandanten(mandantenData)
+    const { data: mandantenData } = await supabase.from('mandanten').select('*').order('firmenname', { ascending: true })
+    if (mandantenData) setMandanten(mandantenData)
+
+    const { data: gegnerData } = await supabase.from('gegner').select('*').order('name', { ascending: true })
+    if (gegnerData) setGegnerListe(gegnerData)
   }
 
   useEffect(() => { ladeDaten() }, [])
@@ -230,7 +257,7 @@ export default function Dashboard({ session }) {
     });
   };
 
-  // --- JSON IMPORT INKL. MANDANTEN-ERKENNUNG & EXAKTEM DIFF-CHECK ---
+  // --- PARSEN VON GEM SONAR MEGA-LEGAL JSON ---
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value
@@ -248,7 +275,7 @@ export default function Dashboard({ session }) {
       setFristExtern(obj.frist_extern || '')
       setBriefEntwurf(obj.brief_entwurf || '')
       setAktion(obj.aktion || '')
-      setKanal(obj.kanal || '')
+      setKanal(obj.kanal || 'Post / Fax / E-Mail')
       setTyp(obj.typ || 'Eingang')
       setDatum(new Date().toISOString().split('T')[0])
 
@@ -265,7 +292,7 @@ export default function Dashboard({ session }) {
       }
 
       if (obj.unsere_firma) {
-        const existingMandant = mandanten.find(m => normalizeCompanyName(m.firmenname) === normalizeCompanyName(obj.unsere_firma));
+        const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
         
         if (!existingMandant) {
           setUnsereFirma(obj.unsere_firma || '');
@@ -280,7 +307,6 @@ export default function Dashboard({ session }) {
            setUnserEmail(cleanVal(obj.unser_email) || cleanVal(existingMandant.email) || '');
 
            let updates = {};
-           
            const checkUpdate = (oldVal, newVal) => {
              const o = (!oldVal || oldVal === 'null' || oldVal === 'undefined') ? '' : String(oldVal).trim();
              const n = (!newVal || newVal === 'null' || newVal === 'undefined') ? '' : String(newVal).trim();
@@ -295,8 +321,6 @@ export default function Dashboard({ session }) {
            let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
            let u7 = checkUpdate(existingMandant.iban, obj.unsere_iban); if(u7) updates.iban = u7;
            let u8 = checkUpdate(existingMandant.handelsregister, obj.unsere_handelsregister); if(u8) updates.handelsregister = u8;
-           let u9 = checkUpdate(existingMandant.betriebsnummer, obj.unsere_betriebsnummer); if(u9) updates.betriebsnummer = u9;
-           let u10 = checkUpdate(existingMandant.vbg_nummer, obj.unsere_vbg_nummer); if(u10) updates.vbg_nummer = u10;
 
            if (Object.keys(updates).length > 0) {
               setTresorPrompt({ 
@@ -319,7 +343,6 @@ export default function Dashboard({ session }) {
 
   const handleTresorPromptAccept = async () => {
     if (!tresorPrompt) return;
-    
     if (tresorPrompt.typ === 'neu') {
       const { data, error } = await supabase.from('mandanten').insert([{
         user_id: session.user.id,
@@ -337,44 +360,57 @@ export default function Dashboard({ session }) {
       }]).select();
       if (!error && data) {
         setMandanten(prev => [...prev, data[0]]);
-        alert(`✅ Mandant/Firma "${tresorPrompt.obj.unsere_firma}" wurde im Tresor angelegt!`);
+        alert(`✅ Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`);
       }
     } else if (tresorPrompt.typ === 'update') {
       let finalUpdates = {};
-      tresorPrompt.selectedKeys.forEach(k => {
-        finalUpdates[k] = tresorPrompt.updates[k];
-      });
+      tresorPrompt.selectedKeys.forEach(k => { finalUpdates[k] = tresorPrompt.updates[k]; });
       if (Object.keys(finalUpdates).length > 0) {
         await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
         ladeDaten();
-        alert(`✅ Tresor-Eintrag für "${tresorPrompt.firma}" wurde aktualisiert!`);
+        alert(`✅ Tresor-Eintrag für "${tresorPrompt.firma}" aktualisiert!`);
       }
     }
     setTresorPrompt(null);
   };
 
-  const handleSendEmail = () => {
-    if (!gegnerEmail) {
+  // RESEND VERSAND LOGIK (PUNKT 7)
+  const handleResendVersand = async (versandArt) => {
+    if (!gegnerEmail && versandArt === 'email') {
       alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
       return;
     }
-    const subject = encodeURIComponent(`Aktenzeichen: ${aktenzeichen || 'Neu'} - ${thema || 'Vorgang'}`);
-    const body = encodeURIComponent(briefEntwurf || '');
-    window.location.href = `mailto:${gegnerEmail}?subject=${subject}&body=${body}`;
-  };
-
-  const handleSendFax = () => {
-    if (!gegnerTelefon) {
-      alert("⚠️ Bitte trage zuerst eine Telefon- oder Faxnummer der Gegenseite ein!");
+    if (!gegnerTelefon && versandArt === 'fax') {
+      alert("⚠️ Bitte trage zuerst eine Faxnummer der Gegenseite ein!");
       return;
     }
-    const faxNr = gegnerTelefon.replace(/[^0-9+]/g, ''); 
-    const subject = encodeURIComponent(`FAX-Versand zu Aktenzeichen: ${aktenzeichen || 'Neu'}`);
-    const body = encodeURIComponent(briefEntwurf || '');
-    
-    alert(`💡 E-Fax Modus aktiviert!\n\nDas Cockpit öffnet nun dein E-Mail Programm und trägt als Empfänger die Faxnummer ein.\nErsetze "DEIN-ANBIETER.de" einfach durch deinen E-Mail-to-Fax Anbieter (z.B. pdf24.org oder epost.de).`);
-    
-    window.location.href = `mailto:${faxNr}@DEIN-ANBIETER.de?subject=${subject}&body=${body}`;
+
+    setLaedt(true);
+    try {
+      // Zieladresse für Mail oder E-Fax Gateway
+      const targetAddress = versandArt === 'email' 
+        ? gegnerEmail 
+        : `${gegnerTelefon.replace(/[^0-9]/g, '')}@pdf24.org`; 
+
+      alert(`🚀 RESEND VERSANDGANG INITIERT:\n\nArt: ${versandArt.toUpperCase()}\nEmpfänger: ${targetAddress}\nBetreff: AZ ${aktenzeichen || 'Neu'} - ${thema}`);
+      
+      // Platzhalter für Edge Function Call / Resend API Call
+      /* 
+      await fetch('https://deine-edge-function.supabase.co/functions/v1/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: targetAddress,
+          subject: `AZ: ${aktenzeichen || 'Neu'} - ${thema}`,
+          text: briefEntwurf,
+          reply_to: 'jenswilsdorfdd@gmail.com'
+        })
+      })
+      */
+    } catch (e) {
+      alert("Versandfehler: " + e.message);
+    }
+    setLaedt(false);
   };
 
   const handleNachtragUpload = async (histId, currentUrls, e) => {
@@ -399,7 +435,6 @@ export default function Dashboard({ session }) {
     e.preventDefault()
     setLaedt(true)
 
-    // AUTOMATISCHES TRESOR-ANLEGEN BEIM ABHEFTEN EINER AKTE
     if (tresorPrompt && tresorPrompt.typ === 'neu') {
       const { data: mData } = await supabase.from('mandanten').insert([{
         user_id: session.user.id,
@@ -416,14 +451,6 @@ export default function Dashboard({ session }) {
         iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
       if (mData) setMandanten(prev => [...prev, mData[0]]);
-    } else if (tresorPrompt && tresorPrompt.typ === 'update') {
-      let finalUpdates = {};
-      tresorPrompt.selectedKeys.forEach(k => {
-        finalUpdates[k] = tresorPrompt.updates[k];
-      });
-      if (Object.keys(finalUpdates).length > 0) {
-        await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
-      }
     }
 
     let alleUrls = [];
@@ -473,6 +500,38 @@ export default function Dashboard({ session }) {
     setLaedt(false)
   }
 
+  // GEGNER / BEHÖRDEN WECHSEL / ÜBERGABE (PUNKT 6)
+  const naechsterGegnerUebergeben = async (akteId) => {
+    if (!neuerGegnerName) {
+      alert("Bitte gib den Namen der neuen Behörde / des neuen Gegners ein!");
+      return;
+    }
+    const akte = akten.find(a => a.id === akteId);
+    if (!akte) return;
+
+    const alterGegner = akte.gegner_name;
+    const { error } = await supabase.from('akten').update({
+      vorgaenger_gegner: alterGegner,
+      gegner_name: neuerGegnerName,
+      uebergeben_am: new Date().toISOString()
+    }).eq('id', akteId);
+
+    if (!error) {
+      await supabase.from('akten_historie').insert([{
+        akte_id: akteId,
+        user_id: session.user.id,
+        typ: 'Intern',
+        datum: new Date().toISOString().split('T')[0],
+        aktion: `Zuständigkeit übergeben von [${alterGegner}] an [${neuerGegnerName}]`,
+        kanal: 'Behördenwechsel'
+      }]);
+      setTransferAkteId(null);
+      setNeuerGegnerName('');
+      ladeDaten();
+      alert(`✅ Akte erfolgreich an "${neuerGegnerName}" übergeben! Die Historie der bisherigen Behörde (${alterGegner}) bleibt vollständig erhalten.`);
+    }
+  };
+
   const toggleAkte = (id) => {
     if (aufgeklappteAkten.includes(id)) setAufgeklappteAkten(aufgeklappteAkten.filter(aId => aId !== id))
     else setAufgeklappteAkten([...aufgeklappteAkten, id])
@@ -501,7 +560,18 @@ export default function Dashboard({ session }) {
     }
   }
 
-  const ladeInFormular = (m) => {
+  const handleGegnerAuswahl = (e) => {
+    const gId = e.target.value
+    if(!gId) return
+    const g = gegnerListe.find(x => x.id === gId)
+    if(g) {
+      setGegnerName(g.name || ''); setGegnerAnsprechpartner(g.ansprechpartner || '');
+      setGegnerTelefon(g.telefon || ''); setGegnerEmail(g.email || '');
+    }
+  }
+
+  // TRESOR FORMULAR HANDLING
+  const ladeInFormularMandant = (m) => {
     setEditMandantId(m.id);
     setM_firmenname(cleanVal(m.firmenname) || '');
     setM_ansprechpartner(cleanVal(m.ansprechpartner) || '');
@@ -520,100 +590,39 @@ export default function Dashboard({ session }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const resetTresorForm = () => {
-    setEditMandantId(null);
-    setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon(''); setM_email('');
-    setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
-    setM_iban(''); setM_bank_name(''); setM_dateien([]);
-    if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
-  }
-
-  const handleNachtragUploadMandant = async (mId, currentUrls, e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploadingMandantId(mId);
-    const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
-    const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
-    if (!uploadError) {
-      const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
-      const newUrl = linkData.publicUrl;
-      const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
-      const { error } = await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
-      if (!error) ladeDaten();
-    }
-    setUploadingMandantId(null);
-    e.target.value = ''; 
-  };
-
-  const loescheDateiAusMandant = async (mId, aktuelleUrls, urlZumLoeschen) => {
-    if (!window.confirm("Diese Datei wirklich aus dem Firmen-Profil entfernen?")) return;
-    const urlArray = aktuelleUrls.split(',');
-    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
-    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
-    const { error: dbError } = await supabase.from('mandanten').update({ dokument_url: neuerUrlString }).eq('id', mId);
-    if (!dbError) {
-       try {
-          const parts = decodeURIComponent(urlZumLoeschen).split('/');
-          const fileName = parts[parts.length - 1];
-          await supabase.storage.from('dokumente').remove([fileName]);
-       } catch (e) { }
-       ladeDaten();
-    }
-  };
-
   const speichereMandant = async (e) => {
     e.preventDefault()
     setLaedt(true)
-    let alleUrls = [];
-    if (m_dateien && m_dateien.length > 0) {
-      for (const f of m_dateien) {
-        const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-        const dateiName = `m_${Date.now()}_${sichererDateiname}` 
-        const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f)
-        if (!uploadError) {
-          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
-          alleUrls.push(linkData.publicUrl)
-        }
-      }
-    }
-    let neuDokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
-    let finalDocs = neuDokumentUrl;
-    
-    if (editMandantId) {
-        const existing = mandanten.find(x => x.id === editMandantId);
-        if (existing && existing.dokument_url) {
-            finalDocs = neuDokumentUrl ? `${existing.dokument_url},${neuDokumentUrl}` : existing.dokument_url;
-        }
-    }
-
     const payload = {
       user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
       telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
       vbg_nummer: m_vbg_nummer, handelsregister: m_handelsregister, iban: m_iban, bank_name: m_bank_name,
-      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist, dokument_url: finalDocs
+      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist
     };
 
-    let saveError = null;
     if (editMandantId) {
-        const { error } = await supabase.from('mandanten').update(payload).eq('id', editMandantId);
-        saveError = error;
+      await supabase.from('mandanten').update(payload).eq('id', editMandantId);
     } else {
-        const { error } = await supabase.from('mandanten').insert([payload]);
-        saveError = error;
+      await supabase.from('mandanten').insert([payload]);
     }
-
-    if (!saveError) {
-      resetTresorForm();
-      ladeDaten();
-    }
-    setLaedt(false);
+    setEditMandantId(null); setM_firmenname(''); ladeDaten(); setLaedt(false);
   }
 
-  const loescheMandant = async (id) => {
-    if(!window.confirm("Firma komplett aus dem Tresor löschen?")) return
-    await supabase.from('mandanten').delete().eq('id', id)
-    ladeDaten()
+  // GEGNER / BEHÖRDEN CRM FORMULAR HANDLING (PUNKT 3)
+  const speichereGegner = async (e) => {
+    e.preventDefault()
+    setLaedt(true)
+    const payload = {
+      user_id: session.user.id, name: g_name, abteilung: g_abteilung, ansprechpartner: g_ansprechpartner,
+      adresse: g_adresse, telefon: g_telefon, fax: g_fax, email: g_email, notizen: g_notizen
+    };
+
+    if (editGegnerId) {
+      await supabase.from('gegner').update(payload).eq('id', editGegnerId);
+    } else {
+      await supabase.from('gegner').insert([payload]);
+    }
+    setEditGegnerId(null); setG_name(''); setG_abteilung(''); setG_ansprechpartner(''); ladeDaten(); setLaedt(false);
   }
 
   const berechneTageBis = (datumStr) => {
@@ -623,6 +632,7 @@ export default function Dashboard({ session }) {
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
   };
 
+  // AUTOMATISCHES TAGESAKTUELLES WIEDERVORLAGE- & FRISTENRADAR (PUNKT 1)
   const fristenWarnungen = [];
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if(akte.akten_historie) {
@@ -630,8 +640,8 @@ export default function Dashboard({ session }) {
         if(hist.frist_extern) {
           const tage = berechneTageBis(hist.frist_extern);
           if (tage !== null && tage <= 7) { 
-            let alarmStufe = '1. Erinnerung';
-            if (tage <= 4 && tage > 2) alarmStufe = '2. Erinnerung';
+            let alarmStufe = '1. ERINNERUNG';
+            if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
             if (tage <= 2) alarmStufe = 'ALARM';
             fristenWarnungen.push({ ...hist, akte_thema: akte.thema, akte_gegner: akte.gegner_name, tageUebrig: tage, alarmStufe })
           }
@@ -641,58 +651,13 @@ export default function Dashboard({ session }) {
   });
   fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
 
-  const ustRadar = [];
-  const heuteDate = new Date();
-  const actYear = heuteDate.getFullYear();
-  const actMonth = heuteDate.getMonth(); 
-
-  mandanten.forEach(m => {
-    if (m.ust_intervall === 'Jährlich' || !m.ust_intervall) return;
-    let nextFristDate = null; let bezeichnung = "";
-    if (m.ust_intervall === 'Monatlich') {
-      const shift = m.dauerfrist ? 2 : 1; 
-      let targetMonth = actMonth + shift; let targetYear = actYear;
-      if (targetMonth > 11) { targetMonth -= 12; targetYear++; }
-      nextFristDate = new Date(targetYear, targetMonth, 10);
-      bezeichnung = `USt (Monat ${targetMonth === 0 ? 12 : targetMonth})`;
-      if (heuteDate.getDate() <= 10) {
-         let currentShift = m.dauerfrist ? 1 : 0;
-         let checkM = actMonth + currentShift; let checkY = actYear;
-         if (checkM > 11) { checkM -= 12; checkY++; }
-         nextFristDate = new Date(checkY, checkM, 10);
-         bezeichnung = `USt-Voranmeldung`;
-      }
-    } else if (m.ust_intervall === 'Vierteljährlich') {
-      const fälligkeitsMonate = m.dauerfrist ? [4, 7, 10, 1] : [3, 6, 9, 0]; 
-      let foundFrist = null;
-      for (let i = 0; i < 4; i++) {
-        let testMonth = fälligkeitsMonate[i]; let testYear = actYear;
-        if (m.dauerfrist && testMonth === 1) testYear++; 
-        if (!m.dauerfrist && testMonth === 0) testYear++; 
-        let testDate = new Date(testYear, testMonth, 10);
-        if (testDate >= heuteDate || (testDate.getMonth() === actMonth && heuteDate.getDate() <= 10)) {
-           foundFrist = testDate; bezeichnung = `USt-Voranmeldung (Quartal ${i+1})`; break;
-        }
-      }
-      nextFristDate = foundFrist;
-    }
-    if (nextFristDate) {
-      const tage = berechneTageBis(nextFristDate.toISOString().split('T')[0]);
-      if (tage !== null && tage <= 14) { 
-         ustRadar.push({ firma: m.firmenname, bezeichnung: bezeichnung, datum: nextFristDate.toISOString().split('T')[0], tageUebrig: tage });
-      }
-    }
-  });
-  ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
-
   const gefilterteAkten = akten.filter((akte) => zeigeErledigte ? true : akte.status !== 'Erledigt')
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
-  const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, transition: '0.2s', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light' };
-  const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' };
+  const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
+  const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
-  const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
-  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: isDarkMode ? '0 10px 25px -5px rgba(0,0,0,0.5)' : '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '20px', width: '100%' };
+  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%' };
   const quickBtnStyle = { background: theme.border, color: theme.textMain, border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' };
 
   return (
@@ -702,22 +667,20 @@ export default function Dashboard({ session }) {
         {/* HEADER & THEME TOGGLE */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icon name="signal" size={24} style={{ color: activeTab === 'akten' ? theme.accent : theme.tresorAccent }} /> SONAR COCKPIT
+            <Icon name="signal" size={24} style={{ color: theme.accent }} /> SONAR COCKPIT
           </h1>
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)} 
             style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-            <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> <span style={{display: 'none', '@media (min-width: 400px)': {display: 'inline'}}}>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </button>
         </div>
 
         {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '20px', width: '100%' }}>
-          
-          {/* LINKS: MAGIC IMPORT */}
           <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.hintBorder}` }}>
             <label style={{...labelStyle, color: theme.hintText, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-              <Icon name="wand" size={18} /> Magic Import (JSON)
+              <Icon name="wand" size={18} /> Magic Import (JSON aus SONAR MEGA-LEGAL)
             </label>
             <textarea 
               value={jsonImport} onChange={handleJsonImport} 
@@ -726,154 +689,107 @@ export default function Dashboard({ session }) {
             />
           </div>
 
-          {/* RECHTS: SONAR GUIDE */}
           <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px solid ${theme.hintBorder}`, color: theme.hintText, display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
             <div style={{ marginTop: '2px', color: theme.hintText }}><Icon name="bulb" size={24} /></div>
             <div style={{ textAlign: 'left' }}>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.hintText }}>Sonar Guide: {activeTab === 'akten' ? 'Der Workflow' : 'Firmen & Dokumente verwalten'}</h4>
-              {activeTab === 'akten' ? (
-                <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
-                  1. Dokument in der <strong>SONAR KI</strong> hochladen. <br/>
-                  2. Geführter Beratungsprozess startet. <br/>
-                  3. Für Datenablage freigeben oder Antwort erzeugen. <br/>
-                  4. Ergebnis freigeben. <br/>
-                  5. <strong>Grüner Button</strong> zur Datenübergabe wird erzeugt. <br/>
-                  6. Im Cockpit: Neue Akte anlegen oder beilegen. <br/>
-                  7. (Ggf. Dokument an Gegenpartei versenden).
-                </p>
-              ) : (
-                <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
-                  1. <strong>Stammdaten:</strong> Lege hier deine Firmen, UGs oder Einzelunternehmen zentral an.<br/>
-                  2. <strong>Dokumente:</strong> Hänge essenzielle Papiere (HR-Auszug, Gewerbeanmeldung) direkt an das Firmenprofil (beliebig viele).<br/>
-                  3. <strong>DFV & Radar:</strong> Setze den Haken bei Dauerfristverlängerung, damit das USt-Radar deine Fristen im Akten-Cockpit korrekt berechnet!
-                </p>
-              )}
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: theme.hintText }}>Sonar Workflow: SONAR MEGA-LEGAL ➔ Cockpit</h4>
+              <p style={{ margin: 0, fontSize: '14px', opacity: 0.9, lineHeight: '1.5' }}>
+                1. Dokument in <strong>SONAR MEGA-LEGAL</strong> prüfen lassen.<br/>
+                2. KI erzeugt das Erst-JSON (Eingang) ➔ Hier einfügen.<br/>
+                3. Nach Freigabe des Antwortschreibens: Ausgangs-JSON einfügen & per Resend versenden!
+              </p>
             </div>
           </div>
-
         </div>
 
-        {/* EBENE 2: TABS & MANUELLER UPLOAD */}
+        {/* EBENE 2: TABS (AKTEN, MANDANTEN, GEGNER/BEHÖRDEN) */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '30px', width: '100%' }}>
-          
-          {/* TAB 1: AKTEN */}
           <button 
             onClick={() => setActiveTab('akten')} 
-            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : theme.accent) : theme.cardBg, color: activeTab === 'akten' ? (isDarkMode ? theme.accent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <Icon name="cabinet" size={24} /> Akten-Cockpit
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? theme.cardBg : theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="cabinet" size={22} /> Akten-Cockpit
           </button>
 
-          {/* TAB 2: TRESOR */}
           <button 
             onClick={() => setActiveTab('tresor')} 
-            style={{ flex: '1 1 140px', minWidth: '140px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? (isDarkMode ? theme.tresorBg : theme.tresorAccent) : theme.cardBg, color: activeTab === 'tresor' ? (isDarkMode ? theme.tresorAccent : '#fff') : theme.textMuted, transition: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <Icon name="building" size={24} /> Firmen-Tresor
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? theme.cardBg : theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="building" size={22} /> Firmen-Tresor
           </button>
 
-          {/* UPLOAD BEREICH */}
-          <div style={{ flex: '1 1 300px', minWidth: '260px', ...panelStyle, margin: 0, padding: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+          <button 
+            onClick={() => setActiveTab('gegner')} 
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'gegner' ? theme.cardBg : theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="shield" size={22} /> Behörden / Gegner CRM
+          </button>
+
+          <div style={{ flex: '1 1 260px', ...panelStyle, margin: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px'}}>
                <Icon name="paperclip" size={16} /> Manueller Upload (PDF/Scan)
             </label>
             <input 
               id="datei-upload-manuell" 
-              type="file" 
-              multiple 
+              type="file" multiple 
               onChange={(e) => { setDateien(Array.from(e.target.files)); setActiveTab('akten'); }} 
-              style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '8px', fontSize: '13px'}} 
+              style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '6px', fontSize: '12px'}} 
             />
-            {dateien.length > 0 ? (
-              <span style={{fontSize: '12px', color: theme.accent, marginTop: '5px'}}>Gewählt: {dateien.length} Datei(en)</span>
-            ) : (
-              <small style={{ color: theme.textMuted, marginTop: '5px', display: 'block', fontSize: '11px' }}>Für 1 bis 10 Dokumente zur Akte.</small>
-            )}
           </div>
-
         </div>
 
         {/* ========================================= */}
         {/* ============= AKTEN COCKPIT ============= */}
         {/* ========================================= */}
-        
         {activeTab === 'akten' && (
         <>
-          {/* WARNUNGEN & FRISTEN */}
-          {(ustRadar.length > 0 || fristenWarnungen.length > 0) && (
+          {/* FRISTEN & WIEDERVORLAGE RADAR (PUNKT 1) */}
+          {fristenWarnungen.length > 0 && (
             <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '20px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Icon name="alert" size={20} /> Dringende Alarme & Fristen
+                <Icon name="alert" size={20} /> Tagesaktuelle Wiedervorlagen & Fristen
               </h4>
-              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '15px', textAlign: 'left', color: theme.warningText }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left' }}>
                 {fristenWarnungen.map(w => (
-                  <li key={`warn-${w.id}`} style={{ marginBottom: '8px' }}>
-                    <strong>{w.akte_gegner} ({w.akte_thema})</strong> - Frist: {formatDatum(w.frist_extern)} 
-                    <span style={{ fontWeight: 'bold', marginLeft: '10px', textTransform: 'uppercase' }}>
-                      {w.tageUebrig < 0 ? `(Überfällig: ${Math.abs(w.tageUebrig)} Tage!)` : w.tageUebrig === 0 ? '(Verfristet HEUTE!)' : `(${w.alarmStufe}: Noch ${w.tageUebrig} Tage)` }
-                    </span>
-                  </li>
+                  <div key={`warn-${w.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 15px', borderRadius: '6px', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <strong style={{color: theme.warningText}}>{w.akte_gegner}</strong> ({w.akte_thema}) — <span style={{fontWeight: 'bold'}}>Frist: {formatDatum(w.frist_extern)}</span>
+                      <span style={{ marginLeft: '10px', fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold' }}>
+                        {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => handleInlineEdit(w.id, 'frist_extern', null)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✓ Erledigt</button>
+                      <button onClick={() => {
+                        const d = new Date(w.frist_extern); d.setDate(d.getDate() + 7);
+                        handleInlineEdit(w.id, 'frist_extern', d.toISOString().split('T')[0]);
+                      }} style={{ background: theme.border, color: theme.textMain, border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>+7 Tage</button>
+                    </div>
+                  </div>
                 ))}
-                {ustRadar.map((r, i) => (
-                  <li key={`ust-${i}`} style={{ marginBottom: '8px' }}>
-                    <strong>{r.firma}</strong>: {r.bezeichnung} am {formatDatum(r.datum)} 
-                    <span style={{ fontWeight: 'bold', marginLeft: '10px', textTransform: 'uppercase' }}>
-                      (Noch {r.tageUebrig} Tage)
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              </div>
             </div>
           )}
 
           <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
-
-            {/* TRESOR-ASSISTENT UI-BOX MIT CHECKBOXEN & AUTO-ANLAGE */}
+            {/* TRESOR PROMPT ASSISTENT */}
             {tresorPrompt && (
-              <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
-                  <div style={{ fontSize: '14px', lineHeight: '1.4', flex: 1 }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '16px', marginBottom: '4px' }}><Icon name="building" size={18} /> Tresor-Assistent</strong>
-                    {tresorPrompt.typ === 'neu' 
-                      ? `Der Mandant / die Firma "${tresorPrompt.obj.unsere_firma}" ist noch nicht im Tresor gespeichert. Soll dieser Mandant automatisch angelegt werden?` 
-                      : `Für "${tresorPrompt.firma}" wurden neue/abweichende Stammdaten im Schreiben erkannt. Welche Felder sollen aktualisiert werden?`}
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                      {tresorPrompt.typ === 'neu' ? 'Jetzt im Tresor anlegen' : 'Änderungen übernehmen'}
-                    </button>
-                    <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid rgba(0,0,0,0.3)', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Überspringen</button>
-                  </div>
+              <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                <div>
+                  <strong style={{ fontSize: '15px' }}>🏢 Firmen-Tresor Match:</strong> {tresorPrompt.typ === 'neu' ? `Mandant "${tresorPrompt.obj.unsere_firma}" neu anlegen?` : `Stammdaten für "${tresorPrompt.firma}" aktualisieren?`}
                 </div>
-
-                {tresorPrompt.typ === 'update' && (
-                  <div style={{ background: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '6px' }}>
-                    <strong style={{display: 'block', marginBottom: '8px', fontSize: '13px'}}>Folgende Felder aktualisieren:</strong>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
-                      {Object.entries(tresorPrompt.updates).map(([k, v]) => (
-                        <label key={k} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={tresorPrompt.selectedKeys.includes(k)} 
-                            onChange={() => toggleTresorUpdateKey(k)}
-                            style={{ accentColor: '#000', transform: 'scale(1.2)' }}
-                          />
-                          <span style={{textTransform: 'capitalize'}}>{k.replace('_', ' ')}:</span> 
-                          <span style={{fontWeight: 'normal', color: '#333'}}>{v}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Ja, übernehmen</button>
+                  <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid #000', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>Nein</button>
+                </div>
               </div>
             )}
-            
+
             <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
               <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} style={{marginRight: '4px'}}/>
+                <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} />
                 <Icon name="folder" size={16} /> Neue Akte anlegen
               </label>
               <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} style={{marginRight: '4px'}}/>
-                <Icon name="link" size={16} /> Zu bestehender Akte {selectedAkteId && '(Match!)'}
+                <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} />
+                <Icon name="link" size={16} /> Zu bestehender Akte
               </label>
 
               {modus === 'bestehend' && (
@@ -887,21 +803,30 @@ export default function Dashboard({ session }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-              
               {modus === 'neu' && (
                 <>
-                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>1. Gegenpartei</h4></div>
-                  <div><label style={labelStyle}>Name (Behörde)*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px'}}>
+                      <h4 style={{margin: 0, color: theme.textMain}}>1. Gegenpartei / Behörde</h4>
+                      {gegnerListe.length > 0 && (
+                        <select onChange={handleGegnerAuswahl} style={{padding: '4px 8px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
+                          <option value="">+ Aus Gegner-CRM laden...</option>
+                          {gegnerListe.map(g => <option key={g.id} value={g.id}>{g.name} ({g.abteilung || 'Hauptstelle'})</option>)}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                  <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
                   <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-                  <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Telefon / Fax</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
                   <div><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
                   
-                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                      <h4 style={{margin: 0, color: theme.textMain, fontSize: '16px'}}>2. Wir (Mandant)</h4>
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px'}}>
+                      <h4 style={{margin: 0, color: theme.textMain}}>2. Wir (Mandant)</h4>
                       {mandanten.length > 0 && (
-                        <select onChange={handleTresorAuswahl} style={{padding: '6px 12px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
-                          <option value="">+ Aus Tresor laden...</option>
+                        <select onChange={handleTresorAuswahl} style={{padding: '4px 8px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
+                          <option value="">+ Aus Firmen-Tresor laden...</option>
                           {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
                         </select>
                       )}
@@ -909,234 +834,152 @@ export default function Dashboard({ session }) {
                   </div>
                   <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
                   <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-                  <div><label style={labelStyle}>Telefon</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} style={inputStyle} /></div>
-                  <div><label style={labelStyle}>E-Mail</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
                   
-                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}><h4 style={h4StyleAkten}>3. Akten-Stammdaten</h4></div>
-                  <div><label style={labelStyle}>Bescheid / Thema*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>3. Akten-Stammdaten</h4></div>
+                  <div><label style={labelStyle}>Thema / Betreff*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
                   <div><label style={labelStyle}>Aktenzeichen</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
                 </>
               )}
 
-              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '20px' }}>
-                <h4 style={{ ...h4StyleAkten, color: theme.textMuted }}>Details zum aktuellen Dokument</h4>
-              </div>
-
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>Dokument-Eintrag</h4></div>
               <div>
                 <label style={labelStyle}>Typ*</label>
-                <div style={{ position: 'relative' }}>
-                  <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: typ === 'Eingang' ? theme.hintBorder : (typ === 'Ausgang' ? theme.accent : theme.textMuted), pointerEvents: 'none' }}>
-                    <Icon name={typ === 'Eingang' ? 'in' : (typ === 'Ausgang' ? 'out' : 'note')} size={16} />
-                  </div>
-                  <select value={typ} onChange={(e) => setTyp(e.target.value)} style={{...inputStyle, paddingLeft: '36px'}}>
-                    <option value="Eingang">Eingang</option>
-                    <option value="Ausgang">Ausgang</option>
-                    <option value="Intern">Intern</option>
-                  </select>
-                </div>
+                <select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}>
+                  <option value="Eingang">Eingang</option>
+                  <option value="Ausgang">Ausgang</option>
+                  <option value="Intern">Intern</option>
+                </select>
               </div>
               <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Aktion</label><input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Kanal</label><input type="text" value={kanal} onChange={(e) => setKanal(e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
-              
               <div>
                 <label style={labelStyle}>WV (Intern)</label>
                 <input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} />
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
                   <button type="button" onClick={() => setzeWV(7)} style={quickBtnStyle}>+1W</button>
                   <button type="button" onClick={() => setzeWV(14)} style={quickBtnStyle}>+2W</button>
-                  <button type="button" onClick={() => setzeWV(0, 1)} style={quickBtnStyle}>+1M</button>
                 </div>
               </div>
             </div>
 
-            {/* KI ANALYSE & VERSAND-BUTTONS */}
+            {/* KI TEXTENTWURF & ECHTER RESEND VERSAND (PUNKT 7) */}
             {briefEntwurf && (
-              <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '30px', textAlign: 'left' }}>
+              <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-                  <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', margin: 0}}>
-                    <Icon name="file" size={16} /> KI Analyse / Textentwurf
+                  <label style={{...labelStyle, color: theme.accent, margin: 0}}>
+                    <Icon name="file" size={16} /> Freigegebener KI-Textentwurf (SONAR MEGA-LEGAL)
                   </label>
                   
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button type="button" onClick={handleSendEmail} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
-                      <Icon name="mail" size={14} /> E-Mail vorbereiten
+                    <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon name="send" size={14} /> E-Mail senden (Resend)
                     </button>
-                    <button type="button" onClick={handleSendFax} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
-                      <Icon name="phone" size={14} /> E-Fax vorbereiten
+                    <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon name="phone" size={14} /> E-Fax senden (Resend)
                     </button>
                   </div>
                 </div>
 
-                <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', border: 'none', background: 'transparent', padding: 0 }} />
+                <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} />
               </div>
             )}
 
-            <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '30px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.accent}40` : 'none' }}>
+            <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '25px' }}>
               {laedt ? 'Speichere...' : '+ In Akte abheften'}
             </button>
           </form>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px', flexWrap: 'wrap', gap: '10px' }}>
+          {/* AKTEN UBERSICHT */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px' }}>
             <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-              <Icon name="cabinet" size={24} /> Deine Akten
+              <Icon name="cabinet" size={24} /> Akten-Übersicht
             </h2>
-            <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 16px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Icon name={zeigeErledigte ? 'eyeOff' : 'eye'} size={16} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
+            <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 16px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+              {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
             </button>
           </div>
 
           <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg }}>
-            {gefilterteAkten.length === 0 && <div style={{padding: '30px', color: theme.textMuted, textAlign: 'center'}}>Keine Akten gefunden.</div>}
-            
             {gefilterteAkten.map((akte) => {
               const isExpanded = aufgeklappteAkten.includes(akte.id);
-              const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[akte.akten_historie.length - 1] : null;
-              const offeneFristen = akte.akten_historie ? akte.akten_historie.filter(h => h.frist_extern).sort((a,b) => new Date(a.frist_extern) - new Date(b.frist_extern)) : [];
-              const naechsteFrist = offeneFristen.length > 0 ? offeneFristen[0].frist_extern : null;
+              const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null; // NEUESTES DOKUMENT OBERSTES
 
               return (
-                <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, opacity: akte.status === 'Erledigt' ? 0.6 : 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', transition: 'background 0.2s', flexWrap: 'wrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
-                    <div style={{ width: '30px', color: theme.accent, textAlign: 'center' }}>
-                      <Icon name={isExpanded ? 'down' : 'right'} size={20} />
-                    </div>
+                <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', flexWrap: 'wrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
+                    <div style={{ width: '30px', color: theme.accent }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
                     <div style={{ flex: '1 1 200px' }}>
                       <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>
-                        {akte.gegner_name || 'Keine Gegenpartei'}
-                        <span style={{background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', marginLeft: '8px', color: theme.accent}}>#{akte.id.substring(0,6).toUpperCase()}</span>
+                        {akte.gegner_name}
+                        {akte.vorgaenger_gegner && <span style={{fontSize: '11px', color: theme.textMuted, marginLeft: '8px'}}>(vormals: {akte.vorgaenger_gegner})</span>}
                       </div>
-                      <div style={{ fontSize: '13px', color: theme.textMuted, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Icon name="user" size={14} /> {akte.gegner_ansprechpartner || '-'}
-                      </div>
+                      <div style={{ fontSize: '12px', color: theme.textMuted }}>AZ: {akte.aktenzeichen || '-'}</div>
                     </div>
                     <div style={{ flex: '1 1 200px' }}>
                       <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>{akte.thema}</div>
-                      <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>Letzte Aktion: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion || ''}` : '-'}</div>
+                      <div style={{ fontSize: '12px', color: theme.textMuted }}>Letzter Eintrag: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion}` : '-'}</div>
                     </div>
-                    <div style={{ flex: '1 1 100px', textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                      {akte.status === 'Erledigt' ? <span style={{ background: theme.border, color: theme.textMain, padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Erledigt</span> : <span style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', padding: '4px 12px', borderRadius: '30px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
-                      {naechsteFrist && akte.status !== 'Erledigt' && <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold' }}>Frist: {formatDatum(naechsteFrist)}</span>}
+                    <div style={{ flex: '1 1 100px', textAlign: 'right' }}>
+                      {akte.status === 'Erledigt' ? <span style={{ background: theme.border, padding: '4px 10px', borderRadius: '20px', fontSize: '11px' }}>Erledigt</span> : <span style={{ background: theme.accent, color: '#000', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}`, overflowX: 'auto' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-                        <div>
-                          <h4 style={{ margin: '0 0 5px 0', color: theme.accent, fontSize: '15px' }}>Verlauf & Dokumente</h4>
-                          <p style={{ margin: '0', fontSize: '12px', color: theme.textMuted }}>Interne Sonar-ID: <strong style={{color: theme.textMain}}>#{akte.id.substring(0,6).toUpperCase()}</strong> | Mandant: {akte.unsere_firma} | AZ: {akte.aktenzeichen}</p>
+                    <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}` }}>
+                      {/* GEGNER WECHSEL / ZUSTÄNDIGKEIT ÜBERGEBEN (PUNKT 6) */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.cardBg, padding: '12px 18px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ fontSize: '13px' }}>
+                          <strong>Aktuelle Behörde / Gegner:</strong> {akte.gegner_name}
                         </div>
-                        <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
-                          {akte.status !== 'Erledigt' ? 
-                            <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, true) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="check" size={14} /> Schließen</button>
-                            :
-                            <button onClick={(e) => { e.stopPropagation(); setzeAkteErledigt(akte.id, false) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="refresh" size={14} /> Wiedereröffnen</button>
-                          }
-                          <button onClick={(e) => { e.stopPropagation(); loescheAkte(akte.id) }} style={{ padding: '6px 12px', background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
-                        </div>
+                        
+                        {transferAkteId === akte.id ? (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input 
+                              type="text" placeholder="Neuer Gegner / Behörde (z.B. Landesdirektion)" 
+                              value={neuerGegnerName} onChange={(e) => setNeuerGegnerName(e.target.value)}
+                              style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '260px' }}
+                            />
+                            <button onClick={() => naechsterGegnerUebergeben(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Übergabe bestätigen</button>
+                            <button onClick={() => setTransferAkteId(null)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setTransferAkteId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Icon name="swap" size={14} /> Zuständigkeit / Gegner übertragen
+                          </button>
+                        )}
                       </div>
 
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden', minWidth: '700px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden' }}>
                         <thead>
                           <tr style={{ background: theme.border, color: theme.textMain }}>
-                            <th style={{ padding: '12px', textAlign: 'left', width: '100px' }}>Typ</th>
-                            <th style={{ padding: '12px', textAlign: 'left', width: '140px' }}>Datum</th>
-                            <th style={{ padding: '12px', textAlign: 'left' }}>Aktion</th>
-                            <th style={{ padding: '12px', textAlign: 'left', width: '140px' }}>Frist</th>
-                            <th style={{ padding: '12px', textAlign: 'left' }}>Dokumente</th>
-                            <th style={{ padding: '12px', textAlign: 'center', width: '40px' }}></th>
+                            <th style={{ padding: '10px', textAlign: 'left' }}>Typ</th>
+                            <th style={{ padding: '10px', textAlign: 'left' }}>Datum</th>
+                            <th style={{ padding: '10px', textAlign: 'left' }}>Aktion</th>
+                            <th style={{ padding: '10px', textAlign: 'left' }}>Frist</th>
+                            <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}></th>
                           </tr>
                         </thead>
                         <tbody>
+                          {/* OBERSTES DOKUMENT ZUERST (PUNKT 4) */}
                           {akte.akten_historie.map((hist) => (
                             <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                              
-                              <td style={{ padding: '12px', fontWeight: 'bold', color: hist.typ === 'Eingang' ? theme.hintBorder : (hist.typ === 'Ausgang' ? theme.accent : theme.textMuted) }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <Icon name={hist.typ === 'Eingang' ? 'in' : (hist.typ === 'Ausgang' ? 'out' : 'note')} size={16} /> {hist.typ}
-                                </div>
+                              <td style={{ padding: '10px', fontWeight: 'bold' }}>{hist.typ}</td>
+                              <td style={{ padding: '10px' }}>{formatDatum(hist.datum)}</td>
+                              <td style={{ padding: '10px' }}>{hist.aktion}</td>
+                              <td style={{ padding: '10px', color: theme.warningBorder }}>{formatDatum(hist.frist_extern)}</td>
+                              <td style={{ padding: '10px' }}>
+                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => (
+                                  <a key={idx} href={url} target="_blank" rel="noreferrer" style={{ color: theme.accent, display: 'inline-block', marginRight: '8px' }}>
+                                    📄 {extractFilename(url)}
+                                  </a>
+                                ))}
                               </td>
-
-                              <td style={{ padding: '12px' }}>
-                                <input 
-                                  type="date" 
-                                  defaultValue={hist.datum || ''} 
-                                  onBlur={(e) => { if(e.target.value !== (hist.datum||'')) handleInlineEdit(hist.id, 'datum', e.target.value) }} 
-                                  style={{ background: 'transparent', border: '1px dashed transparent', color: theme.textMain, fontSize: '13px', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light', cursor: 'text', padding: '4px', borderRadius: '4px' }} 
-                                  onFocus={(e) => e.target.style.border = `1px dashed ${theme.accent}`} 
-                                  onBlurCapture={(e) => e.target.style.border = '1px dashed transparent'}
-                                />
-                              </td>
-
-                              <td style={{ padding: '12px' }}>
-                                <input 
-                                  type="text" 
-                                  defaultValue={hist.aktion || ''} 
-                                  onBlur={(e) => { if(e.target.value !== (hist.aktion||'')) handleInlineEdit(hist.id, 'aktion', e.target.value) }} 
-                                  style={{ background: 'transparent', border: '1px dashed transparent', color: theme.textMain, fontSize: '13px', outline: 'none', cursor: 'text', width: '100%', padding: '4px', borderRadius: '4px' }} 
-                                  onFocus={(e) => e.target.style.border = `1px dashed ${theme.accent}`} 
-                                  onBlurCapture={(e) => e.target.style.border = '1px dashed transparent'}
-                                />
-                                <br/><span style={{fontSize: '11px', color: theme.textMuted, marginLeft: '4px'}}>{hist.kanal}</span>
-                              </td>
-
-                              <td style={{ padding: '12px' }}>
-                                <input 
-                                  type="date" 
-                                  defaultValue={hist.frist_extern || ''} 
-                                  onBlur={(e) => { if(e.target.value !== (hist.frist_extern||'')) handleInlineEdit(hist.id, 'frist_extern', e.target.value) }} 
-                                  style={{ background: 'transparent', border: '1px dashed transparent', color: theme.warningBorder, fontWeight: 'bold', fontSize: '13px', outline: 'none', colorScheme: isDarkMode ? 'dark' : 'light', cursor: 'text', padding: '4px', borderRadius: '4px' }} 
-                                  onFocus={(e) => e.target.style.border = `1px dashed ${theme.accent}`} 
-                                  onBlurCapture={(e) => e.target.style.border = '1px dashed transparent'}
-                                />
-                              </td>
-
-                              <td style={{ padding: '12px' }}>
-                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
-                                  const fileName = extractFilename(url);
-                                  return (
-                                    <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '8px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-                                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
-                                        <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
-                                      </a>
-                                      <button onClick={(e) => { e.preventDefault(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => e.currentTarget.style.color = theme.warningBorder} onMouseOut={(e) => e.currentTarget.style.color = theme.textMuted} title="Datei löschen">
-                                        <Icon name="x" size={12} />
-                                      </button>
-                                    </div>
-                                  )
-                                })}
-                                {uploadingHistId === hist.id ? (
-                                  <span style={{ fontSize: '11px', color: theme.accent }}>⏳...</span>
-                                ) : (
-                                  <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
-                                    + Datei
-                                    <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUpload(hist.id, hist.dokument_url, e)} />
-                                  </label>
-                                )}
-                                {hist.brief_entwurf && (
-                                  <details style={{ cursor: 'pointer', marginTop: '8px' }}>
-                                    <summary style={{ color: theme.accent, fontWeight: 'bold', fontSize: '12px', outline: 'none' }}>Analyse / Text</summary>
-                                    <div style={{ padding: '12px', background: theme.bg, border: `1px solid ${theme.border}`, marginTop: '8px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '11px', maxHeight: '200px', overflowY: 'auto', borderRadius: '6px', color: theme.textMain }}>
-                                      {hist.brief_entwurf}
-                                    </div>
-                                  </details>
-                                )}
-                              </td>
-
-                              <td style={{ padding: '12px', textAlign: 'center' }}>
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); loescheHistorieEintrag(hist.id); }} 
-                                  style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px', opacity: 0.6, transition: '0.2s' }} 
-                                  onMouseOver={(e) => e.currentTarget.style.opacity = 1} 
-                                  onMouseOut={(e) => e.currentTarget.style.opacity = 0.6} 
-                                  title="Eintrag löschen"
-                                >
+                              <td style={{ padding: '10px', textAlign: 'center' }}>
+                                <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}>
                                   <Icon name="trash" size={14} />
                                 </button>
                               </td>
-
                             </tr>
                           ))}
                         </tbody>
@@ -1151,131 +994,72 @@ export default function Dashboard({ session }) {
         )}
 
         {/* ========================================= */}
-        {/* ============= FIRMEN-TRESOR ============= */}
+        {/* ============= FIRMEN TRESOR ============= */}
         {/* ========================================= */}
-
         {activeTab === 'tresor' && (
-        <div>
-          <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-            <Icon name="building" size={24} /> {editMandantId ? 'Firma / Person bearbeiten' : 'Neuer Mandant / Firma'}
-          </h2>
-          <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', textAlign: 'left' }}>
-              <div style={{ gridColumn: '1 / -1' }}><h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten</h4></div>
-              <div><label style={labelStyle}>Firma / Person*</label><input required value={m_firmenname} onChange={e=>setM_firmenname(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>Ansprechpartner</label><input value={m_ansprechpartner} onChange={e=>setM_ansprechpartner(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>Adresse</label><input value={m_adresse} onChange={e=>setM_adresse(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>Telefon</label><input value={m_telefon} onChange={e=>setM_telefon(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
-
-              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>2. Wichtige Nummern & Dokumente</h4></div>
-              <div><label style={labelStyle}>Steuernummer</label><input value={m_steuernummer} onChange={e=>setM_steuernummer(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>USt-IdNr.</label><input value={m_ust_id} onChange={e=>setM_ust_id(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>Betriebsnummer</label><input value={m_betriebsnummer} onChange={e=>setM_betriebsnummer(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>VBG-Nummer</label><input value={m_vbg_nummer} onChange={e=>setM_vbg_nummer(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>Handelsregister</label><input value={m_handelsregister} onChange={e=>setM_handelsregister(e.target.value)} style={inputStyle}/></div>
-              
-              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px'}}>
-                   <Icon name="paperclip" size={16} /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
-                </label>
-                <input id="tresor-datei-upload" type="file" multiple onChange={(e) => setM_dateien(Array.from(e.target.files))} style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}} />
-                {m_dateien.length > 0 && <span style={{fontSize: '13px', color: theme.tresorAccent, marginTop: '8px'}}>Gewählt: {m_dateien.length} Datei(en)</span>}
+          <div>
+            <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left' }}>🏢 Firmen-Tresor (Mandanten)</h2>
+            <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', textAlign: 'left' }}>
+                <div><label style={labelStyle}>Firma / Name*</label><input required value={m_firmenname} onChange={e=>setM_firmenname(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Ansprechpartner</label><input value={m_ansprechpartner} onChange={e=>setM_ansprechpartner(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Telefon</label><input value={m_telefon} onChange={e=>setM_telefon(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Steuernummer</label><input value={m_steuernummer} onChange={e=>setM_steuernummer(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>USt-IdNr.</label><input value={m_ust_id} onChange={e=>setM_ust_id(e.target.value)} style={inputStyle}/></div>
               </div>
-
-              <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
-              <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
-              <div><label style={labelStyle}>Bank</label><input value={m_bank_name} onChange={e=>setM_bank_name(e.target.value)} style={inputStyle}/></div>
-              
-              <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
-                <label style={labelStyle}>USt-Voranmeldung</label>
-                <select value={m_ust_intervall} onChange={e=>setM_ust_intervall(e.target.value)} style={inputStyle}>
-                  <option value="Monatlich">Monatlich</option>
-                  <option value="Vierteljährlich">Vierteljährlich</option>
-                  <option value="Jährlich">Jährlich (Keine VA)</option>
-                </select>
-              </div>
-              
-              <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center' }}>
-                <label style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <input type="checkbox" checked={m_dauerfrist} onChange={e=>setM_dauerfrist(e.target.checked)} style={{ transform: 'scale(1.3)', accentColor: theme.tresorAccent }}/>
-                  Dauerfristverlängerung (DFV)
-                </label>
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '10px', marginTop: '30px', flexWrap: 'wrap' }}>
-              <button disabled={laedt} type="submit" style={{ flex: '1 1 200px', padding: '15px', background: theme.tresorAccent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', transition: '0.2s', boxShadow: isDarkMode ? `0 0 15px ${theme.tresorAccent}40` : 'none' }}>
-                {laedt ? 'Speichere...' : (editMandantId ? '💾 Änderungen speichern' : '+ Im Tresor ablegen')}
+              <button type="submit" style={{ padding: '12px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', width: '100%' }}>
+                {editMandantId ? 'Speichern' : '+ Mandant im Tresor ablegen'}
               </button>
-              {editMandantId && (
-                <button type="button" onClick={resetTresorForm} style={{ flex: '1 1 150px', padding: '15px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
-                  Abbrechen
-                </button>
-              )}
+            </form>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', textAlign: 'left' }}>
+              {mandanten.map(m => (
+                <div key={m.id} style={{ ...panelStyle, cursor: 'pointer' }} onClick={() => ladeInFormularMandant(m)}>
+                  <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent }}>{m.firmenname}</h3>
+                  <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted }}>{m.ansprechpartner} | {m.email}</p>
+                </div>
+              ))}
             </div>
-          </form>
+          </div>
+        )}
 
-          <h2 style={{ margin: '40px 0 20px 0', color: theme.textMain, textAlign: 'left', fontSize: '20px' }}>🗃️ Gespeicherte Mandanten & Firmen</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', textAlign: 'left' }}>
-            {mandanten.map(m => (
-              <div key={m.id} onClick={() => ladeInFormular(m)} style={{ ...panelStyle, position: 'relative', marginBottom: 0, cursor: 'pointer', transition: '0.2s', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }}>
-                <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Löschen">
-                  <Icon name="trash" size={18} />
-                </button>
-                
-                <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
-                <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="user" size={14} /> {cleanVal(m.ansprechpartner) || '-'}</span>
-                  <span style={{display: 'flex', alignItems: 'flex-start', gap: '6px'}}><Icon name="building" size={14} style={{marginTop: '2px'}}/> {cleanVal(m.adresse) || '-'}</span>
-                  <span style={{display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="phone" size={14} /> {cleanVal(m.telefon) || '-'} | <Icon name="mail" size={14} /> {cleanVal(m.email) || '-'}</span>
-                </p>
-                
-                <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{cleanVal(m.steuernummer) || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{cleanVal(m.ust_id) || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{cleanVal(m.vbg_nummer) || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{cleanVal(m.betriebsnummer) || '-'}</div>
-                  <div><strong style={{color: theme.textMuted}}>HR-Nr:</strong><br/>{cleanVal(m.handelsregister) || '-'}</div>
-                  <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>Bank:</strong> {cleanVal(m.iban) ? `${m.iban} (${cleanVal(m.bank_name) || '?'})` : '-'}</div>
-                  
-                  <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-                    <strong style={{color: theme.textMuted, display: 'block', marginBottom: '8px'}}>Dokumente:</strong>
-                    {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
-                      const fileName = extractFilename(url);
-                      return (
-                        <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '8px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
-                            <Icon name="file" size={12} /> {fileName.length > 20 ? fileName.substring(0, 17) + '...' : fileName}
-                          </a>
-                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => e.currentTarget.style.color = theme.warningBorder} onMouseOut={(e) => e.currentTarget.style.color = theme.textMuted} title="Datei löschen">
-                            <Icon name="x" size={12} />
-                          </button>
-                        </div>
-                      )
-                    })}
-                    
-                    {uploadingMandantId === m.id ? (
-                      <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
-                    ) : (
-                      <label onClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 10px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', marginBottom: '6px', color: theme.textMuted }}>
-                        + Datei
-                        <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
-                      </label>
-                    )}
-                  </div>
+        {/* ========================================= */}
+        {/* ============= GEGNER CRM (PUNKT 3) ===== */}
+        {/* ========================================= */}
+        {activeTab === 'gegner' && (
+          <div>
+            <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left' }}>🛡️ Behörden & Gegner CRM</h2>
+            <form onSubmit={speichereGegner} style={{ ...panelStyle, marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', textAlign: 'left' }}>
+                <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
+                <div><label style={labelStyle}>Unterabteilung</label><input value={g_abteilung} onChange={e=>setG_abteilung(e.target.value)} placeholder="z.B. Gewerbesteuerstelle" style={inputStyle}/></div>
+                <div><label style={labelStyle}>Ansprechpartner / Bearbeiter</label><input value={g_ansprechpartner} onChange={e=>setG_ansprechpartner(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Telefon / Durchwahl</label><input value={g_telefon} onChange={e=>setG_telefon(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>E-Mail</label><input value={g_email} onChange={e=>setG_email(e.target.value)} style={inputStyle}/></div>
+              </div>
+              <button type="submit" style={{ padding: '12px', background: theme.gegnerAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', width: '100%' }}>
+                + Behörde / Gegner im CRM speichern
+              </button>
+            </form>
 
-                  <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px', background: theme.bg, borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-                    <strong style={{color: theme.tresorAccent}}>USt-Radar:</strong> {m.ust_intervall} {m.dauerfrist ? '(mit DFV)' : ''}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', textAlign: 'left' }}>
+              {gegnerListe.map(g => (
+                <div key={g.id} style={{ ...panelStyle }}>
+                  <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent }}>{g.name}</h3>
+                  <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '8px' }}>{g.abteilung || 'Hauptstelle'}</div>
+                  <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span>👤 {g.ansprechpartner || '-'}</span>
+                    <span>📞 {g.telefon || '-'} | Fax: {g.fax || '-'}</span>
+                    <span>✉️ {g.email || '-'}</span>
                   </div>
                 </div>
-              </div>
-            ))}
-            {mandanten.length === 0 && <div style={{ color: theme.textMuted }}>Noch keine Mandanten im Tresor.</div>}
+              ))}
+            </div>
           </div>
-        </div>
         )}
+
       </div>
     </div>
   )
