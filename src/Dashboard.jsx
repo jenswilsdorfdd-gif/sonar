@@ -116,6 +116,9 @@ export default function Dashboard({ session }) {
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
+  // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE (PUNKT 2)
+  const [fokussierteAkteId, setFokussierteAkteId] = useState(null)
+
   // MANDANTEN CRM
   const [mandanten, setMandanten] = useState([])
   const [editMandantId, setEditMandantId] = useState(null)
@@ -533,7 +536,7 @@ export default function Dashboard({ session }) {
     setEditGegnerId(null); setG_name(''); setG_abteilung(''); setG_ansprechpartner(''); ladeDaten(); setLaedt(false);
   }
 
-  // ROBUSTE TAGE-BERECH NUNG MIT PLAUSIBILITÄTS-CHECK
+  // ROBUSTE TAGE-BERECHNUNG MIT PLAUSIBILITÄTS-CHECK
   const berechneTageBis = (datumStr) => {
     if (!datumStr) return null;
     let rawDate = String(datumStr).trim();
@@ -553,9 +556,11 @@ export default function Dashboard({ session }) {
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
   };
 
-  // HANDLER ZUM SCROLLEN UND AUFKLAPPEN DER AKTE BEI KLICK AUF DEN ALARM
+  // SCROLLEN UND GEZIELTES FOKUSSIEREN DER AKTE BEIM KLICK AUF ALARM (PUNKT 2)
   const handleAlarmKlick = (akteId) => {
     setActiveTab('akten');
+    setFokussierteAkteId(akteId); // Nur DIESE Akte wird hervorgehoben!
+    
     if (!aufgeklappteAkten.includes(akteId)) {
       setAufgeklappteAkten(prev => [...prev, akteId]);
     }
@@ -569,7 +574,6 @@ export default function Dashboard({ session }) {
 
   // --- WIEDERVORLAGE UND FRISTEN LEISTE ---
   const fristenWarnungen = [];
-  const aktenMitWarnungIds = new Set();
 
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if(akte.akten_historie) {
@@ -592,8 +596,6 @@ export default function Dashboard({ session }) {
               isWiedervorlage: !!hist.wiedervorlage,
               aktivesDatum: zielDatum
             });
-            
-            aktenMitWarnungIds.add(akte.id);
           }
         }
       })
@@ -690,16 +692,15 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'akten' && (
         <>
-          {/* FRISTEN & WIEDERVORLAGE RADAR */}
+          {/* OVERHAULED: RUHIGES, SAUBERES FRISTEN & WIEDERVORLAGE GRID (PUNKT 1) */}
           {fristenWarnungen.length > 0 && (
-            <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '20px' }}>
+            <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '25px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Icon name="alert" size={20} /> Dringende Alarme & Wiedervorlagen
               </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
                 {fristenWarnungen.map(w => {
                   const zielDatum = new Date(w.aktivesDatum);
-                  
                   const plusDreiDate = new Date(zielDatum);
                   plusDreiDate.setDate(plusDreiDate.getDate() + 3);
 
@@ -718,51 +719,73 @@ export default function Dashboard({ session }) {
                       key={`warn-${w.id}`} 
                       onClick={() => handleAlarmKlick(w.akte_id)}
                       style={{ 
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                        background: 'rgba(0,0,0,0.25)', padding: '10px 15px', borderRadius: '6px', 
-                        flexWrap: 'wrap', gap: '10px', cursor: 'pointer', transition: '0.2s',
-                        borderLeft: `4px solid ${theme.warningBorder}`
+                        background: 'rgba(15, 23, 42, 0.6)', 
+                        padding: '12px 18px', 
+                        borderRadius: '8px', 
+                        border: `1px solid ${theme.border}`,
+                        borderLeft: `4px solid ${theme.warningBorder}`,
+                        cursor: 'pointer', 
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
                       }}
-                      title="Klicken, um direkt zur Akte zu springen!"
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.9)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.6)'}
+                      title="Klicken, um diese Akte unten zu fokussieren!"
                     >
-                      <div>
-                        <strong style={{color: theme.warningText, textDecoration: 'underline'}}>{w.akte_gegner}</strong> ({w.akte_thema}) — <span style={{fontWeight: 'bold'}}>{w.isWiedervorlage ? 'WV' : 'Frist'}: {formatDatum(w.aktivesDatum)}</span>
-                        {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8, marginLeft: '8px'}}>(Hartes Fristdatum: {formatDatum(w.frist_extern)})</span>}
-                        <span style={{ marginLeft: '10px', fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold' }}>
-                          {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
-                        </span>
-                      </div>
-                      
-                      <div style={{ display: 'flex', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
-                        <button 
-                          onClick={() => {
-                            if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
-                            else handleInlineEdit(w.id, 'frist_extern', null);
-                          }} 
-                          style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                        >
-                          ✓ Erledigt
-                        </button>
+                      {/* ZEILE 1: BEHÖRDE LINKS - BUTTONS STRUKTURIERT RECHTS */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
+                        <strong style={{ color: theme.warningText, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          🏢 {w.akte_gegner}
+                        </strong>
 
-                        <button 
-                          disabled={shiftDisabled}
-                          onClick={() => {
-                            if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso);
-                            else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
-                          }} 
-                          style={{ 
-                            background: shiftDisabled ? '#334155' : theme.border, 
-                            color: shiftDisabled ? '#64748b' : theme.textMain, 
-                            border: 'none', padding: '6px 12px', borderRadius: '4px', 
-                            cursor: shiftDisabled ? 'not-allowed' : 'pointer', 
-                            fontSize: '12px', fontWeight: 'bold',
-                            opacity: shiftDisabled ? 0.5 : 1 
-                          }}
-                          title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
-                        >
-                          +3 Tage {shiftDisabled ? '🔒' : ''}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={() => {
+                              if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
+                              else handleInlineEdit(w.id, 'frist_extern', null);
+                            }} 
+                            style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                          >
+                            ✓ Erledigt
+                          </button>
+
+                          <button 
+                            disabled={shiftDisabled}
+                            onClick={() => {
+                              if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso);
+                              else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
+                            }} 
+                            style={{ 
+                              background: shiftDisabled ? '#334155' : theme.border, 
+                              color: shiftDisabled ? '#64748b' : theme.textMain, 
+                              border: 'none', padding: '6px 12px', borderRadius: '4px', 
+                              cursor: shiftDisabled ? 'not-allowed' : 'pointer', 
+                              fontSize: '12px', fontWeight: 'bold',
+                              opacity: shiftDisabled ? 0.5 : 1,
+                              whiteSpace: 'nowrap'
+                            }}
+                            title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
+                          >
+                            +3 Tage {shiftDisabled ? '🔒' : ''}
+                          </button>
+                        </div>
                       </div>
+
+                      {/* ZEILE 2: THEMA & DATUM DETAILS RUHIG DARUNTER */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
+                        <span style={{ color: theme.textMain, opacity: 0.9 }}>📋 {w.akte_thema}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
+                          <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
+                          {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.7}}>(Frist: {formatDatum(w.frist_extern)})</span>}
+                          
+                          <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                            {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
+                          </span>
+                        </div>
+                      </div>
+
                     </div>
                   );
                 })}
@@ -854,7 +877,6 @@ export default function Dashboard({ session }) {
               <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>Frist (Behörde)</label><input type="date" value={fristExtern} onChange={(e) => setFristExtern(e.target.value)} style={inputStyle} /></div>
               
-              {/* VOLLSTÄNDIGE SCHNELLWAHL-BUTTONS FÜR WIEDERVORLAGE */}
               <div>
                 <label style={labelStyle}>WV (Intern)</label>
                 <input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} />
@@ -908,7 +930,8 @@ export default function Dashboard({ session }) {
               const isExpanded = aufgeklappteAkten.includes(akte.id);
               const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
               
-              const hatAlarm = aktenMitWarnungIds.has(akte.id);
+              // NUR EINFAERBEN, WENN DIE AKTE OBEN VOM MANDANTEN EXPLIZIT ANGEKLICKT WURDE (PUNKT 2)
+              const istFokussiert = (fokussierteAkteId === akte.id);
 
               return (
                 <div 
@@ -916,18 +939,18 @@ export default function Dashboard({ session }) {
                   key={akte.id} 
                   style={{ 
                     borderBottom: `1px solid ${theme.border}`,
-                    background: hatAlarm ? (isDarkMode ? 'rgba(244, 63, 94, 0.08)' : '#fff1f2') : 'transparent',
-                    borderLeft: hatAlarm ? `4px solid ${theme.warningBorder}` : '4px solid transparent',
-                    transition: '0.3s'
+                    background: istFokussiert ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent',
+                    borderLeft: istFokussiert ? `6px solid ${theme.accent}` : '6px solid transparent',
+                    transition: 'all 0.3s ease'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', flexWrap: 'wrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
-                    <div style={{ width: '30px', color: hatAlarm ? theme.warningBorder : theme.accent }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
+                    <div style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
                     <div style={{ flex: '1 1 200px' }}>
                       <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>
                         {akte.gegner_name}
                         {akte.vorgaenger_gegner && <span style={{fontSize: '11px', color: theme.textMuted, marginLeft: '8px'}}>(vormals: {akte.vorgaenger_gegner})</span>}
-                        {hatAlarm && <span style={{marginLeft: '8px', fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold'}}>⚠️ DRINGEND</span>}
+                        {istFokussiert && <span style={{marginLeft: '8px', fontSize: '11px', padding: '2px 6px', borderRadius: '4px', background: theme.accent, color: '#000', fontWeight: 'bold'}}>🎯 AUSGEWÄHLT</span>}
                       </div>
                       <div style={{ fontSize: '12px', color: theme.textMuted }}>AZ: {akte.aktenzeichen || '-'}</div>
                     </div>
@@ -936,7 +959,7 @@ export default function Dashboard({ session }) {
                       <div style={{ fontSize: '12px', color: theme.textMuted }}>Letzter Eintrag: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion}` : '-'}</div>
                     </div>
                     <div style={{ flex: '1 1 100px', textAlign: 'right' }}>
-                      {akte.status === 'Erledigt' ? <span style={{ background: theme.border, padding: '4px 10px', borderRadius: '20px', fontSize: '11px' }}>Erledigt</span> : <span style={{ background: hatAlarm ? theme.warningBorder : theme.accent, color: hatAlarm ? '#fff' : '#000', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
+                      {akte.status === 'Erledigt' ? <span style={{ background: theme.border, padding: '4px 10px', borderRadius: '20px', fontSize: '11px' }}>Erledigt</span> : <span style={{ background: istFokussiert ? theme.accent : theme.border, color: istFokussiert ? '#000' : theme.textMain, padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Offen</span>}
                     </div>
                   </div>
 
