@@ -41,7 +41,7 @@ const Icon = ({ name, size = 18, style }) => {
     wand: <><path d="M15 4V2m0 14v-2M8 9h2m10 0h2m-13.8 6.2 1.4-1.4m11.2-8.6 1.4-1.4M6.2 6.2l1.4 1.4m8.6 11.2 1.4 1.4M3 21l9-9m3.5-3.5L17 7"/></>,
     paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
     cabinet: <><rect width="20" height="20" x="2" y="2" rx="2" ry="2"/><path d="M2 12h20M6 7h12M6 17h12"/></>,
-    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
+    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4m0 4h.01"/></>,
     folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6m-3-3h6"/></>,
@@ -119,7 +119,7 @@ export default function Dashboard({ session }) {
   // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null)
 
-  // MANDANTEN CRM (VOLLSTÄNDIGE STAMMDATEN)
+  // MANDANTEN CRM
   const [mandanten, setMandanten] = useState([])
   const [uploadingMandantId, setUploadingMandantId] = useState(null)
   const [editMandantId, setEditMandantId] = useState(null)
@@ -691,7 +691,7 @@ export default function Dashboard({ session }) {
     }, 150);
   };
 
-  // --- KONSOLIDIERUNG: MAXIMAL 1 ALARM PRO AKTE / VORGANG ---
+  // --- KONSOLIDIERTE, PRÄZISE ALARM-LOGIK (MAXIMAL 1 ALARM PRO AKTE) ---
   const fristenWarnungen = [];
 
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
@@ -701,22 +701,33 @@ export default function Dashboard({ session }) {
       if (relevanteEintraege.length > 0) {
         const neuestesDokument = relevanteEintraege[0];
         
-        let zielDatum = neuestesDokument.wiedervorlage || neuestesDokument.frist_extern;
-        let isWV = !!neuestesDokument.wiedervorlage;
+        let zielDatum = null;
+        let isWV = false;
+        let sollAlarmMachen = false;
 
-        if (neuestesDokument.frist_extern && neuestesDokument.wiedervorlage) {
-          const wvDate = new Date(neuestesDokument.wiedervorlage);
-          const fristDate = new Date(neuestesDokument.frist_extern);
-          
-          if (wvDate >= fristDate) {
+        // 1. REGEL: Ist eine WV gesetzt? Taucht ERST am Tag der WV auf (Tage <= 0)!
+        if (neuestesDokument.wiedervorlage) {
+          const wvTage = berechneTageBis(neuestesDokument.wiedervorlage);
+          if (wvTage !== null && wvTage <= 0) { // Erscheint ERST bei Fälligkeit/Überfälligkeit
+            zielDatum = neuestesDokument.wiedervorlage;
+            isWV = true;
+            sollAlarmMachen = true;
+          }
+        } 
+        
+        // 2. REGEL: Wenn keine WV fällig ist, aber eine reine Behördenfrist existiert (mind. 7 Tage Vorlauf)!
+        if (!sollAlarmMachen && neuestesDokument.frist_extern) {
+          const fristTage = berechneTageBis(neuestesDokument.frist_extern);
+          if (fristTage !== null && fristTage <= 7) { // 7 Tage Vorlauf für behördliche Frist
             zielDatum = neuestesDokument.frist_extern;
             isWV = false;
+            sollAlarmMachen = true;
           }
         }
 
-        const tage = berechneTageBis(zielDatum);
-        
-        if (tage !== null && tage <= 14) {
+        // Falls eine der Regeln zutrifft: Maximal 1 Alarm pro Akte erzeugen!
+        if (sollAlarmMachen && zielDatum) {
+          const tage = berechneTageBis(zielDatum);
           let alarmStufe = '1. ERINNERUNG';
           if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
           if (tage <= 2) alarmStufe = 'ALARM';
@@ -776,7 +787,7 @@ export default function Dashboard({ session }) {
     }
     if (nextFristDate) {
       const tage = berechneTageBis(nextFristDate.toISOString().split('T')[0]);
-      if (tage !== null && tage <= 14) { 
+      if (tage !== null && tage <= 7) { // Auch USt-Radar erscheint exakt 7 Tage vorher
          ustRadar.push({ firma: m.firmenname, bezeichnung: bezeichnung, datum: nextFristDate.toISOString().split('T')[0], tageUebrig: tage });
       }
     }
@@ -877,7 +888,7 @@ export default function Dashboard({ session }) {
           {(fristenWarnungen.length > 0 || ustRadar.length > 0) && (
             <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '25px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Icon name="alert" size={20} /> Dringende Alarme & Wiedervorlagen ({fristenWarnungen.length + ustRadar.length})
+                <Icon name="alert" size={20} /> Dringende Alarme & Fällige Wiedervorlagen ({fristenWarnungen.length + ustRadar.length})
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
                 {fristenWarnungen.map(w => {
