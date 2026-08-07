@@ -84,6 +84,7 @@ export default function Dashboard({ session }) {
   const [laedt, setLaedt] = useState(false)
   
   const [akten, setAkten] = useState([])
+  const [uploadingHistId, setUploadingHistId] = useState(null)
   
   const [modus, setModus] = useState('neu') 
   const [selectedAkteId, setSelectedAkteId] = useState('')
@@ -120,6 +121,7 @@ export default function Dashboard({ session }) {
 
   // MANDANTEN CRM (VOLLSTÄNDIGE STAMMDATEN)
   const [mandanten, setMandanten] = useState([])
+  const [uploadingMandantId, setUploadingMandantId] = useState(null)
   const [editMandantId, setEditMandantId] = useState(null)
   const [m_firmenname, setM_firmenname] = useState('')
   const [m_ansprechpartner, setM_ansprechpartner] = useState('')
@@ -135,6 +137,7 @@ export default function Dashboard({ session }) {
   const [m_bank_name, setM_bank_name] = useState('')
   const [m_ust_intervall, setM_ust_intervall] = useState('Vierteljährlich')
   const [m_dauerfrist, setM_dauerfrist] = useState(false)
+  const [m_dateien, setM_dateien] = useState([])
 
   // GEGNER / BEHÖRDEN CRM
   const [gegnerListe, setGegnerListe] = useState([])
@@ -154,15 +157,15 @@ export default function Dashboard({ session }) {
 
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
-    accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf',
-    gegnerAccent: '#f43f5e',
+    accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
+    gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e', 
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a',
     cardItemBg: 'rgba(15, 23, 42, 0.7)'
   } : {
     bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
-    accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e',
-    gegnerAccent: '#e11d48',
+    accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e', tresorBg: '#f0fdfa',
+    gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48', 
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e',
     cardItemBg: '#ffffff'
@@ -223,6 +226,22 @@ export default function Dashboard({ session }) {
     if(!window.confirm("Diesen einzelnen Eintrag aus der Akte löschen?")) return;
     await supabase.from('akten_historie').delete().eq('id', histId);
     ladeDaten();
+  };
+
+  const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
+    if (!window.confirm("Diese Datei wirklich entfernen?")) return;
+    const urlArray = aktuelleUrls.split(',');
+    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
+    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
+    const { error: dbError } = await supabase.from('akten_historie').update({ dokument_url: neuerUrlString }).eq('id', histId);
+    if (!dbError) {
+       try {
+          const parts = decodeURIComponent(urlZumLoeschen).split('/');
+          const fileName = parts[parts.length - 1];
+          await supabase.storage.from('dokumente').remove([fileName]);
+       } catch (e) { }
+       ladeDaten();
+    }
   };
 
   const setzeWV = (tage, monate = 0) => {
@@ -380,6 +399,40 @@ export default function Dashboard({ session }) {
     setLaedt(false);
   };
 
+  const handleNachtragUploadMandant = async (mId, currentUrls, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingMandantId(mId);
+    const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
+    const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
+    if (!uploadError) {
+      const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
+      const newUrl = linkData.publicUrl;
+      const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
+      const { error } = await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
+      if (!error) ladeDaten();
+    }
+    setUploadingMandantId(null);
+    e.target.value = ''; 
+  };
+
+  const loescheDateiAusMandant = async (mId, aktuelleUrls, urlZumLoeschen) => {
+    if (!window.confirm("Diese Datei wirklich aus dem Firmen-Profil entfernen?")) return;
+    const urlArray = aktuelleUrls.split(',');
+    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
+    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
+    const { error: dbError } = await supabase.from('mandanten').update({ dokument_url: neuerUrlString }).eq('id', mId);
+    if (!dbError) {
+       try {
+          const parts = decodeURIComponent(urlZumLoeschen).split('/');
+          const fileName = parts[parts.length - 1];
+          await supabase.storage.from('dokumente').remove([fileName]);
+       } catch (e) { }
+       ladeDaten();
+    }
+  };
+
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -535,17 +588,41 @@ export default function Dashboard({ session }) {
     setEditMandantId(null);
     setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon(''); setM_email('');
     setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
-    setM_iban(''); setM_bank_name(''); setM_ust_intervall('Vierteljährlich'); setM_dauerfrist(false);
+    setM_iban(''); setM_bank_name(''); setM_ust_intervall('Vierteljährlich'); setM_dauerfrist(false); setM_dateien([]);
+    if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
   };
 
   const speichereMandant = async (e) => {
     e.preventDefault()
     setLaedt(true)
+
+    let alleUrls = [];
+    if (m_dateien && m_dateien.length > 0) {
+      for (const f of m_dateien) {
+        const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+        const dateiName = `m_${Date.now()}_${sichererDateiname}` 
+        const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f)
+        if (!uploadError) {
+          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
+          alleUrls.push(linkData.publicUrl)
+        }
+      }
+    }
+    let neuDokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
+    let finalDocs = neuDokumentUrl;
+    
+    if (editMandantId) {
+        const existing = mandanten.find(x => x.id === editMandantId);
+        if (existing && existing.dokument_url) {
+            finalDocs = neuDokumentUrl ? `${existing.dokument_url},${neuDokumentUrl}` : existing.dokument_url;
+        }
+    }
+
     const payload = {
       user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
       telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
       vbg_nummer: m_vbg_nummer, handelsregister: m_handelsregister, iban: m_iban, bank_name: m_bank_name,
-      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist
+      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist, dokument_url: finalDocs
     };
 
     if (editMandantId) {
@@ -554,6 +631,12 @@ export default function Dashboard({ session }) {
       await supabase.from('mandanten').insert([payload]);
     }
     resetMandantForm(); ladeDaten(); setLaedt(false);
+  }
+
+  const loescheMandant = async (id) => {
+    if(!window.confirm("Firma komplett aus dem Tresor löschen?")) return
+    await supabase.from('mandanten').delete().eq('id', id)
+    ladeDaten()
   }
 
   const speichereGegner = async (e) => {
@@ -655,6 +738,51 @@ export default function Dashboard({ session }) {
 
   fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
 
+  // --- USt-RADAR MIT BERECHNUNG & DAUERFRISTVERLÄNGERUNG (DFV) ---
+  const ustRadar = [];
+  const heuteDate = new Date();
+  const actYear = heuteDate.getFullYear();
+  const actMonth = heuteDate.getMonth(); 
+
+  mandanten.forEach(m => {
+    if (m.ust_intervall === 'Jährlich' || !m.ust_intervall) return;
+    let nextFristDate = null; let bezeichnung = "";
+    if (m.ust_intervall === 'Monatlich') {
+      const shift = m.dauerfrist ? 2 : 1; 
+      let targetMonth = actMonth + shift; let targetYear = actYear;
+      if (targetMonth > 11) { targetMonth -= 12; targetYear++; }
+      nextFristDate = new Date(targetYear, targetMonth, 10);
+      bezeichnung = `USt (Monat ${targetMonth === 0 ? 12 : targetMonth})`;
+      if (heuteDate.getDate() <= 10) {
+         let currentShift = m.dauerfrist ? 1 : 0;
+         let checkM = actMonth + currentShift; let checkY = actYear;
+         if (checkM > 11) { checkM -= 12; checkY++; }
+         nextFristDate = new Date(checkY, checkM, 10);
+         bezeichnung = `USt-Voranmeldung`;
+      }
+    } else if (m.ust_intervall === 'Vierteljährlich') {
+      const fälligkeitsMonate = m.dauerfrist ? [4, 7, 10, 1] : [3, 6, 9, 0]; 
+      let foundFrist = null;
+      for (let i = 0; i < 4; i++) {
+        let testMonth = fälligkeitsMonate[i]; let testYear = actYear;
+        if (m.dauerfrist && testMonth === 1) testYear++; 
+        if (!m.dauerfrist && testMonth === 0) testYear++; 
+        let testDate = new Date(testYear, testMonth, 10);
+        if (testDate >= heuteDate || (testDate.getMonth() === actMonth && heuteDate.getDate() <= 10)) {
+           foundFrist = testDate; bezeichnung = `USt-Voranmeldung (Quartal ${i+1})`; break;
+        }
+      }
+      nextFristDate = foundFrist;
+    }
+    if (nextFristDate) {
+      const tage = berechneTageBis(nextFristDate.toISOString().split('T')[0]);
+      if (tage !== null && tage <= 14) { 
+         ustRadar.push({ firma: m.firmenname, bezeichnung: bezeichnung, datum: nextFristDate.toISOString().split('T')[0], tageUebrig: tage });
+      }
+    }
+  });
+  ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
+
   const gefilterteAkten = akten.filter((akte) => zeigeErledigte ? true : akte.status !== 'Erledigt')
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
@@ -745,11 +873,11 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'akten' && (
         <>
-          {/* SAUBER GEGLIEDERTE, KONSOLIDIERTE ALARM-BOX (MAX 1 ALARM PRO AKTE) */}
-          {fristenWarnungen.length > 0 && (
+          {/* SAUBER GEGLIEDERTE, KONSOLIDIERTE ALARM-BOX INKL. USt-RADAR */}
+          {(fristenWarnungen.length > 0 || ustRadar.length > 0) && (
             <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '25px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Icon name="alert" size={20} /> Dringende Alarme & Wiedervorlagen ({fristenWarnungen.length})
+                <Icon name="alert" size={20} /> Dringende Alarme & Wiedervorlagen ({fristenWarnungen.length + ustRadar.length})
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
                 {fristenWarnungen.map(w => {
@@ -786,7 +914,6 @@ export default function Dashboard({ session }) {
                       }}
                       title="Klicken, um diese Akte unten zu fokussieren!"
                     >
-                      {/* ZEILE 1: BEHÖRDE LINKS - BUTTONS RECHTS (NO WRAP) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
                         <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           🏢 {w.akte_gegner}
@@ -825,7 +952,6 @@ export default function Dashboard({ session }) {
                         </div>
                       </div>
 
-                      {/* ZEILE 2: THEMA & DATUMS-DETAILS (NO WRAP BADGES) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
                         <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
@@ -837,10 +963,24 @@ export default function Dashboard({ session }) {
                           </span>
                         </div>
                       </div>
-
                     </div>
                   );
                 })}
+
+                {/* USt-RADAR ALARME */}
+                {ustRadar.map((r, i) => (
+                  <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ color: theme.tresorAccent }}>🏛️ {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '13px', color: theme.textMuted, marginRight: '10px' }}>Fällig am {formatDatum(r.datum)}</span>
+                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: theme.tresorAccent, color: '#000', fontWeight: 'bold' }}>
+                        Noch {r.tageUebrig} Tage
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1102,12 +1242,20 @@ export default function Dashboard({ session }) {
                 <div><label style={labelStyle}>Telefon</label><input value={m_telefon} onChange={e=>setM_telefon(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
 
-                <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>2. Wichtige Nummern & Register</h4></div>
+                <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>2. Wichtige Nummern & Stammdokumente</h4></div>
                 <div><label style={labelStyle}>Steuernummer</label><input value={m_steuernummer} onChange={e=>setM_steuernummer(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>USt-IdNr.</label><input value={m_ust_id} onChange={e=>setM_ust_id(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>Betriebsnummer</label><input value={m_betriebsnummer} onChange={e=>setM_betriebsnummer(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>VBG-Nummer</label><input value={m_vbg_nummer} onChange={e=>setM_vbg_nummer(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>Handelsregister</label><input value={m_handelsregister} onChange={e=>setM_handelsregister(e.target.value)} style={inputStyle}/></div>
+
+                <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+                  <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px'}}>
+                     <Icon name="paperclip" size={16} /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
+                  </label>
+                  <input id="tresor-datei-upload" type="file" multiple onChange={(e) => setM_dateien(Array.from(e.target.files))} style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}} />
+                  {m_dateien.length > 0 && <span style={{fontSize: '13px', color: theme.tresorAccent, marginTop: '8px'}}>Gewählt: {m_dateien.length} Datei(en)</span>}
+                </div>
 
                 <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
                 <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
@@ -1145,8 +1293,12 @@ export default function Dashboard({ session }) {
             <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>🗃️ Gespeicherte Mandanten & Firmen</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', textAlign: 'left' }}>
               {mandanten.map(m => (
-                <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
-                  <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px' }}>{m.firmenname}</h3>
+                <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
+                  <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Löschen">
+                    <Icon name="trash" size={18} />
+                  </button>
+
+                  <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
                   
                   <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '15px' }}>
                     <span>👤 {cleanVal(m.ansprechpartner) || '-'}</span>
@@ -1164,7 +1316,33 @@ export default function Dashboard({ session }) {
                     <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>IBAN:</strong> {cleanVal(m.iban) || '-'}</div>
                   </div>
 
-                  <div style={{ marginTop: '10px', fontSize: '12px', color: theme.tresorAccent, fontWeight: 'bold' }}>
+                  <div style={{ gridColumn: '1 / -1', marginTop: '12px' }}>
+                    <strong style={{color: theme.textMuted, display: 'block', marginBottom: '6px', fontSize: '12px'}}>Dokumente:</strong>
+                    {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
+                      const fileName = extractFilename(url);
+                      return (
+                        <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                          <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
+                            <Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}
+                          </a>
+                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
+                            <Icon name="x" size={12} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                    
+                    {uploadingMandantId === m.id ? (
+                      <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
+                    ) : (
+                      <label onClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 8px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted }}>
+                        + Datei
+                        <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
+                      </label>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: '12px', padding: '8px', background: theme.bg, borderRadius: '6px', fontSize: '12px', color: theme.tresorAccent, fontWeight: 'bold' }}>
                     USt-Radar: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(mit DFV)' : ''}
                   </div>
                 </div>
