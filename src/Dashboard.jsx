@@ -118,7 +118,6 @@ export default function Dashboard({ session }) {
 
   // MANDANTEN CRM
   const [mandanten, setMandanten] = useState([])
-  const [uploadingMandantId, setUploadingMandantId] = useState(null)
   const [editMandantId, setEditMandantId] = useState(null)
   const [m_firmenname, setM_firmenname] = useState('')
   const [m_ansprechpartner, setM_ansprechpartner] = useState('')
@@ -134,9 +133,8 @@ export default function Dashboard({ session }) {
   const [m_bank_name, setM_bank_name] = useState('')
   const [m_ust_intervall, setM_ust_intervall] = useState('Vierteljährlich')
   const [m_dauerfrist, setM_dauerfrist] = useState(false)
-  const [m_dateien, setM_dateien] = useState([])
 
-  // GEGNER / BEHÖRDEN CRM (NEU)
+  // GEGNER / BEHÖRDEN CRM
   const [gegnerListe, setGegnerListe] = useState([])
   const [editGegnerId, setEditGegnerId] = useState(null)
   const [g_name, setG_name] = useState('')
@@ -154,14 +152,14 @@ export default function Dashboard({ session }) {
 
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
-    accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
-    gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
+    accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf',
+    gegnerAccent: '#f43f5e',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e', 
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a' 
   } : {
     bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
-    accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e', tresorBg: '#f0fdfa',
-    gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
+    accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e',
+    gegnerAccent: '#e11d48',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48', 
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e' 
   };
@@ -192,13 +190,12 @@ export default function Dashboard({ session }) {
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
 
-  // STAPEL-SORTIERUNG (PUNKT 4): Neueste Historie ZUERST
+  // STAPEL-SORTIERUNG: Neuestes Dokument ZUERST (DESC)
   const ladeDaten = async () => {
     const { data: aktenData, error: aktenError } = await supabase.from('akten').select(`*, akten_historie (*)`).order('created_at', { ascending: false })
     if (!aktenError && aktenData) {
       aktenData.forEach(akte => { 
         if(akte.akten_historie) {
-          // NEUESTES DOKUMENT OBEN IM STAPEL (DESCENDING)
           akte.akten_historie.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) 
         } 
       })
@@ -222,22 +219,6 @@ export default function Dashboard({ session }) {
     if(!window.confirm("Diesen einzelnen Eintrag aus der Akte löschen?")) return;
     await supabase.from('akten_historie').delete().eq('id', histId);
     ladeDaten();
-  };
-
-  const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
-    if (!window.confirm("Diese Datei wirklich entfernen?")) return;
-    const urlArray = aktuelleUrls.split(',');
-    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
-    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
-    const { error: dbError } = await supabase.from('akten_historie').update({ dokument_url: neuerUrlString }).eq('id', histId);
-    if (!dbError) {
-       try {
-          const parts = decodeURIComponent(urlZumLoeschen).split('/');
-          const fileName = parts[parts.length - 1];
-          await supabase.storage.from('dokumente').remove([fileName]);
-       } catch (e) { }
-       ladeDaten();
-    }
   };
 
   const setzeWV = (tage, monate = 0) => {
@@ -293,7 +274,6 @@ export default function Dashboard({ session }) {
 
       if (obj.unsere_firma) {
         const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
-        
         if (!existingMandant) {
           setUnsereFirma(obj.unsere_firma || '');
           setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || '');
@@ -319,23 +299,17 @@ export default function Dashboard({ session }) {
            let u4 = checkUpdate(existingMandant.adresse, obj.unsere_adresse); if(u4) updates.adresse = u4;
            let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) updates.steuernummer = u5;
            let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
-           let u7 = checkUpdate(existingMandant.iban, obj.unsere_iban); if(u7) updates.iban = u7;
-           let u8 = checkUpdate(existingMandant.handelsregister, obj.unsere_handelsregister); if(u8) updates.handelsregister = u8;
 
            if (Object.keys(updates).length > 0) {
               setTresorPrompt({ 
-                typ: 'update', 
-                existingId: existingMandant.id, 
-                updates, 
-                selectedKeys: Object.keys(updates), 
-                firma: existingMandant.firmenname 
+                typ: 'update', existingId: existingMandant.id, updates, 
+                selectedKeys: Object.keys(updates), firma: existingMandant.firmenname 
               });
            } else {
               setTresorPrompt(null);
            }
         }
       }
-      
     } catch(err) { 
       console.error("JSON Error:", err);
     }
@@ -352,11 +326,7 @@ export default function Dashboard({ session }) {
         email: cleanVal(tresorPrompt.obj.unser_email) || '',
         adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
-        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
-        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
-        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
-        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
-        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
+        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || ''
       }]).select();
       if (!error && data) {
         setMandanten(prev => [...prev, data[0]]);
@@ -374,7 +344,7 @@ export default function Dashboard({ session }) {
     setTresorPrompt(null);
   };
 
-  // RESEND VERSAND LOGIK (PUNKT 7)
+  // RESEND VERSAND LOGIK
   const handleResendVersand = async (versandArt) => {
     if (!gegnerEmail && versandArt === 'email') {
       alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
@@ -387,26 +357,11 @@ export default function Dashboard({ session }) {
 
     setLaedt(true);
     try {
-      // Zieladresse für Mail oder E-Fax Gateway
       const targetAddress = versandArt === 'email' 
         ? gegnerEmail 
         : `${gegnerTelefon.replace(/[^0-9]/g, '')}@pdf24.org`; 
 
       alert(`🚀 RESEND VERSANDGANG INITIERT:\n\nArt: ${versandArt.toUpperCase()}\nEmpfänger: ${targetAddress}\nBetreff: AZ ${aktenzeichen || 'Neu'} - ${thema}`);
-      
-      // Platzhalter für Edge Function Call / Resend API Call
-      /* 
-      await fetch('https://deine-edge-function.supabase.co/functions/v1/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: targetAddress,
-          subject: `AZ: ${aktenzeichen || 'Neu'} - ${thema}`,
-          text: briefEntwurf,
-          reply_to: 'jenswilsdorfdd@gmail.com'
-        })
-      })
-      */
     } catch (e) {
       alert("Versandfehler: " + e.message);
     }
@@ -444,11 +399,7 @@ export default function Dashboard({ session }) {
         email: cleanVal(tresorPrompt.obj.unser_email) || '',
         adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
-        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
-        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
-        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
-        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
-        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
+        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || ''
       }]).select();
       if (mData) setMandanten(prev => [...prev, mData[0]]);
     }
@@ -500,7 +451,7 @@ export default function Dashboard({ session }) {
     setLaedt(false)
   }
 
-  // GEGNER / BEHÖRDEN WECHSEL / ÜBERGABE (PUNKT 6)
+  // GEGNER WECHSEL
   const naechsterGegnerUebergeben = async (akteId) => {
     if (!neuerGegnerName) {
       alert("Bitte gib den Namen der neuen Behörde / des neuen Gegners ein!");
@@ -528,7 +479,7 @@ export default function Dashboard({ session }) {
       setTransferAkteId(null);
       setNeuerGegnerName('');
       ladeDaten();
-      alert(`✅ Akte erfolgreich an "${neuerGegnerName}" übergeben! Die Historie der bisherigen Behörde (${alterGegner}) bleibt vollständig erhalten.`);
+      alert(`✅ Akte an "${neuerGegnerName}" übergeben!`);
     }
   };
 
@@ -570,7 +521,6 @@ export default function Dashboard({ session }) {
     }
   }
 
-  // TRESOR FORMULAR HANDLING
   const ladeInFormularMandant = (m) => {
     setEditMandantId(m.id);
     setM_firmenname(cleanVal(m.firmenname) || '');
@@ -580,13 +530,6 @@ export default function Dashboard({ session }) {
     setM_email(cleanVal(m.email) || '');
     setM_steuernummer(cleanVal(m.steuernummer) || '');
     setM_ust_id(cleanVal(m.ust_id) || '');
-    setM_betriebsnummer(cleanVal(m.betriebsnummer) || '');
-    setM_vbg_nummer(cleanVal(m.vbg_nummer) || '');
-    setM_handelsregister(cleanVal(m.handelsregister) || '');
-    setM_iban(cleanVal(m.iban) || '');
-    setM_bank_name(cleanVal(m.bank_name) || '');
-    setM_ust_intervall(m.ust_intervall || 'Vierteljährlich');
-    setM_dauerfrist(m.dauerfrist || false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -595,9 +538,7 @@ export default function Dashboard({ session }) {
     setLaedt(true)
     const payload = {
       user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
-      telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
-      vbg_nummer: m_vbg_nummer, handelsregister: m_handelsregister, iban: m_iban, bank_name: m_bank_name,
-      ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist
+      telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id
     };
 
     if (editMandantId) {
@@ -608,7 +549,6 @@ export default function Dashboard({ session }) {
     setEditMandantId(null); setM_firmenname(''); ladeDaten(); setLaedt(false);
   }
 
-  // GEGNER / BEHÖRDEN CRM FORMULAR HANDLING (PUNKT 3)
   const speichereGegner = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -632,18 +572,29 @@ export default function Dashboard({ session }) {
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
   };
 
-  // AUTOMATISCHES TAGESAKTUELLES WIEDERVORLAGE- & FRISTENRADAR (PUNKT 1)
+  // --- WIEDERVORLAGE UND FRISTEN LEISTE ---
   const fristenWarnungen = [];
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if(akte.akten_historie) {
       akte.akten_historie.forEach(hist => {
-        if(hist.frist_extern) {
-          const tage = berechneTageBis(hist.frist_extern);
+        // Prüfe sowohl Frist als auch Wiedervorlage
+        const zielDatum = hist.wiedervorlage || hist.frist_extern;
+        if(zielDatum) {
+          const tage = berechneTageBis(zielDatum);
           if (tage !== null && tage <= 7) { 
             let alarmStufe = '1. ERINNERUNG';
             if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
             if (tage <= 2) alarmStufe = 'ALARM';
-            fristenWarnungen.push({ ...hist, akte_thema: akte.thema, akte_gegner: akte.gegner_name, tageUebrig: tage, alarmStufe })
+            fristenWarnungen.push({ 
+              ...hist, 
+              akte_id: akte.id,
+              akte_thema: akte.thema, 
+              akte_gegner: akte.gegner_name, 
+              tageUebrig: tage, 
+              alarmStufe,
+              isWiedervorlage: !!hist.wiedervorlage,
+              aktivesDatum: zielDatum
+            })
           }
         }
       })
@@ -702,23 +653,23 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* EBENE 2: TABS (AKTEN, MANDANTEN, GEGNER/BEHÖRDEN) */}
+        {/* EBENE 2: TABS */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '30px', width: '100%' }}>
           <button 
             onClick={() => setActiveTab('akten')} 
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'akten' ? theme.cardBg : theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="cabinet" size={22} /> Akten-Cockpit
           </button>
 
           <button 
             onClick={() => setActiveTab('tresor')} 
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'tresor' ? theme.cardBg : theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="building" size={22} /> Firmen-Tresor
           </button>
 
           <button 
             onClick={() => setActiveTab('gegner')} 
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: activeTab === 'gegner' ? theme.cardBg : theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="shield" size={22} /> Behörden / Gegner CRM
           </button>
 
@@ -740,36 +691,82 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'akten' && (
         <>
-          {/* FRISTEN & WIEDERVORLAGE RADAR (PUNKT 1) */}
+          {/* FRISTEN & WIEDERVORLAGE RADAR */}
           {fristenWarnungen.length > 0 && (
             <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '20px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Icon name="alert" size={20} /> Tagesaktuelle Wiedervorlagen & Fristen
+                <Icon name="alert" size={20} /> Dringende Alarme & Wiedervorlagen
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left' }}>
-                {fristenWarnungen.map(w => (
-                  <div key={`warn-${w.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 15px', borderRadius: '6px', flexWrap: 'wrap', gap: '10px' }}>
-                    <div>
-                      <strong style={{color: theme.warningText}}>{w.akte_gegner}</strong> ({w.akte_thema}) — <span style={{fontWeight: 'bold'}}>Frist: {formatDatum(w.frist_extern)}</span>
-                      <span style={{ marginLeft: '10px', fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold' }}>
-                        {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
-                      </span>
+                {fristenWarnungen.map(w => {
+                  const heute = new Date();
+                  const zielDatum = new Date(w.aktivesDatum);
+                  
+                  // BERECHNE +3 TAGE ZUKUNFT
+                  const plusDreiDate = new Date(zielDatum);
+                  plusDreiDate.setDate(plusDreiDate.getDate() + 3);
+
+                  // STRIKTE PRÜFUNG: Darf niemals hinter der originalen Frist_extern liegen!
+                  let shiftDisabled = false;
+                  if (w.frist_extern) {
+                    const originalFristDate = new Date(w.frist_extern);
+                    // Wenn +3 Tage hinter der Originalfrist liegen würde -> SPERRE!
+                    if (plusDreiDate > originalFristDate) {
+                      shiftDisabled = true;
+                    }
+                  }
+
+                  const plusDreiIso = plusDreiDate.toISOString().split('T')[0];
+
+                  return (
+                    <div key={`warn-${w.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px 15px', borderRadius: '6px', flexWrap: 'wrap', gap: '10px' }}>
+                      <div>
+                        <strong style={{color: theme.warningText}}>{w.akte_gegner}</strong> ({w.akte_thema}) — <span style={{fontWeight: 'bold'}}>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: {formatDatum(w.aktivesDatum)}</span>
+                        {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8, marginLeft: '8px'}}>(Hartes Fristdatum: {formatDatum(w.frist_extern)})</span>}
+                        <span style={{ marginLeft: '10px', fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold' }}>
+                          {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {/* 1. GRÜNER ERLEDIGT BUTTON */}
+                        <button 
+                          onClick={() => {
+                            if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
+                            else handleInlineEdit(w.id, 'frist_extern', null);
+                          }} 
+                          style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                        >
+                          ✓ Erledigt
+                        </button>
+
+                        {/* 2. MAXIMAL +3 TAGE VERSCHIEBEN (MIT STRIKTER SPERRE) */}
+                        <button 
+                          disabled={shiftDisabled}
+                          onClick={() => {
+                            if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso);
+                            else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
+                          }} 
+                          style={{ 
+                            background: shiftDisabled ? '#334155' : theme.border, 
+                            color: shiftDisabled ? '#64748b' : theme.textMain, 
+                            border: 'none', padding: '6px 12px', borderRadius: '4px', 
+                            cursor: shiftDisabled ? 'not-allowed' : 'pointer', 
+                            fontSize: '12px', fontWeight: 'bold',
+                            opacity: shiftDisabled ? 0.5 : 1 
+                          }}
+                          title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
+                        >
+                          +3 Tage {shiftDisabled ? '🔒' : ''}
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => handleInlineEdit(w.id, 'frist_extern', null)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✓ Erledigt</button>
-                      <button onClick={() => {
-                        const d = new Date(w.frist_extern); d.setDate(d.getDate() + 7);
-                        handleInlineEdit(w.id, 'frist_extern', d.toISOString().split('T')[0]);
-                      }} style={{ background: theme.border, color: theme.textMain, border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>+7 Tage</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
           <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
-            {/* TRESOR PROMPT ASSISTENT */}
             {tresorPrompt && (
               <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                 <div>
@@ -856,13 +853,12 @@ export default function Dashboard({ session }) {
                 <label style={labelStyle}>WV (Intern)</label>
                 <input type="date" value={wiedervorlage} onChange={(e) => setWiedervorlage(e.target.value)} style={inputStyle} />
                 <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                  <button type="button" onClick={() => setzeWV(3)} style={quickBtnStyle}>+3T</button>
                   <button type="button" onClick={() => setzeWV(7)} style={quickBtnStyle}>+1W</button>
-                  <button type="button" onClick={() => setzeWV(14)} style={quickBtnStyle}>+2W</button>
                 </div>
               </div>
             </div>
 
-            {/* KI TEXTENTWURF & ECHTER RESEND VERSAND (PUNKT 7) */}
             {briefEntwurf && (
               <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
@@ -902,7 +898,7 @@ export default function Dashboard({ session }) {
           <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg }}>
             {gefilterteAkten.map((akte) => {
               const isExpanded = aufgeklappteAkten.includes(akte.id);
-              const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null; // NEUESTES DOKUMENT OBERSTES
+              const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
 
               return (
                 <div key={akte.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
@@ -926,7 +922,6 @@ export default function Dashboard({ session }) {
 
                   {isExpanded && (
                     <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}` }}>
-                      {/* GEGNER WECHSEL / ZUSTÄNDIGKEIT ÜBERGEBEN (PUNKT 6) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.cardBg, padding: '12px 18px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '10px' }}>
                         <div style={{ fontSize: '13px' }}>
                           <strong>Aktuelle Behörde / Gegner:</strong> {akte.gegner_name}
@@ -955,19 +950,21 @@ export default function Dashboard({ session }) {
                             <th style={{ padding: '10px', textAlign: 'left' }}>Typ</th>
                             <th style={{ padding: '10px', textAlign: 'left' }}>Datum</th>
                             <th style={{ padding: '10px', textAlign: 'left' }}>Aktion</th>
-                            <th style={{ padding: '10px', textAlign: 'left' }}>Frist</th>
+                            <th style={{ padding: '10px', textAlign: 'left' }}>WV / Frist</th>
                             <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {/* OBERSTES DOKUMENT ZUERST (PUNKT 4) */}
+                          {/* OBERSTES DOKUMENT ZUERST (DESC) */}
                           {akte.akten_historie.map((hist) => (
                             <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
                               <td style={{ padding: '10px', fontWeight: 'bold' }}>{hist.typ}</td>
                               <td style={{ padding: '10px' }}>{formatDatum(hist.datum)}</td>
                               <td style={{ padding: '10px' }}>{hist.aktion}</td>
-                              <td style={{ padding: '10px', color: theme.warningBorder }}>{formatDatum(hist.frist_extern)}</td>
+                              <td style={{ padding: '10px', color: theme.warningBorder }}>
+                                {hist.wiedervorlage ? `WV: ${formatDatum(hist.wiedervorlage)}` : (hist.frist_extern ? `Frist: ${formatDatum(hist.frist_extern)}` : '-')}
+                              </td>
                               <td style={{ padding: '10px' }}>
                                 {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => (
                                   <a key={idx} href={url} target="_blank" rel="noreferrer" style={{ color: theme.accent, display: 'inline-block', marginRight: '8px' }}>
@@ -1025,7 +1022,7 @@ export default function Dashboard({ session }) {
         )}
 
         {/* ========================================= */}
-        {/* ============= GEGNER CRM (PUNKT 3) ===== */}
+        {/* ============= GEGNER CRM =============== */}
         {/* ========================================= */}
         {activeTab === 'gegner' && (
           <div>
