@@ -116,7 +116,7 @@ export default function Dashboard({ session }) {
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
-  // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE (PUNKT 2)
+  // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null)
 
   // MANDANTEN CRM
@@ -556,10 +556,10 @@ export default function Dashboard({ session }) {
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
   };
 
-  // SCROLLEN UND GEZIELTES FOKUSSIEREN DER AKTE BEIM KLICK AUF ALARM (PUNKT 2)
+  // SCROLLEN UND GEZIELTES FOKUSSIEREN DER AKTE BEIM KLICK AUF ALARM
   const handleAlarmKlick = (akteId) => {
     setActiveTab('akten');
-    setFokussierteAkteId(akteId); // Nur DIESE Akte wird hervorgehoben!
+    setFokussierteAkteId(akteId);
     
     if (!aufgeklappteAkten.includes(akteId)) {
       setAufgeklappteAkten(prev => [...prev, akteId]);
@@ -572,35 +572,56 @@ export default function Dashboard({ session }) {
     }, 150);
   };
 
-  // --- WIEDERVORLAGE UND FRISTEN LEISTE ---
+  // --- KONSOLIDIERUNG: MAXIMAL 1 ALARM PRO AKTE / VORGANG ---
   const fristenWarnungen = [];
 
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
-    if(akte.akten_historie) {
-      akte.akten_historie.forEach(hist => {
-        const zielDatum = hist.wiedervorlage || hist.frist_extern;
-        if(zielDatum) {
-          const tage = berechneTageBis(zielDatum);
-          if (tage !== null && tage <= 14) { 
-            let alarmStufe = '1. ERINNERUNG';
-            if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
-            if (tage <= 2) alarmStufe = 'ALARM';
-            
-            fristenWarnungen.push({ 
-              ...hist, 
-              akte_id: akte.id,
-              akte_thema: akte.thema, 
-              akte_gegner: akte.gegner_name, 
-              tageUebrig: tage, 
-              alarmStufe,
-              isWiedervorlage: !!hist.wiedervorlage,
-              aktivesDatum: zielDatum
-            });
+    if (akte.akten_historie && akte.akten_historie.length > 0) {
+      // 1. Suche nach Einträgen mit Fristen/WV in dieser Akte
+      const relevanteEintraege = akte.akten_historie.filter(h => h.wiedervorlage || h.frist_extern);
+      
+      if (relevanteEintraege.length > 0) {
+        // Das neueste Schreiben liegt wegen der Sortierung an Index 0
+        const neuestesDokument = relevanteEintraege[0];
+        
+        let zielDatum = neuestesDokument.wiedervorlage || neuestesDokument.frist_extern;
+        let isWV = !!neuestesDokument.wiedervorlage;
+
+        // REGEL: Wenn behördliche Frist existiert UND Wichtiger/Prioritärer ist (WV liegt nach Frist):
+        if (neuestesDokument.frist_extern && neuestesDokument.wiedervorlage) {
+          const wvDate = new Date(neuestesDokument.wiedervorlage);
+          const fristDate = new Date(neuestesDokument.frist_extern);
+          
+          if (wvDate >= fristDate) {
+            // Harte Behördenfrist hat Vorrang!
+            zielDatum = neuestesDokument.frist_extern;
+            isWV = false;
           }
         }
-      })
+
+        const tage = berechneTageBis(zielDatum);
+        
+        // Füge MAXIMAL 1 Alarm pro Akte hinzu, wenn Termin <= 14 Tage
+        if (tage !== null && tage <= 14) {
+          let alarmStufe = '1. ERINNERUNG';
+          if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
+          if (tage <= 2) alarmStufe = 'ALARM';
+
+          fristenWarnungen.push({
+            ...neuestesDokument,
+            akte_id: akte.id,
+            akte_thema: akte.thema,
+            akte_gegner: akte.gegner_name,
+            tageUebrig: tage,
+            alarmStufe,
+            isWiedervorlage: isWV,
+            aktivesDatum: zielDatum
+          });
+        }
+      }
     }
   });
+
   fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
 
   const gefilterteAkten = akten.filter((akte) => zeigeErledigte ? true : akte.status !== 'Erledigt')
@@ -692,11 +713,11 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'akten' && (
         <>
-          {/* OVERHAULED: RUHIGES, SAUBERES FRISTEN & WIEDERVORLAGE GRID (PUNKT 1) */}
+          {/* SAUBER GEGLIEDERTE, KONSOLIDIERTE ALARM-BOX (MAX 1 ALARM PRO AKTE) */}
           {fristenWarnungen.length > 0 && (
             <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '25px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Icon name="alert" size={20} /> Dringende Alarme & Wiedervorlagen
+                <Icon name="alert" size={20} /> Dringende Alarme & Wiedervorlagen ({fristenWarnungen.length})
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
                 {fristenWarnungen.map(w => {
@@ -719,7 +740,7 @@ export default function Dashboard({ session }) {
                       key={`warn-${w.id}`} 
                       onClick={() => handleAlarmKlick(w.akte_id)}
                       style={{ 
-                        background: 'rgba(15, 23, 42, 0.6)', 
+                        background: 'rgba(15, 23, 42, 0.7)', 
                         padding: '12px 18px', 
                         borderRadius: '8px', 
                         border: `1px solid ${theme.border}`,
@@ -730,11 +751,11 @@ export default function Dashboard({ session }) {
                         flexDirection: 'column',
                         gap: '8px'
                       }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.9)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.6)'}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.95)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(15, 23, 42, 0.7)'}
                       title="Klicken, um diese Akte unten zu fokussieren!"
                     >
-                      {/* ZEILE 1: BEHÖRDE LINKS - BUTTONS STRUKTURIERT RECHTS */}
+                      {/* ZEILE 1: BEHÖRDE LINKS - BUTTONS RECHTS (NO WRAP) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
                         <strong style={{ color: theme.warningText, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           🏢 {w.akte_gegner}
@@ -773,7 +794,7 @@ export default function Dashboard({ session }) {
                         </div>
                       </div>
 
-                      {/* ZEILE 2: THEMA & DATUM DETAILS RUHIG DARUNTER */}
+                      {/* ZEILE 2: THEMA & DATUMS-DETAILS (NO WRAP BADGES) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
                         <span style={{ color: theme.textMain, opacity: 0.9 }}>📋 {w.akte_thema}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
@@ -930,7 +951,7 @@ export default function Dashboard({ session }) {
               const isExpanded = aufgeklappteAkten.includes(akte.id);
               const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
               
-              // NUR EINFAERBEN, WENN DIE AKTE OBEN VOM MANDANTEN EXPLIZIT ANGEKLICKT WURDE (PUNKT 2)
+              // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
               const istFokussiert = (fokussierteAkteId === akte.id);
 
               return (
@@ -1088,7 +1109,7 @@ export default function Dashboard({ session }) {
                 <div key={g.id} style={{ ...panelStyle }}>
                   <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent }}>{g.name}</h3>
                   <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '8px' }}>{g.abteilung || 'Hauptstelle'}</div>
-                  <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontSize: '13px', color theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <span>👤 {g.ansprechpartner || '-'}</span>
                     <span>📞 {g.telefon || '-'} | Fax: {g.fax || '-'}</span>
                     <span>✉️ {g.email || '-'}</span>
