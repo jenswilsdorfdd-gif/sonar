@@ -431,17 +431,24 @@ export default function Dashboard({ session }) {
 
       if (obj.unsere_firma) {
         const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
+        
+        // Vollständige Kontaktdaten-Extraktion aus allen bekannten JSON-Schlüsseln:
+        const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || '';
+        const parsedTelefon = cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '';
+        const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
+        const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || '';
+
         if (!existingMandant) {
           setUnsereFirma(obj.unsere_firma || '');
-          setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || '');
-          setUnserTelefon(cleanVal(obj.unser_telefon) || '');
-          setUnserEmail(cleanVal(obj.unser_email) || '');
-          setTresorPrompt({ typ: 'neu', obj });
+          setUnserAnsprechpartner(parsedAnsprechpartner);
+          setUnserTelefon(parsedTelefon);
+          setUnserEmail(parsedEmail);
+          setTresorPrompt({ typ: 'neu', obj: { ...obj, unser_ansprechpartner: parsedAnsprechpartner, unser_telefon: parsedTelefon, unser_email: parsedEmail, unsere_adresse: parsedAdresse } });
         } else {
            setUnsereFirma(existingMandant.firmenname); 
-           setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || cleanVal(existingMandant.ansprechpartner) || '');
-           setUnserTelefon(cleanVal(obj.unser_telefon) || cleanVal(existingMandant.telefon) || '');
-           setUnserEmail(cleanVal(obj.unser_email) || cleanVal(existingMandant.email) || '');
+           setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(existingMandant.ansprechpartner) || '');
+           setUnserTelefon(parsedTelefon || cleanVal(existingMandant.telefon) || '');
+           setUnserEmail(parsedEmail || cleanVal(existingMandant.email) || '');
 
            let updates = {};
            const checkUpdate = (oldVal, newVal) => {
@@ -450,10 +457,10 @@ export default function Dashboard({ session }) {
              return (n !== '' && o !== n) ? n : null;
            };
            
-           let u1 = checkUpdate(existingMandant.ansprechpartner, obj.unser_ansprechpartner); if(u1) updates.ansprechpartner = u1;
-           let u2 = checkUpdate(existingMandant.telefon, obj.unser_telefon); if(u2) updates.telefon = u2;
-           let u3 = checkUpdate(existingMandant.email, obj.unser_email); if(u3) updates.email = u3;
-           let u4 = checkUpdate(existingMandant.adresse, obj.unsere_adresse); if(u4) updates.adresse = u4;
+           let u1 = checkUpdate(existingMandant.ansprechpartner, parsedAnsprechpartner); if(u1) updates.ansprechpartner = u1;
+           let u2 = checkUpdate(existingMandant.telefon, parsedTelefon); if(u2) updates.telefon = u2;
+           let u3 = checkUpdate(existingMandant.email, parsedEmail); if(u3) updates.email = u3;
+           let u4 = checkUpdate(existingMandant.adresse, parsedAdresse); if(u4) updates.adresse = u4;
            let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) updates.steuernummer = u5;
            let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
            let u7 = checkUpdate(existingMandant.betriebsnummer, obj.unsere_betriebsnummer); if(u7) updates.betriebsnummer = u7;
@@ -531,7 +538,6 @@ export default function Dashboard({ session }) {
         : `${rawFax}@simple-fax.de`; 
 
       const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
-
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
 
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
@@ -974,7 +980,7 @@ export default function Dashboard({ session }) {
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
-  // ERWEITERTE VOLLTEXT-SUCHE ÜBER DIE REALEN AKTEN
+  // ERWEITERTE VOLLTEXT-SUCHE ÜBER AKTEN, MANDANTEN & GEGNER
   const gefilterteAkten = akten.filter((akte) => {
     const erlFilter = zeigeErledigte ? true : akte.status !== 'Erledigt';
     if (!erlFilter) return false;
@@ -992,6 +998,25 @@ export default function Dashboard({ session }) {
     );
 
     return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
+  });
+
+  const gefilterteMandanten = mandanten.filter((m) => {
+    if (!suchbegriff.trim()) return true;
+    const s = suchbegriff.toLowerCase();
+    return (m.firmenname || '').toLowerCase().includes(s) ||
+           (m.ansprechpartner || '').toLowerCase().includes(s) ||
+           (m.email || '').toLowerCase().includes(s) ||
+           (m.telefon || '').toLowerCase().includes(s) ||
+           (m.adresse || '').toLowerCase().includes(s);
+  });
+
+  const gefilterteGegner = gegnerListe.filter((g) => {
+    if (!suchbegriff.trim()) return true;
+    const s = suchbegriff.toLowerCase();
+    return (g.name || '').toLowerCase().includes(s) ||
+           (g.abteilung || '').toLowerCase().includes(s) ||
+           (g.ansprechpartner || '').toLowerCase().includes(s) ||
+           (g.email || '').toLowerCase().includes(s);
   });
 
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
@@ -1617,9 +1642,9 @@ export default function Dashboard({ session }) {
               </div>
             </form>
 
-            <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>🗃️ Gespeicherte Mandanten & Firmen</h3>
+            <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>🗃️ Gespeicherte Mandanten & Firmen ({gefilterteMandanten.length})</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', textAlign: 'left' }}>
-              {mandanten.map(m => (
+              {gefilterteMandanten.map(m => (
                 <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
                   <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Mandant löschen">
                     <Icon name="trash" size={18} />
@@ -1628,9 +1653,9 @@ export default function Dashboard({ session }) {
                   <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
                   
                   <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '15px' }}>
-                    <span>👤 {cleanVal(m.ansprechpartner) || '-'}</span>
-                    <span>📍 {cleanVal(m.adresse) || '-'}</span>
-                    <span>📞 {cleanVal(m.telefon) || '-'} | ✉️ {cleanVal(m.email) || '-'}</span>
+                    <span>👤 Ansprechpartner: <strong>{cleanVal(m.ansprechpartner) || '-'}</strong></span>
+                    <span>📍 Adresse: <strong>{cleanVal(m.adresse) || '-'}</strong></span>
+                    <span>📞 Tel: <strong>{cleanVal(m.telefon) || '-'}</strong> | ✉️ Mail: <strong>{cleanVal(m.email) || '-'}</strong></span>
                   </div>
 
                   <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: theme.inputBg, padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
@@ -1701,7 +1726,7 @@ export default function Dashboard({ session }) {
             </form>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', textAlign: 'left' }}>
-              {gegnerListe.map(g => (
+              {gefilterteGegner.map(g => (
                 <div key={g.id} style={{ ...panelStyle }}>
                   <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent }}>{g.name}</h3>
                   <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '8px' }}>{g.abteilung || 'Hauptstelle'}</div>
