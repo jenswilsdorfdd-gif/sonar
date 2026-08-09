@@ -377,6 +377,10 @@ export default function Dashboard({ session }) {
 
   // DIREKTER, UNABHÄNGIGER FETCH-VERSAND AN DIE EDGE FUNCTION
   const handleResendVersand = async (versandArt) => {
+    if (!briefEntwurf || briefEntwurf.trim() === '') {
+      alert("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!");
+      return;
+    }
     if (!gegnerEmail && versandArt === 'email') {
       alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
       return;
@@ -395,7 +399,6 @@ export default function Dashboard({ session }) {
 
       const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
 
-      // DIREKTER HTTP-FETCH OHNE SUPABASE-SDK VERIFIKATIONSSPERRE
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
         method: "POST",
         headers: {
@@ -1129,26 +1132,30 @@ export default function Dashboard({ session }) {
               </div>
             </div>
 
-            {briefEntwurf && (
-              <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-                  <label style={{...labelStyle, color: theme.accent, margin: 0}}>
-                    <Icon name="file" size={16} /> Freigegebener KI-Textentwurf (SONAR MEGA-LEGAL)
-                  </label>
-                  
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Icon name="send" size={14} /> E-Mail senden (Resend)
-                    </button>
-                    <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)
-                    </button>
-                  </div>
+            {/* IMMER SICHTBARER SCHREIBTEXT-EDITOR UND VERSAND-BUTTONS */}
+            <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                <label style={{...labelStyle, color: theme.accent, margin: 0}}>
+                  <Icon name="file" size={16} /> Textentwurf / Schreiben verfassen
+                </label>
+                
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon name="send" size={14} /> E-Mail senden (Resend)
+                  </button>
+                  <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)
+                  </button>
                 </div>
-
-                <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} />
               </div>
-            )}
+
+              <textarea 
+                value={briefEntwurf} 
+                onChange={(e) => setBriefEntwurf(e.target.value)} 
+                placeholder="Trage hier deinen Brief- oder E-Mail-Text ein..."
+                style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} 
+              />
+            </div>
 
             <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '25px' }}>
               {laedt ? 'Speichere...' : '+ In Akte abheften'}
