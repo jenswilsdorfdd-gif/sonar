@@ -93,6 +93,7 @@ export default function Dashboard({ session }) {
   const [gegnerName, setGegnerName] = useState('')
   const [gegnerAnsprechpartner, setGegnerAnsprechpartner] = useState('')
   const [gegnerTelefon, setGegnerTelefon] = useState('')
+  const [gegnerFax, setGegnerFax] = useState('')
   const [gegnerEmail, setGegnerEmail] = useState('')
   
   const [unsereFirma, setUnsereFirma] = useState('')
@@ -275,6 +276,7 @@ export default function Dashboard({ session }) {
       setGegnerName(obj.kontakt || '') 
       setGegnerAnsprechpartner(obj.ansprechpartner || '')
       setGegnerTelefon(obj.gegner_telefon || '')
+      setGegnerFax(obj.gegner_fax || '')
       setGegnerEmail(obj.gegner_email || '')
       setFristExtern(obj.frist_extern || '')
       setBriefEntwurf(obj.brief_entwurf || '')
@@ -385,14 +387,14 @@ export default function Dashboard({ session }) {
       alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
       return;
     }
-    if (!gegnerTelefon && versandArt === 'fax') {
+    if (!gegnerFax && versandArt === 'fax') {
       alert("⚠️ Bitte trage zuerst eine Faxnummer der Gegenseite ein!");
       return;
     }
 
     setLaedt(true);
     try {
-      const rawFax = gegnerTelefon ? gegnerTelefon.replace(/[^0-9]/g, '') : '';
+      const rawFax = gegnerFax ? gegnerFax.replace(/[^0-9]/g, '') : '';
       const targetAddress = versandArt === 'email' 
         ? gegnerEmail 
         : `${rawFax}@simple-fax.de`; 
@@ -533,7 +535,7 @@ export default function Dashboard({ session }) {
       }])
 
     if (!histError) {
-      setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerEmail(''); 
+      setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null);
@@ -602,7 +604,7 @@ export default function Dashboard({ session }) {
     const g = gegnerListe.find(x => x.id === gId)
     if(g) {
       setGegnerName(g.name || ''); setGegnerAnsprechpartner(g.ansprechpartner || '');
-      setGegnerTelefon(g.telefon || ''); setGegnerEmail(g.email || '');
+      setGegnerTelefon(g.telefon || ''); setGegnerFax(g.fax || ''); setGegnerEmail(g.email || '');
     }
   }
 
@@ -1085,8 +1087,9 @@ export default function Dashboard({ session }) {
                   </div>
                   <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
                   <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-                  <div><label style={labelStyle}>Telefon / Fax</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
-                  <div><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} style={inputStyle} /></div>
+                  <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
                   
                   <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px'}}>
