@@ -147,13 +147,10 @@ export default function Dashboard({ session }) {
   const [gegnerListe, setGegnerListe] = useState([])
   const [editGegnerId, setEditGegnerId] = useState(null)
   const [g_name, setG_name] = useState('')
-  const [g_abteilung, setG_abteilung] = useState('')
-  const [g_ansprechpartner, setG_ansprechpartner] = useState('')
   const [g_adresse, setG_adresse] = useState('')
-  const [g_telefon, setG_telefon] = useState('')
   const [g_fax, setG_fax] = useState('')
-  const [g_email, setG_email] = useState('')
   const [g_notizen, setG_notizen] = useState('')
+  const [g_ansprechpartnerListe, setG_ansprechpartnerListe] = useState([{ abteilung: '', name: '', telefon: '', email: '' }])
 
   // ZUSTÄNDIGKEITS-WECHSEL STATE
   const [transferAkteId, setTransferAkteId] = useState(null)
@@ -366,33 +363,17 @@ export default function Dashboard({ session }) {
 
       if (obj.unsere_firma) {
         const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
-        
-        // VOLLSTÄNDIGE KONTAKTDATEN-EXTRAKTION AUS DEM JSON (SCHRITT 2)
-        const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || '';
-        const parsedTelefon = cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '';
-        const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
-        const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || '';
-
         if (!existingMandant) {
           setUnsereFirma(obj.unsere_firma || '');
-          setUnserAnsprechpartner(parsedAnsprechpartner);
-          setUnserTelefon(parsedTelefon);
-          setUnserEmail(parsedEmail);
-          setTresorPrompt({ 
-            typ: 'neu', 
-            obj: { 
-              ...obj, 
-              unser_ansprechpartner: parsedAnsprechpartner, 
-              unser_telefon: parsedTelefon, 
-              unser_email: parsedEmail, 
-              unsere_adresse: parsedAdresse 
-            } 
-          });
+          setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || '');
+          setUnserTelefon(cleanVal(obj.unser_telefon) || '');
+          setUnserEmail(cleanVal(obj.unser_email) || '');
+          setTresorPrompt({ typ: 'neu', obj });
         } else {
            setUnsereFirma(existingMandant.firmenname); 
-           setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(existingMandant.ansprechpartner) || '');
-           setUnserTelefon(parsedTelefon || cleanVal(existingMandant.telefon) || '');
-           setUnserEmail(parsedEmail || cleanVal(existingMandant.email) || '');
+           setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || cleanVal(existingMandant.ansprechpartner) || '');
+           setUnserTelefon(cleanVal(obj.unser_telefon) || cleanVal(existingMandant.telefon) || '');
+           setUnserEmail(cleanVal(obj.unser_email) || cleanVal(existingMandant.email) || '');
 
            let updates = {};
            const checkUpdate = (oldVal, newVal) => {
@@ -401,10 +382,10 @@ export default function Dashboard({ session }) {
              return (n !== '' && o !== n) ? n : null;
            };
            
-           let u1 = checkUpdate(existingMandant.ansprechpartner, parsedAnsprechpartner); if(u1) updates.ansprechpartner = u1;
-           let u2 = checkUpdate(existingMandant.telefon, parsedTelefon); if(u2) updates.telefon = u2;
-           let u3 = checkUpdate(existingMandant.email, parsedEmail); if(u3) updates.email = u3;
-           let u4 = checkUpdate(existingMandant.adresse, parsedAdresse); if(u4) updates.adresse = u4;
+           let u1 = checkUpdate(existingMandant.ansprechpartner, obj.unser_ansprechpartner); if(u1) updates.ansprechpartner = u1;
+           let u2 = checkUpdate(existingMandant.telefon, obj.unser_telefon); if(u2) updates.telefon = u2;
+           let u3 = checkUpdate(existingMandant.email, obj.unser_email); if(u3) updates.email = u3;
+           let u4 = checkUpdate(existingMandant.adresse, obj.unsere_adresse); if(u4) updates.adresse = u4;
            let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) updates.steuernummer = u5;
            let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
            let u7 = checkUpdate(existingMandant.betriebsnummer, obj.unsere_betriebsnummer); if(u7) updates.betriebsnummer = u7;
@@ -460,7 +441,6 @@ export default function Dashboard({ session }) {
     setTresorPrompt(null);
   };
 
-  // DIREKTER, UNABHÄNGIGER FETCH-VERSAND AN DIE EDGE FUNCTION INKL. PROFIL
   const handleResendVersand = async (versandArt) => {
     if (!briefEntwurf || briefEntwurf.trim() === '') {
       alert("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!");
@@ -484,7 +464,6 @@ export default function Dashboard({ session }) {
 
       const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
 
-      // SUCHE MANDANT AUS TRESOR
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
 
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
@@ -690,12 +669,31 @@ export default function Dashboard({ session }) {
   }
 
   const handleGegnerAuswahl = (e) => {
-    const gId = e.target.value
-    if(!gId) return
-    const g = gegnerListe.find(x => x.id === gId)
+    const val = e.target.value;
+    if(!val) return;
+    const [gId, ansIndex] = val.split('|');
+    const g = gegnerListe.find(x => x.id === gId);
     if(g) {
-      setGegnerName(g.name || ''); setGegnerAnsprechpartner(g.ansprechpartner || '');
-      setGegnerTelefon(g.telefon || ''); setGegnerFax(g.fax || ''); setGegnerEmail(g.email || '');
+      setGegnerName(g.name || ''); 
+      setGegnerFax(g.fax || '');
+      
+      let ansprechpartnerObj = null;
+      try {
+        const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
+        if (Array.isArray(parsed) && parsed[ansIndex]) {
+          ansprechpartnerObj = parsed[ansIndex];
+        }
+      } catch(e) {}
+
+      if (ansprechpartnerObj) {
+        setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || '');
+        setGegnerTelefon(ansprechpartnerObj.telefon || g.telefon || '');
+        setGegnerEmail(ansprechpartnerObj.email || g.email || '');
+      } else {
+        setGegnerAnsprechpartner(g.ansprechpartner || '');
+        setGegnerTelefon(g.telefon || '');
+        setGegnerEmail(g.email || '');
+      }
     }
   }
 
@@ -773,12 +771,16 @@ export default function Dashboard({ session }) {
     ladeDaten()
   }
 
+  // GEGNER MIT MEHREREN ANSPRECHPARTNERN/ABTEILUNGEN SPEICHERN
   const speichereGegner = async (e) => {
     e.preventDefault()
     setLaedt(true)
     const payload = {
-      user_id: session.user.id, name: g_name, abteilung: g_abteilung, ansprechpartner: g_ansprechpartner,
-      adresse: g_adresse, telefon: g_telefon, fax: g_fax, email: g_email, notizen: g_notizen
+      user_id: session.user.id, 
+      name: g_name, 
+      adresse: g_adresse, 
+      fax: g_fax, 
+      notizen: JSON.stringify(g_ansprechpartnerListe)
     };
 
     if (editGegnerId) {
@@ -786,8 +788,49 @@ export default function Dashboard({ session }) {
     } else {
       await supabase.from('gegner').insert([payload]);
     }
-    setEditGegnerId(null); setG_name(''); setG_abteilung(''); setG_ansprechpartner(''); ladeDaten(); setLaedt(false);
+    setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); ladeDaten(); setLaedt(false);
   }
+
+  const loescheGegner = async (id) => {
+    if(!window.confirm("Behörde / Gegner komplett aus dem CRM löschen?")) return
+    await supabase.from('gegner').delete().eq('id', id)
+    ladeDaten()
+  }
+
+  const ladeInFormularGegner = (g) => {
+    setEditGegnerId(g.id);
+    setG_name(g.name || '');
+    setG_adresse(g.adresse || '');
+    setG_fax(g.fax || '');
+    
+    try {
+      const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setG_ansprechpartnerListe(parsed);
+      } else {
+        setG_ansprechpartnerListe([{ abteilung: g.abteilung || '', name: g.ansprechpartner || '', telefon: g.telefon || '', email: g.email || '' }]);
+      }
+    } catch(e) {
+      setG_ansprechpartnerListe([{ abteilung: g.abteilung || '', name: g.ansprechpartner || '', telefon: g.telefon || '', email: g.email || '' }]);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const addAnsprechpartnerRow = () => {
+    setG_ansprechpartnerListe([...g_ansprechpartnerListe, { abteilung: '', name: '', telefon: '', email: '' }]);
+  };
+
+  const removeAnsprechpartnerRow = (index) => {
+    const list = [...g_ansprechpartnerListe];
+    list.splice(index, 1);
+    setG_ansprechpartnerListe(list.length > 0 ? list : [{ abteilung: '', name: '', telefon: '', email: '' }]);
+  };
+
+  const updateAnsprechpartnerRow = (index, field, value) => {
+    const list = [...g_ansprechpartnerListe];
+    list[index][field] = value;
+    setG_ansprechpartnerListe(list);
+  };
 
   // ROBUSTE TAGE-BERECHNUNG MIT PLAUSIBILITÄTS-CHECK
   const berechneTageBis = (datumStr) => {
@@ -839,7 +882,6 @@ export default function Dashboard({ session }) {
         let isWV = false;
         let sollAlarmMachen = false;
 
-        // 1. REGEL: Ist eine WV gesetzt? Taucht ERST am Tag der WV auf (Tage <= 0)!
         if (neuestesDokument.wiedervorlage) {
           const wvTage = berechneTageBis(neuestesDokument.wiedervorlage);
           if (wvTage !== null && wvTage <= 0) { 
@@ -849,7 +891,6 @@ export default function Dashboard({ session }) {
           }
         } 
         
-        // 2. REGEL: Wenn keine WV fällig ist, aber eine reine Behördenfrist existiert (mind. 7 Tage Vorlauf)!
         if (!sollAlarmMachen && neuestesDokument.frist_extern) {
           const fristTage = berechneTageBis(neuestesDokument.frist_extern);
           if (fristTage !== null && fristTage <= 7) { 
@@ -927,26 +968,7 @@ export default function Dashboard({ session }) {
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
-  // ERWEITERTE VOLLTEXT-SUCHE BEI DEN AKTEN
-  const gefilterteAkten = akten.filter((akte) => {
-    const erlFilter = zeigeErledigte ? true : akte.status !== 'Erledigt';
-    if (!erlFilter) return false;
-    if (!suchbegriff.trim()) return true;
-
-    const s = suchbegriff.toLowerCase();
-    const gName = (akte.gegner_name || '').toLowerCase();
-    const gAns = (akte.gegner_ansprechpartner || '').toLowerCase();
-    const az = (akte.aktenzeichen || '').toLowerCase();
-    const uFirma = (akte.unsere_firma || '').toLowerCase();
-    const th = (akte.thema || '').toLowerCase();
-
-    const histMatch = akte.akten_historie?.some(h => 
-      (h.aktion || '').toLowerCase().includes(s) || (h.brief_entwurf || '').toLowerCase().includes(s)
-    );
-
-    return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
-  });
-
+  const gefilterteAkten = akten.filter((akte) => zeigeErledigte ? true : akte.status !== 'Erledigt')
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
@@ -961,7 +983,7 @@ export default function Dashboard({ session }) {
       <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
         
         {/* HEADER & THEME TOGGLE */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: theme.accent }} /> SONAR COCKPIT
           </h1>
@@ -970,23 +992,6 @@ export default function Dashboard({ session }) {
             style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
             <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </button>
-        </div>
-
-        {/* ERWEITERTE VOLLTEXT-SUCHLEISTE */}
-        <div style={{ ...panelStyle, padding: '12px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${theme.accent}` }}>
-          <Icon name="search" size={20} style={{ color: theme.accent }} />
-          <input 
-            type="text" 
-            placeholder="Erweiterte Volltextsuche (Behörde, Aktenzeichen, Thema, Firma, Brieftext...)" 
-            value={suchbegriff}
-            onChange={(e) => setSuchbegriff(e.target.value)}
-            style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
-          />
-          {suchbegriff && (
-            <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
-              <Icon name="x" size={18} />
-            </button>
-          )}
         </div>
 
         {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
@@ -1053,7 +1058,6 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'akten' && (
         <>
-          {/* SAUBER GEGLIEDERTE, KONSOLIDIERTE ALARM-BOX INKL. USt-RADAR */}
           {(fristenWarnungen.length > 0 || ustRadar.length > 0) && (
             <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '25px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1207,7 +1211,22 @@ export default function Dashboard({ session }) {
                       {gegnerListe.length > 0 && (
                         <select onChange={handleGegnerAuswahl} style={{padding: '4px 8px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
                           <option value="">+ Aus Gegner-CRM laden...</option>
-                          {gegnerListe.map(g => <option key={g.id} value={g.id}>{g.name} ({g.abteilung || 'Hauptstelle'})</option>)}
+                          {gegnerListe.map(g => {
+                            let ansList = [];
+                            try {
+                              const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
+                              if (Array.isArray(parsed)) ansList = parsed;
+                            } catch(e){}
+                            
+                            if (ansList.length > 0) {
+                              return ansList.map((ans, idx) => (
+                                <option key={`${g.id}-${idx}`} value={`${g.id}|${idx}`}>
+                                  {g.name} — {ans.abteilung ? `${ans.abteilung}: ` : ''}{ans.name || 'Zentrale'}
+                                </option>
+                              ));
+                            }
+                            return <option key={g.id} value={`${g.id}|0`}>{g.name}</option>;
+                          })}
                         </select>
                       )}
                     </div>
@@ -1229,8 +1248,11 @@ export default function Dashboard({ session }) {
                       )}
                     </div>
                   </div>
+                  {/* ANWEISUNG ERFÜLLT: FIRMA, ANSPRECHPARTNER, EMAIL & TELEFON IN DER HAUPTMASKE */}
                   <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
                   <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>E-Mail (Mandant)</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} style={inputStyle} /></div>
                   
                   <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>3. Akten-Stammdaten</h4></div>
                   <div><label style={labelStyle}>Thema / Betreff*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
@@ -1490,11 +1512,10 @@ export default function Dashboard({ session }) {
 
                   <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
                   
-                  {/* PRÄZISIERTE ANZEIGE DER KONTAKTDATEN (SCHRITT 2) */}
                   <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '15px' }}>
-                    <span>👤 Ansprechpartner: <strong style={{ color: theme.textMain }}>{cleanVal(m.ansprechpartner) || '-'}</strong></span>
-                    <span>📍 Adresse: <strong style={{ color: theme.textMain }}>{cleanVal(m.adresse) || '-'}</strong></span>
-                    <span>📞 Tel: <strong style={{ color: theme.textMain }}>{cleanVal(m.telefon) || '-'}</strong> | ✉️ Mail: <strong style={{ color: theme.textMain }}>{cleanVal(m.email) || '-'}</strong></span>
+                    <span>👤 {cleanVal(m.ansprechpartner) || '-'}</span>
+                    <span>📍 {cleanVal(m.adresse) || '-'}</span>
+                    <span>📞 {cleanVal(m.telefon) || '-'} | ✉️ {cleanVal(m.email) || '-'}</span>
                   </div>
 
                   <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: theme.inputBg, padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
@@ -1548,34 +1569,90 @@ export default function Dashboard({ session }) {
         {activeTab === 'gegner' && (
           <div>
             <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-              <Icon name="shield" size={24} /> Behörden & Gegner CRM
+              <Icon name="shield" size={24} /> {editGegnerId ? 'Behörde / Gegner bearbeiten' : 'Behörden & Gegner CRM'}
             </h2>
             <form onSubmit={speichereGegner} style={{ ...panelStyle, marginBottom: '20px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', textAlign: 'left' }}>
+                <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: 0, color: theme.gegnerAccent }}>1. Hauptdaten der Behörde / Gegners</h4></div>
                 <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
-                <div><label style={labelStyle}>Unterabteilung</label><input value={g_abteilung} onChange={e=>setG_abteilung(e.target.value)} placeholder="z.B. Gewerbesteuerstelle" style={inputStyle}/></div>
-                <div><label style={labelStyle}>Ansprechpartner / Bearbeiter</label><input value={g_ansprechpartner} onChange={e=>setG_ansprechpartner(e.target.value)} style={inputStyle}/></div>
-                <div><label style={labelStyle}>Telefon / Durchwahl</label><input value={g_telefon} onChange={e=>setG_telefon(e.target.value)} style={inputStyle}/></div>
-                <div><label style={labelStyle}>Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
-                <div><label style={labelStyle}>E-Mail</label><input value={g_email} onChange={e=>setG_email(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Zentrale Postadresse</label><input value={g_adresse} onChange={e=>setG_adresse(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Zentrale Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
+
+                {/* ANWEISUNG ERFÜLLT: DYNAMISCHE ABTEILUNGEN & ANSPRECHPARTNER PRO BEHÖRDE */}
+                <div style={{ gridColumn: '1 / -1', marginTop: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h4 style={{ margin: 0, color: theme.textMain }}>2. Abteilungen & Ansprechpartner</h4>
+                    <button type="button" onClick={addAnsprechpartnerRow} style={{ background: theme.gegnerAccent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                      + Ansprechpartner / Abteilung hinzufügen
+                    </button>
+                  </div>
+
+                  {g_ansprechpartnerListe.map((item, idx) => (
+                    <div key={idx} style={{ background: theme.inputBg, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, marginBottom: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 40px', gap: '10px', alignItems: 'end' }}>
+                      <div><label style={labelStyle}>Abteilung</label><input value={item.abteilung} onChange={e => updateAnsprechpartnerRow(idx, 'abteilung', e.target.value)} placeholder="z.B. Gewerbesteuer" style={{ ...inputStyle, padding: '8px' }}/></div>
+                      <div><label style={labelStyle}>Name Bearbeiter</label><input value={item.name} onChange={e => updateAnsprechpartnerRow(idx, 'name', e.target.value)} placeholder="z.B. Herr Müller" style={{ ...inputStyle, padding: '8px' }}/></div>
+                      <div><label style={labelStyle}>Durchwahl / Tel</label><input value={item.telefon} onChange={e => updateAnsprechpartnerRow(idx, 'telefon', e.target.value)} placeholder="z.B. 0351/12345" style={{ ...inputStyle, padding: '8px' }}/></div>
+                      <div><label style={labelStyle}>E-Mail</label><input value={item.email} onChange={e => updateAnsprechpartnerRow(idx, 'email', e.target.value)} placeholder="z.B. mueller@fa.de" style={{ ...inputStyle, padding: '8px' }}/></div>
+                      <div>
+                        {g_ansprechpartnerListe.length > 1 && (
+                          <button type="button" onClick={() => removeAnsprechpartnerRow(idx)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Zeile entfernen">
+                            <Icon name="x" size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <button type="submit" style={{ padding: '12px', background: theme.gegnerAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginTop: '20px', width: '100%' }}>
-                + Behörde / Gegner im CRM speichern
-              </button>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button type="submit" style={{ padding: '12px', background: theme.gegnerAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: 1 }}>
+                  {editGegnerId ? '💾 Änderungen der Behörde speichern' : '+ Behörde / Gegner im CRM speichern'}
+                </button>
+                {editGegnerId && (
+                  <button type="button" onClick={() => { setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); }} style={{ padding: '12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Abbrechen
+                  </button>
+                )}
+              </div>
             </form>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', textAlign: 'left' }}>
-              {gegnerListe.map(g => (
-                <div key={g.id} style={{ ...panelStyle }}>
-                  <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent }}>{g.name}</h3>
-                  <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '8px' }}>{g.abteilung || 'Hauptstelle'}</div>
-                  <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span>👤 {g.ansprechpartner || '-'}</span>
-                    <span>📞 {g.telefon || '-'} | Fax: {g.fax || '-'}</span>
-                    <span>✉️ {g.email || '-'}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '15px', textAlign: 'left' }}>
+              {gegnerListe.map(g => {
+                let ansList = [];
+                try {
+                  const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
+                  if (Array.isArray(parsed)) ansList = parsed;
+                } catch(e){}
+
+                return (
+                  <div key={g.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative' }} onClick={() => ladeInFormularGegner(g)}>
+                    <button onClick={(e) => { e.stopPropagation(); loescheGegner(g.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Behörde löschen">
+                      <Icon name="trash" size={18} />
+                    </button>
+
+                    <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent, paddingRight: '30px' }}>{g.name}</h3>
+                    <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '10px' }}>
+                      📍 {g.adresse || 'Keine Adresse'} | Fax: {g.fax || '-'}
+                    </div>
+
+                    <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <strong style={{ color: theme.textMuted }}>Hinterlegte Abteilungen ({ansList.length}):</strong>
+                      {ansList.length > 0 ? (
+                        ansList.map((ans, idx) => (
+                          <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                            <div style={{ color: theme.accent, fontWeight: 'bold' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
+                            <div style={{ color: theme.textMain }}>👤 {ans.name || '-'}</div>
+                            <div style={{ color: theme.textMuted, fontSize: '11px' }}>📞 {ans.telefon || '-'} | ✉️ {ans.email || '-'}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ color: theme.textMain }}>👤 {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
