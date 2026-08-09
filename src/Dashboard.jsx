@@ -150,6 +150,7 @@ export default function Dashboard({ session }) {
   const [g_name, setG_name] = useState('')
   const [g_adresse, setG_adresse] = useState('')
   const [g_fax, setG_fax] = useState('')
+  const [g_email, setG_email] = useState('')
   const [g_notizen, setG_notizen] = useState('')
   const [g_ansprechpartnerListe, setG_ansprechpartnerListe] = useState([{ abteilung: '', name: '', telefon: '', email: '' }])
 
@@ -761,11 +762,11 @@ export default function Dashboard({ session }) {
       if (ansprechpartnerObj) {
         setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || '');
         setGegnerTelefon(ansprechpartnerObj.telefon || g.telefon || '');
-        setGegnerEmail(ansprechpartnerObj.email || g.email || '');
+        setGegnerEmail(ansprechpartnerObj.email || g.email || g.email_zentrale || '');
       } else {
         setGegnerAnsprechpartner(g.ansprechpartner || '');
         setGegnerTelefon(g.telefon || '');
-        setGegnerEmail(g.email || '');
+        setGegnerEmail(g.email || g.email_zentrale || '');
       }
     }
   }
@@ -852,6 +853,7 @@ export default function Dashboard({ session }) {
       name: g_name, 
       adresse: g_adresse, 
       fax: g_fax, 
+      email: g_email,
       notizen: JSON.stringify(g_ansprechpartnerListe)
     };
 
@@ -860,7 +862,7 @@ export default function Dashboard({ session }) {
     } else {
       await supabase.from('gegner').insert([payload]);
     }
-    setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); ladeDaten(); setLaedt(false);
+    setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); ladeDaten(); setLaedt(false);
   }
 
   const loescheGegner = async (id) => {
@@ -874,6 +876,7 @@ export default function Dashboard({ session }) {
     setG_name(g.name || '');
     setG_adresse(g.adresse || '');
     setG_fax(g.fax || '');
+    setG_email(g.email || g.email_zentrale || '');
     
     try {
       const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
@@ -1796,6 +1799,7 @@ export default function Dashboard({ session }) {
                 <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
                 <div><label style={labelStyle}>Zentrale Postadresse</label><input value={g_adresse} onChange={e=>setG_adresse(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>Zentrale Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
+                <div><label style={labelStyle}>Zentrale E-Mail</label><input type="email" value={g_email} onChange={e=>setG_email(e.target.value)} placeholder="z.B. poststelle@fa-dresden.de" style={inputStyle}/></div>
 
                 <div style={{ gridColumn: '1 / -1', marginTop: '15px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -1828,7 +1832,7 @@ export default function Dashboard({ session }) {
                   {editGegnerId ? '💾 Änderungen der Behörde speichern' : '+ Behörde / Gegner im CRM speichern'}
                 </button>
                 {editGegnerId && (
-                  <button type="button" onClick={() => { setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); }} style={{ padding: '12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <button type="button" onClick={() => { setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); }} style={{ padding: '12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                     Abbrechen
                   </button>
                 )}
@@ -1851,7 +1855,8 @@ export default function Dashboard({ session }) {
 
                     <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent, paddingRight: '30px' }}>{g.name}</h3>
                     <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '10px' }}>
-                      📍 {g.adresse || 'Keine Adresse'} | Fax: {g.fax || '-'}
+                      📍 {g.adresse || 'Keine Adresse'}<br/>
+                      📟 Fax: {g.fax || '-'} | ✉️ Mail: {g.email || g.email_zentrale || '-'}
                     </div>
 
                     <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
