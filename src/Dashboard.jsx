@@ -375,7 +375,7 @@ export default function Dashboard({ session }) {
     setTresorPrompt(null);
   };
 
-  // ECHTE RESEND VERSAND LOGIK FÜR MAIL & SIMPLE-FAX.DE
+  // DIREKTER, UNABHÄNGIGER FETCH-VERSAND AN DIE EDGE FUNCTION
   const handleResendVersand = async (versandArt) => {
     if (!gegnerEmail && versandArt === 'email') {
       alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
@@ -395,21 +395,24 @@ export default function Dashboard({ session }) {
 
       const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
 
-      const { data, error } = await supabase.functions.invoke('sonar-send-email', {
-        body: {
+      // DIREKTER HTTP-FETCH OHNE SUPABASE-SDK VERIFIKATIONSSPERRE
+      const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabase.supabaseKey}`
+        },
+        body: JSON.stringify({
           to: targetAddress,
           subject: betreff,
           text: briefEntwurf
-        }
+        })
       });
 
-      if (error) {
-        let errDetails = error.message;
-        try {
-          const errBody = await error.context?.json();
-          if (errBody && errBody.error) errDetails = errBody.error;
-        } catch (e) {}
-        throw new Error(errDetails);
+      const resData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(resData.error || resData.message || JSON.stringify(resData));
       }
 
       if (selectedAkteId) {
@@ -429,7 +432,7 @@ export default function Dashboard({ session }) {
 
     } catch (e) {
       console.error("Versandfehler:", e);
-      alert("❌ Fehler von Resend: " + (e.message || JSON.stringify(e)));
+      alert("❌ Rückmeldung von Resend: " + e.message);
     }
     setLaedt(false);
   };
