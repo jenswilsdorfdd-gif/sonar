@@ -8,14 +8,12 @@ const extractFilename = (url) => {
     const decodedUrl = decodeURIComponent(url);
     const parts = decodedUrl.split('/');
     const fullName = parts[parts.length - 1];
-    const cleanName = fullName.replace(/^\d+_/, '');
-    return cleanName;
+    return fullName.replace(/^\d+_/, '');
   } catch (e) {
     return 'Datei';
   }
 };
 
-// --- HILFSFUNKTION FÜR TOLERANTE FIRMEN-SUCHE (Fuzzy Search) ---
 const normalizeName = (name) => {
   if (!name) return '';
   return name.toLowerCase()
@@ -24,7 +22,6 @@ const normalizeName = (name) => {
     .replace(/[^a-z0-9]/g, ''); 
 };
 
-// --- FILTER GEGEN "null" STRINGS ---
 const cleanVal = (val) => {
   if (!val || val === 'null' || val === 'undefined' || String(val).trim() === '') return null;
   return val;
@@ -120,8 +117,6 @@ export default function Dashboard({ session }) {
 
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
-
-  // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null)
 
   // MANDANTEN CRM
@@ -160,7 +155,7 @@ export default function Dashboard({ session }) {
   const [transferAkteId, setTransferAkteId] = useState(null)
   const [neuerGegnerName, setNeuerGegnerName] = useState('')
 
-  // WISSENSDATENBANK & BULK UPLOAD STATE
+  // WISSENSDATENBANK STATE
   const [wissenEintraege, setWissenEintraege] = useState([])
   const [bulkDateien, setBulkDateien] = useState([])
   const [bulkFirma, setBulkFirma] = useState('')
@@ -234,7 +229,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // STAPEL-IMPORT FÜR ALT-DOKUMENTE IN DIE WISSENSDATENBANK
+  // BULK IMPORT FÜR KI-WISSENSSPEICHER
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -432,7 +427,6 @@ export default function Dashboard({ session }) {
       if (obj.unsere_firma) {
         const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
         
-        // Vollständige Kontaktdaten-Extraktion aus allen bekannten JSON-Schlüsseln:
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || '';
         const parsedTelefon = cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '';
         const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
@@ -689,7 +683,6 @@ export default function Dashboard({ session }) {
     setLaedt(false)
   }
 
-  // GEGNER WECHSEL
   const naechsterGegnerUebergeben = async (akteId) => {
     if (!neuerGegnerName) {
       alert("Bitte gib den Namen der neuen Behörde / des neuen Gegners ein!");
@@ -842,100 +835,58 @@ export default function Dashboard({ session }) {
     setEditGegnerId(null); setG_name(''); setG_abteilung(''); setG_ansprechpartner(''); ladeDaten(); setLaedt(false);
   }
 
-  // ROBUSTE TAGE-BERECHNUNG MIT PLAUSIBILITÄTS-CHECK
   const berechneTageBis = (datumStr) => {
     if (!datumStr) return null;
     let rawDate = String(datumStr).trim();
-    
-    if (rawDate.length === 8 && rawDate.endsWith('206')) {
-      rawDate = rawDate.replace('206', '2026');
-    }
-    
+    if (rawDate.length === 8 && rawDate.endsWith('206')) rawDate = rawDate.replace('206', '2026');
     const heute = new Date(); heute.setHours(0, 0, 0, 0);
     const frist = new Date(rawDate);
-    
-    if (frist.getFullYear() < 2000) {
-      frist.setFullYear(2026);
-    }
-    
+    if (frist.getFullYear() < 2000) frist.setFullYear(2026);
     frist.setHours(0, 0, 0, 0);
     return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
   };
 
-  // SCROLLEN UND GEZIELTES FOKUSSIEREN DER AKTE BEIM KLICK AUF ALARM
   const handleAlarmKlick = (akteId) => {
     setActiveTab('akten');
     setFokussierteAkteId(akteId);
-    
-    if (!aufgeklappteAkten.includes(akteId)) {
-      setAufgeklappteAkten(prev => [...prev, akteId]);
-    }
+    if (!aufgeklappteAkten.includes(akteId)) setAufgeklappteAkten(prev => [...prev, akteId]);
     setTimeout(() => {
       const el = document.getElementById(`akte-karte-${akteId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
   };
 
-  // --- KONSOLIDIERTE, PRÄZISE ALARM-LOGIK (MAXIMAL 1 ALARM PRO AKTE) ---
+  // ALARM LOGIK
   const fristenWarnungen = [];
-
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if (akte.akten_historie && akte.akten_historie.length > 0) {
       const relevanteEintraege = akte.akten_historie.filter(h => h.wiedervorlage || h.frist_extern);
-      
       if (relevanteEintraege.length > 0) {
         const neuestesDokument = relevanteEintraege[0];
-        
-        let zielDatum = null;
-        let isWV = false;
-        let sollAlarmMachen = false;
+        let zielDatum = null; let isWV = false; let sollAlarmMachen = false;
 
-        // 1. REGEL: Ist eine WV gesetzt? Taucht ERST am Tag der WV auf (Tage <= 0)!
         if (neuestesDokument.wiedervorlage) {
           const wvTage = berechneTageBis(neuestesDokument.wiedervorlage);
-          if (wvTage !== null && wvTage <= 0) { 
-            zielDatum = neuestesDokument.wiedervorlage;
-            isWV = true;
-            sollAlarmMachen = true;
-          }
+          if (wvTage !== null && wvTage <= 0) { zielDatum = neuestesDokument.wiedervorlage; isWV = true; sollAlarmMachen = true; }
         } 
-        
-        // 2. REGEL: Wenn keine WV fällig ist, aber eine reine Behördenfrist existiert (mind. 7 Tage Vorlauf)!
         if (!sollAlarmMachen && neuestesDokument.frist_extern) {
           const fristTage = berechneTageBis(neuestesDokument.frist_extern);
-          if (fristTage !== null && fristTage <= 7) { 
-            zielDatum = neuestesDokument.frist_extern;
-            isWV = false;
-            sollAlarmMachen = true;
-          }
+          if (fristTage !== null && fristTage <= 7) { zielDatum = neuestesDokument.frist_extern; isWV = false; sollAlarmMachen = true; }
         }
 
         if (sollAlarmMachen && zielDatum) {
           const tage = berechneTageBis(zielDatum);
-          let alarmStufe = '1. ERINNERUNG';
-          if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG';
-          if (tage <= 2) alarmStufe = 'ALARM';
-
           fristenWarnungen.push({
-            ...neuestesDokument,
-            akte_id: akte.id,
-            akte_thema: akte.thema,
-            akte_gegner: akte.gegner_name,
-            tageUebrig: tage,
-            alarmStufe,
-            isWiedervorlage: isWV,
-            aktivesDatum: zielDatum
+            ...neuestesDokument, akte_id: akte.id, akte_thema: akte.thema,
+            akte_gegner: akte.gegner_name, tageUebrig: tage, isWiedervorlage: isWV, aktivesDatum: zielDatum
           });
         }
       }
     }
   });
-
   fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
 
-  // --- USt-RADAR MIT BERECHNUNG & DAUERFRISTVERLÄNGERUNG (DFV) ---
+  // USt-RADAR
   const ustRadar = [];
   const heuteDate = new Date();
   const actYear = heuteDate.getFullYear();
@@ -980,7 +931,7 @@ export default function Dashboard({ session }) {
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
-  // ERWEITERTE VOLLTEXT-SUCHE ÜBER AKTEN, MANDANTEN & GEGNER
+  // GEFILTERTE AKTEN VOLLTEXT-SUCHE
   const gefilterteAkten = akten.filter((akte) => {
     const erlFilter = zeigeErledigte ? true : akte.status !== 'Erledigt';
     if (!erlFilter) return false;
@@ -1131,7 +1082,6 @@ export default function Dashboard({ session }) {
         {/* ========================================= */}
         {activeTab === 'akten' && (
         <>
-          {/* SAUBER GEGLIEDERTE, KONSOLIDIERTE ALARM-BOX INKL. USt-RADAR */}
           {(fristenWarnungen.length > 0 || ustRadar.length > 0) && (
             <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}`, marginBottom: '25px' }}>
               <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1385,7 +1335,6 @@ export default function Dashboard({ session }) {
               const isExpanded = aufgeklappteAkten.includes(akte.id);
               const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
               
-              // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
               const istFokussiert = (fokussierteAkteId === akte.id);
 
               return (
@@ -1426,7 +1375,6 @@ export default function Dashboard({ session }) {
                         </div>
                         
                         <div style={{ display: 'flex', gap: '10px' }}>
-                          {/* BUTTON: AKTE EXPORTIEREN / DRUCKEN */}
                           <button onClick={() => druckeAkte(akte)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Icon name="print" size={14} /> Akte exportieren / drucken
                           </button>
