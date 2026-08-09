@@ -183,6 +183,16 @@ export default function Dashboard({ session }) {
     cardItemBg: '#ffffff'
   };
 
+  // DYNAMISCHE LOGO-FARBE JE NACH AKTIVEM TAB
+  const getLogoColor = () => {
+    switch (activeTab) {
+      case 'wissen': return theme.wissenAccent;
+      case 'tresor': return theme.tresorAccent;
+      case 'gegner': return theme.gegnerAccent;
+      default: return theme.accent;
+    }
+  };
+
   useEffect(() => {
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
@@ -1073,10 +1083,10 @@ export default function Dashboard({ session }) {
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh' }}>
       <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
         
-        {/* HEADER & THEME TOGGLE */}
+        {/* HEADER & THEME TOGGLE (LOGO-FARBE PASST SICH AN TAB AN) */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icon name="signal" size={24} style={{ color: theme.accent }} /> SONAR COCKPIT
+            <Icon name="signal" size={24} style={{ color: getLogoColor(), transition: 'color 0.3s ease' }} /> SONAR COCKPIT
           </h1>
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)} 
