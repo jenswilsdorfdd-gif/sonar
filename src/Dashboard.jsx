@@ -375,7 +375,7 @@ export default function Dashboard({ session }) {
     setTresorPrompt(null);
   };
 
-  // RESEND VERSAND LOGIK
+  // ECHTE RESEND VERSAND LOGIK FÜR MAIL & SIMPLE-FAX.DE
   const handleResendVersand = async (versandArt) => {
     if (!gegnerEmail && versandArt === 'email') {
       alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
@@ -388,13 +388,44 @@ export default function Dashboard({ session }) {
 
     setLaedt(true);
     try {
+      // Simple-Fax E-Mail-to-Fax Formatierung: <ziffern>@simple-fax.de
+      const rawFax = gegnerTelefon ? gegnerTelefon.replace(/[^0-9]/g, '') : '';
       const targetAddress = versandArt === 'email' 
         ? gegnerEmail 
-        : `${gegnerTelefon.replace(/[^0-9]/g, '')}@pdf24.org`; 
+        : `${rawFax}@simple-fax.de`; 
 
-      alert(`🚀 RESEND VERSANDGANG INITIERT:\n\nArt: ${versandArt.toUpperCase()}\nEmpfänger: ${targetAddress}\nBetreff: AZ ${aktenzeichen || 'Neu'} - ${thema}`);
+      const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
+
+      // AUFRUF DER DEDIZIERTEN EDGE FUNCTION FÜR DAS SONAR COCKPIT
+      const { data, error } = await supabase.functions.invoke('sonar-send-email', {
+        body: {
+          to: targetAddress,
+          subject: betreff,
+          text: briefEntwurf
+        }
+      });
+
+      if (error) throw error;
+
+      // AUTOMATISCHER EINTRAG IN DIE AKTEN-HISTORIE
+      if (selectedAkteId) {
+        await supabase.from('akten_historie').insert([{
+          akte_id: selectedAkteId,
+          user_id: session.user.id,
+          typ: 'Ausgang',
+          datum: new Date().toISOString().split('T')[0],
+          aktion: `${versandArt === 'email' ? 'E-Mail' : 'E-Fax (Simple-Fax)'} versendet an ${targetAddress}`,
+          kanal: versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)',
+          brief_entwurf: briefEntwurf
+        }]);
+        ladeDaten();
+      }
+
+      alert(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich über Resend versendet an:\n${targetAddress}`);
+
     } catch (e) {
-      alert("Versandfehler: " + e.message);
+      console.error("Versandfehler:", e);
+      alert("❌ Versand fehlgeschlagen: " + (e.message || JSON.stringify(e)));
     }
     setLaedt(false);
   };
@@ -708,7 +739,7 @@ export default function Dashboard({ session }) {
         // 1. REGEL: Ist eine WV gesetzt? Taucht ERST am Tag der WV auf (Tage <= 0)!
         if (neuestesDokument.wiedervorlage) {
           const wvTage = berechneTageBis(neuestesDokument.wiedervorlage);
-          if (wvTage !== null && wvTage <= 0) { // Erscheint ERST bei Fälligkeit/Überfälligkeit
+          if (wvTage !== null && wvTage <= 0) { 
             zielDatum = neuestesDokument.wiedervorlage;
             isWV = true;
             sollAlarmMachen = true;
@@ -718,14 +749,13 @@ export default function Dashboard({ session }) {
         // 2. REGEL: Wenn keine WV fällig ist, aber eine reine Behördenfrist existiert (mind. 7 Tage Vorlauf)!
         if (!sollAlarmMachen && neuestesDokument.frist_extern) {
           const fristTage = berechneTageBis(neuestesDokument.frist_extern);
-          if (fristTage !== null && fristTage <= 7) { // 7 Tage Vorlauf für behördliche Frist
+          if (fristTage !== null && fristTage <= 7) { 
             zielDatum = neuestesDokument.frist_extern;
             isWV = false;
             sollAlarmMachen = true;
           }
         }
 
-        // Falls eine der Regeln zutrifft: Maximal 1 Alarm pro Akte erzeugen!
         if (sollAlarmMachen && zielDatum) {
           const tage = berechneTageBis(zielDatum);
           let alarmStufe = '1. ERINNERUNG';
@@ -787,7 +817,7 @@ export default function Dashboard({ session }) {
     }
     if (nextFristDate) {
       const tage = berechneTageBis(nextFristDate.toISOString().split('T')[0]);
-      if (tage !== null && tage <= 7) { // Auch USt-Radar erscheint exakt 7 Tage vorher
+      if (tage !== null && tage <= 7) { 
          ustRadar.push({ firma: m.firmenname, bezeichnung: bezeichnung, datum: nextFristDate.toISOString().split('T')[0], tageUebrig: tage });
       }
     }
@@ -1104,7 +1134,7 @@ export default function Dashboard({ session }) {
                       <Icon name="send" size={14} /> E-Mail senden (Resend)
                     </button>
                     <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Icon name="phone" size={14} /> E-Fax senden (Resend)
+                      <Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)
                     </button>
                   </div>
                 </div>
@@ -1305,7 +1335,7 @@ export default function Dashboard({ session }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', textAlign: 'left' }}>
               {mandanten.map(m => (
                 <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
-                  <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Löschen">
+                  <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Mandant löschen">
                     <Icon name="trash" size={18} />
                   </button>
 
