@@ -35,6 +35,9 @@ const Icon = ({ name, size = 18, style }) => {
   const UI_ICONS = {
     signal: <><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0 8"/></>,
     radar: <><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></>,
+    search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+    print: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
+    brain: <><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04Z"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></>,
     moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
     bulb: <><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></>,
@@ -82,6 +85,7 @@ export default function Dashboard({ session }) {
   const [activeTab, setActiveTab] = useState('akten') 
   const [isDarkMode, setIsDarkMode] = useState(true) 
   const [laedt, setLaedt] = useState(false)
+  const [suchbegriff, setSuchbegriff] = useState('')
   
   const [akten, setAkten] = useState([])
   const [uploadingHistId, setUploadingHistId] = useState(null)
@@ -156,9 +160,17 @@ export default function Dashboard({ session }) {
   const [transferAkteId, setTransferAkteId] = useState(null)
   const [neuerGegnerName, setNeuerGegnerName] = useState('')
 
+  // WISSENSDATENBANK & BULK UPLOAD STATE
+  const [wissenEintraege, setWissenEintraege] = useState([])
+  const [bulkDateien, setBulkDateien] = useState([])
+  const [bulkFirma, setBulkFirma] = useState('')
+  const [bulkKategorie, setBulkKategorie] = useState('Verträge & Bescheide')
+  const [bulkStatus, setBulkStatus] = useState(null)
+
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
     accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
+    wissenAccent: '#a855f7', wissenBg: 'rgba(168, 85, 247, 0.1)',
     gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e', 
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a',
@@ -166,6 +178,7 @@ export default function Dashboard({ session }) {
   } : {
     bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
     accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e', tresorBg: '#f0fdfa',
+    wissenAccent: '#7e22ce', wissenBg: '#faf5ff',
     gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48', 
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e',
@@ -214,9 +227,74 @@ export default function Dashboard({ session }) {
 
     const { data: gegnerData } = await supabase.from('gegner').select('*').order('name', { ascending: true })
     if (gegnerData) setGegnerListe(gegnerData)
+
+    const { data: wissenData } = await supabase.from('wissensdatenbank').select('*').order('created_at', { ascending: false })
+    if (wissenData) setWissenEintraege(wissenData)
   }
 
   useEffect(() => { ladeDaten() }, [])
+
+  // STAPEL-IMPORT FÜR ALT-DOKUMENTE IN DIE WISSENSDATENBANK
+  const StarteBulkImport = async (e) => {
+    e.preventDefault()
+    if (!bulkDateien || bulkDateien.length === 0) {
+      alert("Bitte wähle zuerst mindestens eine Datei aus!");
+      return;
+    }
+
+    setLaedt(true)
+    const gesamt = bulkDateien.length;
+
+    for (let i = 0; i < gesamt; i++) {
+      const file = bulkDateien[i];
+      setBulkStatus({ fortschritt: i + 1, gesamt: gesamt, text: `Verarbeite: ${file.name}...` });
+
+      try {
+        const sichererName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const storagePath = `wissen_${Date.now()}_${sichererName}`;
+        const { error: uploadError } = await supabase.storage.from('dokumente').upload(storagePath, file);
+
+        let pubUrl = null;
+        if (!uploadError) {
+          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storagePath);
+          pubUrl = linkData.publicUrl;
+        }
+
+        const dateiInhaltText = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result || '');
+          reader.onerror = () => resolve('');
+          reader.readAsText(file);
+        });
+
+        const vorschauText = dateiInhaltText.substring(0, 10000) || `Dokument: ${file.name}`;
+
+        await supabase.from('wissensdatenbank').insert([{
+          datei_name: file.name,
+          firma: bulkFirma || 'Allgemein',
+          kategorie: bulkKategorie || 'Sonstiges',
+          inhalt_text: vorschauText,
+          dokument_url: pubUrl
+        }]);
+
+      } catch (err) {
+        console.error("Import-Fehler bei File:", file.name, err);
+      }
+    }
+
+    setBulkStatus(null);
+    setBulkDateien([]);
+    setLaedt(false);
+    ladeDaten();
+    alert(`✅ Erfolgreich ${gesamt} Alt-Dokument(e) in den KI-Wissensspeicher importiert!`);
+    if (document.getElementById('bulk-file-input')) document.getElementById('bulk-file-input').value = '';
+  };
+
+  const loescheWissenEintrag = async (id) => {
+    if (!window.confirm("Diesen Wissens-Eintrag aus dem Speicher entfernen?")) return;
+    await supabase.from('wissensdatenbank').delete().eq('id', id);
+    ladeDaten();
+  };
 
   const handleInlineEdit = async (histId, feld, wert) => {
     const { error } = await supabase.from('akten_historie').update({ [feld]: wert || null }).eq('id', histId);
@@ -252,14 +330,68 @@ export default function Dashboard({ session }) {
     setWiedervorlage(d.toISOString().split('T')[0]);
   };
 
-  const toggleTresorUpdateKey = (key) => {
-    setTresorPrompt(prev => {
-      if (!prev) return prev;
-      const keys = prev.selectedKeys.includes(key)
-        ? prev.selectedKeys.filter(k => k !== key)
-        : [...prev.selectedKeys, key];
-      return { ...prev, selectedKeys: keys };
-    });
+  const druckeAkte = (akte) => {
+    const printWindow = window.open('', '_blank');
+    const historieRows = akte.akten_historie ? akte.akten_historie.map(h => `
+      <tr>
+        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${h.typ}</td>
+        <td style="padding: 8px; border: 1px solid #ccc;">${h.datum ? new Date(h.datum).toLocaleDateString('de-DE') : '-'}</td>
+        <td style="padding: 8px; border: 1px solid #ccc;">${h.aktion || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #ccc; color: #d97706;">
+          ${h.wiedervorlage ? 'WV: ' + new Date(h.wiedervorlage).toLocaleDateString('de-DE') : (h.frist_extern ? 'Frist: ' + new Date(h.frist_extern).toLocaleDateString('de-DE') : '-')}
+        </td>
+      </tr>
+    `).join('') : '';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Aktenauszug - ${akte.gegner_name || 'Akte'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; line-height: 1.5; }
+            h1 { font-size: 20px; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 15px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; font-size: 13px; background: #f4f4f4; padding: 15px; border-radius: 6px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+            th { background: #eee; padding: 8px; border: 1px solid #ccc; text-align: left; }
+          </style>
+        </head>
+        <body>
+          <h1>SONAR AKTEN-AUSZUG | AZ: ${akte.aktenzeichen || 'Neu'}</h1>
+          <div class="grid">
+            <div>
+              <strong>GEGENPARTEI / BEHÖRDE:</strong><br/>
+              ${akte.gegner_name}<br/>
+              Ansprechpartner: ${akte.gegner_ansprechpartner || '-'}<br/>
+              E-Mail: ${akte.gegner_email || '-'}
+            </div>
+            <div>
+              <strong>MANDANT / FIRMA:</strong><br/>
+              ${akte.unsere_firma}<br/>
+              Ansprechpartner: ${akte.unser_ansprechpartner || '-'}<br/>
+              Thema: ${akte.thema}
+            </div>
+          </div>
+          <h3>DOKUMENTEN- & VERLAUFSHISTORIE</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Typ</th>
+                <th>Datum</th>
+                <th>Aktion / Vorgang</th>
+                <th>WV / Frist</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${historieRows}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   // --- PARSEN VON GEM SONAR MEGA-LEGAL JSON ---
@@ -377,7 +509,6 @@ export default function Dashboard({ session }) {
     setTresorPrompt(null);
   };
 
-  // DIREKTER, UNABHÄNGIGER FETCH-VERSAND AN DIE EDGE FUNCTION INKL. PROFIL
   const handleResendVersand = async (versandArt) => {
     if (!briefEntwurf || briefEntwurf.trim() === '') {
       alert("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!");
@@ -401,7 +532,6 @@ export default function Dashboard({ session }) {
 
       const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
 
-      // SUCHE MANDANT AUS TRESOR
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
 
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
@@ -844,7 +974,26 @@ export default function Dashboard({ session }) {
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
-  const gefilterteAkten = akten.filter((akte) => zeigeErledigte ? true : akte.status !== 'Erledigt')
+  // ERWEITERTE VOLLTEXT-SUCHE ÜBER DIE REALEN AKTEN
+  const gefilterteAkten = akten.filter((akte) => {
+    const erlFilter = zeigeErledigte ? true : akte.status !== 'Erledigt';
+    if (!erlFilter) return false;
+    if (!suchbegriff.trim()) return true;
+
+    const s = suchbegriff.toLowerCase();
+    const gName = (akte.gegner_name || '').toLowerCase();
+    const gAns = (akte.gegner_ansprechpartner || '').toLowerCase();
+    const az = (akte.aktenzeichen || '').toLowerCase();
+    const uFirma = (akte.unsere_firma || '').toLowerCase();
+    const th = (akte.thema || '').toLowerCase();
+
+    const histMatch = akte.akten_historie?.some(h => 
+      (h.aktion || '').toLowerCase().includes(s) || (h.brief_entwurf || '').toLowerCase().includes(s)
+    );
+
+    return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
+  });
+
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
@@ -859,7 +1008,7 @@ export default function Dashboard({ session }) {
       <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
         
         {/* HEADER & THEME TOGGLE */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: theme.accent }} /> SONAR COCKPIT
           </h1>
@@ -868,6 +1017,23 @@ export default function Dashboard({ session }) {
             style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
             <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </button>
+        </div>
+
+        {/* ERWEITERTE VOLLTEXT-SUCHLEISTE */}
+        <div style={{ ...panelStyle, padding: '12px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${theme.accent}` }}>
+          <Icon name="search" size={20} style={{ color: theme.accent }} />
+          <input 
+            type="text" 
+            placeholder="Erweiterte Volltextsuche (Behörde, Aktenzeichen, Thema, Firma, Brieftext...)" 
+            value={suchbegriff}
+            onChange={(e) => setSuchbegriff(e.target.value)}
+            style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
+          />
+          {suchbegriff && (
+            <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
+              <Icon name="x" size={18} />
+            </button>
+          )}
         </div>
 
         {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
@@ -902,6 +1068,12 @@ export default function Dashboard({ session }) {
             onClick={() => setActiveTab('akten')} 
             style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="cabinet" size={22} /> Akten-Cockpit
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('wissen')} 
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="brain" size={22} /> 🧠 KI-Wissensspeicher ({wissenEintraege.length})
           </button>
 
           <button 
@@ -1176,7 +1348,7 @@ export default function Dashboard({ session }) {
           {/* AKTEN UBERSICHT */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px' }}>
             <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-              <Icon name="cabinet" size={24} /> Akten-Übersicht
+              <Icon name="cabinet" size={24} /> Akten-Übersicht ({gefilterteAkten.length})
             </h2>
             <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 16px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
               {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
@@ -1228,21 +1400,28 @@ export default function Dashboard({ session }) {
                           <strong>Aktuelle Behörde / Gegner:</strong> {akte.gegner_name}
                         </div>
                         
-                        {transferAkteId === akte.id ? (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <input 
-                              type="text" placeholder="Neuer Gegner / Behörde (z.B. Landesdirektion)" 
-                              value={neuerGegnerName} onChange={(e) => setNeuerGegnerName(e.target.value)}
-                              style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '260px' }}
-                            />
-                            <button onClick={() => naechsterGegnerUebergeben(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Übergabe bestätigen</button>
-                            <button onClick={() => setTransferAkteId(null)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setTransferAkteId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Icon name="swap" size={14} /> Zuständigkeit / Gegner übertragen
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          {/* BUTTON: AKTE EXPORTIEREN / DRUCKEN */}
+                          <button onClick={() => druckeAkte(akte)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Icon name="print" size={14} /> Akte exportieren / drucken
                           </button>
-                        )}
+
+                          {transferAkteId === akte.id ? (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <input 
+                                type="text" placeholder="Neuer Gegner / Behörde (z.B. Landesdirektion)" 
+                                value={neuerGegnerName} onChange={(e) => setNeuerGegnerName(e.target.value)}
+                                style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '260px' }}
+                              />
+                              <button onClick={() => naechsterGegnerUebergeben(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Übergabe bestätigen</button>
+                              <button onClick={() => setTransferAkteId(null)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setTransferAkteId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Icon name="swap" size={14} /> Zuständigkeit / Gegner übertragen
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden' }}>
@@ -1288,6 +1467,88 @@ export default function Dashboard({ session }) {
             })}
           </div>
         </>
+        )}
+
+        {/* ======================================================== */}
+        {/* ============= 🧠 KI WISSENSSPEICHER (ALT-IMPORT) ======= */}
+        {/* ======================================================== */}
+        {activeTab === 'wissen' && (
+          <div>
+            <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
+              <Icon name="brain" size={24} style={{ color: theme.wissenAccent }} /> Alt-Dokumente & Wissensbasis importieren
+            </h2>
+
+            <form onSubmit={StarteBulkImport} style={{ ...panelStyle, marginBottom: '30px', border: `1px solid ${theme.wissenAccent}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', textAlign: 'left' }}>
+                <div>
+                  <label style={labelStyle}>Firma / Zuordnung (Optional)</label>
+                  <select value={bulkFirma} onChange={(e) => setBulkFirma(e.target.value)} style={inputStyle}>
+                    <option value="">-- Allgemein / Firmenübergreifend --</option>
+                    {mandanten.map(m => <option key={m.id} value={m.firmenname}>{m.firmenname}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Kategorie</label>
+                  <select value={bulkKategorie} onChange={(e) => setBulkKategorie(e.target.value)} style={inputStyle}>
+                    <option value="Verträge & Bescheide">Verträge & Bescheide</option>
+                    <option value="Steuern & Finanzen">Steuern & Finanzen</option>
+                    <option value="Urteile & Rechtsprechung">Urteile & Rechtsprechung</option>
+                    <option value="Allgemeines Archiv">Allgemeines Archiv</option>
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Dokumente wählen (PDFs, Scans, Schreiben - Mehrfachauswahl möglich)*</label>
+                  <input 
+                    id="bulk-file-input"
+                    type="file" 
+                    multiple 
+                    onChange={(e) => setBulkDateien(Array.from(e.target.files))} 
+                    style={{ ...inputStyle, border: `2px dashed ${theme.wissenAccent}`, padding: '15px', cursor: 'pointer' }}
+                  />
+                  {bulkDateien.length > 0 && (
+                    <div style={{ marginTop: '10px', fontSize: '13px', color: theme.wissenAccent, fontWeight: 'bold' }}>
+                      📂 {bulkDateien.length} Datei(en) ausgewählt und bereit zum Import!
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {bulkStatus && (
+                <div style={{ marginTop: '20px', padding: '12px', background: theme.wissenBg, border: `1px solid ${theme.wissenAccent}`, borderRadius: '6px', color: theme.textMain, fontSize: '13px', textAlign: 'left' }}>
+                  <strong>⏳ Import läuft:</strong> {bulkStatus.text} ({bulkStatus.fortschritt} von {bulkStatus.gesamt})
+                </div>
+              )}
+
+              <button 
+                disabled={laedt} 
+                type="submit" 
+                style={{ padding: '14px', background: theme.wissenAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', width: '100%', marginTop: '20px' }}>
+                {laedt ? 'Importiere & Indiziere...' : `+ ${bulkDateien.length > 0 ? bulkDateien.length : ''} Alt-Dokument(e) in den KI-Speicher laden`}
+              </button>
+            </form>
+
+            <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>📚 Bereits indizierte Dokumente ({wissenEintraege.length})</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px', textAlign: 'left' }}>
+              {wissenEintraege.map(w => (
+                <div key={w.id} style={{ ...panelStyle, position: 'relative' }}>
+                  <button onClick={() => loescheWissenEintrag(w.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}>
+                    <Icon name="trash" size={16} />
+                  </button>
+                  <h4 style={{ margin: '0 0 8px 0', color: theme.wissenAccent, paddingRight: '25px', fontSize: '15px' }}>📄 {w.datei_name}</h4>
+                  <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '8px' }}>
+                    Firma: <strong>{w.firma || 'Allgemein'}</strong> | Kat: <strong>{w.kategorie}</strong>
+                  </div>
+                  {w.dokument_url && (
+                    <a href={w.dokument_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: theme.accent, textDecoration: 'none', display: 'inline-block', marginTop: '5px' }}>
+                      🔗 Original-Datei öffnen
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ========================================= */}
