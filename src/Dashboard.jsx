@@ -388,7 +388,6 @@ export default function Dashboard({ session }) {
 
     setLaedt(true);
     try {
-      // Simple-Fax E-Mail-to-Fax Formatierung: <ziffern>@simple-fax.de
       const rawFax = gegnerTelefon ? gegnerTelefon.replace(/[^0-9]/g, '') : '';
       const targetAddress = versandArt === 'email' 
         ? gegnerEmail 
@@ -396,7 +395,6 @@ export default function Dashboard({ session }) {
 
       const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
 
-      // AUFRUF DER DEDIZIERTEN EDGE FUNCTION FÜR DAS SONAR COCKPIT
       const { data, error } = await supabase.functions.invoke('sonar-send-email', {
         body: {
           to: targetAddress,
@@ -405,9 +403,15 @@ export default function Dashboard({ session }) {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        let errDetails = error.message;
+        try {
+          const errBody = await error.context?.json();
+          if (errBody && errBody.error) errDetails = errBody.error;
+        } catch (e) {}
+        throw new Error(errDetails);
+      }
 
-      // AUTOMATISCHER EINTRAG IN DIE AKTEN-HISTORIE
       if (selectedAkteId) {
         await supabase.from('akten_historie').insert([{
           akte_id: selectedAkteId,
@@ -425,7 +429,7 @@ export default function Dashboard({ session }) {
 
     } catch (e) {
       console.error("Versandfehler:", e);
-      alert("❌ Versand fehlgeschlagen: " + (e.message || JSON.stringify(e)));
+      alert("❌ Fehler von Resend: " + (e.message || JSON.stringify(e)));
     }
     setLaedt(false);
   };
