@@ -44,7 +44,7 @@ const Icon = ({ name, size = 18, style }) => {
     wand: <><path d="M15 4V2m0 14v-2M8 9h2m10 0h2m-13.8 6.2 1.4-1.4m11.2-8.6 1.4-1.4M6.2 6.2l1.4 1.4m8.6 11.2 1.4 1.4M3 21l9-9m3.5-3.5L17 7"/></>,
     paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
     cabinet: <><rect width="20" height="20" x="2" y="2" rx="2" ry="2"/><path d="M2 12h20M6 7h12M6 17h12"/></>,
-    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M16 10h.01M8 10h.01M8 14h.01M12 14h.01"/></>,
+    building: <><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M16 10h.01M8 10h.01M8 14h.01"/></>,
     shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4m0 4h.01"/></>,
     folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6m-3-3h6"/></>,
@@ -271,7 +271,6 @@ export default function Dashboard({ session }) {
           alert(`❌ Fehler beim Speichern: ${insertErr.message}`);
           console.error("Wissensspeicher Insert Fehler:", insertErr);
         } else if (insertedData && insertedData.length > 0) {
-          // SOFORT LOKAL EINPFLEGEN, DAMIT ES DIREKT SICHTBAR IST
           setWissenEintraege(prev => [insertedData[0], ...prev]);
         }
 
@@ -294,6 +293,146 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
+  const toggleTresorUpdateKey = (key) => {
+    setTresorPrompt(prev => {
+      if (!prev) return prev;
+      const keys = prev.selectedKeys.includes(key)
+        ? prev.selectedKeys.filter(k => k !== key)
+        : [...prev.selectedKeys, key];
+      return { ...prev, selectedKeys: keys };
+    });
+  };
+
+  // PARSEN UND DETAILLIERTER FELD-VERGLEICH BEIM MAGIC IMPORT
+  const handleJsonImport = (e) => {
+    setActiveTab('akten')
+    const val = e.target.value
+    setJsonImport(val)
+    
+    try {
+      const obj = JSON.parse(val)
+
+      setAktenzeichen(obj.aktenzeichen || '')
+      setThema(obj.thema || '')
+      setGegnerName(obj.kontakt || '') 
+      setGegnerAnsprechpartner(obj.ansprechpartner || '')
+      setGegnerTelefon(obj.gegner_telefon || '')
+      setGegnerFax(obj.gegner_fax || '')
+      setGegnerEmail(obj.gegner_email || '')
+      setFristExtern(obj.frist_extern || '')
+      setBriefEntwurf(obj.brief_entwurf || '')
+      setAktion(obj.aktion || '')
+      setKanal(obj.kanal || 'Post / Fax / E-Mail')
+      setTyp(obj.typ || 'Eingang')
+      setDatum(new Date().toISOString().split('T')[0])
+
+      if (obj.aktenzeichen) {
+        const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
+        if (match) {
+          setModus('bestehend');
+          setSelectedAkteId(match.id);
+        } else {
+          setModus('neu');
+        }
+      } else {
+        setModus('neu');
+      }
+
+      if (obj.unsere_firma) {
+        const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
+        const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || '';
+        const parsedTelefon = cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '';
+        const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
+        const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || '';
+
+        if (!existingMandant) {
+          setUnsereFirma(obj.unsere_firma || '');
+          setUnserAnsprechpartner(parsedAnsprechpartner);
+          setUnserTelefon(parsedTelefon);
+          setUnserEmail(parsedEmail);
+          setTresorPrompt({ 
+            typ: 'neu', 
+            obj: { 
+              ...obj, 
+              unser_ansprechpartner: parsedAnsprechpartner, 
+              unser_telefon: parsedTelefon, 
+              unser_email: parsedEmail, 
+              unsere_adresse: parsedAdresse 
+            } 
+          });
+        } else {
+           setUnsereFirma(existingMandant.firmenname); 
+           setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(existingMandant.ansprechpartner) || '');
+           setUnserTelefon(parsedTelefon || cleanVal(existingMandant.telefon) || '');
+           setUnserEmail(parsedEmail || cleanVal(existingMandant.email) || '');
+
+           let updates = {};
+           let oldValues = {};
+           const checkUpdate = (oldVal, newVal) => {
+             const o = (!oldVal || oldVal === 'null' || oldVal === 'undefined') ? '' : String(oldVal).trim();
+             const n = (!newVal || newVal === 'null' || newVal === 'undefined') ? '' : String(newVal).trim();
+             return (n !== '' && o !== n) ? { old: o, new: n } : null;
+           };
+           
+           let u1 = checkUpdate(existingMandant.ansprechpartner, parsedAnsprechpartner); if(u1) { updates.ansprechpartner = u1.new; oldValues.ansprechpartner = u1.old; }
+           let u2 = checkUpdate(existingMandant.telefon, parsedTelefon); if(u2) { updates.telefon = u2.new; oldValues.telefon = u2.old; }
+           let u3 = checkUpdate(existingMandant.email, parsedEmail); if(u3) { updates.email = u3.new; oldValues.email = u3.old; }
+           let u4 = checkUpdate(existingMandant.adresse, parsedAdresse); if(u4) { updates.adresse = u4.new; oldValues.adresse = u4.old; }
+           let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) { updates.steuernummer = u5.new; oldValues.steuernummer = u5.old; }
+           let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) { updates.ust_id = u6.new; oldValues.ust_id = u6.old; }
+           let u7 = checkUpdate(existingMandant.betriebsnummer, obj.unsere_betriebsnummer); if(u7) { updates.betriebsnummer = u7.new; oldValues.betriebsnummer = u7.old; }
+           let u8 = checkUpdate(existingMandant.vbg_nummer, obj.unsere_vbg_nummer); if(u8) { updates.vbg_nummer = u8.new; oldValues.vbg_nummer = u8.old; }
+           let u9 = checkUpdate(existingMandant.handelsregister, obj.unsere_handelsregister); if(u9) { updates.handelsregister = u9.new; oldValues.handelsregister = u9.old; }
+           let u10 = checkUpdate(existingMandant.iban, obj.unsere_iban); if(u10) { updates.iban = u10.new; oldValues.iban = u10.old; }
+
+           if (Object.keys(updates).length > 0) {
+              setTresorPrompt({ 
+                typ: 'update', existingId: existingMandant.id, updates, oldValues,
+                selectedKeys: Object.keys(updates), firma: existingMandant.firmenname 
+              });
+           } else {
+              setTresorPrompt(null);
+           }
+        }
+      }
+    } catch(err) { 
+      console.error("JSON Error:", err);
+    }
+  }
+
+  const handleTresorPromptAccept = async () => {
+    if (!tresorPrompt) return;
+    if (tresorPrompt.typ === 'neu') {
+      const { data, error } = await supabase.from('mandanten').insert([{
+        user_id: session.user.id,
+        firmenname: tresorPrompt.obj.unsere_firma,
+        ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
+        telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '',
+        email: cleanVal(tresorPrompt.obj.unser_email) || '',
+        adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
+        steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
+        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
+        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
+        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
+        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
+        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
+      }]).select();
+      if (!error && data) {
+        setMandanten(prev => [...prev, data[0]]);
+        alert(`✅ Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`);
+      }
+    } else if (tresorPrompt.typ === 'update') {
+      let finalUpdates = {};
+      tresorPrompt.selectedKeys.forEach(k => { finalUpdates[k] = tresorPrompt.updates[k]; });
+      if (Object.keys(finalUpdates).length > 0) {
+        await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
+        ladeDaten();
+        alert(`✅ Tresor-Eintrag für "${tresorPrompt.firma}" aktualisiert!`);
+      }
+    }
+    setTresorPrompt(null);
+  };
+
   const handleInlineEdit = async (histId, feld, wert) => {
     const { error } = await supabase.from('akten_historie').update({ [feld]: wert || null }).eq('id', histId);
     if (!error) ladeDaten(); else alert("Fehler beim Speichern: " + error.message);
@@ -303,22 +442,6 @@ export default function Dashboard({ session }) {
     if(!window.confirm("Diesen einzelnen Eintrag aus der Akte löschen?")) return;
     await supabase.from('akten_historie').delete().eq('id', histId);
     ladeDaten();
-  };
-
-  const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
-    if (!window.confirm("Diese Datei wirklich entfernen?")) return;
-    const urlArray = aktuelleUrls.split(',');
-    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
-    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
-    const { error: dbError } = await supabase.from('akten_historie').update({ dokument_url: neuerUrlString }).eq('id', histId);
-    if (!dbError) {
-       try {
-          const parts = decodeURIComponent(urlZumLoeschen).split('/');
-          const fileName = parts[parts.length - 1];
-          await supabase.storage.from('dokumente').remove([fileName]);
-       } catch (e) { }
-       ladeDaten();
-    }
   };
 
   const setzeWV = (tage, monate = 0) => {
@@ -390,131 +513,6 @@ export default function Dashboard({ session }) {
       </html>
     `);
     printWindow.document.close();
-  };
-
-  const toggleTresorUpdateKey = (key) => {
-    setTresorPrompt(prev => {
-      if (!prev) return prev;
-      const keys = prev.selectedKeys.includes(key)
-        ? prev.selectedKeys.filter(k => k !== key)
-        : [...prev.selectedKeys, key];
-      return { ...prev, selectedKeys: keys };
-    });
-  };
-
-  // --- PARSEN VON GEM SONAR MEGA-LEGAL JSON ---
-  const handleJsonImport = (e) => {
-    setActiveTab('akten')
-    const val = e.target.value
-    setJsonImport(val)
-    
-    try {
-      const obj = JSON.parse(val)
-
-      setAktenzeichen(obj.aktenzeichen || '')
-      setThema(obj.thema || '')
-      setGegnerName(obj.kontakt || '') 
-      setGegnerAnsprechpartner(obj.ansprechpartner || '')
-      setGegnerTelefon(obj.gegner_telefon || '')
-      setGegnerFax(obj.gegner_fax || '')
-      setGegnerEmail(obj.gegner_email || '')
-      setFristExtern(obj.frist_extern || '')
-      setBriefEntwurf(obj.brief_entwurf || '')
-      setAktion(obj.aktion || '')
-      setKanal(obj.kanal || 'Post / Fax / E-Mail')
-      setTyp(obj.typ || 'Eingang')
-      setDatum(new Date().toISOString().split('T')[0])
-
-      if (obj.aktenzeichen) {
-        const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
-        if (match) {
-          setModus('bestehend');
-          setSelectedAkteId(match.id);
-        } else {
-          setModus('neu');
-        }
-      } else {
-        setModus('neu');
-      }
-
-      if (obj.unsere_firma) {
-        const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
-        if (!existingMandant) {
-          setUnsereFirma(obj.unsere_firma || '');
-          setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || '');
-          setUnserTelefon(cleanVal(obj.unser_telefon) || '');
-          setUnserEmail(cleanVal(obj.unser_email) || '');
-          setTresorPrompt({ typ: 'neu', obj });
-        } else {
-           setUnsereFirma(existingMandant.firmenname); 
-           setUnserAnsprechpartner(cleanVal(obj.unser_ansprechpartner) || cleanVal(existingMandant.ansprechpartner) || '');
-           setUnserTelefon(cleanVal(obj.unser_telefon) || cleanVal(existingMandant.telefon) || '');
-           setUnserEmail(cleanVal(obj.unser_email) || cleanVal(existingMandant.email) || '');
-
-           let updates = {};
-           const checkUpdate = (oldVal, newVal) => {
-             const o = (!oldVal || oldVal === 'null' || oldVal === 'undefined') ? '' : String(oldVal).trim();
-             const n = (!newVal || newVal === 'null' || newVal === 'undefined') ? '' : String(newVal).trim();
-             return (n !== '' && o !== n) ? n : null;
-           };
-           
-           let u1 = checkUpdate(existingMandant.ansprechpartner, obj.unser_ansprechpartner); if(u1) updates.ansprechpartner = u1;
-           let u2 = checkUpdate(existingMandant.telefon, obj.unser_telefon); if(u2) updates.telefon = u2;
-           let u3 = checkUpdate(existingMandant.email, obj.unser_email); if(u3) updates.email = u3;
-           let u4 = checkUpdate(existingMandant.adresse, obj.unsere_adresse); if(u4) updates.adresse = u4;
-           let u5 = checkUpdate(existingMandant.steuernummer, obj.unsere_steuernummer); if(u5) updates.steuernummer = u5;
-           let u6 = checkUpdate(existingMandant.ust_id, obj.unsere_ust_id); if(u6) updates.ust_id = u6;
-           let u7 = checkUpdate(existingMandant.betriebsnummer, obj.unsere_betriebsnummer); if(u7) updates.betriebsnummer = u7;
-           let u8 = checkUpdate(existingMandant.vbg_nummer, obj.unsere_vbg_nummer); if(u8) updates.vbg_nummer = u8;
-           let u9 = checkUpdate(existingMandant.handelsregister, obj.unsere_handelsregister); if(u9) updates.handelsregister = u9;
-           let u10 = checkUpdate(existingMandant.iban, obj.unsere_iban); if(u10) updates.iban = u10;
-
-           if (Object.keys(updates).length > 0) {
-              setTresorPrompt({ 
-                typ: 'update', existingId: existingMandant.id, updates, 
-                selectedKeys: Object.keys(updates), firma: existingMandant.firmenname 
-              });
-           } else {
-              setTresorPrompt(null);
-           }
-        }
-      }
-    } catch(err) { 
-      console.error("JSON Error:", err);
-    }
-  }
-
-  const handleTresorPromptAccept = async () => {
-    if (!tresorPrompt) return;
-    if (tresorPrompt.typ === 'neu') {
-      const { data, error } = await supabase.from('mandanten').insert([{
-        user_id: session.user.id,
-        firmenname: tresorPrompt.obj.unsere_firma,
-        ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
-        telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '',
-        email: cleanVal(tresorPrompt.obj.unser_email) || '',
-        adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
-        steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '',
-        ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '',
-        betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
-        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '',
-        handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '',
-        iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
-      }]).select();
-      if (!error && data) {
-        setMandanten(prev => [...prev, data[0]]);
-        alert(`✅ Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`);
-      }
-    } else if (tresorPrompt.typ === 'update') {
-      let finalUpdates = {};
-      tresorPrompt.selectedKeys.forEach(k => { finalUpdates[k] = tresorPrompt.updates[k]; });
-      if (Object.keys(finalUpdates).length > 0) {
-        await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
-        ladeDaten();
-        alert(`✅ Tresor-Eintrag für "${tresorPrompt.firma}" aktualisiert!`);
-      }
-    }
-    setTresorPrompt(null);
   };
 
   const handleResendVersand = async (versandArt) => {
@@ -691,7 +689,6 @@ export default function Dashboard({ session }) {
     setLaedt(false)
   }
 
-  // GEGNER WECHSEL
   const naechsterGegnerUebergeben = async (akteId) => {
     if (!neuerGegnerName) {
       alert("Bitte gib den Namen der neuen Behörde / des neuen Gegners ein!");
@@ -1284,15 +1281,42 @@ export default function Dashboard({ session }) {
           )}
 
           <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
+            
+            {/* ERWEITERTES TRESOR MATCH BANNER MIT DETAILLIERTER ÄNDERUNGSANZEIGE */}
             {tresorPrompt && (
-              <div style={{ background: theme.accent, color: '#000', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                <div>
-                  <strong style={{ fontSize: '15px' }}>🏢 Firmen-Tresor Match:</strong> {tresorPrompt.typ === 'neu' ? `Mandant "${tresorPrompt.obj.unsere_firma}" neu anlegen?` : `Stammdaten für "${tresorPrompt.firma}" aktualisieren?`}
+              <div style={{ background: theme.accent, color: '#000', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: tresorPrompt.typ === 'update' ? '12px' : '0' }}>
+                  <strong style={{ fontSize: '15px' }}>
+                    🏢 Firmen-Tresor Match: {tresorPrompt.typ === 'neu' ? `Mandant "${tresorPrompt.obj.unsere_firma}" neu anlegen?` : `Folgende Daten für "${tresorPrompt.firma}" im Tresor aktualisieren?`}
+                  </strong>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Ja, {tresorPrompt.typ === 'neu' ? 'anlegen' : 'übernehmen'}
+                    </button>
+                    <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid #000', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Nein
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Ja, übernehmen</button>
-                  <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid #000', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>Nein</button>
-                </div>
+
+                {tresorPrompt.typ === 'update' && (
+                  <div style={{ background: 'rgba(0,0,0,0.1)', padding: '12px', borderRadius: '6px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', opacity: 0.8 }}>Erkannte Feld-Änderungen:</div>
+                    {Object.keys(tresorPrompt.updates).map(k => (
+                      <label key={k} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={tresorPrompt.selectedKeys.includes(k)} 
+                          onChange={() => toggleTresorUpdateKey(k)} 
+                          style={{ accentColor: '#000' }}
+                        />
+                        <span>
+                          <strong>{k}:</strong> <span style={{ textDecoration: 'line-through', opacity: 0.7 }}>{tresorPrompt.oldValues[k] || '(leer)'}</span> ➔ <strong>{tresorPrompt.updates[k]}</strong>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1397,7 +1421,7 @@ export default function Dashboard({ session }) {
               </div>
             </div>
 
-            {/* IMMER SICHTBARER SCHREIBTEXT-EDITOR UND VERSAND-BUTTONS */}
+            {/* SCHREIBTEXT-EDITOR UND VERSAND-BUTTONS */}
             <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                 <label style={{...labelStyle, color: theme.accent, margin: 0}}>
