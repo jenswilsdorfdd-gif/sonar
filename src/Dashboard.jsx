@@ -225,13 +225,15 @@ export default function Dashboard({ session }) {
     const { data: gegnerData } = await supabase.from('gegner').select('*').order('name', { ascending: true })
     if (gegnerData) setGegnerListe(gegnerData)
 
-    const { data: wissenData } = await supabase.from('wissensdatenbank').select('*').order('created_at', { ascending: false })
-    if (wissenData) setWissenEintraege(wissenData)
+    const { data: wissenData, error: wissenErr } = await supabase.from('wissensdatenbank').select('*').order('created_at', { ascending: false })
+    if (!wissenErr && wissenData) {
+      setWissenEintraege(wissenData)
+    }
   }
 
   useEffect(() => { ladeDaten() }, [])
 
-  // BULK IMPORT FÜR KI-WISSENSSPEICHER FEHLERFREI
+  // BULK IMPORT FÜR KI-WISSENSSPEICHER (SOFORTIGE STATE-AKTUALISIERUNG)
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -255,21 +257,22 @@ export default function Dashboard({ session }) {
         if (!uploadError) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storagePath);
           pubUrl = linkData.publicUrl;
-        } else {
-          console.error("Upload-Fehler Storage:", uploadError);
         }
 
-        const { error: insertErr } = await supabase.from('wissensdatenbank').insert([{
+        const { data: insertedData, error: insertErr } = await supabase.from('wissensdatenbank').insert([{
           datei_name: file.name,
           firma: bulkFirma || 'Allgemein',
           kategorie: bulkKategorie || 'Sonstiges',
           inhalt_text: `Dokument: ${file.name}`,
           dokument_url: pubUrl
-        }]);
+        }]).select();
 
         if (insertErr) {
-          alert(`❌ Fehler beim Speichern in Supabase DB: ${insertErr.message}`);
+          alert(`❌ Fehler beim Speichern: ${insertErr.message}`);
           console.error("Wissensspeicher Insert Fehler:", insertErr);
+        } else if (insertedData && insertedData.length > 0) {
+          // SOFORT LOKAL EINPFLEGEN, DAMIT ES DIREKT SICHTBAR IST
+          setWissenEintraege(prev => [insertedData[0], ...prev]);
         }
 
       } catch (err) {
@@ -280,13 +283,14 @@ export default function Dashboard({ session }) {
     setBulkStatus(null);
     setBulkDateien([]);
     setLaedt(false);
-    ladeDaten();
+    setTimeout(() => { ladeDaten(); }, 300);
     if (document.getElementById('bulk-file-input')) document.getElementById('bulk-file-input').value = '';
   };
 
   const loescheWissenEintrag = async (id) => {
     if (!window.confirm("Diesen Wissens-Eintrag aus dem Speicher entfernen?")) return;
     await supabase.from('wissensdatenbank').delete().eq('id', id);
+    setWissenEintraege(prev => prev.filter(w => w.id !== id));
     ladeDaten();
   };
 
@@ -1701,7 +1705,7 @@ export default function Dashboard({ session }) {
                     <Icon name="trash" size={18} />
                   </button>
 
-                  <h3 style={{ margin: '0 0 10px 0', color theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
+                  <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
                   
                   <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '15px' }}>
                     <span>👤 {cleanVal(m.ansprechpartner) || '-'}</span>
