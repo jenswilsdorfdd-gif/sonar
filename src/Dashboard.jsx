@@ -231,7 +231,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // BULK IMPORT FÜR KI-WISSENSSPEICHER
+  // BULK IMPORT FÜR KI-WISSENSSPEICHER (ROBUST MIT STORAGE & DATABASE)
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -257,22 +257,18 @@ export default function Dashboard({ session }) {
           pubUrl = linkData.publicUrl;
         }
 
-        const dateiInhaltText = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result || '');
-          reader.onerror = () => resolve('');
-          reader.readAsText(file);
-        });
-
-        const vorschauText = dateiInhaltText.substring(0, 10000) || `Dokument: ${file.name}`;
-
-        await supabase.from('wissensdatenbank').insert([{
+        const { error: insertErr } = await supabase.from('wissensdatenbank').insert([{
+          user_id: session?.user?.id || null,
           datei_name: file.name,
           firma: bulkFirma || 'Allgemein',
           kategorie: bulkKategorie || 'Sonstiges',
-          inhalt_text: vorschauText,
+          inhalt_text: `Dokument: ${file.name}`,
           dokument_url: pubUrl
         }]);
+
+        if (insertErr) {
+          console.error("Wissensspeicher Insert Fehler:", insertErr);
+        }
 
       } catch (err) {
         console.error("Import-Fehler bei File:", file.name, err);
