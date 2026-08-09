@@ -35,6 +35,8 @@ const Icon = ({ name, size = 18, style }) => {
   const UI_ICONS = {
     signal: <><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0 8"/></>,
     radar: <><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></>,
+    search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+    print: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></>,
     moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
     bulb: <><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></>,
@@ -82,6 +84,7 @@ export default function Dashboard({ session }) {
   const [activeTab, setActiveTab] = useState('akten') 
   const [isDarkMode, setIsDarkMode] = useState(true) 
   const [laedt, setLaedt] = useState(false)
+  const [suchbegriff, setSuchbegriff] = useState('')
   
   const [akten, setAkten] = useState([])
   const [uploadingHistId, setUploadingHistId] = useState(null)
@@ -250,6 +253,70 @@ export default function Dashboard({ session }) {
     d.setDate(d.getDate() + tage);
     if (monate > 0) d.setMonth(d.getMonth() + monate);
     setWiedervorlage(d.toISOString().split('T')[0]);
+  };
+
+  const druckeAkte = (akte) => {
+    const printWindow = window.open('', '_blank');
+    const historieRows = akte.akten_historie ? akte.akten_historie.map(h => `
+      <tr>
+        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${h.typ}</td>
+        <td style="padding: 8px; border: 1px solid #ccc;">${h.datum ? new Date(h.datum).toLocaleDateString('de-DE') : '-'}</td>
+        <td style="padding: 8px; border: 1px solid #ccc;">${h.aktion || '-'}</td>
+        <td style="padding: 8px; border: 1px solid #ccc; color: #d97706;">
+          ${h.wiedervorlage ? 'WV: ' + new Date(h.wiedervorlage).toLocaleDateString('de-DE') : (h.frist_extern ? 'Frist: ' + new Date(h.frist_extern).toLocaleDateString('de-DE') : '-')}
+        </td>
+      </tr>
+    `).join('') : '';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Aktenauszug - ${akte.gegner_name || 'Akte'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; line-height: 1.5; }
+            h1 { font-size: 20px; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 15px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; font-size: 13px; background: #f4f4f4; padding: 15px; border-radius: 6px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+            th { background: #eee; padding: 8px; border: 1px solid #ccc; text-align: left; }
+          </style>
+        </head>
+        <body>
+          <h1>SONAR AKTEN-AUSZUG | AZ: ${akte.aktenzeichen || 'Neu'}</h1>
+          <div class="grid">
+            <div>
+              <strong>GEGENPARTEI / BEHÖRDE:</strong><br/>
+              ${akte.gegner_name}<br/>
+              Ansprechpartner: ${akte.gegner_ansprechpartner || '-'}<br/>
+              E-Mail: ${akte.gegner_email || '-'}
+            </div>
+            <div>
+              <strong>MANDANT / FIRMA:</strong><br/>
+              ${akte.unsere_firma}<br/>
+              Ansprechpartner: ${akte.unser_ansprechpartner || '-'}<br/>
+              Thema: ${akte.thema}
+            </div>
+          </div>
+          <h3>DOKUMENTEN- & VERLAUFSHISTORIE</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Typ</th>
+                <th>Datum</th>
+                <th>Aktion / Vorgang</th>
+                <th>WV / Frist</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${historieRows}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const toggleTresorUpdateKey = (key) => {
@@ -844,7 +911,26 @@ export default function Dashboard({ session }) {
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
-  const gefilterteAkten = akten.filter((akte) => zeigeErledigte ? true : akte.status !== 'Erledigt')
+  // ERWEITERTE VOLLTEXT-SUCHE BEI DEN AKTEN
+  const gefilterteAkten = akten.filter((akte) => {
+    const erlFilter = zeigeErledigte ? true : akte.status !== 'Erledigt';
+    if (!erlFilter) return false;
+    if (!suchbegriff.trim()) return true;
+
+    const s = suchbegriff.toLowerCase();
+    const gName = (akte.gegner_name || '').toLowerCase();
+    const gAns = (akte.gegner_ansprechpartner || '').toLowerCase();
+    const az = (akte.aktenzeichen || '').toLowerCase();
+    const uFirma = (akte.unsere_firma || '').toLowerCase();
+    const th = (akte.thema || '').toLowerCase();
+
+    const histMatch = akte.akten_historie?.some(h => 
+      (h.aktion || '').toLowerCase().includes(s) || (h.brief_entwurf || '').toLowerCase().includes(s)
+    );
+
+    return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
+  });
+
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
@@ -859,7 +945,7 @@ export default function Dashboard({ session }) {
       <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
         
         {/* HEADER & THEME TOGGLE */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: theme.accent }} /> SONAR COCKPIT
           </h1>
@@ -868,6 +954,23 @@ export default function Dashboard({ session }) {
             style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
             <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
           </button>
+        </div>
+
+        {/* ERWEITERTE VOLLTEXT-SUCHLEISTE */}
+        <div style={{ ...panelStyle, padding: '12px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${theme.accent}` }}>
+          <Icon name="search" size={20} style={{ color: theme.accent }} />
+          <input 
+            type="text" 
+            placeholder="Erweiterte Volltextsuche (Behörde, Aktenzeichen, Thema, Firma, Brieftext...)" 
+            value={suchbegriff}
+            onChange={(e) => setSuchbegriff(e.target.value)}
+            style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
+          />
+          {suchbegriff && (
+            <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
+              <Icon name="x" size={18} />
+            </button>
+          )}
         </div>
 
         {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
@@ -1188,7 +1291,6 @@ export default function Dashboard({ session }) {
               const isExpanded = aufgeklappteAkten.includes(akte.id);
               const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
               
-              // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
               const istFokussiert = (fokussierteAkteId === akte.id);
 
               return (
@@ -1228,21 +1330,28 @@ export default function Dashboard({ session }) {
                           <strong>Aktuelle Behörde / Gegner:</strong> {akte.gegner_name}
                         </div>
                         
-                        {transferAkteId === akte.id ? (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <input 
-                              type="text" placeholder="Neuer Gegner / Behörde (z.B. Landesdirektion)" 
-                              value={neuerGegnerName} onChange={(e) => setNeuerGegnerName(e.target.value)}
-                              style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '260px' }}
-                            />
-                            <button onClick={() => naechsterGegnerUebergeben(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Übergabe bestätigen</button>
-                            <button onClick={() => setTransferAkteId(null)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setTransferAkteId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Icon name="swap" size={14} /> Zuständigkeit / Gegner übertragen
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          {/* BUTTON: AKTE EXPORTIEREN / DRUCKEN */}
+                          <button onClick={() => druckeAkte(akte)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Icon name="print" size={14} /> Akte exportieren / drucken
                           </button>
-                        )}
+
+                          {transferAkteId === akte.id ? (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <input 
+                                type="text" placeholder="Neuer Gegner / Behörde (z.B. Landesdirektion)" 
+                                value={neuerGegnerName} onChange={(e) => setNeuerGegnerName(e.target.value)}
+                                style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '260px' }}
+                              />
+                              <button onClick={() => naechsterGegnerUebergeben(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Übergabe bestätigen</button>
+                              <button onClick={() => setTransferAkteId(null)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setTransferAkteId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Icon name="swap" size={14} /> Zuständigkeit / Gegner übertragen
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden' }}>
