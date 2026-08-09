@@ -231,7 +231,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // BULK IMPORT FÜR KI-WISSENSSPEICHER (ROBUST MIT STORAGE & DATABASE)
+  // BULK IMPORT FÜR KI-WISSENSSPEICHER FEHLERFREI
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -255,10 +255,11 @@ export default function Dashboard({ session }) {
         if (!uploadError) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storagePath);
           pubUrl = linkData.publicUrl;
+        } else {
+          console.error("Upload-Fehler Storage:", uploadError);
         }
 
         const { error: insertErr } = await supabase.from('wissensdatenbank').insert([{
-          user_id: session?.user?.id || null,
           datei_name: file.name,
           firma: bulkFirma || 'Allgemein',
           kategorie: bulkKategorie || 'Sonstiges',
@@ -267,6 +268,7 @@ export default function Dashboard({ session }) {
         }]);
 
         if (insertErr) {
+          alert(`❌ Fehler beim Speichern in Supabase DB: ${insertErr.message}`);
           console.error("Wissensspeicher Insert Fehler:", insertErr);
         }
 
@@ -279,7 +281,6 @@ export default function Dashboard({ session }) {
     setBulkDateien([]);
     setLaedt(false);
     ladeDaten();
-    alert(`✅ Erfolgreich ${gesamt} Alt-Dokument(e) in den KI-Wissensspeicher importiert!`);
     if (document.getElementById('bulk-file-input')) document.getElementById('bulk-file-input').value = '';
   };
 
@@ -1700,7 +1701,7 @@ export default function Dashboard({ session }) {
                     <Icon name="trash" size={18} />
                   </button>
 
-                  <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
+                  <h3 style={{ margin: '0 0 10px 0', color theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
                   
                   <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '15px' }}>
                     <span>👤 {cleanVal(m.ansprechpartner) || '-'}</span>
