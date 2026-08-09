@@ -183,7 +183,7 @@ export default function Dashboard({ session }) {
     cardItemBg: '#ffffff'
   };
 
-  // DYNAMISCHE LOGO-FARBE JE NACH AKTIVEM TAB
+  // DYNAMISCHE LOGO- & ELEMENT-FARBE JE NACH AKTIVEM TAB
   const getLogoColor = () => {
     switch (activeTab) {
       case 'wissen': return theme.wissenAccent;
@@ -192,6 +192,8 @@ export default function Dashboard({ session }) {
       default: return theme.accent;
     }
   };
+
+  const activeColor = getLogoColor();
 
   useEffect(() => {
     const styleId = 'sonar-global-styles';
@@ -1086,7 +1088,7 @@ export default function Dashboard({ session }) {
         {/* HEADER & THEME TOGGLE (LOGO-FARBE PASST SICH AN TAB AN) */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icon name="signal" size={24} style={{ color: getLogoColor(), transition: 'color 0.3s ease' }} /> SONAR COCKPIT
+            <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
           </h1>
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)} 
@@ -1095,9 +1097,9 @@ export default function Dashboard({ session }) {
           </button>
         </div>
 
-        {/* ERWEITERTE VOLLTEXT-SUCHLEISTE */}
-        <div style={{ ...panelStyle, padding: '12px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${theme.accent}` }}>
-          <Icon name="search" size={20} style={{ color: theme.accent }} />
+        {/* DYNAMISCHE VOLLTEXT-SUCHLEISTE */}
+        <div style={{ ...panelStyle, padding: '12px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${activeColor}`, transition: 'border-color 0.3s ease' }}>
+          <Icon name="search" size={20} style={{ color: activeColor, transition: 'color 0.3s ease' }} />
           <input 
             type="text" 
             placeholder="Erweiterte Volltextsuche (Behörde, Aktenzeichen, Thema, Firma, Brieftext...)" 
@@ -1112,16 +1114,16 @@ export default function Dashboard({ session }) {
           )}
         </div>
 
-        {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE */}
+        {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE (DYNAMISCHER STRICH/ICON RAHMEN) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '20px', width: '100%' }}>
-          <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.hintBorder}` }}>
-            <label style={{...labelStyle, color: theme.hintText, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px'}}>
-              <Icon name="wand" size={18} /> Magic Import (JSON aus SONAR MEGA-LEGAL)
+          <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${activeColor}`, transition: 'border-color 0.3s ease' }}>
+            <label style={{...labelStyle, color: activeColor, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}>
+              <Icon name="wand" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)
             </label>
             <textarea 
               value={jsonImport} onChange={handleJsonImport} 
               placeholder='{"typ": "Eingang", "aktenzeichen": "...", "thema": "..."}'
-              style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.hintBorder}`, color: theme.hintText, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px' }} 
+              style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${activeColor}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} 
             />
           </div>
 
@@ -1138,7 +1140,7 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* EBENE 2: TABS INKL. KI-WISSENSSPEICHER */}
+        {/* EBENE 2: TABS INKL. MANUELLER UPLOAD (DYNAMISCH MITGEFARBT) */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '30px', width: '100%' }}>
           <button 
             onClick={() => setActiveTab('akten')} 
@@ -1164,15 +1166,15 @@ export default function Dashboard({ session }) {
             <Icon name="shield" size={22} /> Behörden / Gegner CRM
           </button>
 
-          <div style={{ flex: '1 1 260px', ...panelStyle, margin: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px'}}>
-               <Icon name="paperclip" size={16} /> Manueller Upload (PDF/Scan)
+          <div style={{ flex: '1 1 260px', ...panelStyle, margin: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
+            <label style={{...labelStyle, color: activeColor, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}>
+               <Icon name="paperclip" size={16} /> MANUELLER UPLOAD (PDF/SCAN)
             </label>
             <input 
               id="datei-upload-manuell" 
               type="file" multiple 
               onChange={(e) => { setDateien(Array.from(e.target.files)); setActiveTab('akten'); }} 
-              style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '6px', fontSize: '12px'}} 
+              style={{...inputStyle, border: `1px dashed ${activeColor}`, cursor: 'pointer', padding: '6px', fontSize: '12px', transition: 'border-color 0.3s ease'}} 
             />
           </div>
         </div>
