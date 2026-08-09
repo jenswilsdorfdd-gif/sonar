@@ -377,7 +377,7 @@ export default function Dashboard({ session }) {
     setTresorPrompt(null);
   };
 
-  // DIREKTER, UNABHÄNGIGER FETCH-VERSAND AN DIE EDGE FUNCTION
+  // DIREKTER, UNABHÄNGIGER FETCH-VERSAND AN DIE EDGE FUNCTION INKL. PROFIL
   const handleResendVersand = async (versandArt) => {
     if (!briefEntwurf || briefEntwurf.trim() === '') {
       alert("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!");
@@ -401,6 +401,9 @@ export default function Dashboard({ session }) {
 
       const betreff = `Aktenzeichen: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
 
+      // SUCHE MANDANT AUS TRESOR
+      const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
+
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
         method: "POST",
         headers: {
@@ -410,7 +413,12 @@ export default function Dashboard({ session }) {
         body: JSON.stringify({
           to: targetAddress,
           subject: betreff,
-          text: briefEntwurf
+          text: briefEntwurf,
+          unsereFirma: unsereFirma || 'Jens Wilsdorf',
+          mandantProfil: mandantProfil,
+          gegnerName: gegnerName,
+          gegnerAnsprechpartner: gegnerAnsprechpartner,
+          gegnerFax: gegnerFax
         })
       });
 
