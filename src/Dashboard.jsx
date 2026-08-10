@@ -170,6 +170,8 @@ export default function Dashboard({ session }) {
   // --- NEUE FILTER-STATE-VARIABLEN FÜR KI-WISSENSSPEICHER ---
   const [wissenSuchbegriff, setWissenSuchbegriff] = useState('')
   const [wissenKategorieFilter, setWissenKategorieFilter] = useState('')
+  const [wissenFirmaFilter, setWissenFirmaFilter] = useState('')
+  const [wissenGegnerFilter, setWissenGegnerFilter] = useState('')
 
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
@@ -494,7 +496,7 @@ export default function Dashboard({ session }) {
   };
 
   // --- NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG ---
-  const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, e) => {
+  const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, akteGegner, e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingHistId(histId);
@@ -510,12 +512,12 @@ export default function Dashboard({ session }) {
       // 1. Akten-Historie aktualisieren
       const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
       
-      // 2. Zeitgleich automatisch in die Wissensdatenbank eintragen
+      // 2. Zeitgleich automatisch in die Wissensdatenbank eintragen (inkl. Gegner-Info)
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: akteFirma || 'Allgemein',
         kategorie: 'Verträge & Bescheide',
-        inhalt_text: `Nachträglich an Akten-Historie angehängtes Dokument.`,
+        inhalt_text: `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'}`,
         dokument_url: newUrl
       }]);
 
@@ -747,12 +749,12 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          // --- AUTO-SYNC IN WISSENSDATENBANK ---
+          // --- AUTO-SYNC IN WISSENSDATENBANK (Inkl. Gegner) ---
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
             kategorie: 'Verträge & Bescheide',
-            inhalt_text: `Dokument hochgeladen via Akten-Cockpit. Thema: ${thema || 'Ohne Thema'}`,
+            inhalt_text: `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
             dokument_url: linkData.publicUrl
           }]);
         }
@@ -1176,11 +1178,14 @@ export default function Dashboard({ session }) {
   const gefilterteWissenEintraege = wissenEintraege.filter(w => {
     const matchSuche = !wissenSuchbegriff.trim() || 
       (w.datei_name || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) || 
-      (w.firma || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase());
+      (w.firma || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) ||
+      (w.inhalt_text || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase());
     
     const matchKategorie = !wissenKategorieFilter || w.kategorie === wissenKategorieFilter;
+    const matchFirma = !wissenFirmaFilter || w.firma === wissenFirmaFilter;
+    const matchGegner = !wissenGegnerFilter || (w.inhalt_text || '').toLowerCase().includes(wissenGegnerFilter.toLowerCase());
     
-    return matchSuche && matchKategorie;
+    return matchSuche && matchKategorie && matchFirma && matchGegner;
   });
 
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
@@ -1688,7 +1693,6 @@ export default function Dashboard({ session }) {
                                   </a>
                                 ))}
                                 
-                                {/* WIEDER HINZUGEFÜGT: UPLOAD-BUTTON NENEN/UNTER DEN DOKUMENTEN */}
                                 {uploadingHistId === hist.id ? (
                                   <span style={{ fontSize: '11px', color: theme.accent }}>⏳ Upload...</span>
                                 ) : (
@@ -1697,7 +1701,7 @@ export default function Dashboard({ session }) {
                                     <input 
                                       type="file" 
                                       style={{ display: 'none' }} 
-                                      onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, e)} 
+                                      onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} 
                                     />
                                   </label>
                                 )}
@@ -1780,20 +1784,22 @@ export default function Dashboard({ session }) {
               </button>
             </form>
 
-            <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>📚 Bereits indizierte Dokumente ({wissenEintraege.length})</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px' }}>
+               <h3 style={{ margin: '0', color: theme.textMain, textAlign: 'left' }}>📚 Indizierte Dokumente ({gefilterteWissenEintraege.length})</h3>
+            </div>
             
-            {/* --- NEU: SUCH- UND FILTERLEISTE FÜR DIE TABELLE --- */}
-            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 250px' }}>
+            {/* --- FILTER & SUCHLEISTE --- */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 200px' }}>
                 <input 
                   type="text" 
-                  placeholder="Suchen nach Dateiname, Thema oder Firma..." 
+                  placeholder="Suchen nach Dateiname, Inhalt oder Firma..." 
                   value={wissenSuchbegriff}
                   onChange={(e) => setWissenSuchbegriff(e.target.value)}
                   style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
                 />
               </div>
-              <div style={{ flex: '0 1 200px' }}>
+              <div style={{ flex: '1 1 150px' }}>
                 <select 
                   value={wissenKategorieFilter} 
                   onChange={(e) => setWissenKategorieFilter(e.target.value)}
@@ -1806,9 +1812,30 @@ export default function Dashboard({ session }) {
                   <option value="Allgemeines Archiv">Allgemeines Archiv</option>
                 </select>
               </div>
+              <div style={{ flex: '1 1 150px' }}>
+                <select 
+                  value={wissenFirmaFilter} 
+                  onChange={(e) => setWissenFirmaFilter(e.target.value)}
+                  style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
+                >
+                  <option value="">Alle Mandanten</option>
+                  <option value="Allgemein">Allgemein (Ohne Mandant)</option>
+                  {mandanten.map(m => <option key={m.id} value={m.firmenname}>{m.firmenname}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: '1 1 150px' }}>
+                <select 
+                  value={wissenGegnerFilter} 
+                  onChange={(e) => setWissenGegnerFilter(e.target.value)}
+                  style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
+                >
+                  <option value="">Alle Gegner / Behörden</option>
+                  {gegnerListe.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                </select>
+              </div>
             </div>
 
-            {/* --- NEU: TABELLARISCHE ANSICHT FÜR DEN KI-WISSENSSPEICHER --- */}
+            {/* --- TABELLEN-ANSICHT --- */}
             <div style={{ borderRadius: '8px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                 <thead>
@@ -1832,6 +1859,11 @@ export default function Dashboard({ session }) {
                             <span style={{ fontWeight: 'bold', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Icon name="file" size={14} /> {w.datei_name}
                             </span>
+                          )}
+                          {w.inhalt_text && (
+                             <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '4px' }}>
+                                {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
+                             </div>
                           )}
                         </td>
                         <td style={{ padding: '12px 15px', color: theme.textMuted }}>{w.kategorie}</td>
