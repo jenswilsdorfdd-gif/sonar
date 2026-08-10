@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
+// --- NEU: HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) ---
+const syncToGithub = async (filename, contentText) => {
+  try {
+    await supabase.functions.invoke('github-sync', {
+      body: { filename, content: contentText }
+    });
+  } catch (err) {
+    console.error("GitHub Sync Fehler:", err);
+  }
+};
+
 // --- HILFSFUNKTION FÜR DATEINAMEN ---
 const extractFilename = (url) => {
   if (!url) return 'Datei';
@@ -329,6 +340,9 @@ export default function Dashboard({ session }) {
           setWissenEintraege(prev => [insertedData[0], ...prev]);
         }
 
+        // --- NEU: SYNC ZU GITHUB ---
+        await syncToGithub(`${storagePath}.txt`, `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nKategorie: ${bulkKategorie || 'Sonstiges'}\nLink: ${pubUrl}`);
+
       } catch (err) {
         console.error("Import-Fehler bei File:", file.name, err);
       }
@@ -595,6 +609,9 @@ export default function Dashboard({ session }) {
         dokument_url: newUrl
       }]);
 
+      // --- NEU: SYNC ZU GITHUB ---
+      await syncToGithub(`${dateiName}.txt`, `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}`);
+
       if (!error) ladeDaten();
     } else {
       alert("Fehler beim Upload: " + uploadError.message);
@@ -784,6 +801,9 @@ export default function Dashboard({ session }) {
         dokument_url: newUrl
       }]);
 
+      // --- NEU: SYNC ZU GITHUB ---
+      await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}`);
+
       if (!error) ladeDaten();
     }
     setUploadingMandantId(null);
@@ -848,6 +868,9 @@ export default function Dashboard({ session }) {
             inhalt_text: `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
             dokument_url: linkData.publicUrl
           }]);
+
+          // --- NEU: SYNC ZU GITHUB ---
+          await syncToGithub(`${dateiName}.txt`, `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}`);
         }
       }
     }
@@ -864,6 +887,14 @@ export default function Dashboard({ session }) {
         inhalt_text: `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
         dokument_url: versandPdfUrl
       }]);
+
+      // --- NEU: SYNC ZU GITHUB ---
+      const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
+      await syncToGithub(`${ausgangName}.txt`, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`);
+    } else if (briefEntwurf && briefEntwurf.trim() !== '') {
+      // --- NEU: SYNC ZU GITHUB (Nur Text, ohne PDF) ---
+      const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
+      await syncToGithub(`${entwurfName}.txt`, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`);
     }
 
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
@@ -1046,6 +1077,9 @@ export default function Dashboard({ session }) {
             inhalt_text: `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`,
             dokument_url: linkData.publicUrl
           }]);
+
+          // --- NEU: SYNC ZU GITHUB ---
+          await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}`);
         }
       }
     }
