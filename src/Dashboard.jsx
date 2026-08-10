@@ -669,7 +669,8 @@ export default function Dashboard({ session }) {
           datum: new Date().toISOString().split('T')[0],
           aktion: `${versandArt === 'email' ? 'E-Mail' : 'E-Fax (Simple-Fax)'} versendet an ${targetAddress}`,
           kanal: versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)',
-          brief_entwurf: briefEntwurf
+          brief_entwurf: briefEntwurf,
+          dokument_url: resData.pdfUrl || null // NEU: PDF-URL aus der Edge Function wird hier gespeichert
         }]);
         ladeDaten();
       }
