@@ -495,7 +495,7 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
-  // --- NEU: FUNKTION UM DEN STATUS EINER GANZEN AKTE ZU WECHSELN ---
+  // --- FUNKTION UM DEN STATUS EINER GANZEN AKTE ZU WECHSELN ---
   const toggleAkteStatus = async (akteId, currentStatus) => {
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     const { error } = await supabase.from('akten').update({ status: neuerStatus }).eq('id', akteId);
@@ -1252,6 +1252,7 @@ export default function Dashboard({ session }) {
               <Icon name="wand" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)
             </label>
             <textarea 
+              id="magic-import"
               value={jsonImport} onChange={handleJsonImport} 
               placeholder='JSON einfügen ODER Webseiten-URL eingeben (z.B. https://...)'
               style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${activeColor}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} 
@@ -1653,7 +1654,6 @@ export default function Dashboard({ session }) {
                         
                         <div style={{ display: 'flex', gap: '10px' }}>
                           
-                          {/* WIEDER HINZUGEFÜGT FÜR SCHRITT 6: AKTE ABSCHLIESSEN BUTTON */}
                           <button 
                             onClick={() => toggleAkteStatus(akte.id, akte.status)} 
                             style={{ 
