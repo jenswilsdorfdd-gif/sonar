@@ -495,6 +495,14 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
+  // --- NEU: FUNKTION UM DEN STATUS EINER GANZEN AKTE ZU WECHSELN ---
+  const toggleAkteStatus = async (akteId, currentStatus) => {
+    const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
+    const { error } = await supabase.from('akten').update({ status: neuerStatus }).eq('id', akteId);
+    if (!error) ladeDaten(); 
+    else alert("Fehler beim Ändern des Akten-Status: " + error.message);
+  };
+
   // --- NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG ---
   const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, akteGegner, e) => {
     const file = e.target.files[0];
@@ -1174,7 +1182,7 @@ export default function Dashboard({ session }) {
     return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
   });
 
-  // --- NEU FÜR SCHRITT 5: FILTER-LOGIK FÜR DEN KI-WISSENSSPEICHER ---
+  // --- FILTER-LOGIK FÜR DEN KI-WISSENSSPEICHER ---
   const gefilterteWissenEintraege = wissenEintraege.filter(w => {
     const matchSuche = !wissenSuchbegriff.trim() || 
       (w.datei_name || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) || 
@@ -1644,6 +1652,28 @@ export default function Dashboard({ session }) {
                         </div>
                         
                         <div style={{ display: 'flex', gap: '10px' }}>
+                          
+                          {/* WIEDER HINZUGEFÜGT FÜR SCHRITT 6: AKTE ABSCHLIESSEN BUTTON */}
+                          <button 
+                            onClick={() => toggleAkteStatus(akte.id, akte.status)} 
+                            style={{ 
+                              background: akte.status === 'Erledigt' ? 'transparent' : '#10b981', 
+                              color: akte.status === 'Erledigt' ? theme.textMain : '#ffffff', 
+                              border: akte.status === 'Erledigt' ? `1px solid ${theme.border}` : 'none', 
+                              padding: '6px 12px', 
+                              borderRadius: '6px', 
+                              cursor: 'pointer', 
+                              fontSize: '12px', 
+                              fontWeight: 'bold', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '6px' 
+                            }}
+                          >
+                            <Icon name={akte.status === 'Erledigt' ? 'refresh' : 'check'} size={14} /> 
+                            {akte.status === 'Erledigt' ? 'Akte wieder öffnen' : 'Akte abschließen'}
+                          </button>
+
                           <button onClick={() => druckeAkte(akte)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Icon name="print" size={14} /> Akte exportieren / drucken
                           </button>
