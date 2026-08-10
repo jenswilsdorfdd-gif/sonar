@@ -120,9 +120,6 @@ export default function Dashboard({ session }) {
   const [jsonImport, setJsonImport] = useState('')
   const [tresorPrompt, setTresorPrompt] = useState(null) 
 
-  // --- SIGNATUR STATE ---
-  const [signaturPreview, setSignaturPreview] = useState(localStorage.getItem('sonar_signature') || null)
-
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
@@ -501,12 +498,30 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
-  // --- FUNKTION UM DEN STATUS EINER GANZEN AKTE ZU WECHSELN ---
+  // --- FUNKTION UM DEN STATUS EINER GANZEN AKTE ZU WECHSELN & 10 JAHRE LÖSCHFRIST SETZEN ---
   const toggleAkteStatus = async (akteId, currentStatus) => {
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     const { error } = await supabase.from('akten').update({ status: neuerStatus }).eq('id', akteId);
-    if (!error) ladeDaten(); 
-    else alert("Fehler beim Ändern des Akten-Status: " + error.message);
+    
+    if (!error) {
+      if (neuerStatus === 'Erledigt') {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() + 10); // 10 Jahre gesetzliche Aufbewahrungsfrist
+        const wvDatum = d.toISOString().split('T')[0];
+
+        await supabase.from('akten_historie').insert([{
+          akte_id: akteId,
+          user_id: session.user.id,
+          typ: 'Intern',
+          datum: new Date().toISOString().split('T')[0],
+          aktion: 'Akte geschlossen. Automatische Wiedervorlage zur Löschung (Ablauf Aufbewahrungsfrist).',
+          wiedervorlage: wvDatum
+        }]);
+      }
+      ladeDaten(); 
+    } else {
+      alert("Fehler beim Ändern des Akten-Status: " + error.message);
+    }
   };
 
   // --- NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG ---
@@ -541,24 +556,6 @@ export default function Dashboard({ session }) {
     }
     setUploadingHistId(null);
     e.target.value = '';
-  };
-
-  // --- SIGNATUR UPLOAD & LÖSCHEN ---
-  const handleSignaturUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64data = reader.result;
-      setSignaturPreview(base64data);
-      localStorage.setItem('sonar_signature', base64data); // Speichert die Unterschrift dauerhaft im Browser
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const loescheSignatur = () => {
-    setSignaturPreview(null);
-    localStorage.removeItem('sonar_signature');
   };
 
   const setzeWV = (tage, monate = 0) => {
@@ -682,7 +679,7 @@ export default function Dashboard({ session }) {
         throw new Error(resData.error || resData.message || JSON.stringify(resData));
       }
 
-      // --- NEU: DOKUMENT IN DIE WISSENSDATENBANK SPIEGELN ---
+      // --- DOKUMENT IN DIE WISSENSDATENBANK SPIEGELN ---
       if (resData.pdfUrl) {
         await supabase.from('wissensdatenbank').insert([{
           datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.pdf`,
@@ -702,7 +699,7 @@ export default function Dashboard({ session }) {
           aktion: `${versandArt === 'email' ? 'E-Mail' : 'E-Fax (Simple-Fax)'} versendet an ${targetAddress}`,
           kanal: versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)',
           brief_entwurf: briefEntwurf,
-          dokument_url: resData.pdfUrl || null // NEU: PDF-URL aus der Edge Function wird hier gespeichert
+          dokument_url: resData.pdfUrl || null // PDF-URL aus der Edge Function wird hier gespeichert
         }]);
         ladeDaten();
       }
@@ -1709,6 +1706,26 @@ export default function Dashboard({ session }) {
                           >
                             <Icon name={akte.status === 'Erledigt' ? 'refresh' : 'check'} size={14} /> 
                             {akte.status === 'Erledigt' ? 'Akte wieder öffnen' : 'Akte abschließen'}
+                          </button>
+
+                          {/* --- NEU: BUTTON "AKTE LÖSCHEN" --- */}
+                          <button 
+                            onClick={() => loescheAkte(akte.id)} 
+                            style={{ 
+                              background: 'transparent', 
+                              color: theme.warningBorder, 
+                              border: `1px solid ${theme.warningBorder}`, 
+                              padding: '6px 12px', 
+                              borderRadius: '6px', 
+                              cursor: 'pointer', 
+                              fontSize: '12px', 
+                              fontWeight: 'bold', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '6px' 
+                            }}
+                          >
+                            <Icon name="trash" size={14} /> Akte löschen
                           </button>
 
                           <button onClick={() => druckeAkte(akte)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
