@@ -166,6 +166,10 @@ export default function Dashboard({ session }) {
   const [bulkFirma, setBulkFirma] = useState('')
   const [bulkKategorie, setBulkKategorie] = useState('Verträge & Bescheide')
   const [bulkStatus, setBulkStatus] = useState(null)
+  
+  // --- NEUE FILTER-STATE-VARIABLEN FÜR KI-WISSENSSPEICHER ---
+  const [wissenSuchbegriff, setWissenSuchbegriff] = useState('')
+  const [wissenKategorieFilter, setWissenKategorieFilter] = useState('')
 
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
@@ -489,7 +493,7 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
-  // --- WIEDER HINZUGEFÜGT: NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG ---
+  // --- NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG ---
   const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1168,6 +1172,17 @@ export default function Dashboard({ session }) {
     return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
   });
 
+  // --- NEU FÜR SCHRITT 5: FILTER-LOGIK FÜR DEN KI-WISSENSSPEICHER ---
+  const gefilterteWissenEintraege = wissenEintraege.filter(w => {
+    const matchSuche = !wissenSuchbegriff.trim() || 
+      (w.datei_name || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) || 
+      (w.firma || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase());
+    
+    const matchKategorie = !wissenKategorieFilter || w.kategorie === wissenKategorieFilter;
+    
+    return matchSuche && matchKategorie;
+  });
+
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
@@ -1766,23 +1781,77 @@ export default function Dashboard({ session }) {
             </form>
 
             <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>📚 Bereits indizierte Dokumente ({wissenEintraege.length})</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px', textAlign: 'left' }}>
-              {wissenEintraege.map(w => (
-                <div key={w.id} style={{ ...panelStyle, position: 'relative' }}>
-                  <button onClick={() => loescheWissenEintrag(w.id)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}>
-                    <Icon name="trash" size={16} />
-                  </button>
-                  <h4 style={{ margin: '0 0 8px 0', color: theme.wissenAccent, paddingRight: '25px', fontSize: '15px' }}>📄 {w.datei_name}</h4>
-                  <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '8px' }}>
-                    Firma: <strong>{w.firma || 'Allgemein'}</strong> | Kat: <strong>{w.kategorie}</strong>
-                  </div>
-                  {w.dokument_url && (
-                    <a href={w.dokument_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: theme.accent, textDecoration: 'none', display: 'inline-block', marginTop: '5px' }}>
-                      🔗 Original-Datei öffnen
-                    </a>
+            
+            {/* --- NEU: SUCH- UND FILTERLEISTE FÜR DIE TABELLE --- */}
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 250px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Suchen nach Dateiname, Thema oder Firma..." 
+                  value={wissenSuchbegriff}
+                  onChange={(e) => setWissenSuchbegriff(e.target.value)}
+                  style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
+                />
+              </div>
+              <div style={{ flex: '0 1 200px' }}>
+                <select 
+                  value={wissenKategorieFilter} 
+                  onChange={(e) => setWissenKategorieFilter(e.target.value)}
+                  style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
+                >
+                  <option value="">Alle Kategorien</option>
+                  <option value="Verträge & Bescheide">Verträge & Bescheide</option>
+                  <option value="Steuern & Finanzen">Steuern & Finanzen</option>
+                  <option value="Urteile & Rechtsprechung">Urteile & Rechtsprechung</option>
+                  <option value="Allgemeines Archiv">Allgemeines Archiv</option>
+                </select>
+              </div>
+            </div>
+
+            {/* --- NEU: TABELLARISCHE ANSICHT FÜR DEN KI-WISSENSSPEICHER --- */}
+            <div style={{ borderRadius: '8px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: theme.border, color: theme.textMain }}>
+                    <th style={{ padding: '12px 15px' }}>Dokument / Datei</th>
+                    <th style={{ padding: '12px 15px' }}>Kategorie</th>
+                    <th style={{ padding: '12px 15px' }}>Zugeordnete Firma</th>
+                    <th style={{ padding: '12px 15px', textAlign: 'center', width: '80px' }}>Aktion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gefilterteWissenEintraege.length > 0 ? (
+                    gefilterteWissenEintraege.map(w => (
+                      <tr key={w.id} style={{ borderBottom: `1px solid ${theme.border}`, transition: 'background 0.2s' }}>
+                        <td style={{ padding: '12px 15px' }}>
+                          {w.dokument_url ? (
+                            <a href={w.dokument_url} target="_blank" rel="noreferrer" style={{ color: theme.wissenAccent, textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Icon name="file" size={14} /> {w.datei_name}
+                            </a>
+                          ) : (
+                            <span style={{ fontWeight: 'bold', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Icon name="file" size={14} /> {w.datei_name}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 15px', color: theme.textMuted }}>{w.kategorie}</td>
+                        <td style={{ padding: '12px 15px', color: theme.textMain }}>{w.firma || 'Allgemein'}</td>
+                        <td style={{ padding: '12px 15px', textAlign: 'center' }}>
+                          <button onClick={() => loescheWissenEintrag(w.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Eintrag löschen">
+                            <Icon name="trash" size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>
+                        Keine Dokumente für diese Filterung gefunden.
+                      </td>
+                    </tr>
                   )}
-                </div>
-              ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
