@@ -1,5 +1,5 @@
-const SUPABASE_URL = "DEINE_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "DEIN_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://loyzfkxkuyypgteskxkm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxveXpma3hrdXl5cGd0ZXNreGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1NDc2OTcsImV4cCI6MjEwMDEyMzY5N30.1MfQqCDmyUdSwgzty10mUMe7SFGdsw-1azjhndOC000";
 
 async function syncAltlasten() {
   console.log("Starte Migration der Altlasten in Richtung GitHub...");
