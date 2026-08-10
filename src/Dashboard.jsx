@@ -489,6 +489,40 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
+  // --- WIEDER HINZUGEFÜGT: NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG ---
+  const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingHistId(histId);
+    const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const dateiName = `h_${Date.now()}_${sichererDateiname}`;
+    
+    const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
+    if (!uploadError) {
+      const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
+      const newUrl = linkData.publicUrl;
+      const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
+      
+      // 1. Akten-Historie aktualisieren
+      const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
+      
+      // 2. Zeitgleich automatisch in die Wissensdatenbank eintragen
+      await supabase.from('wissensdatenbank').insert([{
+        datei_name: file.name,
+        firma: akteFirma || 'Allgemein',
+        kategorie: 'Verträge & Bescheide',
+        inhalt_text: `Nachträglich an Akten-Historie angehängtes Dokument.`,
+        dokument_url: newUrl
+      }]);
+
+      if (!error) ladeDaten();
+    } else {
+      alert("Fehler beim Upload: " + uploadError.message);
+    }
+    setUploadingHistId(null);
+    e.target.value = '';
+  };
+
   const setzeWV = (tage, monate = 0) => {
     const d = new Date();
     d.setDate(d.getDate() + tage);
@@ -644,7 +678,7 @@ export default function Dashboard({ session }) {
       const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
       const { error } = await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
       
-      // --- NEU FÜR SCHRITT 4: AUTO-SYNC IN WISSENSDATENBANK ---
+      // --- AUTO-SYNC IN WISSENSDATENBANK ---
       const matchMandant = mandanten.find(x => x.id === mId);
       const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
       await supabase.from('wissensdatenbank').insert([{
@@ -709,7 +743,7 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          // --- NEU FÜR SCHRITT 4: AUTO-SYNC IN WISSENSDATENBANK ---
+          // --- AUTO-SYNC IN WISSENSDATENBANK ---
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
@@ -877,7 +911,7 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          // --- NEU FÜR SCHRITT 4: AUTO-SYNC IN WISSENSDATENBANK ---
+          // --- AUTO-SYNC IN WISSENSDATENBANK ---
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: m_firmenname || 'Allgemein',
@@ -1638,6 +1672,20 @@ export default function Dashboard({ session }) {
                                     📄 {extractFilename(url)}
                                   </a>
                                 ))}
+                                
+                                {/* WIEDER HINZUGEFÜGT: UPLOAD-BUTTON NENEN/UNTER DEN DOKUMENTEN */}
+                                {uploadingHistId === hist.id ? (
+                                  <span style={{ fontSize: '11px', color: theme.accent }}>⏳ Upload...</span>
+                                ) : (
+                                  <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">
+                                    + Datei
+                                    <input 
+                                      type="file" 
+                                      style={{ display: 'none' }} 
+                                      onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, e)} 
+                                    />
+                                  </label>
+                                )}
                               </td>
                               <td style={{ padding: '10px', textAlign: 'center' }}>
                                 <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}>
