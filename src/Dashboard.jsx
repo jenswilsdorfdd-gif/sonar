@@ -173,6 +173,9 @@ export default function Dashboard({ session }) {
   const [wissenFirmaFilter, setWissenFirmaFilter] = useState('')
   const [wissenGegnerFilter, setWissenGegnerFilter] = useState('')
 
+  // --- FEST HINTERLEGTE SIGNATUR-URL ---
+  const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
+
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
     accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
@@ -643,6 +646,7 @@ export default function Dashboard({ session }) {
           to: targetAddress,
           subject: betreff,
           text: briefEntwurf,
+          signatureUrl: SIGNATUR_URL, // --- DIE FESTE SIGNATUR-URL AN DIE API ÜBERGEBEN ---
           unsereFirma: unsereFirma || 'Jens Wilsdorf',
           mandantProfil: mandantProfil,
           gegnerName: gegnerName,
