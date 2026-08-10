@@ -12,6 +12,30 @@ const syncToGithub = async (filename, contentText) => {
   }
 };
 
+// --- NEU: HILFSFUNKTION FÜR PDF-TEXTEXTRAKTION ---
+const extractTextFromPDF = async (file) => {
+  if (file.type !== 'application/pdf') return null;
+  try {
+    if (!window.pdfjsLib) {
+      console.warn("PDF.js ist noch nicht geladen.");
+      return null;
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    return fullText.replace(/\s+/g, ' ').trim();
+  } catch (error) {
+    console.error("Fehler beim Extrahieren des PDF-Textes:", error);
+    return null;
+  }
+};
+
 // --- HILFSFUNKTION FÜR DATEINAMEN ---
 const extractFilename = (url) => {
   if (!url) return 'Datei';
@@ -134,7 +158,7 @@ export default function Dashboard({ session }) {
   // --- SIGNATUR STATE ---
   const [signaturPreview, setSignaturPreview] = useState(localStorage.getItem('sonar_signature') || null)
   
-  // --- NEU: STATE FÜR DAS GEMERKTE VERSAND-PDF (VOR DEM ABHEFTEN) ---
+  // --- STATE FÜR DAS GEMERKTE VERSAND-PDF ---
   const [versandPdfUrl, setVersandPdfUrl] = useState(null)
 
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
@@ -181,12 +205,10 @@ export default function Dashboard({ session }) {
   const [wissenEintraege, setWissenEintraege] = useState([])
   const [bulkDateien, setBulkDateien] = useState([])
   const [bulkFirma, setBulkFirma] = useState('')
-  const [bulkKategorie, setBulkKategorie] = useState('Verträge & Bescheide')
   const [bulkStatus, setBulkStatus] = useState(null)
   
   // --- FILTER-STATE-VARIABLEN FÜR KI-WISSENSSPEICHER ---
   const [wissenSuchbegriff, setWissenSuchbegriff] = useState('')
-  const [wissenKategorieFilter, setWissenKategorieFilter] = useState('')
   const [wissenFirmaFilter, setWissenFirmaFilter] = useState('')
   const [wissenGegnerFilter, setWissenGegnerFilter] = useState('')
 
@@ -249,6 +271,17 @@ export default function Dashboard({ session }) {
   };
 
   useEffect(() => {
+    // --- NEU: PDF.js dynamisch laden für den Client-Scanner ---
+    if (!document.getElementById('pdfjs-script')) {
+      const script = document.createElement('script');
+      script.id = 'pdfjs-script';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+      script.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+      };
+      document.head.appendChild(script);
+    }
+
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
     if (!styleTag) {
@@ -299,7 +332,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // BULK IMPORT FÜR KI-WISSENSSPEICHER (SOFORTIGE STATE-AKTUALISIERUNG)
+  // BULK IMPORT FÜR KI-WISSENSSPEICHER (INKL. PDF EXTRAKTION)
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -325,11 +358,15 @@ export default function Dashboard({ session }) {
           pubUrl = linkData.publicUrl;
         }
 
+        // --- PDF TEXT SCANNER ---
+        const extractedText = await extractTextFromPDF(file);
+        const limitText = extractedText ? extractedText.substring(0, 15000) : '';
+        const inhaltText = limitText ? `[Volltext]\n${limitText}` : `Dokument: ${file.name}`;
+
         const { data: insertedData, error: insertErr } = await supabase.from('wissensdatenbank').insert([{
           datei_name: file.name,
           firma: bulkFirma || 'Allgemein',
-          kategorie: bulkKategorie || 'Sonstiges',
-          inhalt_text: `Dokument: ${file.name}`,
+          inhalt_text: inhaltText,
           dokument_url: pubUrl
         }]).select();
 
@@ -340,8 +377,8 @@ export default function Dashboard({ session }) {
           setWissenEintraege(prev => [insertedData[0], ...prev]);
         }
 
-        // --- NEU: SYNC ZU GITHUB ---
-        await syncToGithub(`${storagePath}.txt`, `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nKategorie: ${bulkKategorie || 'Sonstiges'}\nLink: ${pubUrl}`);
+        // --- SYNC ZU GITHUB ---
+        await syncToGithub(`${storagePath}.txt`, `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nLink: ${pubUrl}\n\nInhalt/Text:\n${limitText || 'Kein Text extrahiert'}`);
 
       } catch (err) {
         console.error("Import-Fehler bei File:", file.name, err);
@@ -601,16 +638,21 @@ export default function Dashboard({ session }) {
       
       const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
       
+      // --- PDF TEXT SCANNER ---
+      const extractedText = await extractTextFromPDF(file);
+      const limitText = extractedText ? extractedText.substring(0, 15000) : '';
+      const baseInfo = `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'}`;
+      const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: akteFirma || 'Allgemein',
-        kategorie: 'Verträge & Bescheide',
-        inhalt_text: `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'}`,
+        inhalt_text: inhaltText,
         dokument_url: newUrl
       }]);
 
-      // --- NEU: SYNC ZU GITHUB ---
-      await syncToGithub(`${dateiName}.txt`, `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}`);
+      // --- SYNC ZU GITHUB ---
+      await syncToGithub(`${dateiName}.txt`, `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}\n\nInhalt:\n${limitText || '-'}`);
 
       if (!error) ladeDaten();
     } else {
@@ -760,7 +802,7 @@ export default function Dashboard({ session }) {
         throw new Error(resData.error || resData.message || JSON.stringify(resData));
       }
 
-      // --- PDF-URL merken und Felder vorbereiten, ABER NOCH NICHT SPEICHERN ---
+      // --- PDF-URL merken ---
       if (resData.pdfUrl) {
          setVersandPdfUrl(resData.pdfUrl);
       }
@@ -793,16 +835,22 @@ export default function Dashboard({ session }) {
       
       const matchMandant = mandanten.find(x => x.id === mId);
       const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
+      
+      // --- PDF TEXT SCANNER ---
+      const extractedText = await extractTextFromPDF(file);
+      const limitText = extractedText ? extractedText.substring(0, 15000) : '';
+      const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName}`;
+      const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: fName,
-        kategorie: 'Allgemeines Archiv',
-        inhalt_text: `Nachträgliches Stammdokument. Firma: ${fName}`,
+        inhalt_text: inhaltText,
         dokument_url: newUrl
       }]);
 
-      // --- NEU: SYNC ZU GITHUB ---
-      await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}`);
+      // --- SYNC ZU GITHUB ---
+      await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}\n\nInhalt:\n${limitText || '-'}`);
 
       if (!error) ladeDaten();
     }
@@ -851,7 +899,7 @@ export default function Dashboard({ session }) {
 
     let alleUrls = [];
     
-    // 1. Manuell hochgeladene Dateien verarbeiten
+    // 1. Manuell hochgeladene Dateien verarbeiten (INKL. PDF SCANNER)
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
         const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
@@ -861,16 +909,20 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
+          const extractedText = await extractTextFromPDF(f);
+          const limitText = extractedText ? extractedText.substring(0, 15000) : '';
+          const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`;
+          const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
-            kategorie: 'Verträge & Bescheide',
-            inhalt_text: `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
+            inhalt_text: inhaltText,
             dokument_url: linkData.publicUrl
           }]);
 
-          // --- NEU: SYNC ZU GITHUB ---
-          await syncToGithub(`${dateiName}.txt`, `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}`);
+          // --- SYNC ZU GITHUB ---
+          await syncToGithub(`${dateiName}.txt`, `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}\n\nInhalt:\n${limitText || '-'}`);
         }
       }
     }
@@ -883,16 +935,15 @@ export default function Dashboard({ session }) {
       await supabase.from('wissensdatenbank').insert([{
         datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.pdf`,
         firma: unsereFirma || 'Allgemein',
-        kategorie: 'Verträge & Bescheide',
-        inhalt_text: `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
+        inhalt_text: `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}\n\n[Text-Entwurf]\n${briefEntwurf}`,
         dokument_url: versandPdfUrl
       }]);
 
-      // --- NEU: SYNC ZU GITHUB ---
+      // --- SYNC ZU GITHUB ---
       const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
       await syncToGithub(`${ausgangName}.txt`, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      // --- NEU: SYNC ZU GITHUB (Nur Text, ohne PDF) ---
+      // --- SYNC ZU GITHUB (Nur Text, ohne PDF) ---
       const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
       await syncToGithub(`${entwurfName}.txt`, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`);
     }
@@ -941,7 +992,7 @@ export default function Dashboard({ session }) {
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null);
-      setVersandPdfUrl(null); // GANZ WICHTIG: Zwischenspeicher wieder leeren!
+      setVersandPdfUrl(null); 
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten()
     }
@@ -1070,16 +1121,20 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
+          const extractedText = await extractTextFromPDF(f);
+          const limitText = extractedText ? extractedText.substring(0, 15000) : '';
+          const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`;
+          const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: m_firmenname || 'Allgemein',
-            kategorie: 'Allgemeines Archiv',
-            inhalt_text: `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`,
+            inhalt_text: inhaltText,
             dokument_url: linkData.publicUrl
           }]);
 
-          // --- NEU: SYNC ZU GITHUB ---
-          await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}`);
+          // --- SYNC ZU GITHUB ---
+          await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}\n\nInhalt:\n${limitText || '-'}`);
         }
       }
     }
@@ -1329,18 +1384,17 @@ export default function Dashboard({ session }) {
     return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
   });
 
-  // --- FILTER-LOGIK FÜR DEN KI-WISSENSSPEICHER ---
+  // --- FILTER-LOGIK FÜR DEN KI-WISSENSSPEICHER (Kategorie entfernt) ---
   const gefilterteWissenEintraege = wissenEintraege.filter(w => {
     const matchSuche = !wissenSuchbegriff.trim() || 
       (w.datei_name || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) || 
       (w.firma || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) ||
       (w.inhalt_text || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase());
     
-    const matchKategorie = !wissenKategorieFilter || w.kategorie === wissenKategorieFilter;
     const matchFirma = !wissenFirmaFilter || w.firma === wissenFirmaFilter;
     const matchGegner = !wissenGegnerFilter || (w.inhalt_text || '').toLowerCase().includes(wissenGegnerFilter.toLowerCase());
     
-    return matchSuche && matchKategorie && matchFirma && matchGegner;
+    return matchSuche && matchFirma && matchGegner;
   });
 
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
@@ -1962,16 +2016,6 @@ export default function Dashboard({ session }) {
                   </select>
                 </div>
 
-                <div>
-                  <label style={labelStyle}>Kategorie</label>
-                  <select value={bulkKategorie} onChange={(e) => setBulkKategorie(e.target.value)} style={inputStyle}>
-                    <option value="Verträge & Bescheide">Verträge & Bescheide</option>
-                    <option value="Steuern & Finanzen">Steuern & Finanzen</option>
-                    <option value="Urteile & Rechtsprechung">Urteile & Rechtsprechung</option>
-                    <option value="Allgemeines Archiv">Allgemeines Archiv</option>
-                  </select>
-                </div>
-
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={labelStyle}>Dokumente wählen (PDFs, Scans, Schreiben - Mehrfachauswahl möglich)*</label>
                   <input 
@@ -2020,19 +2064,6 @@ export default function Dashboard({ session }) {
               </div>
               <div style={{ flex: '1 1 150px' }}>
                 <select 
-                  value={wissenKategorieFilter} 
-                  onChange={(e) => setWissenKategorieFilter(e.target.value)}
-                  style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
-                >
-                  <option value="">Alle Kategorien</option>
-                  <option value="Verträge & Bescheide">Verträge & Bescheide</option>
-                  <option value="Steuern & Finanzen">Steuern & Finanzen</option>
-                  <option value="Urteile & Rechtsprechung">Urteile & Rechtsprechung</option>
-                  <option value="Allgemeines Archiv">Allgemeines Archiv</option>
-                </select>
-              </div>
-              <div style={{ flex: '1 1 150px' }}>
-                <select 
                   value={wissenFirmaFilter} 
                   onChange={(e) => setWissenFirmaFilter(e.target.value)}
                   style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
@@ -2060,7 +2091,6 @@ export default function Dashboard({ session }) {
                 <thead>
                   <tr style={{ background: theme.border, color: theme.textMain }}>
                     <th style={{ padding: '12px 15px' }}>Dokument / Datei</th>
-                    <th style={{ padding: '12px 15px' }}>Kategorie</th>
                     <th style={{ padding: '12px 15px' }}>Zugeordnete Firma</th>
                     <th style={{ padding: '12px 15px', textAlign: 'center', width: '80px' }}>Aktion</th>
                   </tr>
@@ -2081,11 +2111,10 @@ export default function Dashboard({ session }) {
                           )}
                           {w.inhalt_text && (
                              <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '4px' }}>
-                                {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
+                               {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
                              </div>
                           )}
                         </td>
-                        <td style={{ padding: '12px 15px', color: theme.textMuted }}>{w.kategorie}</td>
                         <td style={{ padding: '12px 15px', color: theme.textMain }}>{w.firma || 'Allgemein'}</td>
                         <td style={{ padding: '12px 15px', textAlign: 'center' }}>
                           <button onClick={() => loescheWissenEintrag(w.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Eintrag löschen">
@@ -2096,7 +2125,7 @@ export default function Dashboard({ session }) {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>
+                      <td colSpan="3" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>
                         Keine Dokumente für diese Filterung gefunden.
                       </td>
                     </tr>
