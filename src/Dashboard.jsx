@@ -1254,7 +1254,7 @@ export default function Dashboard({ session }) {
             <textarea 
               id="magic-import"
               value={jsonImport} onChange={handleJsonImport} 
-              placeholder='JSON einfügen ODER Webseiten-URL eingeben (z.B. https://...)'
+              placeholder='{"typ": "Eingang", "aktenzeichen": "...", "thema": "..."}'
               style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${activeColor}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} 
             />
           </div>
