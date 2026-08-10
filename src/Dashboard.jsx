@@ -120,6 +120,9 @@ export default function Dashboard({ session }) {
   const [jsonImport, setJsonImport] = useState('')
   const [tresorPrompt, setTresorPrompt] = useState(null) 
 
+  // --- SIGNATUR STATE ---
+  const [signaturPreview, setSignaturPreview] = useState(localStorage.getItem('sonar_signature') || null)
+
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
@@ -352,6 +355,35 @@ export default function Dashboard({ session }) {
     });
   };
 
+  // --- NEU: ZU BESTEHENDER AKTE WECHSELN UND DATEN AUTO-LADEN ---
+  const handleAkteAuswahl = (e) => {
+    const val = e.target.value;
+    setSelectedAkteId(val);
+    if (val) {
+       const a = akten.find(x => x.id === val);
+       if (a) {
+          setGegnerName(a.gegner_name || '');
+          setGegnerAnsprechpartner(a.gegner_ansprechpartner || '');
+          setGegnerTelefon(a.gegner_telefon || '');
+          setGegnerEmail(a.gegner_email || '');
+          setUnsereFirma(a.unsere_firma || '');
+          setUnserAnsprechpartner(a.unser_ansprechpartner || '');
+          setThema(a.thema || '');
+          setAktenzeichen(a.aktenzeichen || '');
+          
+          if (a.gegner_name) {
+             const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(a.gegner_name));
+             if (crmGegner) {
+                setGegnerFax(crmGegner.fax || '');
+                if (!a.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
+             } else {
+                setGegnerFax('');
+             }
+          }
+       }
+    }
+  };
+
   // PARSEN UND DETAILLIERTER FELD-VERGLEICH BEIM MAGIC IMPORT
   const handleJsonImport = (e) => {
     setActiveTab('akten')
@@ -385,6 +417,13 @@ export default function Dashboard({ session }) {
         if (match) {
           setModus('bestehend');
           setSelectedAkteId(match.id);
+          // --- NEU: FAXNUMMER AUS CRM LADEN WENN BEI JSON FEHLT ---
+          if (!obj.gegner_fax && match.gegner_name) {
+             const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(match.gegner_name));
+             if (crmGegner && crmGegner.fax) {
+                setGegnerFax(crmGegner.fax);
+             }
+          }
         } else {
           setModus('neu');
         }
@@ -556,6 +595,24 @@ export default function Dashboard({ session }) {
     }
     setUploadingHistId(null);
     e.target.value = '';
+  };
+
+  // --- SIGNATUR UPLOAD & LÖSCHEN ---
+  const handleSignaturUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result;
+      setSignaturPreview(base64data);
+      localStorage.setItem('sonar_signature', base64data); // Speichert die Unterschrift dauerhaft im Browser
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const loescheSignatur = () => {
+    setSignaturPreview(null);
+    localStorage.removeItem('sonar_signature');
   };
 
   const setzeWV = (tage, monate = 0) => {
@@ -827,6 +884,22 @@ export default function Dashboard({ session }) {
       }])
 
     if (!histError) {
+      // --- NEU: GEGNER AUTOMATISCH IM CRM ANLEGEN / UPDATEN ---
+      if (gegnerName) {
+        const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(gegnerName));
+        if (!existingGegner) {
+          await supabase.from('gegner').insert([{
+            user_id: session.user.id,
+            name: gegnerName,
+            fax: gegnerFax || null,
+            email: gegnerEmail || null,
+            notizen: JSON.stringify([{ abteilung: '', name: gegnerAnsprechpartner || '', telefon: gegnerTelefon || '', email: gegnerEmail || '' }])
+          }]);
+        } else if (!existingGegner.fax && gegnerFax) {
+          await supabase.from('gegner').update({ fax: gegnerFax }).eq('id', existingGegner.id);
+        }
+      }
+
       setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
@@ -1513,7 +1586,7 @@ export default function Dashboard({ session }) {
 
               {modus === 'bestehend' && (
                 <div style={{ flex: '1 1 200px', marginLeft: 'auto' }}>
-                  <select value={selectedAkteId} onChange={(e) => setSelectedAkteId(e.target.value)} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
+                  <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
                     <option value="">-- Ziel-Akte wählen --</option>
                     {akten.map(a => <option key={a.id} value={a.id}>[#{a.id.substring(0,6).toUpperCase()}] {a.gegner_name} | {a.thema}</option>)}
                   </select>
@@ -1553,6 +1626,8 @@ export default function Dashboard({ session }) {
                   <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
                   <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
                   <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
+                  
+                  {/* Wir lassen Fax/Mail im Eingabeformular zur Anlage stehen, syncen es aber mit den Versandfeldern unten */}
                   <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} style={inputStyle} /></div>
                   <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
                   
@@ -1604,6 +1679,19 @@ export default function Dashboard({ session }) {
 
             {/* SCHREIBTEXT-EDITOR UND VERSAND-BUTTONS */}
             <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
+              
+              {/* --- NEU: IMMER SICHTBARE VERSAND-FELDER --- */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>
+                <div>
+                  <label style={{...labelStyle, color: theme.textMain}}>Versand-E-Mail (Gegner)</label>
+                  <input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} placeholder="z.B. poststelle@..." style={{...inputStyle, padding: '8px'}} />
+                </div>
+                <div>
+                  <label style={{...labelStyle, color: theme.textMain}}>Versand-Faxnummer (Gegner)</label>
+                  <input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} placeholder="z.B. 0351 123456" style={{...inputStyle, padding: '8px'}} />
+                </div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                 <label style={{...labelStyle, color: theme.accent, margin: 0}}>
                   <Icon name="file" size={16} /> Textentwurf / Schreiben verfassen
@@ -1708,7 +1796,6 @@ export default function Dashboard({ session }) {
                             {akte.status === 'Erledigt' ? 'Akte wieder öffnen' : 'Akte abschließen'}
                           </button>
 
-                          {/* --- NEU: BUTTON "AKTE LÖSCHEN" --- */}
                           <button 
                             onClick={() => loescheAkte(akte.id)} 
                             style={{ 
