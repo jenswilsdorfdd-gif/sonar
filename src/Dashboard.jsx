@@ -120,6 +120,9 @@ export default function Dashboard({ session }) {
   const [jsonImport, setJsonImport] = useState('')
   const [tresorPrompt, setTresorPrompt] = useState(null) 
 
+  // --- SIGNATUR STATE ---
+  const [signaturPreview, setSignaturPreview] = useState(localStorage.getItem('sonar_signature') || null)
+
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
@@ -167,7 +170,7 @@ export default function Dashboard({ session }) {
   const [bulkKategorie, setBulkKategorie] = useState('Verträge & Bescheide')
   const [bulkStatus, setBulkStatus] = useState(null)
   
-  // --- NEUE FILTER-STATE-VARIABLEN FÜR KI-WISSENSSPEICHER ---
+  // --- FILTER-STATE-VARIABLEN FÜR KI-WISSENSSPEICHER ---
   const [wissenSuchbegriff, setWissenSuchbegriff] = useState('')
   const [wissenKategorieFilter, setWissenKategorieFilter] = useState('')
   const [wissenFirmaFilter, setWissenFirmaFilter] = useState('')
@@ -540,6 +543,24 @@ export default function Dashboard({ session }) {
     e.target.value = '';
   };
 
+  // --- SIGNATUR UPLOAD & LÖSCHEN ---
+  const handleSignaturUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result;
+      setSignaturPreview(base64data);
+      localStorage.setItem('sonar_signature', base64data); // Speichert die Unterschrift dauerhaft im Browser
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const loescheSignatur = () => {
+    setSignaturPreview(null);
+    localStorage.removeItem('sonar_signature');
+  };
+
   const setzeWV = (tage, monate = 0) => {
     const d = new Date();
     d.setDate(d.getDate() + tage);
@@ -646,7 +667,7 @@ export default function Dashboard({ session }) {
           to: targetAddress,
           subject: betreff,
           text: briefEntwurf,
-          signatureUrl: SIGNATUR_URL, // --- DIE FESTE SIGNATUR-URL AN DIE API ÜBERGEBEN ---
+          signatureUrl: SIGNATUR_URL, // DIE FESTE SIGNATUR-URL AN DIE API ÜBERGEBEN
           unsereFirma: unsereFirma || 'Jens Wilsdorf',
           mandantProfil: mandantProfil,
           gegnerName: gegnerName,
@@ -659,6 +680,17 @@ export default function Dashboard({ session }) {
 
       if (!response.ok) {
         throw new Error(resData.error || resData.message || JSON.stringify(resData));
+      }
+
+      // --- NEU: DOKUMENT IN DIE WISSENSDATENBANK SPIEGELN ---
+      if (resData.pdfUrl) {
+        await supabase.from('wissensdatenbank').insert([{
+          datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.pdf`,
+          firma: unsereFirma || 'Allgemein',
+          kategorie: 'Verträge & Bescheide',
+          inhalt_text: `Automatisch versendetes ${versandArt === 'email' ? 'E-Mail-Schreiben' : 'E-Fax'}. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
+          dokument_url: resData.pdfUrl
+        }]);
       }
 
       if (selectedAkteId) {
