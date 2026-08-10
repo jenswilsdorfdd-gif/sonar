@@ -65,7 +65,8 @@ const Icon = ({ name, size = 18, style }) => {
     mail: <><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>,
     x: <path d="M18 6L6 18M6 6l12 12"/>,
     send: <><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></>,
-    swap: <><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></>
+    swap: <><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></>,
+    globe: <><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>
   };
 
   return (
@@ -86,6 +87,7 @@ export default function Dashboard({ session }) {
   const [isDarkMode, setIsDarkMode] = useState(true) 
   const [laedt, setLaedt] = useState(false)
   const [suchbegriff, setSuchbegriff] = useState('')
+  const [webFetchLoading, setWebFetchLoading] = useState(false)
   
   const [akten, setAkten] = useState([])
   const [uploadingHistId, setUploadingHistId] = useState(null)
@@ -194,6 +196,31 @@ export default function Dashboard({ session }) {
   };
 
   const activeColor = getLogoColor();
+
+  // --- LIVE WEB-FETCHER FÜR URLS / WEBSEITEN ---
+  const handleLiveUrlFetch = async (urlStr) => {
+    if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) return;
+    setWebFetchLoading(true);
+    try {
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(urlStr)}`);
+      const data = await response.json();
+      if (data.contents) {
+        // Bereinige HTML-Tags
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(data.contents, 'text/html');
+        const textContent = doc.body.innerText || doc.body.textContent || '';
+        const cleanText = textContent.replace(/\s+/g, ' ').trim().substring(0, 3000);
+
+        setBriefEntwurf(`--- LIVE WEBSEITEN-INHALT VON ${urlStr} ---\n\n${cleanText}`);
+        setActiveTab('akten');
+        alert(`✅ Inhalte von ${urlStr} erfolgreich aus dem Netz geladen und im Schreibfenster eingefügt!`);
+      }
+    } catch (e) {
+      console.error("Fehler beim Abrufen der URL:", e);
+      alert("❌ Fehler beim Abrufen der URL aus dem Netz.");
+    }
+    setWebFetchLoading(false);
+  };
 
   useEffect(() => {
     const styleId = 'sonar-global-styles';
@@ -319,9 +346,14 @@ export default function Dashboard({ session }) {
   // PARSEN UND DETAILLIERTER FELD-VERGLEICH BEIM MAGIC IMPORT
   const handleJsonImport = (e) => {
     setActiveTab('akten')
-    const val = e.target.value
+    const val = e.target.value.trim()
     setJsonImport(val)
     
+    if (val.startsWith('http://') || val.startsWith('https://')) {
+      handleLiveUrlFetch(val);
+      return;
+    }
+
     try {
       const obj = JSON.parse(val)
 
@@ -611,6 +643,18 @@ export default function Dashboard({ session }) {
       const newUrl = linkData.publicUrl;
       const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
       const { error } = await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
+      
+      // --- NEU FÜR SCHRITT 4: AUTO-SYNC IN WISSENSDATENBANK ---
+      const matchMandant = mandanten.find(x => x.id === mId);
+      const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
+      await supabase.from('wissensdatenbank').insert([{
+        datei_name: file.name,
+        firma: fName,
+        kategorie: 'Allgemeines Archiv',
+        inhalt_text: `Nachträgliches Stammdokument. Firma: ${fName}`,
+        dokument_url: newUrl
+      }]);
+
       if (!error) ladeDaten();
     }
     setUploadingMandantId(null);
@@ -664,6 +708,15 @@ export default function Dashboard({ session }) {
         if (!uploadError) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
+
+          // --- NEU FÜR SCHRITT 4: AUTO-SYNC IN WISSENSDATENBANK ---
+          await supabase.from('wissensdatenbank').insert([{
+            datei_name: f.name,
+            firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
+            kategorie: 'Verträge & Bescheide',
+            inhalt_text: `Dokument hochgeladen via Akten-Cockpit. Thema: ${thema || 'Ohne Thema'}`,
+            dokument_url: linkData.publicUrl
+          }]);
         }
       }
     }
@@ -823,6 +876,15 @@ export default function Dashboard({ session }) {
         if (!uploadError) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
+
+          // --- NEU FÜR SCHRITT 4: AUTO-SYNC IN WISSENSDATENBANK ---
+          await supabase.from('wissensdatenbank').insert([{
+            datei_name: f.name,
+            firma: m_firmenname || 'Allgemein',
+            kategorie: 'Allgemeines Archiv',
+            inhalt_text: `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`,
+            dokument_url: linkData.publicUrl
+          }]);
         }
       }
     }
@@ -1102,11 +1164,18 @@ export default function Dashboard({ session }) {
           <Icon name="search" size={20} style={{ color: activeColor, transition: 'color 0.3s ease' }} />
           <input 
             type="text" 
-            placeholder="Erweiterte Volltextsuche (Behörde, Aktenzeichen, Thema, Firma, Brieftext...)" 
+            placeholder="Erweiterte Volltextsuche oder URL eingeben (z.B. https://finanzamt.de...)" 
             value={suchbegriff}
-            onChange={(e) => setSuchbegriff(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSuchbegriff(val);
+              if (val.startsWith('http://') || val.startsWith('https://')) {
+                handleLiveUrlFetch(val);
+              }
+            }}
             style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
           />
+          {webFetchLoading && <span style={{ fontSize: '12px', color: activeColor }}>🌐 Lade Webseite...</span>}
           {suchbegriff && (
             <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
               <Icon name="x" size={18} />
@@ -1122,7 +1191,7 @@ export default function Dashboard({ session }) {
             </label>
             <textarea 
               value={jsonImport} onChange={handleJsonImport} 
-              placeholder='{"typ": "Eingang", "aktenzeichen": "...", "thema": "..."}'
+              placeholder='JSON einfügen ODER Webseiten-URL eingeben (z.B. https://...)'
               style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${activeColor}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} 
             />
           </div>
