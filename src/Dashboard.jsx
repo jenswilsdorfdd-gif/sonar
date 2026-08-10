@@ -122,6 +122,9 @@ export default function Dashboard({ session }) {
 
   // --- SIGNATUR STATE ---
   const [signaturPreview, setSignaturPreview] = useState(localStorage.getItem('sonar_signature') || null)
+  
+  // --- NEU: STATE FÜR DAS GEMERKTE VERSAND-PDF (VOR DEM ABHEFTEN) ---
+  const [versandPdfUrl, setVersandPdfUrl] = useState(null)
 
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
   const [zeigeErledigte, setZeigeErledigte] = useState(false)
@@ -355,7 +358,7 @@ export default function Dashboard({ session }) {
     });
   };
 
-  // --- NEU: ZU BESTEHENDER AKTE WECHSELN UND DATEN AUTO-LADEN ---
+  // --- ZU BESTEHENDER AKTE WECHSELN UND DATEN AUTO-LADEN ---
   const handleAkteAuswahl = (e) => {
     const val = e.target.value;
     setSelectedAkteId(val);
@@ -417,7 +420,6 @@ export default function Dashboard({ session }) {
         if (match) {
           setModus('bestehend');
           setSelectedAkteId(match.id);
-          // --- NEU: FAXNUMMER AUS CRM LADEN WENN BEI JSON FEHLT ---
           if (!obj.gegner_fax && match.gegner_name) {
              const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(match.gegner_name));
              if (crmGegner && crmGegner.fax) {
@@ -426,6 +428,12 @@ export default function Dashboard({ session }) {
           }
         } else {
           setModus('neu');
+          if (obj.kontakt) {
+             const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(obj.kontakt));
+             if (crmGegner && crmGegner.fax) {
+                setGegnerFax(crmGegner.fax);
+             }
+          }
         }
       } else {
         setModus('neu');
@@ -577,10 +585,8 @@ export default function Dashboard({ session }) {
       const newUrl = linkData.publicUrl;
       const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
       
-      // 1. Akten-Historie aktualisieren
       const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
       
-      // 2. Zeitgleich automatisch in die Wissensdatenbank eintragen (inkl. Gegner-Info)
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: akteFirma || 'Allgemein',
@@ -605,7 +611,7 @@ export default function Dashboard({ session }) {
     reader.onloadend = () => {
       const base64data = reader.result;
       setSignaturPreview(base64data);
-      localStorage.setItem('sonar_signature', base64data); // Speichert die Unterschrift dauerhaft im Browser
+      localStorage.setItem('sonar_signature', base64data);
     };
     reader.readAsDataURL(file);
   };
@@ -686,6 +692,7 @@ export default function Dashboard({ session }) {
     printWindow.document.close();
   };
 
+  // --- VERSAND WIRD GESTARTET, ABER NOCH NICHT IN DIE AKTE GESCHRIEBEN (WEG B) ---
   const handleResendVersand = async (versandArt) => {
     if (!briefEntwurf || briefEntwurf.trim() === '') {
       alert("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!");
@@ -721,7 +728,7 @@ export default function Dashboard({ session }) {
           to: targetAddress,
           subject: betreff,
           text: briefEntwurf,
-          signatureUrl: SIGNATUR_URL, // DIE FESTE SIGNATUR-URL AN DIE API ÜBERGEBEN
+          signatureUrl: SIGNATUR_URL,
           unsereFirma: unsereFirma || 'Jens Wilsdorf',
           mandantProfil: mandantProfil,
           gegnerName: gegnerName,
@@ -736,32 +743,16 @@ export default function Dashboard({ session }) {
         throw new Error(resData.error || resData.message || JSON.stringify(resData));
       }
 
-      // --- DOKUMENT IN DIE WISSENSDATENBANK SPIEGELN ---
+      // --- PDF-URL merken und Felder vorbereiten, ABER NOCH NICHT SPEICHERN ---
       if (resData.pdfUrl) {
-        await supabase.from('wissensdatenbank').insert([{
-          datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.pdf`,
-          firma: unsereFirma || 'Allgemein',
-          kategorie: 'Verträge & Bescheide',
-          inhalt_text: `Automatisch versendetes ${versandArt === 'email' ? 'E-Mail-Schreiben' : 'E-Fax'}. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
-          dokument_url: resData.pdfUrl
-        }]);
+         setVersandPdfUrl(resData.pdfUrl);
       }
+      
+      setAktion(`${versandArt === 'email' ? 'E-Mail' : 'E-Fax (Simple-Fax)'} versendet an ${targetAddress}`);
+      setKanal(versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)');
+      setTyp('Ausgang');
 
-      if (selectedAkteId) {
-        await supabase.from('akten_historie').insert([{
-          akte_id: selectedAkteId,
-          user_id: session.user.id,
-          typ: 'Ausgang',
-          datum: new Date().toISOString().split('T')[0],
-          aktion: `${versandArt === 'email' ? 'E-Mail' : 'E-Fax (Simple-Fax)'} versendet an ${targetAddress}`,
-          kanal: versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)',
-          brief_entwurf: briefEntwurf,
-          dokument_url: resData.pdfUrl || null // PDF-URL aus der Edge Function wird hier gespeichert
-        }]);
-        ladeDaten();
-      }
-
-      alert(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich über Resend versendet an:\n${targetAddress}`);
+      alert(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet!\n\nDas PDF wurde generiert. Klicke jetzt noch unten auf "+ In Akte abheften", um den Vorgang endgültig in der Akte zu speichern.`);
 
     } catch (e) {
       console.error("Versandfehler:", e);
@@ -783,7 +774,6 @@ export default function Dashboard({ session }) {
       const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
       const { error } = await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
       
-      // --- AUTO-SYNC IN WISSENSDATENBANK ---
       const matchMandant = mandanten.find(x => x.id === mId);
       const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
       await supabase.from('wissensdatenbank').insert([{
@@ -816,6 +806,7 @@ export default function Dashboard({ session }) {
     }
   };
 
+  // --- HIER WIRD ABGEHEFTET (ZUGLEICH WIRD DAS GEMERKTE VERSAND-PDF MIT GENOMMEN) ---
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -839,6 +830,8 @@ export default function Dashboard({ session }) {
     }
 
     let alleUrls = [];
+    
+    // 1. Manuell hochgeladene Dateien verarbeiten
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
         const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
@@ -848,7 +841,6 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          // --- AUTO-SYNC IN WISSENSDATENBANK (Inkl. Gegner) ---
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
@@ -859,6 +851,21 @@ export default function Dashboard({ session }) {
         }
       }
     }
+    
+    // 2. Das generierte Versand-PDF hinzufügen, falls vorhanden
+    if (versandPdfUrl) {
+      alleUrls.push(versandPdfUrl);
+      
+      // AUTO-SYNC FÜR DAS VERSAND-PDF IN WISSENSDATENBANK
+      await supabase.from('wissensdatenbank').insert([{
+        datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.pdf`,
+        firma: unsereFirma || 'Allgemein',
+        kategorie: 'Verträge & Bescheide',
+        inhalt_text: `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`,
+        dokument_url: versandPdfUrl
+      }]);
+    }
+
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
     let aktuelleAkteId = selectedAkteId
 
@@ -884,7 +891,6 @@ export default function Dashboard({ session }) {
       }])
 
     if (!histError) {
-      // --- NEU: GEGNER AUTOMATISCH IM CRM ANLEGEN / UPDATEN ---
       if (gegnerName) {
         const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(gegnerName));
         if (!existingGegner) {
@@ -904,6 +910,7 @@ export default function Dashboard({ session }) {
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null);
+      setVersandPdfUrl(null); // GANZ WICHTIG: Zwischenspeicher wieder leeren!
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten()
     }
@@ -1032,7 +1039,6 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          // --- AUTO-SYNC IN WISSENSDATENBANK ---
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: m_firmenname || 'Allgemein',
@@ -1680,7 +1686,7 @@ export default function Dashboard({ session }) {
             {/* SCHREIBTEXT-EDITOR UND VERSAND-BUTTONS */}
             <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
               
-              {/* --- NEU: IMMER SICHTBARE VERSAND-FELDER --- */}
+              {/* IMMER SICHTBARE VERSAND-FELDER (AUCH BEI BESTEHENDEN AKTEN) */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>
                 <div>
                   <label style={{...labelStyle, color: theme.textMain}}>Versand-E-Mail (Gegner)</label>
@@ -1713,6 +1719,14 @@ export default function Dashboard({ session }) {
                 placeholder="Trage hier deinen Brief- oder E-Mail-Text ein..."
                 style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} 
               />
+              
+              {/* --- ERFOLGSMELDUNG NACH DEM VERSAND (PDF WARTET) --- */}
+              {versandPdfUrl && (
+                <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', color: '#10b981', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="check" size={16} /> Versand-PDF generiert & verschickt! Vergiss nicht, unten auf "+ In Akte abheften" zu klicken.
+                </div>
+              )}
+
             </div>
 
             <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '25px' }}>
