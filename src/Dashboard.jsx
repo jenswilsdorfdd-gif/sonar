@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
-// --- NEU: HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) ---
-// Nimmt jetzt optional eine pdfUrl entgegen, damit das Backend die Extraktion übernimmt
+// --- KORRIGIERTE HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) ---
+// Mit robuster Fehlerbehandlung, expliziten Headers & Console-Logging
 const syncToGithub = async (filename, contentText, pdfUrl = null) => {
   try {
-    await supabase.functions.invoke('github-sync', {
-      body: { filename, content: contentText, pdfUrl: pdfUrl }
+    console.log(`[GitHub Sync] Starte Sync für: ${filename}...`);
+    const { data, error } = await supabase.functions.invoke('github-sync', {
+      body: { filename, content: contentText, pdfUrl: pdfUrl },
+      headers: { 'Content-Type': 'application/json' }
     });
+
+    if (error) {
+      console.error("[GitHub Sync] Supabase Invoke Fehler:", error);
+      alert(`⚠️ GitHub Sync Fehler bei ${filename}: ${error.message}`);
+    } else {
+      console.log("[GitHub Sync] Erfolg:", data);
+    }
   } catch (err) {
-    console.error("GitHub Sync Fehler:", err);
+    console.error("[GitHub Sync] Unerwarteter Ausnahme-Fehler:", err);
+    alert(`❌ Sync-Ausnahme bei ${filename}: ${err.message}`);
   }
 };
 
@@ -336,7 +346,7 @@ export default function Dashboard({ session }) {
           setWissenEintraege(prev => [insertedData[0], ...prev]);
         }
 
-        // --- SYNC ZU GITHUB (MIT ÜBERGABE DER PDF-URL FÜR DIE EDGE FUNCTION) ---
+        // --- SYNC ZU GITHUB (MIT AWAIT FÜR KORREKTE TRACEABILITY) ---
         await syncToGithub(`${storagePath}.md`, `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nLink: ${pubUrl}\n\n`, pubUrl);
 
       } catch (err) {
