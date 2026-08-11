@@ -2,37 +2,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
 // --- NEU: HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) ---
-const syncToGithub = async (filename, contentText) => {
+// Nimmt jetzt optional eine pdfUrl entgegen, damit das Backend die Extraktion übernimmt
+const syncToGithub = async (filename, contentText, pdfUrl = null) => {
   try {
     await supabase.functions.invoke('github-sync', {
-      body: { filename, content: contentText }
+      body: { filename, content: contentText, pdfUrl: pdfUrl }
     });
   } catch (err) {
     console.error("GitHub Sync Fehler:", err);
-  }
-};
-
-// --- NEU: HILFSFUNKTION FÜR PDF-TEXTEXTRAKTION ---
-const extractTextFromPDF = async (file) => {
-  if (file.type !== 'application/pdf') return null;
-  try {
-    if (!window.pdfjsLib) {
-      console.warn("PDF.js ist noch nicht geladen.");
-      return null;
-    }
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join(' ');
-      fullText += pageText + '\n';
-    }
-    return fullText.replace(/\s+/g, ' ').trim();
-  } catch (error) {
-    console.error("Fehler beim Extrahieren des PDF-Textes:", error);
-    return null;
   }
 };
 
@@ -233,7 +210,6 @@ export default function Dashboard({ session }) {
     cardItemBg: '#ffffff'
   };
 
-  // DYNAMISCHE LOGO- & ELEMENT-FARBE JE NACH AKTIVEM TAB
   const getLogoColor = () => {
     switch (activeTab) {
       case 'wissen': return theme.wissenAccent;
@@ -245,7 +221,6 @@ export default function Dashboard({ session }) {
 
   const activeColor = getLogoColor();
 
-  // --- LIVE WEB-FETCHER FÜR URLS / WEBSEITEN ---
   const handleLiveUrlFetch = async (urlStr) => {
     if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) return;
     setWebFetchLoading(true);
@@ -253,7 +228,6 @@ export default function Dashboard({ session }) {
       const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(urlStr)}`);
       const data = await response.json();
       if (data.contents) {
-        // Bereinige HTML-Tags
         const parser = new DOMParser();
         const doc = parser.parseFromString(data.contents, 'text/html');
         const textContent = doc.body.innerText || doc.body.textContent || '';
@@ -271,17 +245,6 @@ export default function Dashboard({ session }) {
   };
 
   useEffect(() => {
-    // --- NEU: PDF.js dynamisch laden für den Client-Scanner ---
-    if (!document.getElementById('pdfjs-script')) {
-      const script = document.createElement('script');
-      script.id = 'pdfjs-script';
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
-      script.onload = () => {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-      };
-      document.head.appendChild(script);
-    }
-
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
     if (!styleTag) {
@@ -307,7 +270,6 @@ export default function Dashboard({ session }) {
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
 
-  // STAPEL-SORTIERUNG: Neuestes Dokument ZUERST (DESC)
   const ladeDaten = async () => {
     const { data: aktenData, error: aktenError } = await supabase.from('akten').select(`*, akten_historie (*)`).order('created_at', { ascending: false })
     if (!aktenError && aktenData) {
@@ -332,7 +294,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // BULK IMPORT FÜR KI-WISSENSSPEICHER (INKL. PDF EXTRAKTION)
+  // BULK IMPORT FÜR KI-WISSENSSPEICHER (Backend-Scan)
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -358,15 +320,12 @@ export default function Dashboard({ session }) {
           pubUrl = linkData.publicUrl;
         }
 
-        // --- PDF TEXT SCANNER ---
-        const extractedText = await extractTextFromPDF(file);
-        const limitText = extractedText ? extractedText.substring(0, 15000) : '';
-        const inhaltText = limitText ? `[Volltext]\n${limitText}` : `Dokument: ${file.name}`;
+        const baseInfo = `Dokument: ${file.name}\n(Wird serverseitig via OCR extrahiert)`;
 
         const { data: insertedData, error: insertErr } = await supabase.from('wissensdatenbank').insert([{
           datei_name: file.name,
           firma: bulkFirma || 'Allgemein',
-          inhalt_text: inhaltText,
+          inhalt_text: baseInfo,
           dokument_url: pubUrl
         }]).select();
 
@@ -377,8 +336,8 @@ export default function Dashboard({ session }) {
           setWissenEintraege(prev => [insertedData[0], ...prev]);
         }
 
-        // --- SYNC ZU GITHUB ---
-        await syncToGithub(`${storagePath}.txt`, `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nLink: ${pubUrl}\n\nInhalt/Text:\n${limitText || 'Kein Text extrahiert'}`);
+        // --- SYNC ZU GITHUB (MIT ÜBERGABE DER PDF-URL FÜR DIE EDGE FUNCTION) ---
+        await syncToGithub(`${storagePath}.md`, `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nLink: ${pubUrl}\n\n`, pubUrl);
 
       } catch (err) {
         console.error("Import-Fehler bei File:", file.name, err);
@@ -409,7 +368,6 @@ export default function Dashboard({ session }) {
     });
   };
 
-  // --- ZU BESTEHENDER AKTE WECHSELN UND DATEN AUTO-LADEN ---
   const handleAkteAuswahl = (e) => {
     const val = e.target.value;
     setSelectedAkteId(val);
@@ -438,7 +396,6 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // PARSEN UND DETAILLIERTER FELD-VERGLEICH BEIM MAGIC IMPORT
   const handleJsonImport = (e) => {
     setActiveTab('akten')
     const val = e.target.value.trim()
@@ -596,7 +553,6 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
-  // --- FUNKTION UM DEN STATUS EINER GANZEN AKTE ZU WECHSELN & 10 JAHRE LÖSCHFRIST SETZEN ---
   const toggleAkteStatus = async (akteId, currentStatus) => {
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     const { error } = await supabase.from('akten').update({ status: neuerStatus }).eq('id', akteId);
@@ -604,7 +560,7 @@ export default function Dashboard({ session }) {
     if (!error) {
       if (neuerStatus === 'Erledigt') {
         const d = new Date();
-        d.setFullYear(d.getFullYear() + 10); // 10 Jahre gesetzliche Aufbewahrungsfrist
+        d.setFullYear(d.getFullYear() + 10);
         const wvDatum = d.toISOString().split('T')[0];
 
         await supabase.from('akten_historie').insert([{
@@ -622,7 +578,7 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // --- NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG ---
+  // --- NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG (Backend-Scan) ---
   const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, akteGegner, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -638,21 +594,17 @@ export default function Dashboard({ session }) {
       
       const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
       
-      // --- PDF TEXT SCANNER ---
-      const extractedText = await extractTextFromPDF(file);
-      const limitText = extractedText ? extractedText.substring(0, 15000) : '';
-      const baseInfo = `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'}`;
-      const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+      const baseInfo = `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'} (Backend OCR läuft)`;
 
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: akteFirma || 'Allgemein',
-        inhalt_text: inhaltText,
+        inhalt_text: baseInfo,
         dokument_url: newUrl
       }]);
 
-      // --- SYNC ZU GITHUB ---
-      await syncToGithub(`${dateiName}.txt`, `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}\n\nInhalt:\n${limitText || '-'}`);
+      // --- SYNC ZU GITHUB (MIT PDF URL FÜR EDGE) ---
+      await syncToGithub(`${dateiName}.md`, `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}\n\n`, newUrl);
 
       if (!error) ladeDaten();
     } else {
@@ -662,7 +614,6 @@ export default function Dashboard({ session }) {
     e.target.value = '';
   };
 
-  // --- SIGNATUR UPLOAD & LÖSCHEN ---
   const handleSignaturUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -751,7 +702,6 @@ export default function Dashboard({ session }) {
     printWindow.document.close();
   };
 
-  // --- VERSAND WIRD GESTARTET, ABER NOCH NICHT IN DIE AKTE GESCHRIEBEN (WEG B) ---
   const handleResendVersand = async (versandArt) => {
     if (!briefEntwurf || briefEntwurf.trim() === '') {
       alert("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!");
@@ -802,7 +752,6 @@ export default function Dashboard({ session }) {
         throw new Error(resData.error || resData.message || JSON.stringify(resData));
       }
 
-      // --- PDF-URL merken ---
       if (resData.pdfUrl) {
          setVersandPdfUrl(resData.pdfUrl);
       }
@@ -836,21 +785,17 @@ export default function Dashboard({ session }) {
       const matchMandant = mandanten.find(x => x.id === mId);
       const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
       
-      // --- PDF TEXT SCANNER ---
-      const extractedText = await extractTextFromPDF(file);
-      const limitText = extractedText ? extractedText.substring(0, 15000) : '';
-      const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName}`;
-      const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+      const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName} (Backend OCR läuft)`;
 
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: fName,
-        inhalt_text: inhaltText,
+        inhalt_text: baseInfo,
         dokument_url: newUrl
       }]);
 
       // --- SYNC ZU GITHUB ---
-      await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}\n\nInhalt:\n${limitText || '-'}`);
+      await syncToGithub(`${dateiName}.md`, `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}\n\n`, newUrl);
 
       if (!error) ladeDaten();
     }
@@ -899,7 +844,7 @@ export default function Dashboard({ session }) {
 
     let alleUrls = [];
     
-    // 1. Manuell hochgeladene Dateien verarbeiten (INKL. PDF SCANNER)
+    // 1. Manuell hochgeladene Dateien verarbeiten (Backend Scan)
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
         const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
@@ -909,20 +854,17 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          const extractedText = await extractTextFromPDF(f);
-          const limitText = extractedText ? extractedText.substring(0, 15000) : '';
-          const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`;
-          const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+          const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'} (Backend OCR läuft)`;
 
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
-            inhalt_text: inhaltText,
+            inhalt_text: baseInfo,
             dokument_url: linkData.publicUrl
           }]);
 
-          // --- SYNC ZU GITHUB ---
-          await syncToGithub(`${dateiName}.txt`, `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}\n\nInhalt:\n${limitText || '-'}`);
+          // --- SYNC ZU GITHUB (MIT PDF URL) ---
+          await syncToGithub(`${dateiName}.md`, `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}\n\n`, linkData.publicUrl);
         }
       }
     }
@@ -931,7 +873,6 @@ export default function Dashboard({ session }) {
     if (versandPdfUrl) {
       alleUrls.push(versandPdfUrl);
       
-      // AUTO-SYNC FÜR DAS VERSAND-PDF IN WISSENSDATENBANK
       await supabase.from('wissensdatenbank').insert([{
         datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.pdf`,
         firma: unsereFirma || 'Allgemein',
@@ -939,13 +880,11 @@ export default function Dashboard({ session }) {
         dokument_url: versandPdfUrl
       }]);
 
-      // --- SYNC ZU GITHUB ---
       const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
-      await syncToGithub(`${ausgangName}.txt`, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`);
+      await syncToGithub(`${ausgangName}.md`, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, versandPdfUrl);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      // --- SYNC ZU GITHUB (Nur Text, ohne PDF) ---
       const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
-      await syncToGithub(`${entwurfName}.txt`, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`);
+      await syncToGithub(`${entwurfName}.md`, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`);
     }
 
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
@@ -1121,20 +1060,17 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          const extractedText = await extractTextFromPDF(f);
-          const limitText = extractedText ? extractedText.substring(0, 15000) : '';
-          const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`;
-          const inhaltText = limitText ? `${baseInfo}\n\n[Volltext]\n${limitText}` : baseInfo;
+          const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname} (Backend OCR läuft)`;
 
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: m_firmenname || 'Allgemein',
-            inhalt_text: inhaltText,
+            inhalt_text: baseInfo,
             dokument_url: linkData.publicUrl
           }]);
 
-          // --- SYNC ZU GITHUB ---
-          await syncToGithub(`${dateiName}.txt`, `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}\n\nInhalt:\n${limitText || '-'}`);
+          // --- SYNC ZU GITHUB (MIT PDF URL) ---
+          await syncToGithub(`${dateiName}.md`, `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}\n\n`, linkData.publicUrl);
         }
       }
     }
@@ -1265,7 +1201,6 @@ export default function Dashboard({ session }) {
     }, 150);
   };
 
-  // ALARM LOGIK
   const fristenWarnungen = [];
 
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
@@ -1320,7 +1255,6 @@ export default function Dashboard({ session }) {
 
   fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
 
-  // USt-RADAR
   const ustRadar = [];
   const heuteDate = new Date();
   const actYear = heuteDate.getFullYear();
@@ -1384,7 +1318,6 @@ export default function Dashboard({ session }) {
     return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
   });
 
-  // --- FILTER-LOGIK FÜR DEN KI-WISSENSSPEICHER (Kategorie entfernt) ---
   const gefilterteWissenEintraege = wissenEintraege.filter(w => {
     const matchSuche = !wissenSuchbegriff.trim() || 
       (w.datei_name || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) || 
