@@ -26,3 +26,4 @@ jobs:
 
       - name: Deploy github-sync Edge Function
         run: supabase functions deploy github-sync --project-ref $PROJECT_ID
+        // Pipeline Test
