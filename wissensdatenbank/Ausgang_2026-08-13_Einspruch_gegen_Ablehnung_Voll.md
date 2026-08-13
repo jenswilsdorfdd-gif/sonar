@@ -1,78 +1,72 @@
 Versendetes Dokument
-Thema: Einspruch gegen Ablehnung Vollstreckungsaufschub, Antrag auf Vollstreckungsstopp & Erlass Säumniszuschläge (§ 227 AO)
+Thema: Einspruch gegen Ablehnung Vollstreckungsaufschub vom 05.08.2026, Aufrechterhaltung Einsprüche (Schreiben v. 04.08.2026) & Antrag auf Erlass der Säumniszuschläge (7.371,50 €) gemäß § 227 AO
 Gegner: Finanzamt Dresden-Süd
-Link: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/ausgang_1786622119338_Telefax.pdf
+Link: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/ausgang_1786625405135_Telefax.pdf
 
 Dokumententext:
+SmartBizz Services UG (haftungsbeschränkt)
+Wittenberger Str. 78
+01309 Dresden
+
+
 Finanzamt Dresden-Süd
 Vollstreckungsstelle – Herrn Moritz Johne
 Rabenerstraße 1
 01069 Dresden
 
 Telefax an: 0351 4691-9999
-E-Mail: poststelle@fa-dresden-sued.smf.sachsen.de
-
-
-Wilsdorf & Sommer GmbH
-Voglerstr. 28
-01277 Dresden
-
 
 Dresden, 13.08.2026
 
-
-Steuernummer: 203/122/07169 (Aktenzeichen: EH3.1 VAA)
-Ihr Schreiben vom 05.08.2026: Ablehnung des Antrags auf Vollstreckungsaufschub
+Steuernummer: 203/118/11534 (Aktenzeichen: EH3 / 24-715-2703)
+Ihr Schreiben vom 05.08.2026: Ablehnung des Antrags auf Vollstreckungsaufschub (17.263,55 €)
+Ihre Stellungnahme vom 04.08.2026: Einspruch gegen die Ablehnung des Erlasses von Säumniszuschlägen
 Sachbearbeitung: Herr Moritz Johne (Tel.: 0351 4691-4630)
 
-
-EINSPRUCH GEGEN DIE ABLEHNUNG DES VOLLSTRECKUNGSAUFSCHUBS VOM 05.08.2026, ANTRAG AUF EINSTWEILIGE EINSTELLUNG UND BESCHRÄNKUNG DER VOLLSTRECKUNG GEMÄSS § 257 ABS. 1 NR. 2 I. V. M. § 258 AO SOWIE FÖRMLICHER ANTRAG AUF SACHLICHEN ERLASS UND UMBUCHUNG SÄMTLICHER SÄUMNISZUSCHLÄGE GEMÄSS § 227 AO
-
+KONSOLIDIERTER GEGENSCHRIFTSATZ:
+1. EINSPRUCH GEGEN DIE ABLEHNUNG DES VOLLSTRECKUNGSAUFSCHUBS VOM 05.08.2026
+2. VOLLUMFÄNGLICHE AUFRECHTERHALTUNG SÄMTLICHER EINSPRÜCHE UND ERLASSANTRÄGE (BEZUG: SCHREIBEN VOM 04.08.2026)
+3. ANTRAG AUF ANPASSUNG DER VOLLSTRECKUNG AUF DIE REALE ECHTSCHULD SOWIE ANTRAG AUF SACHLICHEN ERLASS DER SÄUMNISZUSCHLÄGE (7.371,50 €) GEMÄSS § 227 AO
+4. ANTRAG AUF EINSTWEILIGE EINSTELLUNG UND BESCHRÄNKUNG DER VOLLSTRECKUNG GEMÄSS § 257 ABS. 1 NR. 2 I. V. M. § 258 AO
 
 Sehr geehrter Herr Johne,
 
-in umrubrizierter steuerlicher Angelegenheit der Wilsdorf & Sommer GmbH, vertreten durch den Geschäftsführer Herrn Jens Wilsdorf, nehmen wir Bezug auf Ihre Ablehnungsentscheidung vom 05.08.2026, zugegangen am 08.08.2026.
+in umrubrizierter steuerlicher Angelegenheit der SmartBizz Services UG (haftungsbeschränkt), vertreten durch den Geschäftsführer Herrn Jens Wilsdorf, nehmen wir Bezug auf Ihre beiden Schreiben vom 04.08.2026 und 05.08.2026.
 
-Gegen diesen Bescheid legen wir hiermit form- und fristgerecht
+Gegen die Ablehnung des Antrags auf Vollstreckungsaufschub vom 05.08.2026 legen wir hiermit form- und fristgerecht EINSPRUCH ein.
 
-EINSPRUCH
-
-ein.
-
-Gleichzeitig beantragen wir gemäß § 257 Abs. 1 Nr. 2 AO i. V. m. § 258 AO die unverzügliche und vollständige Einstellung jeglicher Zwangsvollstreckungsmaßnahmen sowie den Erlass sämtlicher von Ihnen geltend gemachter Säumniszuschläge in Höhe von 3.475,50 € gemäß § 227 AO aus sachlichen Billigkeitsgründen.
+Bezüglich Ihrer Stellungnahme vom 04.08.2026 erklären wir unmissverständlich, dass sämtliche Einsprüche gegen die Verspätungszuschläge sowie die Anträge auf Erlass der Säumniszuschläge vollumfänglich und vollstreckungshemmend aufrechterhalten werden.
 
 BEGRÜNDUNG:
 
-Ihre Ablehnungsentscheidung vom 05.08.2026 leidet an einem eklatanten Ermessensnichtgebrauch und einer fehlerhaften Sachverhaltserfassung (§ 102 AO). Sie stützen Ihre Ablehnung auf pauschale Textbausteine zum Insolvenzrisiko und behaupten verfehlt, Einwendungen gegen zu vollstreckende Verwaltungsakte könnten nicht im Vollstreckungsverfahren geltend gemacht werden (§ 256 AO).
-
-Dabei verkennen Sie völlig, dass hier nicht Steuerfestsetzungen im Vollstreckungsverfahren angefochten werden, sondern das materielle Erlöschen der Ansprüche und die rechtswidrige Asymmetrie des Steuerkontos gemäß § 257 Abs. 1 Nr. 2 AO und § 227 AO geltend gemacht werden.
+Ihre Gesamtabrechnung und Forderungsaufstellung über 17.263,55 € leidet an eklatanten Ermessensfehlern (§ 102 AO) sowie einer fehlerhaften Sachverhaltserfassung. Sie fordern einen Betrag ein, der zu 7.371,50 € aus rein fiktiven Säumniszuschlägen besteht, die auf rückwirkend entfallenen Schätzungen aufgebucht wurden.
 
 Im Einzelnen:
 
-1. Materielles Erlöschen und Gegenstandslosigkeit der Hauptforderungen (2.989,49 €):
-Die von Ihnen in der Forderungsaufstellung vom 05.08.2026 aufgeführten Vorauszahlungssolls und Reststeuern (insbes. USt Dez 2024 sowie Verspätungszuschläge) basierten auf Schätzungen, die ursächlich darauf beruhten, dass die Steuererklärungen der Streitjahre erst im 1. Quartal 2026 nachgereicht werden konnten.
+1. Reale Echtschuld vs. Fiktive Schätzungsüberhang-Solls:
+In Ihrer Forderungsaufstellung vom 05.08.2026 führen Sie Hauptforderungen von 9.892,05 € an. Dabei ignorieren Sie die Rechtswirkung der Veranlagung der im 1. Quartal 2026 nachgereichten Jahressteuererklärungen 2023 bis 2025:
+* Für die Körperschaftsteuer und den Gewerbesteuermessbetrag 2023, 2024 und 2025 beträgt die festgesetzte Steuer ausnahmslos 0,00 €.
+* Für die Umsatzsteuer der Jahre 2023, 2024 und 2025 beläuft sich die reale Gesamtjahressteuerlast auf kumuliert nur 11.849,62 € (2023: 4.961,00 €; 2024: 3.815,01 €; 2025: 3.073,61 €).
+* Abzüglich der im Steuerkonto nachgewiesenen Tilgungen und Zahlungen (4.800,85 €) beträgt der tatsächliche Stamm-Rückstand an echter Hauptsteuer für alle Jahre zusammen lediglich 7.048,77 €.
 
-Mit Einreichung und Veranlagung der vollständigen ELSTER-Jahressteuererklärungen 2022 bis 2025 sind sämtliche Schätzgrundlagen rückwirkend entfallen:
-* Für die Umsatzsteuer 2024 ergibt sich nach Gegenrechnung aller geleisteten Vorauszahlungen (9.946,00 €) ein Erstattungsanspruch zugunsten unserer Mandantin in Höhe von -5.034,88 €.
-* Für die Körperschaftsteuer 2022, 2023, 2024 und 2025 beläuft sich die Steuerfestsetzung ausnahmslos auf 0,00 €.
-* Für die Gewerbesteuer 2022, 2023, 2024 und 2025 beläuft sich der Messbetrag ebenfalls auf 0,00 €.
+Eine Zwangsvollstreckung wegen fiktiver Schätzungs-Differenzen über 17.263,55 € durchzuführen, verstößt eklatant gegen § 257 Abs. 1 Nr. 2 AO sowie den Grundsatz der Verhältnismäßigkeit (§ 258 AO).
 
-Das Finanzamt Dresden-Süd verwaltet in Wahrheit keine Rückstände der Steuerpflichtigen, sondern ein bereinigtes Reinguthaben unserer Mandantin von netto über 11.800,00 €. Vollstreckungsmaßnahmen wegen angeblicher Rückstände durchzuführen, während die Finanzkasse gleichzeitig fünfstellige Erstattungsbeträge einbehält, stellt eine ermessensfehlerhafte, rechtswidrige und unbillige Härte dar (§ 258 AO).
+2. Zwingender Erlass der Säumniszuschläge (7.371,50 €) gemäß § 227 AO:
+Ihre Rechtsauffassung im Schreiben vom 04.08.2026, dass Säumniszuschläge nach § 240 Abs. 1 Satz 4 AO trotz nachträglicher Steuerherabsetzung unberührt blieben, stellt eine verfehlte und unvollständige Würdigung der Höchstrichterlichen Rechtsprechung dar.
 
-2. Zwingender Erlass der Säumniszuschläge (3.475,50 €) gemäß § 227 AO:
-Ihre Geltendmachung von Säumniszuschlägen in Höhe von 3.475,50 € ist rechtswidrig. Nach der gefestigten Höchstrichterlichen Rechtsprechung des Bundesfinanzhofs (u. a. BFH-Urteil vom 24.04.2014, V R 52/13; BFH-Urteil vom 20.05.2010, V R 42/08) ist die Einbehaltung oder Verwirklichung von Säumniszuschlägen auf Vorauszahlungs- oder Schätzsolls sachlich unbillig (§ 227 AO), wenn sich bei der Veranlagung der im Jahr 2026 nachgereichten Jahreserklärungen ergibt, dass die Steuerschuld real 0,00 € betrug oder ein Erstattungsanspruch besteht.
+Der BFH stellt in ständiger Praxis klar (u. a. BFH-Urteil vom 24.04.2014, V R 52/13 sowie BFH-Urteil vom 20.05.2010, V R 42/08), dass Säumniszuschläge vorrangig den Zweck verfolgen, einen gezogenen Zins- und Liquiditätsvorteil des Steuerpflichtigen abzuschöpfen.
 
-Da dem Fiskus im Gesamtergebnis zu keinem Zeitpunkt ein Zins- oder Liquiditätsnachteil entstanden ist, dient das Festhalten an Säumniszuschlägen rein repressiven Zwecken. Das Ermessen der Finanzbehörde verdichtet sich dahingehend, sämtliche Säumniszuschläge gemäß § 227 AO erlassweise zu stornieren.
+Da die tatsächliche Jahressteuerschuld der Streitjahre um ein Vielfaches unter den vorläufigen Schätzungen lag, hat die Steuerpflichtige zu keinem Zeitpunkt einen Liquiditätsvorteil genossen. Dem Fiskus ist im Gesamtergebnis kein Zins- oder Vermögensnachteil entstanden. Die Einbehaltung von Säumniszuschlägen in Höhe von 7.371,50 € auf Steuern, die materiell-rechtlich nie bestanden haben, stellt eine sachliche Unbilligkeit (§ 227 AO) dar. Das Behördenermessen verdichtet sich zu einer vollumfänglichen Stornierung nach § 227 AO.
 
-3. Antrag auf sofortigen Vollstreckungsstopp (§ 257, § 258 AO):
-Wir fordern Sie auf, die Zwangsvollstreckung wegen der im Schreiben vom 05.08.2026 genannten Beträge unverzüglich gemäß § 257 Abs. 1 Nr. 2 AO einzustellen und etwaige Vollstreckungsmaßnahmen (bzw. Kontopfändungen) umgehend aufzuheben.
+3. Antrag auf Vollstreckungsstopp (§ 257, § 258 AO):
+Wir fordern Sie auf, die Zwangsvollstreckung gemäß § 257 Abs. 1 Nr. 2 AO unverzüglich einzustellen und Kontopfändungen aufzuheben.
 
-Sollten Sie diesen Erlass- und Einstellungsanträgen nicht bis zum 25.08.2026 entsprechen, werden wir ohne weitere Vorankündigung den gerichtlichen Rechtsschutz beim Sächsischen Finanzgericht (§ 69 Abs. 3 FGO) in Anspruch nehmen und die Aussetzung der Vollziehung gerichtlich durchsetzen.
+Wir bitten um förmliche Bescheidung unserer Einsprüche und Anträge im Vorverfahren bis spätestens 25.08.2026. Sollte bis dahin keine Aussetzung der Vollziehung gewährt werden, werden wir ohne weitere Vorankündigung den gerichtlichen Eilrechtsschutz beim Sächsischen Finanzgericht (§ 69 Abs. 3 FGO) in Anspruch nehmen.
 
 
 Mit freundlichen Grüßen
 
-Wilsdorf & Sommer GmbH
+SmartBizz Services UG (haftungsbeschränkt)
 Jens Wilsdorf (Geschäftsführer)
 
 --- EXTRAHIERTER INHALT (KI-MARKDOWN VIA LLAMAPARSE) ---
@@ -82,7 +76,7 @@ TELEFAX / FAX-ÜBERMITTLUNG
 
 ABSENDER:
 
-Firma: Wilsdorf &#x26; Sommer GmbH
+Firma: SmartBizz Services UG (haftungsbeschränkt)
 
 Adresse: Wittenberger Str. 78, 01309 Dresden
 
@@ -100,9 +94,15 @@ DETAILS ZUR ÜBERMITTLUNG:
 
 Datum: 13.8.2026
 
-Betreff: Aktenzeichen: 3203/122/07169-EH3.1 VAA — Einspruch gegen Ablehnung Vollstreckungsaufschub, Antrag auf Vollstreckungsstopp &#x26; Erlass Säumniszuschläge (§ 227 AO)
+Betreff: Aktenzeichen: 203/118/11534 EH3 / 24-715-2703 — Einspruch gegen Ablehnung Vollstreckungsaufschub vom 05.08.2026, Aufrechterhaltung Einsprüche (Schreiben v. 04.08.2026) &#x26; Antrag auf Erlass der Säumniszuschläge (7.371,50 €) gemäß § 227 AO
 
 MITTEILUNG:
+
+SmartBizz Services UG (haftungsbeschränkt)
+
+Wittenberger Str. 78
+
+01309 Dresden
 
 Finanzamt Dresden-Süd
 
@@ -114,92 +114,90 @@ Rabenerstraße 1
 
 Telefax an: 0351 4691-9999
 
-E-Mail: poststelle@fa-dresden-sued.smf.sachsen.de
-
-Wilsdorf &#x26; Sommer GmbH
-
-Voglerstr. 28
-
-01277 Dresden
-
 Dresden, 13.08.2026
 
-Steuernummer: 203/122/07169 (Aktenzeichen: EH3.1 VAA)
+Steuernummer: 203/118/11534 (Aktenzeichen: EH3 / 24-715-2703)
 
-Ihr Schreiben vom 05.08.2026: Ablehnung des Antrags auf Vollstreckungsaufschub
+Ihr Schreiben vom 05.08.2026: Ablehnung des Antrags auf Vollstreckungsaufschub (17.263,55 €)
+
+Ihre Stellungnahme vom 04.08.2026: Einspruch gegen die Ablehnung des Erlasses von Säumniszuschlägen
 
 Sachbearbeitung: Herr Moritz Johne (Tel.: 0351 4691-4630)
 
-# EINSPRUCH GEGEN DIE ABLEHNUNG DES VOLLSTRECKUNGSAUFSCHUBS VOM 05.08.2026, ANTRAG AUF EINSTWEILIGE EINSTELLUNG UND BESCHRÄNKUNG DER VOLLSTRECKUNG GEMÄSS § 257 ABS. 1 NR. 2 I. V. M. § 258 AO SOWIE FÖRMLICHER ANTRAG AUF SACHLICHEN ERLASS UND UMBUCHUNG SÄMTLICHER SÄUMNISZUSCHLÄGE GEMÄSS § 227 AO
+# KONSOLIDIERTER GEGENSCHRIFTSATZ:
+
+1. EINSPRUCH GEGEN DIE ABLEHNUNG DES VOLLSTRECKUNGSAUFSCHUBS VOM 05.08.2026
+2. VOLLUMFÄNGLICHE AUFRECHTERHALTUNG SÄMTLICHER EINSPRÜCHE UND ERLASSANTRÄGE (BEZUG: SCHREIBEN VOM 04.08.2026)
+3. ANTRAG AUF ANPASSUNG DER VOLLSTRECKUNG AUF DIE REALE ECHTSCHULD SOWIE ANTRAG AUF SACHLICHEN ERLASS DER SÄUMNISZUSCHLÄGE (7.371,50 €) GEMÄSS § 227 AO
+4. ANTRAG AUF EINSTWEILIGE EINSTELLUNG UND BESCHRÄNKUNG DER VOLLSTRECKUNG GEMÄSS § 257 ABS. 1 NR. 2 I. V. M. § 258 AO
 
 Sehr geehrter Herr Johne,
 
-in umrubrizierter steuerlicher Angelegenheit der Wilsdorf &#x26; Sommer GmbH, vertreten durch den Geschäftsführer Herrn Jens Wilsdorf, nehmen wir Bezug auf Ihre Ablehnungsentscheidung vom 05.08.2026, zugegangen am 08.08.2026.
+in umrubrizierter steuerlicher Angelegenheit der SmartBizz Services UG (haftungsbeschränkt), vertreten durch den Geschäftsführer Herrn Jens Wilsdorf, nehmen wir Bezug auf Ihre beiden Schreiben vom 04.08.2026 und 05.08.2026.
 
-Gegen diesen Bescheid legen wir hiermit form- und fristgerecht
+Gegen die Ablehnung des Antrags auf Vollstreckungsaufschub vom 05.08.2026 legen wir hiermit form- und fristgerecht EINSPRUCH ein.
 
 
 
 ---
 
 TELEFAX / FAX-ÜBERMITTLUNG (Fortsetzung)
-# Betreff: Aktenzeichen: 3203/122/07169-EH3.1 VAA
+# Betreff: Aktenzeichen: 203/118/11534 EH3 / 24-715-2703
 
-# Einspruch gegen Ablehnung Vollstreckungsaufschub, Antrag auf Vollstreckungsstopp &#x26; Erlass Säumniszuschläge (§ 227 AO)
+# Einspruch gegen Ablehnung Vollstreckungsaufschub vom 05.08.2026, Aufrechterhaltung Einsprüche (Schreiben v. 04.08.2026) &#x26; Antrag auf Erlass der Säumniszuschläge (7.371,50 €) gemäß § 227 AO
 
 Empfänger: Finanzamt Dresden-Süd ∣ Datum: 13.8.2026
 
-# EINSPRUCH
-
-Gleichzeitig beantragen wir gemäß § 257 Abs. 1 Nr. 2 AO i. V. m. § 258 AO die unverzügliche und vollständige Einstellung jeglicher Zwangsvollstreckungsmaßnahmen sowie den Erlass sämtlicher von Ihnen geltend gemachter Säumniszuschläge in Höhe von 3.475,50 € gemäß § 227 AO aus sachlichen Billigkeitsgründen.
+Bezüglich Ihrer Stellungnahme vom 04.08.2026 erklären wir unmissverständlich, dass sämtliche Einsprüche gegen die Verspätungszuschläge sowie die Anträge auf Erlass der Säumniszuschläge vollumfänglich und vollstreckungshemmend aufrechterhalten werden.
 
 # BEGRÜNDUNG:
 
-Ihre Ablehnungsentscheidung vom 05.08.2026 leidet an einem eklatanten Ermessensnichtgebrauch und einer fehlerhaften Sachverhaltserfassung (§ 102 AO). Sie stützen Ihre Ablehnung auf pauschale Textbausteine zum Insolvenzrisiko und behaupten verfehlt, Einwendungen gegen zu vollstreckende Verwaltungsakte könnten nicht im Vollstreckungsverfahren geltend gemacht werden (§ 256 AO).
+Ihre Gesamtabrechnung und Forderungsaufstellung über 17.263,55 € leidet an eklatanten Ermessensfehlern (§ 102 AO) sowie einer fehlerhaften Sachverhaltserfassung. Sie fordern einen Betrag ein, der zu 7.371,50 € aus rein fiktiven Säumniszuschlägen besteht, die auf rückwirkend entfallenen Schätzungen aufgebucht wurden.
 
-Dabei verkennen Sie völlig, dass hier nicht Steuerfestsetzungen im Vollstreckungsverfahren angefochten werden, sondern das materielle Erlöschen der Ansprüche und die rechtswidrige Asymmetrie des Steuerkontos gemäß § 257 Abs. 1 Nr. 2 AO und § 227 AO geltend gemacht werden.
+# 1. Reale Echtschuld vs. Fiktive Schätzungsüberhang-Solls:
 
-# Im Einzelnen:
+In Ihrer Forderungsaufstellung vom 05.08.2026 führen Sie Hauptforderungen von 9.892,05 € an. Dabei ignorieren Sie die Rechtswirkung der Veranlagung der im 1. Quartal 2026 nachgereichten Jahressteuererklärungen 2023 bis 2025:
 
-# 1. Materielles Erlöschen und Gegenstandslosigkeit der Hauptforderungen (2.989,49 €):
+- Für die Körperschaftsteuer und den Gewerbesteuermessbetrag 2023, 2024 und 2025 beträgt die festgesetzte Steuer ausnahmslos 0,00 €.
+- Für die Umsatzsteuer der Jahre 2023, 2024 und 2025 beläuft sich die reale Gesamtjahressteuerlast auf kumuliert nur 11.849,62 € (2023: 4.961,00 €; 2024: 3.815,01 €; 2025: 3.073,61 €).
+- Abzüglich der im Steuerkonto nachgewiesenen Tilgungen und Zahlungen (4.800,85 €) beträgt der tatsächliche Stamm-Rückstand an echter Hauptsteuer für alle Jahre zusammen lediglich 7.048,77 €.
 
-Die von Ihnen in der Forderungsaufstellung vom 05.08.2026 aufgeführten Vorauszahlungssolls und Reststeuern (insbes. USt Dez 2024 sowie Verspätungszuschläge) basierten auf Schätzungen, die ursächlich darauf beruhten, dass die Steuererklärungen der Streitjahre erst im 1. Quartal 2026 nachgereicht werden konnten.
+Eine Zwangsvollstreckung wegen fiktiver Schätzungs-Differenzen über 17.263,55 € durchzuführen, verstößt eklatant gegen § 257 Abs. 1 Nr. 2 AO sowie den Grundsatz der Verhältnismäßigkeit (§ 258 AO).
 
-Mit Einreichung und Veranlagung der vollständigen ELSTER-Jahressteuererklärungen 2022 bis 2025 sind sämtliche Schätzgrundlagen rückwirkend entfallen:
+# 2. Zwingender Erlass der Säumniszuschläge (7.371,50 €) gemäß § 227 AO:
 
-- Für die Umsatzsteuer 2024 ergibt sich nach Gegenrechnung aller geleisteten Vorauszahlungen (9.946,00 €) ein Erstattungsanspruch zugunsten unserer Mandantin in Höhe von -5.034,88 €.
-- Für die Körperschaftsteuer 2022, 2023, 2024 und 2025 beläuft sich die Steuerfestsetzung ausnahmslos auf 0,00 €.
-- Für die Gewerbesteuer 2022, 2023, 2024 und 2025 beläuft sich der Messbetrag ebenfalls auf 0,00 €.
+Ihre Rechtsauffassung im Schreiben vom 04.08.2026, dass Säumniszuschläge nach § 240 Abs. 1 Satz 4 AO trotz nachträglicher Steuerherabsetzung unberührt blieben, stellt eine verfehlte und unvollständige Würdigung der Höchstrichterlichen Rechtsprechung dar.
 
-Das Finanzamt Dresden-Süd verwaltet in Wahrheit keine Rückstände der Steuerpflichtigen, sondern ein bereinigtes Reinguthaben unserer Mandantin von netto über 11.800,00 €. Vollstreckungsmaßnahmen wegen angeblicher Rückstände durchzuführen, während die Finanzkasse gleichzeitig fünfstellige Erstattungsbeträge einbehält, stellt eine ermessensfehlerhafte, rechtswidrige und unbillige Härte dar (§ 258 AO).
+Der BFH stellt in ständiger Praxis klar (u. a. BFH-Urteil vom 24.04.2014, V R 52/13 sowie BFH-Urteil vom 20.05.2010, V R 42/08), dass Säumniszuschläge vorrangig den Zweck verfolgen, einen gezogenen Zins- und Liquiditätsvorteil des Steuerpflichtigen abzuschöpfen.
 
-# 2. Zwingender Erlass der Säumniszuschläge (3.475,50 €) gemäß § 227 AO:
+Da die tatsächliche Jahressteuerschuld der Streitjahre um ein Vielfaches unter den vorläufigen Schätzungen lag, hat die Steuerpflichtige zu keinem Zeitpunkt einen Liquiditätsvorteil genossen. Dem Fiskus ist im Gesamtergebnis kein Zins- oder Vermögensnachteil entstanden. Die Einbehaltung von Säumniszuschlägen in Höhe von 7.371,50 € auf Steuern, die materiell-rechtlich nie bestanden haben, stellt eine sachliche Unbilligkeit (§ 227 AO) dar. Das Behördenermessen verdichtet sich zu einer vollumfänglichen Stornierung nach § 227 AO.
 
-Ihre Geltendmachung von Säumniszuschlägen in Höhe von 3.475,50 € ist rechtswidrig. Nach der gefestigten Höchstrichterlichen Rechtsprechung des Bundesfinanzhofs (u. a. BFH-Urteil vom 24.04.2014, V R 52/13; BFH-Urteil vom 20.05.2010, V R 42/08) ist die Einbehaltung oder Verwirklichung von Säumniszuschlägen auf Vorauszahlungs- oder Schätzsolls sachlich unbillig (§ 227 AO), wenn sich bei der Veranlagung der im Jahr 2026 nachgereichten Jahreserklärungen ergibt, dass die Steuerschuld real 0,00 € betrug oder ein Erstattungsanspruch besteht.
+# 3. Antrag auf Vollstreckungsstopp (§ 257, § 258 AO):
 
-Da dem Fiskus im Gesamtergebnis zu keinem Zeitpunkt ein Zins- oder Liquiditätsnachteil entstanden ist, dient das
+Wir fordern Sie auf, die Zwangsvollstreckung gemäß § 257 Abs. 1 Nr. 2 AO unverzüglich einzustellen und Kontopfändungen aufzuheben.
+
+Wir bitten um förmliche Bescheidung unserer Einsprüche und Anträge im Vorverfahren bis spätestens 25.08.2026. Sollte bis dahin keine Aussetzung der Vollziehung gewährt werden, werden wir ohne weitere Vorankündigung den
 
 
 
 ---
 
 
-TELEFAX / FAX-ÜBERMITTLUNG (Fortsetzung) — Betreff: Aktenzeichen: 3203/122/07169-EH3.1 VAA — Einspruch gegen Ablehnung Vollstreckungsaufschub, Antrag auf Vollstreckungsstopp &#x26; Erlass Säumniszuschläge (§ 227 AO)
+TELEFAX / FAX-ÜBERMITTLUNG (Fortsetzung)
+
+# Betreff: Aktenzeichen: 203/118/11534 EH3 / 24-715-2703
+
+Einspruch gegen Ablehnung Vollstreckungsaufschub vom 05.08.2026, Aufrechterhaltung Einsprüche (Schreiben v. 04.08.2026) &#x26; Antrag auf Erlass der Säumniszuschläge (7.371,50 €) gemäß § 227 AO
+
 Empfänger: Finanzamt Dresden-Süd ∣ Datum: 13.8.2026
 
-Festhalten an Säumniszuschlägen rein repressiven Zwecken. Das Ermessen der Finanzbehörde verdichtet sich dahingehend, sämtliche Säumniszuschläge gemäß § 227 AO erlassweise zu stornieren.
-
-# 3. Antrag auf sofortigen Vollstreckungsstopp (§ 257, § 258 AO):
-
-Wir fordern Sie auf, die Zwangsvollstreckung wegen der im Schreiben vom 05.08.2026 genannten Beträge unverzüglich gemäß § 257 Abs. 1 Nr. 2 AO einzustellen und etwaige Vollstreckungsmaßnahmen (bzw. Kontopfändungen) umgehend aufzuheben.
-
-Sollten Sie diesen Erlass- und Einstellungsanträgen nicht bis zum 25.08.2026 entsprechen, werden wir ohne weitere Vorankündigung den gerichtlichen Rechtsschutz beim Sächsischen Finanzgericht (§ 69 Abs. 3 FGO) in Anspruch nehmen und die Aussetzung der Vollziehung gerichtlich durchsetzen.
+gerichtlichen Eilrechtsschutz beim Sächsischen Finanzgericht (§ 69 Abs. 3 FGO) in Anspruch nehmen.
 
 Mit freundlichen Grüßen
 
-Wilsdorf &#x26; Sommer GmbH
+SmartBizz Services UG (haftungsbeschränkt)
 
 Jens Wilsdorf (Geschäftsführer)
 
-Jew Wliloddo
+Jen lililodo
 
