@@ -407,10 +407,11 @@ export default function Dashboard({ session }) {
     }
   };
 
-  const handleJsonImport = (e) => {
-    setActiveTab('akten')
-    const val = e.target.value.trim()
-    setJsonImport(val)
+  // --- NEU: ASYNC GEMACHT FÜR BULK-GEGNER IMPORT ---
+  const handleJsonImport = async (e) => {
+    setActiveTab('akten');
+    const val = e.target.value.trim();
+    setJsonImport(val);
     
     if (val.startsWith('http://') || val.startsWith('https://')) {
       handleLiveUrlFetch(val);
@@ -418,7 +419,80 @@ export default function Dashboard({ session }) {
     }
 
     try {
-      const obj = JSON.parse(val)
+      const obj = JSON.parse(val);
+
+      // ==========================================
+      // BULK-GEGNER IMPORT AUS KI-WISSENSSPEICHER
+      // ==========================================
+      if (obj.typ === 'Bulk-Gegner' && Array.isArray(obj.daten)) {
+        setLaedt(true);
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        for (const item of obj.daten) {
+           if (!item.gegner_name) continue;
+           const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(item.gegner_name));
+
+           if (!existingGegner) {
+              // Behörde komplett neu anlegen
+              await supabase.from('gegner').insert([{
+                user_id: session.user.id,
+                name: item.gegner_name,
+                fax: item.fax || null,
+                email: item.email || null,
+                notizen: JSON.stringify([{
+                  abteilung: item.abteilung || '',
+                  name: item.ansprechpartner || '',
+                  telefon: item.telefon || '',
+                  email: item.email || ''
+                }])
+              }]);
+              addedCount++;
+           } else {
+              // Bestehende Behörde aktualisieren (Ansprechpartner prüfen)
+              let updates = {};
+              let needsUpdate = false;
+
+              if (!existingGegner.fax && item.fax) { updates.fax = item.fax; needsUpdate = true; }
+              if (!existingGegner.email && item.email) { updates.email = item.email; needsUpdate = true; }
+
+              let currentContacts = [];
+              try {
+                currentContacts = typeof existingGegner.notizen === 'string' ? JSON.parse(existingGegner.notizen) : (existingGegner.notizen || []);
+                if (!Array.isArray(currentContacts)) currentContacts = [];
+              } catch(e) { currentContacts = []; }
+
+              if (item.ansprechpartner || item.abteilung) {
+                 const contactExists = currentContacts.some(c => 
+                   (c.name || '').toLowerCase() === (item.ansprechpartner || '').toLowerCase() &&
+                   (c.abteilung || '').toLowerCase() === (item.abteilung || '').toLowerCase()
+                 );
+
+                 if (!contactExists) {
+                    currentContacts.push({
+                       abteilung: item.abteilung || '',
+                       name: item.ansprechpartner || '',
+                       telefon: item.telefon || '',
+                       email: item.email || ''
+                    });
+                    updates.notizen = JSON.stringify(currentContacts);
+                    needsUpdate = true;
+                 }
+              }
+
+              if (needsUpdate) {
+                await supabase.from('gegner').update(updates).eq('id', existingGegner.id);
+                updatedCount++;
+              }
+           }
+        }
+        await ladeDaten();
+        setJsonImport('');
+        setLaedt(false);
+        alert(`✅ KI-Gegner-Scan abgeschlossen!\n\n${addedCount} neue Behörden/Gegner angelegt.\n${updatedCount} bestehende aktualisiert.`);
+        return; // Normalen Akten-Workflow abbrechen
+      }
+      // ==========================================
 
       setAktenzeichen(obj.aktenzeichen || '')
       setThema(obj.thema || '')
