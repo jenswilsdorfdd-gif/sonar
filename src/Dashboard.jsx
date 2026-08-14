@@ -183,7 +183,7 @@ export default function Dashboard({ session }) {
   const [g_notizen, setG_notizen] = useState('')
   const [g_ansprechpartnerListe, setG_ansprechpartnerListe] = useState([{ abteilung: '', name: '', telefon: '', email: '' }])
 
-  // ZUSTÄNDIGKEITS-WECHSEL & MERGE STATE (BAUSTELLE 3)
+  // ZUSTÄNDIGKEITS-WECHSEL & MERGE STATE
   const [transferAkteId, setTransferAkteId] = useState(null)
   const [neuerGegnerName, setNeuerGegnerName] = useState('')
   const [mergeSourceId, setMergeSourceId] = useState(null)
@@ -564,7 +564,6 @@ export default function Dashboard({ session }) {
     ladeDaten();
   };
 
-  // BAUSTELLE 2 BUGFIX: Gezieltes Löschen einer einzelnen Datei aus einem Historien-Eintrag
   const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
     if (!window.confirm("Diese Datei wirklich aus dem Akten-Eintrag entfernen?")) return;
     const urlArray = aktuelleUrls.split(',');
@@ -610,7 +609,6 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // --- NACHTRÄGLICHER UPLOAD ZU EINEM AKTEN-HISTORIEN-EINTRAG (Backend-Scan) ---
   const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, akteGegner, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -635,7 +633,6 @@ export default function Dashboard({ session }) {
         dokument_url: newUrl
       }]);
 
-      // --- SYNC ZU GITHUB (MIT PDF URL FÜR EDGE) ---
       await syncToGithub(`${dateiName}.md`, `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}\n\n`, newUrl);
 
       if (!error) ladeDaten();
@@ -826,7 +823,6 @@ export default function Dashboard({ session }) {
         dokument_url: newUrl
       }]);
 
-      // --- SYNC ZU GITHUB ---
       await syncToGithub(`${dateiName}.md`, `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}\n\n`, newUrl);
 
       if (!error) ladeDaten();
@@ -851,7 +847,7 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // --- HIER WIRD ABGEHEFTET (ZUGLEICH WIRD DAS GEMERKTE VERSAND-PDF MIT GENOMMEN) ---
+  // --- HIER WIRD ABGEHEFTET (INKLUSIVE AUTOMATISCHEM LERNEN NEUER ANSPRECHPARTNER) ---
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -895,7 +891,6 @@ export default function Dashboard({ session }) {
             dokument_url: linkData.publicUrl
           }]);
 
-          // --- SYNC ZU GITHUB (MIT PDF URL) ---
           await syncToGithub(`${dateiName}.md`, `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}\n\n`, linkData.publicUrl);
         }
       }
@@ -954,8 +949,48 @@ export default function Dashboard({ session }) {
             email: gegnerEmail || null,
             notizen: JSON.stringify([{ abteilung: '', name: gegnerAnsprechpartner || '', telefon: gegnerTelefon || '', email: gegnerEmail || '' }])
           }]);
-        } else if (!existingGegner.fax && gegnerFax) {
-          await supabase.from('gegner').update({ fax: gegnerFax }).eq('id', existingGegner.id);
+        } else {
+          // --- FIX: Update von bestehenden Gegnern inkl. Ansprechpartner-Check ---
+          let updates = {};
+          let needsUpdate = false;
+
+          if (!existingGegner.fax && gegnerFax) {
+            updates.fax = gegnerFax;
+            needsUpdate = true;
+          }
+          if (!existingGegner.email && gegnerEmail) {
+            updates.email = gegnerEmail;
+            needsUpdate = true;
+          }
+
+          let currentContacts = [];
+          try {
+            currentContacts = typeof existingGegner.notizen === 'string' ? JSON.parse(existingGegner.notizen) : (existingGegner.notizen || []);
+            if (!Array.isArray(currentContacts)) currentContacts = [];
+          } catch(e) {
+             currentContacts = [];
+          }
+
+          if (gegnerAnsprechpartner) {
+             const contactExists = currentContacts.some(c => 
+               (c.name || '').toLowerCase() === gegnerAnsprechpartner.toLowerCase()
+             );
+
+             if (!contactExists) {
+                currentContacts.push({
+                   abteilung: '',
+                   name: gegnerAnsprechpartner,
+                   telefon: gegnerTelefon || '',
+                   email: gegnerEmail || ''
+                });
+                updates.notizen = JSON.stringify(currentContacts);
+                needsUpdate = true;
+             }
+          }
+
+          if (needsUpdate) {
+            await supabase.from('gegner').update(updates).eq('id', existingGegner.id);
+          }
         }
       }
 
@@ -1001,7 +1036,6 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // BAUSTELLE 3 BUGFIX: Akten zusammenführen (Merge)
   const mergeAkte = async (sourceId) => {
     if (!mergeTargetId) { alert("Bitte wähle zuerst eine Ziel-Akte aus!"); return; }
     if (sourceId === mergeTargetId) { alert("Quell- und Ziel-Akte dürfen nicht identisch sein!"); return; }
@@ -1010,12 +1044,10 @@ export default function Dashboard({ session }) {
     const sourceAkte = akten.find(a => a.id === sourceId);
     const histToMove = sourceAkte.akten_historie || [];
 
-    // 1. Alle Historien-Einträge auf Target-ID umschreiben
     for (const h of histToMove) {
       await supabase.from('akten_historie').update({ akte_id: mergeTargetId }).eq('id', h.id);
     }
 
-    // 2. Info-Eintrag in der Target-Akte zur Dokumentation
     await supabase.from('akten_historie').insert([{
       akte_id: mergeTargetId,
       user_id: session.user.id,
@@ -1024,7 +1056,6 @@ export default function Dashboard({ session }) {
       aktion: `Akte zusammengeführt: Die Akte "${sourceAkte.thema}" (AZ: ${sourceAkte.aktenzeichen || '-'}) von Gegner "${sourceAkte.gegner_name}" wurde in diese Akte integriert.`
     }]);
 
-    // 3. Quell-Akte endgültig löschen
     await supabase.from('akten').delete().eq('id', sourceId);
 
     setMergeSourceId(null);
@@ -1133,7 +1164,6 @@ export default function Dashboard({ session }) {
             dokument_url: linkData.publicUrl
           }]);
 
-          // --- SYNC ZU GITHUB (MIT PDF URL) ---
           await syncToGithub(`${dateiName}.md`, `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}\n\n`, linkData.publicUrl);
         }
       }
@@ -1918,7 +1948,6 @@ export default function Dashboard({ session }) {
                             <Icon name="print" size={14} /> Akte exportieren / drucken
                           </button>
 
-                          {/* BAUSTELLE 3 BUGFIX: Akten Merge / Zusammenführen */}
                           {mergeSourceId === akte.id ? (
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <select 
@@ -1978,7 +2007,6 @@ export default function Dashboard({ session }) {
                                 {hist.wiedervorlage ? `WV: ${formatDatum(hist.wiedervorlage)}` : (hist.frist_extern ? `Frist: ${formatDatum(hist.frist_extern)}` : '-')}
                               </td>
                               <td style={{ padding: '10px' }}>
-                                {/* BAUSTELLE 2 BUGFIX: Button zum gezielten Löschen einzelner Dateien integriert */}
                                 {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
                                   const fileName = extractFilename(url);
                                   return (
