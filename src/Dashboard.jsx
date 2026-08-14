@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
 // --- KORRIGIERTE HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) ---
-// Mit robuster Fehlerbehandlung, expliziten Headers & Console-Logging
 const syncToGithub = async (filename, contentText, pdfUrl = null) => {
   try {
     console.log(`[GitHub Sync] Starte Sync für: ${filename}...`);
@@ -184,9 +183,11 @@ export default function Dashboard({ session }) {
   const [g_notizen, setG_notizen] = useState('')
   const [g_ansprechpartnerListe, setG_ansprechpartnerListe] = useState([{ abteilung: '', name: '', telefon: '', email: '' }])
 
-  // ZUSTÄNDIGKEITS-WECHSEL STATE
+  // ZUSTÄNDIGKEITS-WECHSEL & MERGE STATE (BAUSTELLE 3)
   const [transferAkteId, setTransferAkteId] = useState(null)
   const [neuerGegnerName, setNeuerGegnerName] = useState('')
+  const [mergeSourceId, setMergeSourceId] = useState(null)
+  const [mergeTargetId, setMergeTargetId] = useState('')
 
   // WISSENSDATENBANK STATE
   const [wissenEintraege, setWissenEintraege] = useState([])
@@ -558,9 +559,30 @@ export default function Dashboard({ session }) {
   };
 
   const loescheHistorieEintrag = async (histId) => {
-    if(!window.confirm("Diesen einzelnen Eintrag aus der Akte löschen?")) return;
+    if(!window.confirm("Diesen gesamten Eintrag inkl. aller darin verknüpften Dateien aus der Akte löschen?")) return;
     await supabase.from('akten_historie').delete().eq('id', histId);
     ladeDaten();
+  };
+
+  // BAUSTELLE 2 BUGFIX: Gezieltes Löschen einer einzelnen Datei aus einem Historien-Eintrag
+  const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
+    if (!window.confirm("Diese Datei wirklich aus dem Akten-Eintrag entfernen?")) return;
+    const urlArray = aktuelleUrls.split(',');
+    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
+    const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
+    
+    const { error: dbError } = await supabase.from('akten_historie').update({ dokument_url: neuerUrlString }).eq('id', histId);
+    
+    if (!dbError) {
+       try {
+          const parts = decodeURIComponent(urlZumLoeschen).split('/');
+          const fileName = parts[parts.length - 1];
+          await supabase.storage.from('dokumente').remove([fileName]);
+       } catch (e) { }
+       ladeDaten();
+    } else {
+       alert("Fehler beim Entfernen der Datei: " + dbError.message);
+    }
   };
 
   const toggleAkteStatus = async (akteId, currentStatus) => {
@@ -977,6 +999,38 @@ export default function Dashboard({ session }) {
       ladeDaten();
       alert(`✅ Akte an "${neuerGegnerName}" übergeben!`);
     }
+  };
+
+  // BAUSTELLE 3 BUGFIX: Akten zusammenführen (Merge)
+  const mergeAkte = async (sourceId) => {
+    if (!mergeTargetId) { alert("Bitte wähle zuerst eine Ziel-Akte aus!"); return; }
+    if (sourceId === mergeTargetId) { alert("Quell- und Ziel-Akte dürfen nicht identisch sein!"); return; }
+    if (!window.confirm("Achtung: Die komplette Historie (inkl. Dokumente) wird in die Ziel-Akte verschoben. Die aktuelle Akte wird anschließend gelöscht. Fortfahren?")) return;
+
+    const sourceAkte = akten.find(a => a.id === sourceId);
+    const histToMove = sourceAkte.akten_historie || [];
+
+    // 1. Alle Historien-Einträge auf Target-ID umschreiben
+    for (const h of histToMove) {
+      await supabase.from('akten_historie').update({ akte_id: mergeTargetId }).eq('id', h.id);
+    }
+
+    // 2. Info-Eintrag in der Target-Akte zur Dokumentation
+    await supabase.from('akten_historie').insert([{
+      akte_id: mergeTargetId,
+      user_id: session.user.id,
+      typ: 'Intern',
+      datum: new Date().toISOString().split('T')[0],
+      aktion: `Akte zusammengeführt: Die Akte "${sourceAkte.thema}" (AZ: ${sourceAkte.aktenzeichen || '-'}) von Gegner "${sourceAkte.gegner_name}" wurde in diese Akte integriert.`
+    }]);
+
+    // 3. Quell-Akte endgültig löschen
+    await supabase.from('akten').delete().eq('id', sourceId);
+
+    setMergeSourceId(null);
+    setMergeTargetId('');
+    ladeDaten();
+    alert("✅ Akten erfolgreich zusammengeführt!");
   };
 
   const toggleAkte = (id) => {
@@ -1819,7 +1873,7 @@ export default function Dashboard({ session }) {
                           <strong>Aktuelle Behörde / Gegner:</strong> {akte.gegner_name}
                         </div>
                         
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                           
                           <button 
                             onClick={() => toggleAkteStatus(akte.id, akte.status)} 
@@ -1864,6 +1918,27 @@ export default function Dashboard({ session }) {
                             <Icon name="print" size={14} /> Akte exportieren / drucken
                           </button>
 
+                          {/* BAUSTELLE 3 BUGFIX: Akten Merge / Zusammenführen */}
+                          {mergeSourceId === akte.id ? (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <select 
+                                value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} 
+                                style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '220px' }}
+                              >
+                                <option value="">-- Ziel-Akte wählen --</option>
+                                {akten.filter(a => a.id !== akte.id).map(a => (
+                                  <option key={a.id} value={a.id}>[#{a.id.substring(0,6).toUpperCase()}] {a.gegner_name} | {a.thema}</option>
+                                ))}
+                              </select>
+                              <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.wissenAccent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
+                              <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setMergeSourceId(akte.id)} style={{ background: 'transparent', color: theme.wissenAccent, border: `1px solid ${theme.wissenAccent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Icon name="link" size={14} /> Akte zusammenführen (Merge)
+                            </button>
+                          )}
+
                           {transferAkteId === akte.id ? (
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <input 
@@ -1903,11 +1978,20 @@ export default function Dashboard({ session }) {
                                 {hist.wiedervorlage ? `WV: ${formatDatum(hist.wiedervorlage)}` : (hist.frist_extern ? `Frist: ${formatDatum(hist.frist_extern)}` : '-')}
                               </td>
                               <td style={{ padding: '10px' }}>
-                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => (
-                                  <a key={idx} href={url} target="_blank" rel="noreferrer" style={{ color: theme.accent, display: 'inline-block', marginRight: '8px' }}>
-                                    📄 {extractFilename(url)}
-                                  </a>
-                                ))}
+                                {/* BAUSTELLE 2 BUGFIX: Button zum gezielten Löschen einzelner Dateien integriert */}
+                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                  const fileName = extractFilename(url);
+                                  return (
+                                    <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
+                                        <Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}
+                                      </a>
+                                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
+                                        <Icon name="x" size={12} />
+                                      </button>
+                                    </div>
+                                  )
+                                })}
                                 
                                 {uploadingHistId === hist.id ? (
                                   <span style={{ fontSize: '11px', color: theme.accent }}>⏳ Upload...</span>
