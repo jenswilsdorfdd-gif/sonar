@@ -305,7 +305,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // BULK IMPORT FÜR KI-WISSENSSPEICHER (Backend-Scan)
+  // BULK IMPORT FÜR KI-WISSENSSPEICHER (MD Direktextraktion)
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -331,12 +331,19 @@ export default function Dashboard({ session }) {
           pubUrl = linkData.publicUrl;
         }
 
-        const baseInfo = `Dokument: ${file.name}\n(Wird serverseitig via OCR extrahiert)`;
+        // NEU: Lokales Auslesen von .md-Dateien
+        let mdInhalt = '';
+        if (file.name.toLowerCase().endsWith('.md')) {
+           mdInhalt = await file.text();
+        }
+
+        const baseInfo = `Dokument: ${file.name}`;
+        const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
 
         const { data: insertedData, error: insertErr } = await supabase.from('wissensdatenbank').insert([{
           datei_name: file.name,
           firma: bulkFirma || 'Allgemein',
-          inhalt_text: baseInfo,
+          inhalt_text: finalDbText,
           dokument_url: pubUrl
         }]).select();
 
@@ -347,8 +354,9 @@ export default function Dashboard({ session }) {
           setWissenEintraege(prev => [insertedData[0], ...prev]);
         }
 
-        // --- SYNC ZU GITHUB (MIT AWAIT FÜR KORREKTE TRACEABILITY) ---
-        await syncToGithub(`${storagePath}.md`, `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nLink: ${pubUrl}\n\n`, pubUrl);
+        // --- SYNC ZU GITHUB ---
+        const githubContent = `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nLink: ${pubUrl}\n\n${mdInhalt}`;
+        await syncToGithub(`${storagePath}.md`, githubContent, pubUrl);
 
       } catch (err) {
         console.error("Import-Fehler bei File:", file.name, err);
@@ -407,7 +415,6 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // --- NEU: ASYNC GEMACHT FÜR BULK-GEGNER IMPORT ---
   const handleJsonImport = async (e) => {
     setActiveTab('akten');
     const val = e.target.value.trim();
@@ -421,9 +428,6 @@ export default function Dashboard({ session }) {
     try {
       const obj = JSON.parse(val);
 
-      // ==========================================
-      // BULK-GEGNER IMPORT AUS KI-WISSENSSPEICHER
-      // ==========================================
       if (obj.typ === 'Bulk-Gegner' && Array.isArray(obj.daten)) {
         setLaedt(true);
         let addedCount = 0;
@@ -434,7 +438,6 @@ export default function Dashboard({ session }) {
            const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(item.gegner_name));
 
            if (!existingGegner) {
-              // Behörde komplett neu anlegen
               await supabase.from('gegner').insert([{
                 user_id: session.user.id,
                 name: item.gegner_name,
@@ -449,7 +452,6 @@ export default function Dashboard({ session }) {
               }]);
               addedCount++;
            } else {
-              // Bestehende Behörde aktualisieren (Ansprechpartner prüfen)
               let updates = {};
               let needsUpdate = false;
 
@@ -490,9 +492,8 @@ export default function Dashboard({ session }) {
         setJsonImport('');
         setLaedt(false);
         alert(`✅ KI-Gegner-Scan abgeschlossen!\n\n${addedCount} neue Behörden/Gegner angelegt.\n${updatedCount} bestehende aktualisiert.`);
-        return; // Normalen Akten-Workflow abbrechen
+        return; 
       }
-      // ==========================================
 
       setAktenzeichen(obj.aktenzeichen || '')
       setThema(obj.thema || '')
@@ -683,6 +684,7 @@ export default function Dashboard({ session }) {
     }
   };
 
+  // NACHTRAG UPLOAD AKTE (MD Direktextraktion)
   const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, akteGegner, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -698,16 +700,23 @@ export default function Dashboard({ session }) {
       
       const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
       
-      const baseInfo = `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'} (Backend OCR läuft)`;
+      let mdInhalt = '';
+      if (file.name.toLowerCase().endsWith('.md')) {
+          mdInhalt = await file.text();
+      }
+
+      const baseInfo = `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'}`;
+      const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
 
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: akteFirma || 'Allgemein',
-        inhalt_text: baseInfo,
+        inhalt_text: finalDbText,
         dokument_url: newUrl
       }]);
 
-      await syncToGithub(`${dateiName}.md`, `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}\n\n`, newUrl);
+      const githubContent = `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}\n\n${mdInhalt}`;
+      await syncToGithub(`${dateiName}.md`, githubContent, newUrl);
 
       if (!error) ladeDaten();
     } else {
@@ -872,6 +881,7 @@ export default function Dashboard({ session }) {
     setLaedt(false);
   };
 
+  // NACHTRAG UPLOAD MANDANT (MD Direktextraktion)
   const handleNachtragUploadMandant = async (mId, currentUrls, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -888,16 +898,23 @@ export default function Dashboard({ session }) {
       const matchMandant = mandanten.find(x => x.id === mId);
       const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
       
-      const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName} (Backend OCR läuft)`;
+      let mdInhalt = '';
+      if (file.name.toLowerCase().endsWith('.md')) {
+          mdInhalt = await file.text();
+      }
+
+      const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName}`;
+      const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
 
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: fName,
-        inhalt_text: baseInfo,
+        inhalt_text: finalDbText,
         dokument_url: newUrl
       }]);
 
-      await syncToGithub(`${dateiName}.md`, `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}\n\n`, newUrl);
+      const githubContent = `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}\n\n${mdInhalt}`;
+      await syncToGithub(`${dateiName}.md`, githubContent, newUrl);
 
       if (!error) ladeDaten();
     }
@@ -921,7 +938,7 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // --- HIER WIRD ABGEHEFTET (INKLUSIVE AUTOMATISCHEM LERNEN NEUER ANSPRECHPARTNER) ---
+  // SPEICHERE EINTRAG AKTE (MD Direktextraktion)
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -946,7 +963,7 @@ export default function Dashboard({ session }) {
 
     let alleUrls = [];
     
-    // 1. Manuell hochgeladene Dateien verarbeiten (Backend Scan)
+    // Manuell hochgeladene Dateien verarbeiten 
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
         const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
@@ -956,21 +973,28 @@ export default function Dashboard({ session }) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
 
-          const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'} (Backend OCR läuft)`;
+          let fileInhalt = '';
+          if (f.name.toLowerCase().endsWith('.md')) {
+             fileInhalt = await f.text();
+          }
+
+          const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`;
+          const finalDbText = fileInhalt ? `${baseInfo}\n\n${fileInhalt.substring(0, 800)}...` : baseInfo;
 
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
-            inhalt_text: baseInfo,
+            inhalt_text: finalDbText,
             dokument_url: linkData.publicUrl
           }]);
 
-          await syncToGithub(`${dateiName}.md`, `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}\n\n`, linkData.publicUrl);
+          const githubContent = `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}\n\n${fileInhalt}`;
+          await syncToGithub(`${dateiName}.md`, githubContent, linkData.publicUrl);
         }
       }
     }
     
-    // 2. Das generierte Versand-PDF hinzufügen, falls vorhanden
+    // Das generierte Versand-PDF hinzufügen, falls vorhanden
     if (versandPdfUrl) {
       alleUrls.push(versandPdfUrl);
       
@@ -1024,7 +1048,6 @@ export default function Dashboard({ session }) {
             notizen: JSON.stringify([{ abteilung: '', name: gegnerAnsprechpartner || '', telefon: gegnerTelefon || '', email: gegnerEmail || '' }])
           }]);
         } else {
-          // --- FIX: Update von bestehenden Gegnern inkl. Ansprechpartner-Check ---
           let updates = {};
           let needsUpdate = false;
 
@@ -1215,6 +1238,7 @@ export default function Dashboard({ session }) {
     if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
   };
 
+  // SPEICHERE MANDANT (MD Direktextraktion)
   const speichereMandant = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -1228,17 +1252,24 @@ export default function Dashboard({ session }) {
         if (!uploadError) {
           const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
           alleUrls.push(linkData.publicUrl)
+          
+          let mdInhalt = '';
+          if (f.name.toLowerCase().endsWith('.md')) {
+             mdInhalt = await f.text();
+          }
 
-          const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname} (Backend OCR läuft)`;
+          const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`;
+          const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
 
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: m_firmenname || 'Allgemein',
-            inhalt_text: baseInfo,
+            inhalt_text: finalDbText,
             dokument_url: linkData.publicUrl
           }]);
 
-          await syncToGithub(`${dateiName}.md`, `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}\n\n`, linkData.publicUrl);
+          const githubContent = `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}\n\n${mdInhalt}`;
+          await syncToGithub(`${dateiName}.md`, githubContent, linkData.publicUrl);
         }
       }
     }
@@ -1602,7 +1633,7 @@ export default function Dashboard({ session }) {
 
           <div style={{ flex: '1 1 260px', ...panelStyle, margin: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
             <label style={{...labelStyle, color: activeColor, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}>
-               <Icon name="paperclip" size={16} /> MANUELLER UPLOAD (PDF/SCAN)
+               <Icon name="paperclip" size={16} /> MANUELLER UPLOAD (PDF/MD)
             </label>
             <input 
               id="datei-upload-manuell" 
@@ -2127,7 +2158,7 @@ export default function Dashboard({ session }) {
         )}
 
         {/* ======================================================== */}
-        {/* ============= 🧠 KI WISSENSSPEICHER (ALT-IMPORT) ======= */}
+        {/* ============= 🧠 KI WISSENSSPEICHER (LOKALER MD UPLOAD) ======= */}
         {/* ======================================================== */}
         {activeTab === 'wissen' && (
           <div>
@@ -2146,7 +2177,7 @@ export default function Dashboard({ session }) {
                 </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>Dokumente wählen (PDFs, Scans, Schreiben - Mehrfachauswahl möglich)*</label>
+                  <label style={labelStyle}>Dokumente wählen (.md und .pdf Dateien gleichzeitig markieren)*</label>
                   <input 
                     id="bulk-file-input"
                     type="file" 
@@ -2172,7 +2203,7 @@ export default function Dashboard({ session }) {
                 disabled={laedt} 
                 type="submit" 
                 style={{ padding: '14px', background: theme.wissenAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', width: '100%', marginTop: '20px' }}>
-                {laedt ? 'Importiere & Indiziere...' : `+ ${bulkDateien.length > 0 ? bulkDateien.length : ''} Alt-Dokument(e) in den KI-Speicher laden`}
+                {laedt ? 'Importiere...' : `+ ${bulkDateien.length > 0 ? bulkDateien.length : ''} Datei(en) in den KI-Speicher laden`}
               </button>
             </form>
 
