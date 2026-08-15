@@ -141,6 +141,9 @@ export default function Dashboard({ session }) {
   const [jsonImport, setJsonImport] = useState('')
   const [tresorPrompt, setTresorPrompt] = useState(null) 
 
+  // --- NEUER STATE FÜR DAS UPLOAD-REMINDER POPUP ---
+  const [showUploadReminder, setShowUploadReminder] = useState(false)
+
   // --- SIGNATUR STATE ---
   const [signaturPreview, setSignaturPreview] = useState(localStorage.getItem('sonar_signature') || null)
   
@@ -947,11 +950,24 @@ export default function Dashboard({ session }) {
   };
 
   // =================================================================
-  // 4. UPLOAD-WEICHE: HAUPT-FORMULAR (speichereEintrag)
+  // NEUER UPLOAD-REMINDER INTERCEPTOR
   // =================================================================
-  const speichereEintrag = async (e) => {
-    e.preventDefault()
-    setLaedt(true)
+  const handleSpeichernCheck = (e) => {
+    e.preventDefault();
+    // Prüfen, ob keine Dateien manuell ausgewählt wurden
+    if (dateien.length === 0) {
+      setShowUploadReminder(true);
+    } else {
+      speichereEintragLogik();
+    }
+  };
+
+  // =================================================================
+  // 4. UPLOAD-WEICHE: HAUPT-FORMULAR (speichereEintragLogik)
+  // =================================================================
+  const speichereEintragLogik = async () => {
+    setShowUploadReminder(false);
+    setLaedt(true);
 
     if (tresorPrompt && tresorPrompt.typ === 'neu') {
       const { data: mData } = await supabase.from('mandanten').insert([{
@@ -1552,11 +1568,42 @@ export default function Dashboard({ session }) {
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
-  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%' };
+  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
   const quickBtnStyle = { background: theme.border, color: theme.textMain, border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh', position: 'relative' }}>
+      
+      {/* ================================================================= */}
+      {/* OVERLAY POPUP FÜR FEHLENDE DATEIEN BEIM SPEICHERN */}
+      {/* ================================================================= */}
+      {showUploadReminder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: theme.cardBg, border: `1px solid ${theme.warningBorder}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+            <Icon name="alert" size={48} style={{ color: theme.warningBorder, marginBottom: '15px' }} />
+            <h3 style={{ margin: '0 0 15px 0', color: theme.textMain, fontSize: '20px' }}>Dateien vergessen?</h3>
+            <p style={{ color: theme.textMuted, fontSize: '15px', marginBottom: '25px', lineHeight: '1.5' }}>
+              Du hast aktuell <strong>keine</strong> Dokumente (PDF/MD) für den Upload in diese Akte ausgewählt.<br/><br/>
+              Möchtest du die Akte / den Eintrag wirklich <strong>ohne Dateien</strong> anlegen?
+            </p>
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button 
+                onClick={() => setShowUploadReminder(false)} 
+                style={{ padding: '12px 18px', background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}
+              >
+                Abbrechen & Dateien auswählen
+              </button>
+              <button 
+                onClick={speichereEintragLogik} 
+                style={{ padding: '12px 18px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}
+              >
+                Trotzdem ohne Dateien speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
         
         {/* HEADER & THEME TOGGLE (LOGO-FARBE PASST SICH AN TAB AN) */}
@@ -1596,7 +1643,7 @@ export default function Dashboard({ session }) {
         </div>
 
         {/* EBENE 1: MAGIC IMPORT & SONAR GUIDE (DYNAMISCHER STRICH/ICON RAHMEN) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '20px', width: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px', marginBottom: '20px', width: '100%' }}>
           <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${activeColor}`, transition: 'border-color 0.3s ease' }}>
             <label style={{...labelStyle, color: activeColor, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}>
               <Icon name="wand" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)
@@ -1648,7 +1695,7 @@ export default function Dashboard({ session }) {
             <Icon name="shield" size={22} /> Behörden / Gegner CRM
           </button>
 
-          <div style={{ flex: '1 1 260px', ...panelStyle, margin: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
+          <div style={{ flex: '1 1 min(100%, 260px)', ...panelStyle, margin: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
             <label style={{...labelStyle, color: activeColor, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}>
                <Icon name="paperclip" size={16} /> MANUELLER UPLOAD (PDF/MD)
             </label>
@@ -1706,7 +1753,7 @@ export default function Dashboard({ session }) {
                       }}
                       title="Klicken, um diese Akte unten zu fokussieren!"
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                         <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           🏢 {w.akte_gegner}
                         </strong>
@@ -1761,7 +1808,7 @@ export default function Dashboard({ session }) {
 
                 {/* USt-RADAR ALARME */}
                 {ustRadar.map((r, i) => (
-                  <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
                     <div>
                       <strong style={{ color: theme.tresorAccent }}>🏛️ {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span>
                     </div>
@@ -1777,7 +1824,8 @@ export default function Dashboard({ session }) {
             </div>
           )}
 
-          <form onSubmit={speichereEintrag} style={{ ...panelStyle, marginBottom: '20px' }}>
+          {/* NEU: FORMULAR NUTZT JETZT handleSpeichernCheck STATT DIREKT speichereEintragLogik */}
+          <form onSubmit={handleSpeichernCheck} style={{ ...panelStyle, marginBottom: '20px' }}>
             
             {/* ERWEITERTES TRESOR MATCH BANNER MIT DETAILLIERTER ÄNDERUNGSANZEIGE */}
             {tresorPrompt && (
@@ -1828,7 +1876,7 @@ export default function Dashboard({ session }) {
               </label>
 
               {modus === 'bestehend' && (
-                <div style={{ flex: '1 1 200px', marginLeft: 'auto' }}>
+                <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
                   <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
                     <option value="">-- Ziel-Akte wählen --</option>
                     {akten.map(a => <option key={a.id} value={a.id}>[#{a.id.substring(0,6).toUpperCase()}] {a.gegner_name} | {a.thema}</option>)}
@@ -1837,11 +1885,11 @@ export default function Dashboard({ session }) {
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}>
               {modus === 'neu' && (
                 <>
                   <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
                       <h4 style={{margin: 0, color: theme.textMain}}>1. Gegenpartei / Behörde</h4>
                       {gegnerListe.length > 0 && (
                         <select onChange={handleGegnerAuswahl} style={{padding: '4px 8px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
@@ -1875,7 +1923,7 @@ export default function Dashboard({ session }) {
                   <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
                   
                   <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
                       <h4 style={{margin: 0, color: theme.textMain}}>2. Wir (Mandant)</h4>
                       {mandanten.length > 0 && (
                         <select onChange={handleTresorAuswahl} style={{padding: '4px 8px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '12px', background: theme.inputBg, color: theme.textMain}}>
@@ -1924,7 +1972,7 @@ export default function Dashboard({ session }) {
             <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
               
               {/* IMMER SICHTBARE VERSAND-FELDER (AUCH BEI BESTEHENDEN AKTEN) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>
                 <div>
                   <label style={{...labelStyle, color: theme.textMain}}>Versand-E-Mail (Gegner)</label>
                   <input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} placeholder="z.B. poststelle@..." style={{...inputStyle, padding: '8px'}} />
@@ -1940,7 +1988,7 @@ export default function Dashboard({ session }) {
                   <Icon name="file" size={16} /> Textentwurf / Schreiben verfassen
                 </label>
                 
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Icon name="send" size={14} /> E-Mail senden (Resend)
                   </button>
@@ -1972,7 +2020,7 @@ export default function Dashboard({ session }) {
           </form>
 
           {/* AKTEN UBERSICHT */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px', flexWrap: 'wrap', gap: '10px' }}>
             <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
               <Icon name="cabinet" size={24} /> Akten-Übersicht
             </h2>
@@ -2001,7 +2049,7 @@ export default function Dashboard({ session }) {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', flexWrap: 'wrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
                     <div style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
-                    <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ flex: '1 1 min(100%, 200px)' }}>
                       <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>
                         {akte.gegner_name}
                         {akte.vorgaenger_gegner && <span style={{fontSize: '11px', color: theme.textMuted, marginLeft: '8px'}}>(vormals: {akte.vorgaenger_gegner})</span>}
@@ -2009,7 +2057,7 @@ export default function Dashboard({ session }) {
                       </div>
                       <div style={{ fontSize: '12px', color: theme.textMuted }}>AZ: {akte.aktenzeichen || '-'}</div>
                     </div>
-                    <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ flex: '1 1 min(100%, 200px)' }}>
                       <div style={{ fontSize: '16px', fontWeight: 'bold', color: theme.textMain }}>{akte.thema}</div>
                       <div style={{ fontSize: '12px', color: theme.textMuted }}>Letzter Eintrag: {letzteAktion ? `${formatDatum(letzteAktion.datum)} - ${letzteAktion.aktion}` : '-'}</div>
                     </div>
@@ -2071,7 +2119,7 @@ export default function Dashboard({ session }) {
                           </button>
 
                           {mergeSourceId === akte.id ? (
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               <select 
                                 value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} 
                                 style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '220px' }}
@@ -2091,7 +2139,7 @@ export default function Dashboard({ session }) {
                           )}
 
                           {transferAkteId === akte.id ? (
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               <input 
                                 type="text" placeholder="Neuer Gegner / Behörde (z.B. Landesdirektion)" 
                                 value={neuerGegnerName} onChange={(e) => setNeuerGegnerName(e.target.value)}
@@ -2108,63 +2156,65 @@ export default function Dashboard({ session }) {
                         </div>
                       </div>
 
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, borderRadius: '8px', overflow: 'hidden' }}>
-                        <thead>
-                          <tr style={{ background: theme.border, color: theme.textMain }}>
-                            <th style={{ padding: '10px', textAlign: 'left' }}>Typ</th>
-                            <th style={{ padding: '10px', textAlign: 'left' }}>Datum</th>
-                            <th style={{ padding: '10px', textAlign: 'left' }}>Aktion</th>
-                            <th style={{ padding: '10px', textAlign: 'left' }}>WV / Frist</th>
-                            <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
-                            <th style={{ padding: '10px', textAlign: 'center' }}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {akte.akten_historie.map((hist) => (
-                            <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                              <td style={{ padding: '10px', fontWeight: 'bold' }}>{hist.typ}</td>
-                              <td style={{ padding: '10px' }}>{formatDatum(hist.datum)}</td>
-                              <td style={{ padding: '10px' }}>{hist.aktion}</td>
-                              <td style={{ padding: '10px', color: theme.warningBorder }}>
-                                {hist.wiedervorlage ? `WV: ${formatDatum(hist.wiedervorlage)}` : (hist.frist_extern ? `Frist: ${formatDatum(hist.frist_extern)}` : '-')}
-                              </td>
-                              <td style={{ padding: '10px' }}>
-                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
-                                  const fileName = extractFilename(url);
-                                  return (
-                                    <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-                                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
-                                        <Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}
-                                      </a>
-                                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
-                                        <Icon name="x" size={12} />
-                                      </button>
-                                    </div>
-                                  )
-                                })}
-                                
-                                {uploadingHistId === hist.id ? (
-                                  <span style={{ fontSize: '11px', color: theme.accent }}>⏳ Upload...</span>
-                                ) : (
-                                  <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">
-                                    + Datei
-                                    <input 
-                                      type="file" 
-                                      style={{ display: 'none' }} 
-                                      onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} 
-                                    />
-                                  </label>
-                                )}
-                              </td>
-                              <td style={{ padding: '10px', textAlign: 'center' }}>
-                                <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}>
-                                  <Icon name="trash" size={14} />
-                                </button>
-                              </td>
+                      <div style={{ overflowX: 'auto', width: '100%', borderRadius: '8px' }}>
+                        <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, overflow: 'hidden' }}>
+                          <thead>
+                            <tr style={{ background: theme.border, color: theme.textMain }}>
+                              <th style={{ padding: '10px', textAlign: 'left' }}>Typ</th>
+                              <th style={{ padding: '10px', textAlign: 'left' }}>Datum</th>
+                              <th style={{ padding: '10px', textAlign: 'left' }}>Aktion</th>
+                              <th style={{ padding: '10px', textAlign: 'left' }}>WV / Frist</th>
+                              <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
+                              <th style={{ padding: '10px', textAlign: 'center' }}></th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {akte.akten_historie.map((hist) => (
+                              <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{hist.typ}</td>
+                                <td style={{ padding: '10px' }}>{formatDatum(hist.datum)}</td>
+                                <td style={{ padding: '10px' }}>{hist.aktion}</td>
+                                <td style={{ padding: '10px', color: theme.warningBorder }}>
+                                  {hist.wiedervorlage ? `WV: ${formatDatum(hist.wiedervorlage)}` : (hist.frist_extern ? `Frist: ${formatDatum(hist.frist_extern)}` : '-')}
+                                </td>
+                                <td style={{ padding: '10px' }}>
+                                  {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                    const fileName = extractFilename(url);
+                                    return (
+                                      <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                                        <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
+                                          <Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}
+                                        </a>
+                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
+                                          <Icon name="x" size={12} />
+                                        </button>
+                                      </div>
+                                    )
+                                  })}
+                                  
+                                  {uploadingHistId === hist.id ? (
+                                    <span style={{ fontSize: '11px', color: theme.accent }}>⏳ Upload...</span>
+                                  ) : (
+                                    <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">
+                                      + Datei
+                                      <input 
+                                        type="file" 
+                                        style={{ display: 'none' }} 
+                                        onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} 
+                                      />
+                                    </label>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>
+                                  <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}>
+                                    <Icon name="trash" size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2184,7 +2234,7 @@ export default function Dashboard({ session }) {
             </h2>
 
             <form onSubmit={StarteBulkImport} style={{ ...panelStyle, marginBottom: '30px', border: `1px solid ${theme.wissenAccent}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', textAlign: 'left' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px', textAlign: 'left' }}>
                 <div>
                   <label style={labelStyle}>Firma / Zuordnung (Optional)</label>
                   <select value={bulkFirma} onChange={(e) => setBulkFirma(e.target.value)} style={inputStyle}>
@@ -2230,7 +2280,7 @@ export default function Dashboard({ session }) {
             
             {/* --- FILTER & SUCHLEISTE --- */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 200px' }}>
+              <div style={{ flex: '1 1 min(100%, 200px)' }}>
                 <input 
                   type="text" 
                   placeholder="Suchen nach Dateiname, Inhalt oder Firma..." 
@@ -2239,7 +2289,7 @@ export default function Dashboard({ session }) {
                   style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
                 />
               </div>
-              <div style={{ flex: '1 1 150px' }}>
+              <div style={{ flex: '1 1 min(100%, 150px)' }}>
                 <select 
                   value={wissenFirmaFilter} 
                   onChange={(e) => setWissenFirmaFilter(e.target.value)}
@@ -2250,7 +2300,7 @@ export default function Dashboard({ session }) {
                   {mandanten.map(m => <option key={m.id} value={m.firmenname}>{m.firmenname}</option>)}
                 </select>
               </div>
-              <div style={{ flex: '1 1 150px' }}>
+              <div style={{ flex: '1 1 min(100%, 150px)' }}>
                 <select 
                   value={wissenGegnerFilter} 
                   onChange={(e) => setWissenGegnerFilter(e.target.value)}
@@ -2264,7 +2314,7 @@ export default function Dashboard({ session }) {
 
             {/* --- TABELLEN-ANSICHT --- */}
             <div style={{ borderRadius: '8px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+              <table style={{ width: '100%', minWidth: '500px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: theme.border, color: theme.textMain }}>
                     <th style={{ padding: '12px 15px' }}>Dokument / Datei</th>
@@ -2323,7 +2373,7 @@ export default function Dashboard({ session }) {
             </h2>
             <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', textAlign: 'left' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '20px', textAlign: 'left' }}>
                 <div style={{ gridColumn: '1 / -1' }}><h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten</h4></div>
                 <div><label style={labelStyle}>Firma / Person*</label><input required value={m_firmenname} onChange={e=>setM_firmenname(e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>Ansprechpartner</label><input value={m_ansprechpartner} onChange={e=>setM_ansprechpartner(e.target.value)} style={inputStyle}/></div>
@@ -2367,12 +2417,12 @@ export default function Dashboard({ session }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '25px' }}>
-                <button type="submit" style={{ padding: '14px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: 1 }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '25px', flexWrap: 'wrap' }}>
+                <button type="submit" style={{ padding: '14px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: '1 1 auto' }}>
                   {editMandantId ? '💾 Änderungen speichern' : '+ Mandant im Tresor ablegen'}
                 </button>
                 {editMandantId && (
-                  <button type="button" onClick={resetMandantForm} style={{ padding: '14px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <button type="button" onClick={resetMandantForm} style={{ padding: '14px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: '1 1 auto' }}>
                     Abbrechen
                   </button>
                 )}
@@ -2380,7 +2430,7 @@ export default function Dashboard({ session }) {
             </form>
 
             <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>🗃️ Gespeicherte Mandanten & Firmen</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', textAlign: 'left' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '20px', textAlign: 'left' }}>
               {mandanten.map(m => (
                 <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
                   <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Mandant löschen">
@@ -2449,7 +2499,7 @@ export default function Dashboard({ session }) {
               <Icon name="shield" size={24} /> {editGegnerId ? 'Behörde / Gegner bearbeiten' : 'Behörden & Gegner CRM'}
             </h2>
             <form onSubmit={speichereGegner} style={{ ...panelStyle, marginBottom: '20px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', textAlign: 'left' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', textAlign: 'left' }}>
                 <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: 0, color: theme.gegnerAccent }}>1. Hauptdaten der Behörde / Gegners</h4></div>
                 <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
                 <div><label style={labelStyle}>Zentrale Postadresse</label><input value={g_adresse} onChange={e=>setG_adresse(e.target.value)} style={inputStyle}/></div>
@@ -2457,7 +2507,7 @@ export default function Dashboard({ session }) {
                 <div><label style={labelStyle}>Zentrale E-Mail</label><input type="email" value={g_email} onChange={e=>setG_email(e.target.value)} placeholder="z.B. poststelle@fa-dresden.de" style={inputStyle}/></div>
 
                 <div style={{ gridColumn: '1 / -1', marginTop: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain }}>2. Abteilungen & Ansprechpartner</h4>
                     <button type="button" onClick={addAnsprechpartnerRow} style={{ background: theme.gegnerAccent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
                       + Ansprechpartner / Abteilung hinzufügen
@@ -2465,14 +2515,14 @@ export default function Dashboard({ session }) {
                   </div>
 
                   {g_ansprechpartnerListe.map((item, idx) => (
-                    <div key={idx} style={{ background: theme.inputBg, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, marginBottom: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 40px', gap: '10px', alignItems: 'end' }}>
-                      <div><label style={labelStyle}>Abteilung</label><input value={item.abteilung} onChange={e => updateAnsprechpartnerRow(idx, 'abteilung', e.target.value)} placeholder="z.B. Gewerbesteuer" style={{ ...inputStyle, padding: '8px' }}/></div>
-                      <div><label style={labelStyle}>Name Bearbeiter</label><input value={item.name} onChange={e => updateAnsprechpartnerRow(idx, 'name', e.target.value)} placeholder="z.B. Herr Müller" style={{ ...inputStyle, padding: '8px' }}/></div>
-                      <div><label style={labelStyle}>Durchwahl / Tel</label><input value={item.telefon} onChange={e => updateAnsprechpartnerRow(idx, 'telefon', e.target.value)} placeholder="z.B. 0351/12345" style={{ ...inputStyle, padding: '8px' }}/></div>
-                      <div><label style={labelStyle}>E-Mail</label><input value={item.email} onChange={e => updateAnsprechpartnerRow(idx, 'email', e.target.value)} placeholder="z.B. mueller@fa.de" style={{ ...inputStyle, padding: '8px' }}/></div>
+                    <div key={idx} style={{ background: theme.inputBg, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, marginBottom: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'end' }}>
+                      <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>Abteilung</label><input value={item.abteilung} onChange={e => updateAnsprechpartnerRow(idx, 'abteilung', e.target.value)} placeholder="z.B. Gewerbesteuer" style={{ ...inputStyle, padding: '8px' }}/></div>
+                      <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>Name Bearbeiter</label><input value={item.name} onChange={e => updateAnsprechpartnerRow(idx, 'name', e.target.value)} placeholder="z.B. Herr Müller" style={{ ...inputStyle, padding: '8px' }}/></div>
+                      <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>Durchwahl / Tel</label><input value={item.telefon} onChange={e => updateAnsprechpartnerRow(idx, 'telefon', e.target.value)} placeholder="z.B. 0351/12345" style={{ ...inputStyle, padding: '8px' }}/></div>
+                      <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>E-Mail</label><input value={item.email} onChange={e => updateAnsprechpartnerRow(idx, 'email', e.target.value)} placeholder="z.B. mueller@fa.de" style={{ ...inputStyle, padding: '8px' }}/></div>
                       <div>
                         {g_ansprechpartnerListe.length > 1 && (
-                          <button type="button" onClick={() => removeAnsprechpartnerRow(idx)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Zeile entfernen">
+                          <button type="button" onClick={() => removeAnsprechpartnerRow(idx)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px', width: '100%' }} title="Zeile entfernen">
                             <Icon name="x" size={18} />
                           </button>
                         )}
@@ -2482,19 +2532,19 @@ export default function Dashboard({ session }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                <button type="submit" style={{ padding: '12px', background: theme.gegnerAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: 1 }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
+                <button type="submit" style={{ padding: '12px', background: theme.gegnerAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: '1 1 auto' }}>
                   {editGegnerId ? '💾 Änderungen der Behörde speichern' : '+ Behörde / Gegner im CRM speichern'}
                 </button>
                 {editGegnerId && (
-                  <button type="button" onClick={() => { setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); }} style={{ padding: '12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  <button type="button" onClick={() => { setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); }} style={{ padding: '12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: '1 1 auto' }}>
                     Abbrechen
                   </button>
                 )}
               </div>
             </form>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '15px', textAlign: 'left' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '15px', textAlign: 'left' }}>
               {gegnerListe.map(g => {
                 let ansList = [];
                 try {
