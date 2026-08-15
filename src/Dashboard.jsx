@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
-// --- KORRIGIERTE HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) INKL. DELETE ---
-const syncToGithub = async (filename, contentText, pdfUrl = null, action = null) => {
+// --- KORRIGIERTE HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) INKL. DELETE UND TOASTS ---
+const syncToGithub = async (filename, contentText, pdfUrl = null, action = null, showToast = alert) => {
   try {
     console.log(`[GitHub Sync] Starte Sync für: ${filename} (Aktion: ${action || 'put'})...`);
     
@@ -21,13 +21,13 @@ const syncToGithub = async (filename, contentText, pdfUrl = null, action = null)
 
     if (error) {
       console.error("[GitHub Sync] Supabase Invoke Fehler:", error);
-      alert(`⚠️ GitHub Sync Fehler bei ${filename}: ${error.message}`);
+      showToast(`⚠️ GitHub Sync Fehler bei ${filename}: ${error.message}`, 'error');
     } else {
       console.log("[GitHub Sync] Erfolg:", data);
     }
   } catch (err) {
     console.error("[GitHub Sync] Unerwarteter Ausnahme-Fehler:", err);
-    alert(`❌ Sync-Ausnahme bei ${filename}: ${err.message}`);
+    showToast(`❌ Sync-Ausnahme bei ${filename}: ${err.message}`, 'error');
   }
 };
 
@@ -215,6 +215,23 @@ export default function Dashboard({ session }) {
   // --- FEST HINTERLEGTE SIGNATUR-URL ---
   const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
 
+  // =================================================================
+  // NEU: TOAST NOTIFICATION STATE & LOGIK
+  // =================================================================
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type, fadingOut: false }]);
+    
+    setTimeout(() => {
+      setToasts(prev => prev.map(t => t.id === id ? { ...t, fadingOut: true } : t));
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, 300);
+    }, 4000);
+  };
+
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
     accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
@@ -258,11 +275,11 @@ export default function Dashboard({ session }) {
 
         setBriefEntwurf(`--- LIVE WEBSEITEN-INHALT VON ${urlStr} ---\n\n${cleanText}`);
         setActiveTab('akten');
-        alert(`✅ Inhalte von ${urlStr} erfolgreich aus dem Netz geladen und im Schreibfenster eingefügt!`);
+        showToast(`✅ Inhalte von ${urlStr} erfolgreich aus dem Netz geladen und im Schreibfenster eingefügt!`, 'success');
       }
     } catch (e) {
       console.error("Fehler beim Abrufen der URL:", e);
-      alert("❌ Fehler beim Abrufen der URL aus dem Netz.");
+      showToast("❌ Fehler beim Abrufen der URL aus dem Netz.", 'error');
     }
     setWebFetchLoading(false);
   };
@@ -280,6 +297,8 @@ export default function Dashboard({ session }) {
       * { box-sizing: border-box !important; }
       input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; transition: 0.2s; }
       input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+      @keyframes slideInRight { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+      @keyframes fadeOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
     `;
 
     let link = document.querySelector("link[rel~='icon']");
@@ -288,7 +307,7 @@ export default function Dashboard({ session }) {
       link.rel = 'icon';
       document.head.appendChild(link);
     }
-    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0-8"/></svg>`;
+    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0 8"/></svg>`;
 
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
@@ -323,7 +342,7 @@ export default function Dashboard({ session }) {
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
-      alert("Bitte wähle zuerst mindestens eine Datei aus!");
+      showToast("Bitte wähle zuerst mindestens eine Datei aus!", 'warning');
       return;
     }
 
@@ -351,7 +370,7 @@ export default function Dashboard({ session }) {
             dokument_url: null // Keine Storage-URL vorhanden
           }]);
 
-          await syncToGithub(file.name, mdInhalt); // Reiner Text pushen
+          await syncToGithub(file.name, mdInhalt, null, null, showToast); 
         } else {
           // WEG B: PDF / Binärdaten -> Storage Upload
           const sichererName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -380,6 +399,7 @@ export default function Dashboard({ session }) {
     setLaedt(false);
     setTimeout(() => { ladeDaten(); }, 300);
     if (document.getElementById('bulk-file-input')) document.getElementById('bulk-file-input').value = '';
+    showToast(`✅ KI-Wissensspeicher Import abgeschlossen!`, 'success');
   };
 
   const loescheWissenEintrag = async (id) => {
@@ -391,9 +411,10 @@ export default function Dashboard({ session }) {
     await supabase.from('wissensdatenbank').delete().eq('id', id);
     setWissenEintraege(prev => prev.filter(w => w.id !== id));
     
-    // NEU: Wenn es eine MD-Datei ist, auch aus GitHub löschen
     if (target && target.datei_name && target.datei_name.toLowerCase().endsWith('.md')) {
-      await syncToGithub(target.datei_name, null, null, 'delete');
+      await syncToGithub(target.datei_name, null, null, 'delete', showToast);
+    } else {
+      showToast(`✅ Wissens-Eintrag gelöscht!`, 'success');
     }
 
     ladeDaten();
@@ -513,7 +534,7 @@ export default function Dashboard({ session }) {
         await ladeDaten();
         setJsonImport('');
         setLaedt(false);
-        alert(`✅ KI-Gegner-Scan abgeschlossen!\n\n${addedCount} neue Behörden/Gegner angelegt.\n${updatedCount} bestehende aktualisiert.`);
+        showToast(`✅ KI-Gegner-Scan abgeschlossen!\n\n${addedCount} neue Behörden/Gegner angelegt.\n${updatedCount} bestehende aktualisiert.`, 'success');
         return; 
       }
 
@@ -636,7 +657,7 @@ export default function Dashboard({ session }) {
       }]).select();
       if (!error && data) {
         setMandanten(prev => [...prev, data[0]]);
-        alert(`✅ Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`);
+        showToast(`✅ Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`, 'success');
       }
     } else if (tresorPrompt.typ === 'update') {
       let finalUpdates = {};
@@ -644,7 +665,7 @@ export default function Dashboard({ session }) {
       if (Object.keys(finalUpdates).length > 0) {
         await supabase.from('mandanten').update(finalUpdates).eq('id', tresorPrompt.existingId);
         ladeDaten();
-        alert(`✅ Tresor-Eintrag für "${tresorPrompt.firma}" aktualisiert!`);
+        showToast(`✅ Tresor-Eintrag für "${tresorPrompt.firma}" aktualisiert!`, 'success');
       }
     }
     setTresorPrompt(null);
@@ -652,13 +673,19 @@ export default function Dashboard({ session }) {
 
   const handleInlineEdit = async (histId, feld, wert) => {
     const { error } = await supabase.from('akten_historie').update({ [feld]: wert || null }).eq('id', histId);
-    if (!error) ladeDaten(); else alert("Fehler beim Speichern: " + error.message);
+    if (!error) {
+      ladeDaten(); 
+      showToast('Änderung gespeichert!', 'success');
+    } else {
+      showToast("Fehler beim Speichern: " + error.message, 'error');
+    }
   };
 
   const loescheHistorieEintrag = async (histId) => {
     if(!window.confirm("Diesen gesamten Eintrag inkl. aller darin verknüpften Dateien aus der Akte löschen?")) return;
     await supabase.from('akten_historie').delete().eq('id', histId);
     ladeDaten();
+    showToast('Eintrag komplett gelöscht!', 'success');
   };
 
   const loescheDateiAusHistorie = async (histId, aktuelleUrls, urlZumLoeschen) => {
@@ -676,8 +703,9 @@ export default function Dashboard({ session }) {
           await supabase.storage.from('dokumente').remove([fileName]);
        } catch (e) { }
        ladeDaten();
+       showToast('Datei erfolgreich entfernt!', 'success');
     } else {
-       alert("Fehler beim Entfernen der Datei: " + dbError.message);
+       showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error');
     }
   };
 
@@ -701,8 +729,9 @@ export default function Dashboard({ session }) {
         }]);
       }
       ladeDaten(); 
+      showToast(`Akte wurde ${neuerStatus === 'Erledigt' ? 'geschlossen' : 'wieder geöffnet'}.`, 'success');
     } else {
-      alert("Fehler beim Ändern des Akten-Status: " + error.message);
+      showToast("Fehler beim Ändern des Akten-Status: " + error.message, 'error');
     }
   };
 
@@ -728,8 +757,9 @@ export default function Dashboard({ session }) {
         dokument_url: null
       }]);
 
-      await syncToGithub(file.name, mdInhalt);
+      await syncToGithub(file.name, mdInhalt, null, null, showToast);
       ladeDaten(); // Refresh um die Tabelle zu aktualisieren
+      showToast('Dokument erfolgreich angehängt!', 'success');
     } else {
       // WEG B: PDF / Binärdaten -> Storage Upload
       const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -743,8 +773,9 @@ export default function Dashboard({ session }) {
         
         await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
         ladeDaten();
+        showToast('Dokument erfolgreich angehängt!', 'success');
       } else {
-        alert("Fehler beim Upload: " + uploadError.message);
+        showToast("Fehler beim Upload: " + uploadError.message, 'error');
       }
     }
     
@@ -842,15 +873,15 @@ export default function Dashboard({ session }) {
 
   const handleResendVersand = async (versandArt) => {
     if (!briefEntwurf || briefEntwurf.trim() === '') {
-      alert("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!");
+      showToast("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!", 'warning');
       return;
     }
     if (!gegnerEmail && versandArt === 'email') {
-      alert("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!");
+      showToast("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!", 'warning');
       return;
     }
     if (!gegnerFax && versandArt === 'fax') {
-      alert("⚠️ Bitte trage zuerst eine Faxnummer der Gegenseite ein!");
+      showToast("⚠️ Bitte trage zuerst eine Faxnummer der Gegenseite ein!", 'warning');
       return;
     }
 
@@ -898,11 +929,11 @@ export default function Dashboard({ session }) {
       setKanal(versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)');
       setTyp('Ausgang');
 
-      alert(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet!\n\nDas PDF wurde generiert. Klicke jetzt noch unten auf "+ In Akte abheften", um den Vorgang endgültig in der Akte zu speichern.`);
+      showToast(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet!\nDas PDF wurde generiert. Klicke jetzt noch unten auf "+ In Akte abheften", um den Vorgang endgültig in der Akte zu speichern.`, 'success');
 
     } catch (e) {
       console.error("Versandfehler:", e);
-      alert("❌ Rückmeldung von Resend: " + e.message);
+      showToast("❌ Rückmeldung von Resend: " + e.message, 'error');
     }
     setLaedt(false);
   };
@@ -931,8 +962,9 @@ export default function Dashboard({ session }) {
         dokument_url: null
       }]);
 
-      await syncToGithub(file.name, mdInhalt);
+      await syncToGithub(file.name, mdInhalt, null, null, showToast);
       ladeDaten();
+      showToast('Stammdokument angehängt!', 'success');
     } else {
       // WEG B: PDF / Binärdaten -> Storage Upload
       const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -945,6 +977,9 @@ export default function Dashboard({ session }) {
         const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
         await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
         ladeDaten();
+        showToast('Stammdokument angehängt!', 'success');
+      } else {
+        showToast("Fehler beim Upload: " + uploadError.message, 'error');
       }
     }
     
@@ -965,6 +1000,9 @@ export default function Dashboard({ session }) {
           await supabase.storage.from('dokumente').remove([fileName]);
        } catch (e) { }
        ladeDaten();
+       showToast('Datei erfolgreich aus Tresor entfernt!', 'success');
+    } else {
+       showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error');
     }
   };
 
@@ -1027,7 +1065,7 @@ export default function Dashboard({ session }) {
              dokument_url: null
            }]);
 
-           await syncToGithub(f.name, fileInhalt);
+           await syncToGithub(f.name, fileInhalt, null, null, showToast);
         } else {
            // WEG B: PDF / Binärdaten -> Storage Upload
            const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
@@ -1054,10 +1092,10 @@ export default function Dashboard({ session }) {
       }]);
 
       const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.md`;
-      await syncToGithub(ausgangName, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, versandPdfUrl);
+      await syncToGithub(ausgangName, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, versandPdfUrl, null, showToast);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
       const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.md`;
-      await syncToGithub(entwurfName, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`);
+      await syncToGithub(entwurfName, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`, null, null, showToast);
     }
 
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
@@ -1072,7 +1110,11 @@ export default function Dashboard({ session }) {
           gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: unserAnsprechpartner || null,
           unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen'
         }]).select()
-      if (aktenError) { alert("Fehler Akte: " + aktenError.message); setLaedt(false); return; }
+      if (aktenError) { 
+        showToast("Fehler Akte: " + aktenError.message, 'error'); 
+        setLaedt(false); 
+        return; 
+      }
       aktuelleAkteId = neueAkte[0].id
     }
 
@@ -1145,14 +1187,17 @@ export default function Dashboard({ session }) {
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null);
       setVersandPdfUrl(null); 
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
-      ladeDaten()
+      ladeDaten();
+      showToast('✅ Akteneintrag erfolgreich gespeichert!', 'success');
+    } else {
+      showToast('❌ Fehler beim Speichern der Historie: ' + histError.message, 'error');
     }
     setLaedt(false)
   }
 
   const naechsterGegnerUebergeben = async (akteId) => {
     if (!neuerGegnerName) {
-      alert("Bitte gib den Namen der neuen Behörde / des neuen Gegners ein!");
+      showToast("Bitte gib den Namen der neuen Behörde / des neuen Gegners ein!", 'warning');
       return;
     }
     const akte = akten.find(a => a.id === akteId);
@@ -1177,13 +1222,15 @@ export default function Dashboard({ session }) {
       setTransferAkteId(null);
       setNeuerGegnerName('');
       ladeDaten();
-      alert(`✅ Akte an "${neuerGegnerName}" übergeben!`);
+      showToast(`✅ Akte an "${neuerGegnerName}" übergeben!`, 'success');
+    } else {
+      showToast("Fehler bei der Übergabe: " + error.message, 'error');
     }
   };
 
   const mergeAkte = async (sourceId) => {
-    if (!mergeTargetId) { alert("Bitte wähle zuerst eine Ziel-Akte aus!"); return; }
-    if (sourceId === mergeTargetId) { alert("Quell- und Ziel-Akte dürfen nicht identisch sein!"); return; }
+    if (!mergeTargetId) { showToast("Bitte wähle zuerst eine Ziel-Akte aus!", 'warning'); return; }
+    if (sourceId === mergeTargetId) { showToast("Quell- und Ziel-Akte dürfen nicht identisch sein!", 'warning'); return; }
     if (!window.confirm("Achtung: Die komplette Historie (inkl. Dokumente) wird in die Ziel-Akte verschoben. Die aktuelle Akte wird anschließend gelöscht. Fortfahren?")) return;
 
     const sourceAkte = akten.find(a => a.id === sourceId);
@@ -1206,7 +1253,7 @@ export default function Dashboard({ session }) {
     setMergeSourceId(null);
     setMergeTargetId('');
     ladeDaten();
-    alert("✅ Akten erfolgreich zusammengeführt!");
+    showToast("✅ Akten erfolgreich zusammengeführt!", 'success');
   };
 
   const toggleAkte = (id) => {
@@ -1218,6 +1265,7 @@ export default function Dashboard({ session }) {
     if(!window.confirm("Ganze Akte löschen?")) return
     await supabase.from('akten').delete().eq('id', id)
     ladeDaten()
+    showToast('Akte komplett gelöscht.', 'success');
   }
 
   const handleTresorAuswahl = (e) => {
@@ -1310,7 +1358,7 @@ export default function Dashboard({ session }) {
             dokument_url: null
           }]);
 
-          await syncToGithub(f.name, mdInhalt);
+          await syncToGithub(f.name, mdInhalt, null, null, showToast);
         } else {
           // WEG B: PDF / Binärdaten -> Storage Upload
           const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
@@ -1344,8 +1392,10 @@ export default function Dashboard({ session }) {
 
     if (editMandantId) {
       await supabase.from('mandanten').update(payload).eq('id', editMandantId);
+      showToast('Änderungen im Tresor gespeichert!', 'success');
     } else {
       await supabase.from('mandanten').insert([payload]);
+      showToast('Neuer Mandant im Tresor angelegt!', 'success');
     }
     resetMandantForm(); ladeDaten(); setLaedt(false);
   }
@@ -1354,6 +1404,7 @@ export default function Dashboard({ session }) {
     if(!window.confirm("Firma komplett aus dem Tresor löschen?")) return
     await supabase.from('mandanten').delete().eq('id', id)
     ladeDaten()
+    showToast('Firma aus Tresor gelöscht.', 'success');
   }
 
   const speichereGegner = async (e) => {
@@ -1370,8 +1421,10 @@ export default function Dashboard({ session }) {
 
     if (editGegnerId) {
       await supabase.from('gegner').update(payload).eq('id', editGegnerId);
+      showToast('Behörden-Daten aktualisiert!', 'success');
     } else {
       await supabase.from('gegner').insert([payload]);
+      showToast('Neue Behörde im CRM angelegt!', 'success');
     }
     setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); ladeDaten(); setLaedt(false);
   }
@@ -1380,6 +1433,7 @@ export default function Dashboard({ session }) {
     if(!window.confirm("Behörde / Gegner komplett aus dem CRM löschen?")) return
     await supabase.from('gegner').delete().eq('id', id)
     ladeDaten()
+    showToast('Behörde aus CRM gelöscht.', 'success');
   }
 
   const ladeInFormularGegner = (g) => {
@@ -1593,6 +1647,35 @@ export default function Dashboard({ session }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh', position: 'relative' }}>
       
+      {/* ================================================================= */}
+      {/* GLOBAL TOAST CONTAINER */}
+      {/* ================================================================= */}
+      <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {toasts.map(t => (
+          <div key={t.id} style={{
+            background: theme.cardBg,
+            color: theme.textMain,
+            borderLeft: `5px solid ${t.type === 'success' ? '#10b981' : t.type === 'error' ? theme.gegnerAccent : theme.hintBorder}`,
+            padding: '16px 20px',
+            borderRadius: '8px',
+            boxShadow: isDarkMode ? '0 10px 25px rgba(0,0,0,0.5)' : '0 10px 25px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            minWidth: '280px',
+            maxWidth: '450px',
+            wordBreak: 'break-word',
+            border: `1px solid ${theme.border}`,
+            animation: t.fadingOut ? 'fadeOut 0.3s forwards' : 'slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+          }}>
+            <div style={{ color: t.type === 'success' ? '#10b981' : t.type === 'error' ? theme.gegnerAccent : theme.hintBorder }}>
+               <Icon name={t.type === 'success' ? 'check' : t.type === 'error' ? 'x' : 'alert'} size={24} />
+            </div>
+            <div style={{ fontSize: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.4', textAlign: 'left' }}>{t.message}</div>
+          </div>
+        ))}
+      </div>
+
       {/* ================================================================= */}
       {/* OVERLAY POPUP FÜR FEHLENDE DATEIEN BEIM SPEICHERN */}
       {/* ================================================================= */}
