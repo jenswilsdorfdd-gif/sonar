@@ -32,6 +32,34 @@ export default function Dashboard({ session }) {
     }, 4000);
   };
 
+  // --- NEU: GLOBALE SUCHE & URL FETCH LOGIK ---
+  const [suchbegriff, setSuchbegriff] = useState('');
+  const [webFetchLoading, setWebFetchLoading] = useState(false);
+  const [globalUrlText, setGlobalUrlText] = useState(null);
+
+  const handleLiveUrlFetch = async (urlStr) => {
+    if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) return;
+    setWebFetchLoading(true);
+    try {
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(urlStr)}`);
+      const data = await response.json();
+      if (data.contents) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(data.contents, 'text/html');
+        const textContent = doc.body.innerText || doc.body.textContent || '';
+        const cleanText = textContent.replace(/\s+/g, ' ').trim().substring(0, 3000);
+
+        setGlobalUrlText(`--- LIVE WEBSEITEN-INHALT VON ${urlStr} ---\n\n${cleanText}`);
+        setActiveTab('akten');
+        showToast(`✅ Inhalte von ${urlStr} erfolgreich aus dem Netz geladen und im Schreibfenster eingefügt!`, 'success');
+      }
+    } catch (e) {
+      console.error("Fehler beim Abrufen der URL:", e);
+      showToast("❌ Fehler beim Abrufen der URL aus dem Netz.", 'error');
+    }
+    setWebFetchLoading(false);
+  };
+
   // --- THEME-ENGINE ---
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
@@ -62,7 +90,6 @@ export default function Dashboard({ session }) {
 
   const activeColor = getLogoColor();
 
-  // CSS Injection
   useEffect(() => {
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
@@ -86,14 +113,12 @@ export default function Dashboard({ session }) {
       link.rel = 'icon';
       document.head.appendChild(link);
     }
-    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0 8"/></svg>`;
+    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0-8"/></svg>`;
 
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
 
-  // --- DATEN-ABFRAGE (ON MOUNT) ---
   const ladeDaten = async () => {
-    // NUR OFFENE AKTEN LADEN
     const { data: aktenData, error: aktenError } = await supabase
       .from('akten')
       .select('*, akten_historie (*)')
@@ -168,7 +193,7 @@ export default function Dashboard({ session }) {
         </div>
 
         {/* --- TAB NAVIGATION --- */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '30px', width: '100%' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
           <button
             onClick={() => setActiveTab('akten')}
             style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
@@ -194,6 +219,30 @@ export default function Dashboard({ session }) {
           </button>
         </div>
 
+        {/* --- DYNAMISCHE VOLLTEXT-SUCHLEISTE (GLOBAL) --- */}
+        <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '12px 18px', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${activeColor}`, transition: 'border-color 0.3s ease' }}>
+          <Icon name="search" size={20} style={{ color: activeColor, transition: 'color 0.3s ease' }} />
+          <input
+            type="text"
+            placeholder="Übergreifende Volltextsuche oder URL eingeben (z.B. https://finanzamt.de...)"
+            value={suchbegriff}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSuchbegriff(val);
+              if (val.startsWith('http://') || val.startsWith('https://')) {
+                handleLiveUrlFetch(val);
+              }
+            }}
+            style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
+          />
+          {webFetchLoading && <span style={{ fontSize: '12px', color: activeColor }}>🌐 Lade Webseite...</span>}
+          {suchbegriff && (
+            <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
+              <Icon name="x" size={18} />
+            </button>
+          )}
+        </div>
+
         {/* --- VIEWS ROUTING --- */}
         {activeTab === 'akten' && (
           <AktenCockpit
@@ -204,6 +253,9 @@ export default function Dashboard({ session }) {
             gegnerListe={gegnerListe}
             ladeDaten={ladeDaten}
             showToast={showToast}
+            suchbegriff={suchbegriff}
+            globalUrlText={globalUrlText}
+            setGlobalUrlText={setGlobalUrlText}
           />
         )}
 
@@ -215,6 +267,7 @@ export default function Dashboard({ session }) {
             gegnerListe={gegnerListe}
             ladeDaten={ladeDaten}
             showToast={showToast}
+            suchbegriff={suchbegriff}
           />
         )}
 
@@ -225,6 +278,7 @@ export default function Dashboard({ session }) {
             mandanten={mandanten}
             ladeDaten={ladeDaten}
             showToast={showToast}
+            suchbegriff={suchbegriff}
           />
         )}
 
@@ -235,6 +289,7 @@ export default function Dashboard({ session }) {
             gegnerListe={gegnerListe}
             ladeDaten={ladeDaten}
             showToast={showToast}
+            suchbegriff={suchbegriff}
           />
         )}
 
