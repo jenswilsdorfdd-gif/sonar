@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, normalizeName, cleanVal } from './utils';
 
-export default function AktenCockpit({ session, theme, akten, mandanten, gegnerListe, ladeDaten, showToast }) {
+export default function AktenCockpit({ session, theme, akten, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff, globalUrlText, setGlobalUrlText }) {
   const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
 
   const [laedt, setLaedt] = useState(false);
-  const [suchbegriff, setSuchbegriff] = useState('');
-  const [webFetchLoading, setWebFetchLoading] = useState(false);
   const [uploadingHistId, setUploadingHistId] = useState(null);
   
   const [modus, setModus] = useState('neu'); 
@@ -56,27 +54,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const isDarkMode = theme.bg === '#020617';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
-  const handleLiveUrlFetch = async (urlStr) => {
-    if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) return;
-    setWebFetchLoading(true);
-    try {
-      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(urlStr)}`);
-      const data = await response.json();
-      if (data.contents) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(data.contents, 'text/html');
-        const textContent = doc.body.innerText || doc.body.textContent || '';
-        const cleanText = textContent.replace(/\s+/g, ' ').trim().substring(0, 3000);
-
-        setBriefEntwurf(`--- LIVE WEBSEITEN-INHALT VON ${urlStr} ---\n\n${cleanText}`);
-        showToast(`✅ Inhalte von ${urlStr} erfolgreich aus dem Netz geladen und im Schreibfenster eingefügt!`, 'success');
-      }
-    } catch (e) {
-      console.error("Fehler beim Abrufen der URL:", e);
-      showToast("❌ Fehler beim Abrufen der URL aus dem Netz.", 'error');
+  // --- NEU: Empfang des geparsten URL-Textes vom Dashboard ---
+  useEffect(() => {
+    if (globalUrlText) {
+      setBriefEntwurf(globalUrlText);
+      setGlobalUrlText(null); // Direkt wieder löschen, damit es nicht nochmal triggert
     }
-    setWebFetchLoading(false);
-  };
+  }, [globalUrlText, setGlobalUrlText]);
 
   const toggleTresorUpdateKey = (key) => {
     setTresorPrompt(prev => {
@@ -119,11 +103,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const handleJsonImport = async (e) => {
     const val = e.target.value.trim();
     setJsonImport(val);
-    
-    if (val.startsWith('http://') || val.startsWith('https://')) {
-      handleLiveUrlFetch(val);
-      return;
-    }
 
     try {
       const obj = JSON.parse(val);
@@ -1002,6 +981,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
+  // --- NEU: FILTERUNG NUTZT NUN DEN GLOBALEN SUCHBEGRIFF ---
   const gefilterteAkten = akten.filter((akte) => {
     if (!suchbegriff.trim()) return true;
 
@@ -1042,30 +1022,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           </div>
         </div>
       )}
-
-      {/* VOLLTEXT-SUCHE */}
-      <div style={{ ...panelStyle, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${theme.accent}`, transition: 'border-color 0.3s ease' }}>
-        <Icon name="search" size={20} style={{ color: theme.accent, transition: 'color 0.3s ease' }} />
-        <input 
-          type="text" 
-          placeholder="Erweiterte Volltextsuche oder URL eingeben (z.B. https://finanzamt.de...)" 
-          value={suchbegriff}
-          onChange={(e) => {
-            const val = e.target.value;
-            setSuchbegriff(val);
-            if (val.startsWith('http://') || val.startsWith('https://')) {
-              handleLiveUrlFetch(val);
-            }
-          }}
-          style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
-        />
-        {webFetchLoading && <span style={{ fontSize: '12px', color: theme.accent }}>🌐 Lade Webseite...</span>}
-        {suchbegriff && (
-          <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
-            <Icon name="x" size={18} />
-          </button>
-        )}
-      </div>
 
       {/* MAGIC IMPORT & MANUELLER UPLOAD */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px', width: '100%' }}>
