@@ -210,6 +210,7 @@ export default function Dashboard({ session }) {
   const [wissenSuchbegriff, setWissenSuchbegriff] = useState('')
   const [wissenFirmaFilter, setWissenFirmaFilter] = useState('')
   const [wissenGegnerFilter, setWissenGegnerFilter] = useState('')
+  const [wissenAnzeigeModus, setWissenAnzeigeModus] = useState('md') // 'md' oder 'pdf'
 
   // --- FEST HINTERLEGTE SIGNATUR-URL ---
   const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
@@ -1653,7 +1654,11 @@ export default function Dashboard({ session }) {
     const matchFirma = !wissenFirmaFilter || w.firma === wissenFirmaFilter;
     const matchGegner = !wissenGegnerFilter || (w.inhalt_text || '').toLowerCase().includes(wissenGegnerFilter.toLowerCase());
     
-    return matchSuche && matchFirma && matchGegner;
+    // NEU: Dateityp-Filter (.md vs .pdf)
+    const isMd = w.datei_name && w.datei_name.toLowerCase().endsWith('.md');
+    const matchModus = wissenAnzeigeModus === 'md' ? isMd : !isMd;
+    
+    return matchSuche && matchFirma && matchGegner && matchModus;
   });
 
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-'
@@ -2394,8 +2399,38 @@ export default function Dashboard({ session }) {
               </button>
             </form>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                <h3 style={{ margin: '0', color: theme.textMain, textAlign: 'left' }}>📚 Indizierte Dokumente ({gefilterteWissenEintraege.length})</h3>
+               <div style={{ display: 'flex', gap: '10px' }}>
+                 <button 
+                   onClick={(e) => { e.preventDefault(); setWissenAnzeigeModus('md'); }}
+                   style={{ 
+                     background: wissenAnzeigeModus === 'md' ? theme.wissenAccent : 'transparent', 
+                     color: wissenAnzeigeModus === 'md' ? '#fff' : theme.textMain, 
+                     border: `1px solid ${theme.wissenAccent}`, 
+                     padding: '6px 16px', 
+                     borderRadius: '6px', 
+                     cursor: 'pointer', 
+                     fontWeight: 'bold', 
+                     fontSize: '13px' 
+                   }}>
+                   MD Datenbank
+                 </button>
+                 <button 
+                   onClick={(e) => { e.preventDefault(); setWissenAnzeigeModus('pdf'); }}
+                   style={{ 
+                     background: wissenAnzeigeModus === 'pdf' ? theme.wissenAccent : 'transparent', 
+                     color: wissenAnzeigeModus === 'pdf' ? '#fff' : theme.textMain, 
+                     border: `1px solid ${theme.wissenAccent}`, 
+                     padding: '6px 16px', 
+                     borderRadius: '6px', 
+                     cursor: 'pointer', 
+                     fontWeight: 'bold', 
+                     fontSize: '13px' 
+                   }}>
+                   PDF Datenbank
+                 </button>
+               </div>
             </div>
             
             {/* --- FILTER & SUCHLEISTE --- */}
