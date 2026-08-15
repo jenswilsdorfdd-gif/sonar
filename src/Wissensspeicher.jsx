@@ -3,12 +3,11 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub } from './utils';
 
-export default function Wissensspeicher({ theme, wissenEintraege, mandanten, gegnerListe, ladeDaten, showToast }) {
+export default function Wissensspeicher({ theme, wissenEintraege, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff }) {
   const [laedt, setLaedt] = useState(false);
   const [bulkDateien, setBulkDateien] = useState([]);
   const [bulkFirma, setBulkFirma] = useState('');
   const [bulkStatus, setBulkStatus] = useState(null);
-  const [wissenSuchbegriff, setWissenSuchbegriff] = useState('');
   const [wissenFirmaFilter, setWissenFirmaFilter] = useState('');
   const [wissenGegnerFilter, setWissenGegnerFilter] = useState('');
   
@@ -20,7 +19,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
 
-  // --- NEU: GITHUB LIVE-FETCH LOGIK ---
   const fetchGithubFiles = async () => {
     setLoadingGithub(true);
     try {
@@ -30,7 +28,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
       });
       if (error) throw error;
       if (data && data.success) {
-         // Filtern auf .md Dateien zur Sicherheit
          const mdFiles = data.files.filter(f => f.name.toLowerCase().endsWith('.md'));
          setGithubFiles(mdFiles);
       }
@@ -47,7 +44,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     }
   }, [wissenAnzeigeModus]);
 
-  // --- BESTEHENDE FUNKTIONEN ---
   const StarteBulkImport = async (e) => {
     e.preventDefault();
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -116,24 +112,23 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     ladeDaten();
   };
 
-  // Filter-Logik für PDFs
+  // --- NEU: FILTERUNG NUTZT DEN GLOBALEN SUCHBEGRIFF ---
   const gefilterteWissenEintraege = wissenEintraege.filter(w => {
-    const matchSuche = !wissenSuchbegriff.trim() || 
-      (w.datei_name || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) || 
-      (w.firma || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase()) ||
-      (w.inhalt_text || '').toLowerCase().includes(wissenSuchbegriff.toLowerCase());
+    const matchSuche = !suchbegriff.trim() || 
+      (w.datei_name || '').toLowerCase().includes(suchbegriff.toLowerCase()) || 
+      (w.firma || '').toLowerCase().includes(suchbegriff.toLowerCase()) ||
+      (w.inhalt_text || '').toLowerCase().includes(suchbegriff.toLowerCase());
     
     const matchFirma = !wissenFirmaFilter || w.firma === wissenFirmaFilter;
     const matchGegner = !wissenGegnerFilter || (w.inhalt_text || '').toLowerCase().includes(wissenGegnerFilter.toLowerCase());
     
     const isMd = w.datei_name && w.datei_name.toLowerCase().endsWith('.md');
     
-    return matchSuche && matchFirma && matchGegner && !isMd; // Supabase zeigt nur Nicht-MDs an
+    return matchSuche && matchFirma && matchGegner && !isMd; 
   });
 
-  // Filter-Logik für MDs (GitHub)
   const gefilterteGithubFiles = githubFiles.filter(f => 
-    !wissenSuchbegriff.trim() || f.name.toLowerCase().includes(wissenSuchbegriff.toLowerCase())
+    !suchbegriff.trim() || f.name.toLowerCase().includes(suchbegriff.toLowerCase())
   );
 
   return (
@@ -219,43 +214,31 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           </div>
       </div>
       
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 min(100%, 200px)' }}>
-          <input 
-            type="text" 
-            placeholder="Suchen nach Dateiname, Inhalt oder Firma..." 
-            value={wissenSuchbegriff}
-            onChange={(e) => setWissenSuchbegriff(e.target.value)}
-            style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
-          />
+      {wissenAnzeigeModus === 'pdf' && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 min(100%, 150px)' }}>
+            <select 
+              value={wissenFirmaFilter} 
+              onChange={(e) => setWissenFirmaFilter(e.target.value)}
+              style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
+            >
+              <option value="">Alle Mandanten</option>
+              <option value="Allgemein">Allgemein (Ohne Mandant)</option>
+              {mandanten.map(m => <option key={m.id} value={m.firmenname}>{m.firmenname}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: '1 1 min(100%, 150px)' }}>
+            <select 
+              value={wissenGegnerFilter} 
+              onChange={(e) => setWissenGegnerFilter(e.target.value)}
+              style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
+            >
+              <option value="">Alle Gegner / Behörden</option>
+              {gegnerListe.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+            </select>
+          </div>
         </div>
-        
-        {wissenAnzeigeModus === 'pdf' && (
-          <>
-            <div style={{ flex: '1 1 min(100%, 150px)' }}>
-              <select 
-                value={wissenFirmaFilter} 
-                onChange={(e) => setWissenFirmaFilter(e.target.value)}
-                style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
-              >
-                <option value="">Alle Mandanten</option>
-                <option value="Allgemein">Allgemein (Ohne Mandant)</option>
-                {mandanten.map(m => <option key={m.id} value={m.firmenname}>{m.firmenname}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: '1 1 min(100%, 150px)' }}>
-              <select 
-                value={wissenGegnerFilter} 
-                onChange={(e) => setWissenGegnerFilter(e.target.value)}
-                style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
-              >
-                <option value="">Alle Gegner / Behörden</option>
-                {gegnerListe.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
-              </select>
-            </div>
-          </>
-        )}
-      </div>
+      )}
 
       <div style={{ borderRadius: '8px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
         <table style={{ width: '100%', minWidth: '500px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
@@ -268,7 +251,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           </thead>
           <tbody>
             {wissenAnzeigeModus === 'md' ? (
-              // --- RENDER LOGIK: MD DATENBANK (LIVE GITHUB) ---
               loadingGithub ? (
                 <tr>
                   <td colSpan="3" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>
@@ -298,12 +280,11 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
               ) : (
                 <tr>
                   <td colSpan="3" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>
-                    Keine MD-Dateien auf GitHub gefunden.
+                    Keine MD-Dateien gefunden.
                   </td>
                 </tr>
               )
             ) : (
-              // --- RENDER LOGIK: PDF DATENBANK (SUPABASE MIT TOP 20 LIMIT) ---
               gefilterteWissenEintraege.slice(0, 20).length > 0 ? (
                 gefilterteWissenEintraege.slice(0, 20).map(w => (
                   <tr key={w.id} style={{ borderBottom: `1px solid ${theme.border}`, transition: 'background 0.2s' }}>
