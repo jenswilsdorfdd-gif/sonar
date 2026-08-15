@@ -2569,13 +2569,13 @@ export default function Dashboard({ session }) {
                       {ansList.length > 0 ? (
                         ansList.map((ans, idx) => (
                           <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-                            <div style={{ color: theme.accent, fontWeight: 'bold' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
-                            <div style={{ color: theme.gegnerAccent }}>👤 {ans.name || '-'}</div>
+                            <div style={{ color: theme.gegnerAccent, fontWeight: 'bold' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
+                            <div style={{ color: theme.textMain }}>👤 {ans.name || '-'}</div>
                             <div style={{ color: theme.textMuted, fontSize: '11px' }}>📞 {ans.telefon || '-'} | ✉️ {ans.email || '-'}</div>
                           </div>
                         ))
                       ) : (
-                        <div style={{ color: theme.gegnerAccent }}>👤 {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
+                        <div style={{ color: theme.textMain }}>👤 {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
                       )}
                     </div>
                   </div>
