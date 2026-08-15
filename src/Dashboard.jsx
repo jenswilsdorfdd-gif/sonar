@@ -305,7 +305,9 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten() }, [])
 
-  // BULK IMPORT FÜR KI-WISSENSSPEICHER (MD Direktextraktion)
+  // =================================================================
+  // 1. UPLOAD-WEICHE: KI-WISSENSSPEICHER (StarteBulkImport)
+  // =================================================================
   const StarteBulkImport = async (e) => {
     e.preventDefault()
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -321,43 +323,41 @@ export default function Dashboard({ session }) {
       setBulkStatus({ fortschritt: i + 1, gesamt: gesamt, text: `Verarbeite: ${file.name}...` });
 
       try {
-        const sichererName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const storagePath = `wissen_${Date.now()}_${sichererName}`;
-        const { error: uploadError } = await supabase.storage.from('dokumente').upload(storagePath, file);
-
+        const isMd = file.name.toLowerCase().endsWith('.md');
         let pubUrl = null;
-        if (!uploadError) {
-          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storagePath);
-          pubUrl = linkData.publicUrl;
+        let finalDbText = '';
+
+        if (isMd) {
+          // WEG A: Reine Textdatei -> Nur nach GitHub & DB, KEIN Storage
+          const mdInhalt = await file.text();
+          finalDbText = mdInhalt.substring(0, 3000); // Max Zeichen für die DB Vorschau
+
+          await supabase.from('wissensdatenbank').insert([{
+            datei_name: file.name,
+            firma: bulkFirma || 'Allgemein',
+            inhalt_text: finalDbText,
+            dokument_url: null // Keine Storage-URL vorhanden
+          }]);
+
+          await syncToGithub(file.name, mdInhalt); // Reiner Text pushen
+        } else {
+          // WEG B: PDF / Binärdaten -> Storage Upload
+          const sichererName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const storagePath = `wissen_${Date.now()}_${sichererName}`;
+          const { error: uploadError } = await supabase.storage.from('dokumente').upload(storagePath, file);
+
+          if (!uploadError) {
+            const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storagePath);
+            pubUrl = linkData.publicUrl;
+
+            await supabase.from('wissensdatenbank').insert([{
+              datei_name: file.name,
+              firma: bulkFirma || 'Allgemein',
+              inhalt_text: `Dokument: ${file.name}\n(PDF/Bilddatei - Kein Text-Extrakt vorhanden)`,
+              dokument_url: pubUrl
+            }]);
+          }
         }
-
-        // NEU: Lokales Auslesen von .md-Dateien
-        let mdInhalt = '';
-        if (file.name.toLowerCase().endsWith('.md')) {
-           mdInhalt = await file.text();
-        }
-
-        const baseInfo = `Dokument: ${file.name}`;
-        const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
-
-        const { data: insertedData, error: insertErr } = await supabase.from('wissensdatenbank').insert([{
-          datei_name: file.name,
-          firma: bulkFirma || 'Allgemein',
-          inhalt_text: finalDbText,
-          dokument_url: pubUrl
-        }]).select();
-
-        if (insertErr) {
-          alert(`❌ Fehler beim Speichern: ${insertErr.message}`);
-          console.error("Wissensspeicher Insert Fehler:", insertErr);
-        } else if (insertedData && insertedData.length > 0) {
-          setWissenEintraege(prev => [insertedData[0], ...prev]);
-        }
-
-        // --- SYNC ZU GITHUB ---
-        const githubContent = `Datei: ${file.name}\nFirma: ${bulkFirma || 'Allgemein'}\nLink: ${pubUrl}\n\n${mdInhalt}`;
-        await syncToGithub(`${storagePath}.md`, githubContent, pubUrl);
-
       } catch (err) {
         console.error("Import-Fehler bei File:", file.name, err);
       }
@@ -684,44 +684,48 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // NACHTRAG UPLOAD AKTE (MD Direktextraktion)
+  // =================================================================
+  // 2. UPLOAD-WEICHE: AKTEN HISTORIE NACHTRAG (handleNachtragUploadAkte)
+  // =================================================================
   const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, akteGegner, e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingHistId(histId);
-    const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const dateiName = `h_${Date.now()}_${sichererDateiname}`;
     
-    const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
-    if (!uploadError) {
-      const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
-      const newUrl = linkData.publicUrl;
-      const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
-      
-      const { error } = await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
-      
-      let mdInhalt = '';
-      if (file.name.toLowerCase().endsWith('.md')) {
-          mdInhalt = await file.text();
-      }
+    const isMd = file.name.toLowerCase().endsWith('.md');
 
+    if (isMd) {
+      // WEG A: Reine Textdatei -> Nur nach GitHub & DB, KEIN Storage
+      const mdInhalt = await file.text();
       const baseInfo = `Nachträglich an Akte angehängt. Gegner: ${akteGegner || 'Unbekannt'}`;
-      const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
-
+      
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: akteFirma || 'Allgemein',
-        inhalt_text: finalDbText,
-        dokument_url: newUrl
+        inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`,
+        dokument_url: null
       }]);
 
-      const githubContent = `Datei: ${file.name}\nFirma: ${akteFirma || 'Allgemein'}\nGegner: ${akteGegner || 'Unbekannt'}\nInfo: Nachträglich an Akte angehängt\nLink: ${newUrl}\n\n${mdInhalt}`;
-      await syncToGithub(`${dateiName}.md`, githubContent, newUrl);
-
-      if (!error) ladeDaten();
+      await syncToGithub(file.name, mdInhalt);
+      ladeDaten(); // Refresh um die Tabelle zu aktualisieren
     } else {
-      alert("Fehler beim Upload: " + uploadError.message);
+      // WEG B: PDF / Binärdaten -> Storage Upload
+      const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const dateiName = `h_${Date.now()}_${sichererDateiname}`;
+      const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
+      
+      if (!uploadError) {
+        const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
+        const newUrl = linkData.publicUrl;
+        const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
+        
+        await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
+        ladeDaten();
+      } else {
+        alert("Fehler beim Upload: " + uploadError.message);
+      }
     }
+    
     setUploadingHistId(null);
     e.target.value = '';
   };
@@ -881,43 +885,47 @@ export default function Dashboard({ session }) {
     setLaedt(false);
   };
 
-  // NACHTRAG UPLOAD MANDANT (MD Direktextraktion)
+  // =================================================================
+  // 3. UPLOAD-WEICHE: TRESOR NACHTRAG (handleNachtragUploadMandant)
+  // =================================================================
   const handleNachtragUploadMandant = async (mId, currentUrls, e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingMandantId(mId);
-    const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
-    const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
-    if (!uploadError) {
-      const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
-      const newUrl = linkData.publicUrl;
-      const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
-      const { error } = await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
-      
-      const matchMandant = mandanten.find(x => x.id === mId);
-      const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
-      
-      let mdInhalt = '';
-      if (file.name.toLowerCase().endsWith('.md')) {
-          mdInhalt = await file.text();
-      }
+    
+    const isMd = file.name.toLowerCase().endsWith('.md');
+    const matchMandant = mandanten.find(x => x.id === mId);
+    const fName = matchMandant ? matchMandant.firmenname : 'Allgemein';
 
+    if (isMd) {
+      // WEG A: Reine Textdatei -> Nur nach GitHub & DB, KEIN Storage
+      const mdInhalt = await file.text();
       const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName}`;
-      const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
-
+      
       await supabase.from('wissensdatenbank').insert([{
         datei_name: file.name,
         firma: fName,
-        inhalt_text: finalDbText,
-        dokument_url: newUrl
+        inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`,
+        dokument_url: null
       }]);
 
-      const githubContent = `Stammdokument: ${file.name}\nFirma: ${fName}\nLink: ${newUrl}\n\n${mdInhalt}`;
-      await syncToGithub(`${dateiName}.md`, githubContent, newUrl);
-
-      if (!error) ladeDaten();
+      await syncToGithub(file.name, mdInhalt);
+      ladeDaten();
+    } else {
+      // WEG B: PDF / Binärdaten -> Storage Upload
+      const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
+      const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
+      
+      if (!uploadError) {
+        const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
+        const newUrl = linkData.publicUrl;
+        const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
+        await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
+        ladeDaten();
+      }
     }
+    
     setUploadingMandantId(null);
     e.target.value = ''; 
   };
@@ -938,7 +946,9 @@ export default function Dashboard({ session }) {
     }
   };
 
-  // SPEICHERE EINTRAG AKTE (MD Direktextraktion)
+  // =================================================================
+  // 4. UPLOAD-WEICHE: HAUPT-FORMULAR (speichereEintrag)
+  // =================================================================
   const speichereEintrag = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -966,30 +976,33 @@ export default function Dashboard({ session }) {
     // Manuell hochgeladene Dateien verarbeiten 
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
-        const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-        const dateiName = `${Date.now()}_${sichererDateiname}` 
-        const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f)
-        if (!uploadError) {
-          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
-          alleUrls.push(linkData.publicUrl)
+        const isMd = f.name.toLowerCase().endsWith('.md');
+        const zugewieseneFirma = unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein');
 
-          let fileInhalt = '';
-          if (f.name.toLowerCase().endsWith('.md')) {
-             fileInhalt = await f.text();
-          }
+        if (isMd) {
+           // WEG A: Reine Textdatei -> Nur nach GitHub & DB, KEIN Storage
+           const fileInhalt = await f.text();
+           const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`;
+           const finalDbText = `${baseInfo}\n\n${fileInhalt.substring(0, 3000)}...`;
 
-          const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`;
-          const finalDbText = fileInhalt ? `${baseInfo}\n\n${fileInhalt.substring(0, 800)}...` : baseInfo;
+           await supabase.from('wissensdatenbank').insert([{
+             datei_name: f.name,
+             firma: zugewieseneFirma,
+             inhalt_text: finalDbText,
+             dokument_url: null
+           }]);
 
-          await supabase.from('wissensdatenbank').insert([{
-            datei_name: f.name,
-            firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein'),
-            inhalt_text: finalDbText,
-            dokument_url: linkData.publicUrl
-          }]);
-
-          const githubContent = `Datei: ${f.name}\nFirma: ${unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein')}\nGegner: ${gegnerName || 'Unbekannt'}\nThema: ${thema || 'Ohne Thema'}\nLink: ${linkData.publicUrl}\n\n${fileInhalt}`;
-          await syncToGithub(`${dateiName}.md`, githubContent, linkData.publicUrl);
+           await syncToGithub(f.name, fileInhalt);
+        } else {
+           // WEG B: PDF / Binärdaten -> Storage Upload
+           const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+           const dateiName = `${Date.now()}_${sichererDateiname}` 
+           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f)
+           
+           if (!uploadError) {
+             const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
+             alleUrls.push(linkData.publicUrl)
+           }
         }
       }
     }
@@ -1005,11 +1018,11 @@ export default function Dashboard({ session }) {
         dokument_url: versandPdfUrl
       }]);
 
-      const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
-      await syncToGithub(`${ausgangName}.md`, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, versandPdfUrl);
+      const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.md`;
+      await syncToGithub(ausgangName, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, versandPdfUrl);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}`;
-      await syncToGithub(`${entwurfName}.md`, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`);
+      const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.md`;
+      await syncToGithub(entwurfName, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`);
     }
 
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
@@ -1238,7 +1251,9 @@ export default function Dashboard({ session }) {
     if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
   };
 
-  // SPEICHERE MANDANT (MD Direktextraktion)
+  // =================================================================
+  // 5. UPLOAD-WEICHE: TRESOR HAUPTFORMULAR (speichereMandant)
+  // =================================================================
   const speichereMandant = async (e) => {
     e.preventDefault()
     setLaedt(true)
@@ -1246,33 +1261,35 @@ export default function Dashboard({ session }) {
     let alleUrls = [];
     if (m_dateien && m_dateien.length > 0) {
       for (const f of m_dateien) {
-        const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-        const dateiName = `m_${Date.now()}_${sichererDateiname}` 
-        const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f)
-        if (!uploadError) {
-          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
-          alleUrls.push(linkData.publicUrl)
-          
-          let mdInhalt = '';
-          if (f.name.toLowerCase().endsWith('.md')) {
-             mdInhalt = await f.text();
-          }
-
+        const isMd = f.name.toLowerCase().endsWith('.md');
+        
+        if (isMd) {
+          // WEG A: Reine Textdatei -> Nur nach GitHub & DB, KEIN Storage
+          const mdInhalt = await f.text();
           const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`;
-          const finalDbText = mdInhalt ? `${baseInfo}\n\n${mdInhalt.substring(0, 800)}...` : baseInfo;
-
+          
           await supabase.from('wissensdatenbank').insert([{
             datei_name: f.name,
             firma: m_firmenname || 'Allgemein',
-            inhalt_text: finalDbText,
-            dokument_url: linkData.publicUrl
+            inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`,
+            dokument_url: null
           }]);
 
-          const githubContent = `Stammdokument: ${f.name}\nFirma: ${m_firmenname || 'Allgemein'}\nLink: ${linkData.publicUrl}\n\n${mdInhalt}`;
-          await syncToGithub(`${dateiName}.md`, githubContent, linkData.publicUrl);
+          await syncToGithub(f.name, mdInhalt);
+        } else {
+          // WEG B: PDF / Binärdaten -> Storage Upload
+          const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+          const dateiName = `m_${Date.now()}_${sichererDateiname}` 
+          const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f)
+          
+          if (!uploadError) {
+            const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
+            alleUrls.push(linkData.publicUrl)
+          }
         }
       }
     }
+    
     let neuDokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
     let finalDocs = neuDokumentUrl;
     
