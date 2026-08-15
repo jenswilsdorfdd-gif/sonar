@@ -160,7 +160,6 @@ export default function Dashboard({ session }) {
   const [versandPdfUrl, setVersandPdfUrl] = useState(null)
 
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([])
-  const [zeigeErledigte, setZeigeErledigte] = useState(false)
 
   // GEZIELTES FOKUSSIEREN DER ANGEKLICKTEN AKTE
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null)
@@ -313,7 +312,13 @@ export default function Dashboard({ session }) {
   }, [isDarkMode, theme.bg]);
 
   const ladeDaten = async () => {
-    const { data: aktenData, error: aktenError } = await supabase.from('akten').select(`*, akten_historie (*)`).order('created_at', { ascending: false })
+    // NUR OFFENE AKTEN LADEN (Performance-Boost)
+    const { data: aktenData, error: aktenError } = await supabase
+      .from('akten')
+      .select(`*, akten_historie (*)`)
+      .eq('status', 'Offen')
+      .order('created_at', { ascending: false })
+      
     if (!aktenError && aktenData) {
       aktenData.forEach(akte => { 
         if(akte.akten_historie) {
@@ -553,7 +558,25 @@ export default function Dashboard({ session }) {
       setDatum(new Date().toISOString().split('T')[0])
 
       if (obj.aktenzeichen) {
-        const match = akten.find(a => a.aktenzeichen === obj.aktenzeichen && a.status !== 'Erledigt')
+        let match = akten.find(a => a.aktenzeichen === obj.aktenzeichen);
+
+        // Deep-Check in Supabase, falls die Akte im lokalen (offenen) State nicht existiert
+        if (!match) {
+          const { data: dbMatch, error: dbErr } = await supabase
+            .from('akten')
+            .select('*, akten_historie (*)')
+            .eq('aktenzeichen', obj.aktenzeichen)
+            .single();
+
+          if (dbMatch && !dbErr) {
+             if (dbMatch.akten_historie) {
+               dbMatch.akten_historie.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+             }
+             setAkten(prev => [dbMatch, ...prev]); // Akte reaktivieren in der lokalen Ansicht
+             match = dbMatch;
+          }
+        }
+
         if (match) {
           setModus('bestehend');
           setSelectedAkteId(match.id);
@@ -1605,8 +1628,6 @@ export default function Dashboard({ session }) {
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
   const gefilterteAkten = akten.filter((akte) => {
-    const erlFilter = zeigeErledigte ? true : akte.status !== 'Erledigt';
-    if (!erlFilter) return false;
     if (!suchbegriff.trim()) return true;
 
     const s = suchbegriff.toLowerCase();
@@ -2126,9 +2147,6 @@ export default function Dashboard({ session }) {
             <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
               <Icon name="cabinet" size={24} /> Akten-Übersicht
             </h2>
-            <button onClick={() => setZeigeErledigte(!zeigeErledigte)} style={{ padding: '8px 16px', background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-              {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
-            </button>
           </div>
 
           <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg }}>
@@ -2216,7 +2234,7 @@ export default function Dashboard({ session }) {
                             <Icon name="trash" size={14} /> Akte löschen
                           </button>
 
-                          <button onClick={() => druckeAkte(akte)} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Icon name="print" size={14} /> Akte exportieren / drucken
                           </button>
 
