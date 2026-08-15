@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
-// --- KORRIGIERTE HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) ---
-const syncToGithub = async (filename, contentText, pdfUrl = null) => {
+// --- KORRIGIERTE HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) INKL. DELETE ---
+const syncToGithub = async (filename, contentText, pdfUrl = null, action = null) => {
   try {
-    console.log(`[GitHub Sync] Starte Sync für: ${filename}...`);
+    console.log(`[GitHub Sync] Starte Sync für: ${filename} (Aktion: ${action || 'put'})...`);
+    
+    const payload = { filename };
+    if (action === 'delete') {
+      payload.action = 'delete';
+    } else {
+      payload.content = contentText;
+      payload.pdfUrl = pdfUrl;
+    }
+
     const { data, error } = await supabase.functions.invoke('github-sync', {
-      body: { filename, content: contentText, pdfUrl: pdfUrl },
+      body: payload,
       headers: { 'Content-Type': 'application/json' }
     });
 
@@ -279,7 +288,7 @@ export default function Dashboard({ session }) {
       link.rel = 'icon';
       document.head.appendChild(link);
     }
-    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0 8"/></svg>`;
+    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0-8"/></svg>`;
 
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
@@ -375,8 +384,18 @@ export default function Dashboard({ session }) {
 
   const loescheWissenEintrag = async (id) => {
     if (!window.confirm("Diesen Wissens-Eintrag aus dem Speicher entfernen?")) return;
+    
+    // Ziel-Eintrag vorher sichern, damit wir den Dateinamen für GitHub haben
+    const target = wissenEintraege.find(w => w.id === id);
+
     await supabase.from('wissensdatenbank').delete().eq('id', id);
     setWissenEintraege(prev => prev.filter(w => w.id !== id));
+    
+    // NEU: Wenn es eine MD-Datei ist, auch aus GitHub löschen
+    if (target && target.datei_name && target.datei_name.toLowerCase().endsWith('.md')) {
+      await syncToGithub(target.datei_name, null, null, 'delete');
+    }
+
     ladeDaten();
   };
 
