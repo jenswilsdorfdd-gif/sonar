@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
 
-export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, showToast }) {
+export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, showToast, suchbegriff }) {
   const [laedt, setLaedt] = useState(false);
   const [editGegnerId, setEditGegnerId] = useState(null);
   
@@ -15,6 +15,24 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
+
+  // --- NEU: GLOBALE FILTER-LOGIK ---
+  const gefilterteGegner = gegnerListe.filter((g) => {
+    if (!suchbegriff || !suchbegriff.trim()) return true;
+    const s = suchbegriff.toLowerCase();
+    const gName = (g.name || '').toLowerCase();
+    const adr = (g.adresse || '').toLowerCase();
+    const mail = (g.email || g.email_zentrale || '').toLowerCase();
+    
+    let notizenStr = '';
+    if (typeof g.notizen === 'string') {
+        notizenStr = g.notizen.toLowerCase();
+    } else if (g.notizen) {
+        notizenStr = JSON.stringify(g.notizen).toLowerCase();
+    }
+
+    return gName.includes(s) || adr.includes(s) || mail.includes(s) || notizenStr.includes(s);
+  });
 
   const speichereGegner = async (e) => {
     e.preventDefault();
@@ -133,7 +151,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
       </form>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '15px', textAlign: 'left' }}>
-        {gegnerListe.map(g => {
+        {gefilterteGegner.map(g => {
           let ansList = [];
           try {
             const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
