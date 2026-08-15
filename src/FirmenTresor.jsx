@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, cleanVal } from './utils';
 
-export default function FirmenTresor({ session, theme, mandanten, ladeDaten, showToast }) {
+export default function FirmenTresor({ session, theme, mandanten, ladeDaten, showToast, suchbegriff }) {
   const [laedt, setLaedt] = useState(false);
   const [uploadingMandantId, setUploadingMandantId] = useState(null);
   const [editMandantId, setEditMandantId] = useState(null);
@@ -28,6 +28,18 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
+
+  // --- NEU: GLOBALE FILTER-LOGIK ---
+  const gefilterteMandanten = mandanten.filter((m) => {
+    if (!suchbegriff || !suchbegriff.trim()) return true;
+    const s = suchbegriff.toLowerCase();
+    const fName = (m.firmenname || '').toLowerCase();
+    const ans = (m.ansprechpartner || '').toLowerCase();
+    const mail = (m.email || '').toLowerCase();
+    const adr = (m.adresse || '').toLowerCase();
+    
+    return fName.includes(s) || ans.includes(s) || mail.includes(s) || adr.includes(s);
+  });
 
   const ladeInFormularMandant = (m) => {
     setEditMandantId(m.id);
@@ -252,7 +264,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
       <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>🗃️ Gespeicherte Mandanten & Firmen</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '20px', textAlign: 'left' }}>
-        {mandanten.map(m => (
+        {gefilterteMandanten.map(m => (
           <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
             <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Mandant löschen">
               <Icon name="trash" size={18} />
