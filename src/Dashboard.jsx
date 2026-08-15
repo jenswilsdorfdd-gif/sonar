@@ -1753,7 +1753,7 @@ export default function Dashboard({ session }) {
                       }}
                       title="Klicken, um diese Akte unten zu fokussieren!"
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
                         <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           🏢 {w.akte_gegner}
                         </strong>
@@ -2129,11 +2129,11 @@ export default function Dashboard({ session }) {
                                   <option key={a.id} value={a.id}>[#{a.id.substring(0,6).toUpperCase()}] {a.gegner_name} | {a.thema}</option>
                                 ))}
                               </select>
-                              <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.wissenAccent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
+                              <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
                               <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
                             </div>
                           ) : (
-                            <button onClick={() => setMergeSourceId(akte.id)} style={{ background: 'transparent', color: theme.wissenAccent, border: `1px solid ${theme.wissenAccent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button onClick={() => setMergeSourceId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Icon name="link" size={14} /> Akte zusammenführen (Merge)
                             </button>
                           )}
@@ -2570,12 +2570,12 @@ export default function Dashboard({ session }) {
                         ansList.map((ans, idx) => (
                           <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
                             <div style={{ color: theme.accent, fontWeight: 'bold' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
-                            <div style={{ color: theme.textMain }}>👤 {ans.name || '-'}</div>
+                            <div style={{ color: theme.gegnerAccent }}>👤 {ans.name || '-'}</div>
                             <div style={{ color: theme.textMuted, fontSize: '11px' }}>📞 {ans.telefon || '-'} | ✉️ {ans.email || '-'}</div>
                           </div>
                         ))
                       ) : (
-                        <div style={{ color: theme.textMain }}>👤 {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
+                        <div style={{ color: theme.gegnerAccent }}>👤 {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
                       )}
                     </div>
                   </div>
