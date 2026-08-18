@@ -3,6 +3,11 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, normalizeName, cleanVal } from './utils';
 
+// --- NEU: PDF.js Import für die clientseitige Extraktion ---
+import * as pdfjsLib from 'pdfjs-dist';
+// Verhindert Fehler im Build-Prozess und nutzt den CDN-Worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
 export default function AktenCockpit({ session, theme, akten, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff, globalUrlText, setGlobalUrlText }) {
   const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
 
@@ -54,13 +59,26 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const isDarkMode = theme.bg === '#020617';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
-  // --- NEU: Empfang des geparsten URL-Textes vom Dashboard ---
   useEffect(() => {
     if (globalUrlText) {
       setBriefEntwurf(globalUrlText);
-      setGlobalUrlText(null); // Direkt wieder löschen, damit es nicht nochmal triggert
+      setGlobalUrlText(null); 
     }
   }, [globalUrlText, setGlobalUrlText]);
+
+  // --- NEU: Hilfsfunktion zur Text-Extraktion aus PDFs ---
+  const extractTextFromPDF = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += `--- Seite ${i} ---\n${pageText}\n\n`;
+    }
+    return fullText;
+  };
 
   const toggleTresorUpdateKey = (key) => {
     setTresorPrompt(prev => {
@@ -604,6 +622,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (dateien && dateien.length > 0) {
       for (const f of dateien) {
         const isMd = f.name.toLowerCase().endsWith('.md');
+        const isPdf = f.name.toLowerCase().endsWith('.pdf');
         const zugewieseneFirma = unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein');
 
         if (isMd) {
@@ -627,6 +646,37 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
            if (!uploadError) {
              const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
              alleUrls.push(linkData.publicUrl)
+
+             // --- NEU: AUTO-EXTRAKTION WENN KEIN MD DABEI IST ---
+             const hatMdGegenstueck = dateien.some(d => d.name.toLowerCase() === f.name.toLowerCase().replace('.pdf', '.md'));
+
+             if (isPdf && !hatMdGegenstueck) {
+                showToast(`⚙️ Lese digitalen Text aus PDF (${f.name}) aus...`, 'success');
+                try {
+                   const extrahierterText = await extractTextFromPDF(f);
+
+                   if (extrahierterText.trim().length > 50) {
+                      const baseInfo = `Auto-Extraktion (PDF). Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}`;
+                      const finalDbText = `${baseInfo}\n\n${extrahierterText.substring(0, 3000)}...`;
+                      const mdFileName = f.name.replace(/\.[^/.]+$/, "") + ".md";
+
+                      await supabase.from('wissensdatenbank').insert([{
+                        datei_name: mdFileName,
+                        firma: zugewieseneFirma,
+                        inhalt_text: finalDbText,
+                        dokument_url: linkData.publicUrl
+                      }]);
+
+                      await syncToGithub(mdFileName, `${baseInfo}\n\nOriginal-PDF: ${linkData.publicUrl}\n\n${extrahierterText}`, linkData.publicUrl, null, showToast);
+                      showToast(`✅ Text aus PDF extrahiert und archiviert!`, 'success');
+                   } else {
+                      showToast(`⚠️ PDF "${f.name}" enthält keinen lesbaren Text (vermutlich ein Bild-Scan). Nur als PDF abgelegt.`, 'warning');
+                   }
+                } catch (err) {
+                   console.error("Fehler bei PDF-Extraktion:", err);
+                   showToast(`❌ Fehler beim Auslesen der PDF: ${err.message}`, 'error');
+                }
+             }
            }
         }
       }
@@ -981,7 +1031,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
-  // --- NEU: FILTERUNG NUTZT NUN DEN GLOBALEN SUCHBEGRIFF ---
   const gefilterteAkten = akten.filter((akte) => {
     if (!suchbegriff.trim()) return true;
 
@@ -1454,7 +1503,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       <tbody>
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                            {/* --- FIX: Harte Zuweisung von theme.textMain für optimale Lesbarkeit im Light Mode --- */}
                             <td style={{ padding: '10px', fontWeight: 'bold', color: theme.textMain }}>{hist.typ}</td>
                             <td style={{ padding: '10px', color: theme.textMain }}>{formatDatum(hist.datum)}</td>
                             <td style={{ padding: '10px', color: theme.textMain }}>{hist.aktion}</td>
