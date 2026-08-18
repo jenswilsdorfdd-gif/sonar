@@ -7,17 +7,17 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
 
   const [laedt, setLaedt] = useState(false);
-  const [uploadingHistId, setUploadingHistId] = useState(null);
+  const [selectedAkteId, setSelectedAkteId] = useState(null);
   
   const [modus, setModus] = useState('neu'); 
-  const [selectedAkteId, setSelectedAkteId] = useState('');
+  const [jsonImport, setJsonImport] = useState('');
   
-  const [aktenzeichen, setAktenzeichen] = useState('');
   const [gegnerName, setGegnerName] = useState('');
   const [gegnerAnsprechpartner, setGegnerAnsprechpartner] = useState('');
   const [gegnerTelefon, setGegnerTelefon] = useState('');
   const [gegnerFax, setGegnerFax] = useState('');
   const [gegnerEmail, setGegnerEmail] = useState('');
+  const [aktenzeichen, setAktenzeichen] = useState('');
   
   const [unsereFirma, setUnsereFirma] = useState('');
   const [unserAnsprechpartner, setUnserAnsprechpartner] = useState('');
@@ -27,23 +27,23 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   
   const [typ, setTyp] = useState('Eingang');
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0]);
-  const [aktion, setAktion] = useState('');
-  const [kanal, setKanal] = useState('');
   const [fristExtern, setFristExtern] = useState('');
   const [wiedervorlage, setWiedervorlage] = useState('');
+  const [aktion, setAktion] = useState('');
+  const [kanal, setKanal] = useState('');
   
   const [dateien, setDateien] = useState([]);
   const [briefEntwurf, setBriefEntwurf] = useState('');
-  const [jsonImport, setJsonImport] = useState('');
+  const [versandPdfUrl, setVersandPdfUrl] = useState('');
   const [tresorPrompt, setTresorPrompt] = useState(null); 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
-  const [versandPdfUrl, setVersandPdfUrl] = useState(null);
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
-  const [fokussierteAkteId, setFokussierteAkteId] = useState(null);
   const [transferAkteId, setTransferAkteId] = useState(null);
   const [neuerGegnerName, setNeuerGegnerName] = useState('');
   const [mergeSourceId, setMergeSourceId] = useState(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const [uploadingHistId, setUploadingHistId] = useState(null);
+  const [fokussierteAkteId, setFokussierteAkteId] = useState(null);
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
@@ -636,16 +636,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       alleUrls.push(versandPdfUrl);
       
       await supabase.from('wissensdatenbank').insert([{
-        datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.pdf`,
+        datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`,
         firma: unsereFirma || 'Allgemein',
-        inhalt_text: `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}\n\n[Text-Entwurf]\n${briefEntwurf}`,
+        inhalt_text: `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}\n\n\n${briefEntwurf}`,
         dokument_url: versandPdfUrl
       }]);
 
-      const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.md`;
+      const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
       await syncToGithub(ausgangName, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, versandPdfUrl, null, showToast);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9.-]/g, '_').substring(0, 30)}.md`;
+      const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
       await syncToGithub(entwurfName, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`, null, null, showToast);
     }
 
@@ -686,7 +686,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             name: gegnerName,
             fax: gegnerFax || null,
             email: gegnerEmail || null,
-            notizen: JSON.stringify([{ abteilung: '', name: gegnerAnsprechpartner || '', telefon: gegnerTelefon || '', email: gegnerEmail || '' }])
+            notizen: JSON.stringify([])
           }]);
         } else {
           let updates = {};
@@ -832,7 +832,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const handleGegnerAuswahl = (e) => {
     const val = e.target.value;
     if(!val) return;
-    const [gId, ansIndex] = val.split('|');
+    const [gId, ansIdx] = val.split('|');
     const g = gegnerListe.find(x => x.id === gId);
     if(g) {
       setGegnerName(g.name || ''); 
@@ -841,8 +841,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       let ansprechpartnerObj = null;
       try {
         const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
-        if (Array.isArray(parsed) && parsed[ansIndex]) {
-          ansprechpartnerObj = parsed[ansIndex];
+        if (Array.isArray(parsed) && parsed[ansIdx]) {
+          ansprechpartnerObj = parsed[ansIdx];
         }
       } catch(e){}
 
@@ -1216,7 +1216,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
               <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
                 <option value="">-- Ziel-Akte wählen --</option>
-                {akten.map(a => <option key={a.id} value={a.id}>[#{a.id.substring(0,6).toUpperCase()}] {a.gegner_name} | {a.thema}</option>)}
+                {akten.map(a => <option key={a.id} value={a.id}> {a.gegner_name} | {a.thema}</option>)}
               </select>
             </div>
           )}
@@ -1414,7 +1414,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '220px' }}>
                             <option value="">-- Ziel-Akte wählen --</option>
-                            {akten.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}>[#{a.id.substring(0,6).toUpperCase()}] {a.gegner_name} | {a.thema}</option>))}
+                            {akten.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}> {a.gegner_name} | {a.thema}</option>))}
                           </select>
                           <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
                           <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
@@ -1454,9 +1454,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       <tbody>
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{hist.typ}</td>
-                            <td style={{ padding: '10px' }}>{formatDatum(hist.datum)}</td>
-                            <td style={{ padding: '10px' }}>{hist.aktion}</td>
+                            {/* --- FIX: Harte Zuweisung von theme.textMain für optimale Lesbarkeit im Light Mode --- */}
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: theme.textMain }}>{hist.typ}</td>
+                            <td style={{ padding: '10px', color: theme.textMain }}>{formatDatum(hist.datum)}</td>
+                            <td style={{ padding: '10px', color: theme.textMain }}>{hist.aktion}</td>
+                            
                             <td style={{ padding: '10px', color: theme.warningBorder }}>{hist.wiedervorlage ? `WV: ${formatDatum(hist.wiedervorlage)}` : (hist.frist_extern ? `Frist: ${formatDatum(hist.frist_extern)}` : '-')}</td>
                             <td style={{ padding: '10px' }}>
                               {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
