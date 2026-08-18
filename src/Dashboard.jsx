@@ -60,6 +60,12 @@ export default function Dashboard({ session }) {
     setWebFetchLoading(false);
   };
 
+  // --- LOGOUT LOGIK ---
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload(); // Erzwingt sofortigen Sprung auf den Login-Screen
+  };
+
   // --- THEME-ENGINE ---
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
@@ -106,14 +112,6 @@ export default function Dashboard({ session }) {
       @keyframes slideInRight { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
       @keyframes fadeOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
     `;
-
-    let link = document.querySelector("link[rel~='icon']");
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      document.head.appendChild(link);
-    }
-    link.href = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2300e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M5 19a10 10 0 0 1 0-14"/><path d="M19 5a10 10 0 0 1 0 14"/><path d="M8 16a6 6 0 0 1 0-8"/><path d="M16 8a6 6 0 0 1 0-8"/></svg>`;
 
     return () => { if (styleTag) document.head.removeChild(styleTag); };
   }, [isDarkMode, theme.bg]);
@@ -180,16 +178,25 @@ export default function Dashboard({ session }) {
 
       <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column' }}>
 
-        {/* --- HEADER & THEME TOGGLE --- */}
+        {/* --- HEADER & THEME TOGGLE & LOGOUT --- */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
           </h1>
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-            <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-          </button>
+          
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+              <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+            </button>
+            
+            <button
+              onClick={handleLogout}
+              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', opacity: 0.8 }}>
+              <Icon name="x" size={18} /> Abmelden
+            </button>
+          </div>
         </div>
 
         {/* --- TAB NAVIGATION --- */}
