@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, normalizeName, cleanVal } from './utils';
 
-// --- NEU: PDF.js Import für die clientseitige Extraktion ---
+// --- PDF.js Import für die clientseitige Extraktion ---
 import * as pdfjsLib from 'pdfjs-dist';
 // Verhindert Fehler im Build-Prozess und nutzt den CDN-Worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -66,7 +66,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   }, [globalUrlText, setGlobalUrlText]);
 
-  // --- NEU: Hilfsfunktion zur Text-Extraktion aus PDFs ---
+  // --- Hilfsfunktion zur Text-Extraktion aus PDFs ---
   const extractTextFromPDF = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -544,6 +544,25 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
 
+      // --- NEU: Dateien für E-Mail-Anhänge in Base64 umwandeln ---
+      let extraAttachments = [];
+      if (versandArt === 'email' && dateien.length > 0) {
+        showToast("⏳ Verarbeite Dateien für E-Mail-Anhang...", "success");
+        for (const f of dateien) {
+          try {
+            const b64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.readAsDataURL(f);
+              reader.onload = () => resolve(reader.result.split(',')[1]);
+              reader.onerror = e => reject(e);
+            });
+            extraAttachments.push({ filename: f.name, content: b64 });
+          } catch (err) {
+            console.error("Fehler beim Konvertieren der Datei", f.name, err);
+          }
+        }
+      }
+
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
         method: "POST",
         headers: {
@@ -559,7 +578,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           mandantProfil: mandantProfil,
           gegnerName: gegnerName,
           gegnerAnsprechpartner: gegnerAnsprechpartner,
-          gegnerFax: gegnerFax
+          gegnerFax: gegnerFax,
+          extraAttachments: extraAttachments.length > 0 ? extraAttachments : undefined // --- NEU ---
         })
       });
 
@@ -647,7 +667,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
              const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName)
              alleUrls.push(linkData.publicUrl)
 
-             // --- NEU: AUTO-EXTRAKTION WENN KEIN MD DABEI IST ---
              const hatMdGegenstueck = dateien.some(d => d.name.toLowerCase() === f.name.toLowerCase().replace('.pdf', '.md'));
 
              if (isPdf && !hatMdGegenstueck) {
