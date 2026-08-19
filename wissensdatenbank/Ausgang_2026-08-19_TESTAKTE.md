@@ -1,7 +1,7 @@
 Versendetes Dokument
 Thema: TESTAKTE
 Gegner: Finanzamt Dresden-Süd
-Link: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/ausgang_1787150899619_Schreiben.pdf
+Link: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/ausgang_1787151278380_Schreiben.pdf
 
 Dokumententext:
 Sehr geehrte Damen und Herren,
@@ -25,6 +25,7 @@ Wir möchten unseren Verpflichtungen selbstverständlich nachkommen, sobald der 
 Ich danke Ihnen für Ihr Verständnis und Ihre Unterstützung in dieser besonderen Ausnahmesituation. Über eine kurze Bestätigung der weiteren Stundung bis zum 26. August 2026 würde ich mich sehr freuen.
 
 Mit freundlichen Grüßen
+
 Jens Wilsdorf
 Geschäftsführer
 SmartBizz Services UG (haftungsbeschränkt)
