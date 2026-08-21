@@ -50,7 +50,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [uploadingHistId, setUploadingHistId] = useState(null);
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null);
   
-  // --- NEU: State für das Dropdown-Menü in den Fristen-Karten ---
   const [openMenuId, setOpenMenuId] = useState(null);
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
@@ -69,7 +68,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   }, [globalUrlText, setGlobalUrlText]);
 
-  // --- Hilfsfunktion zur Text-Extraktion aus PDFs ---
   const extractTextFromPDF = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -121,7 +119,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
-  // --- NEU: Nachhaken-Logik für Fristen-Radar ---
   const handleNachhaken = (akteId) => {
     const akte = akten.find(a => a.id === akteId);
     if (!akte) return;
@@ -582,7 +579,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
 
-      // --- NEU: Dateien für E-Mail-Anhänge in Base64 umwandeln ---
       let extraAttachments = [];
       if (versandArt === 'email' && dateien.length > 0) {
         showToast("⏳ Verarbeite Dateien für E-Mail-Anhang...", "success");
@@ -617,7 +613,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           gegnerName: gegnerName,
           gegnerAnsprechpartner: gegnerAnsprechpartner,
           gegnerFax: gegnerFax,
-          extraAttachments: extraAttachments.length > 0 ? extraAttachments : undefined // --- NEU ---
+          extraAttachments: extraAttachments.length > 0 ? extraAttachments : undefined
         })
       });
 
@@ -1203,7 +1199,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       🏢 {w.akte_gegner}
                     </strong>
 
-                    {/* --- NEUES AKTIONEN DROPDOWN --- */}
                     <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
                       <button 
                         onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)}
@@ -1577,7 +1572,35 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             <td style={{ padding: '10px', color: theme.textMain }}>{formatDatum(hist.datum)}</td>
                             <td style={{ padding: '10px', color: theme.textMain }}>{hist.aktion}</td>
                             
-                            <td style={{ padding: '10px', color: theme.warningBorder }}>{hist.wiedervorlage ? `WV: ${formatDatum(hist.wiedervorlage)}` : (hist.frist_extern ? `Frist: ${formatDatum(hist.frist_extern)}` : '-')}</td>
+                            {/* --- NEU: Inline-Edit für WV in der Tabelle --- */}
+                            <td style={{ padding: '10px', minWidth: '130px' }}>
+                              {hist.frist_extern && (
+                                <div style={{ fontSize: '11px', color: theme.textMuted, marginBottom: '4px' }}>
+                                  Frist: {formatDatum(hist.frist_extern)}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: theme.warningBorder }}>WV:</span>
+                                <input
+                                  type="date"
+                                  value={hist.wiedervorlage || ''}
+                                  onChange={(e) => handleInlineEdit(hist.id, 'wiedervorlage', e.target.value)}
+                                  style={{
+                                    background: 'transparent',
+                                    border: `1px dashed ${theme.border}`,
+                                    color: theme.textMain,
+                                    borderRadius: '4px',
+                                    padding: '2px 4px',
+                                    fontSize: '11px',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Wiedervorlage setzen / ändern"
+                                />
+                              </div>
+                            </td>
+                            {/* ---------------------------------------------- */}
+
                             <td style={{ padding: '10px' }}>
                               {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
                                 const fileName = extractFilename(url);
