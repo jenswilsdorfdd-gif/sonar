@@ -2,18 +2,24 @@
 Quelle: https://www.bverwg.de/290626B2B49.25.0
 Veröffentlicht: Tue, 18 Aug 2026 14:53:00 +0200
 
-**Kurz‑Analyse – BVerwG 2 B 49/25 – Beschluss**  
-
-| Feld | Inhalt |
-|------|--------|
-| **Aktenzeichen** | 2 B 49/25 (vgl. Titel „BVerwG 2 B 49.25“) |
-| **Datum** | *nicht aus dem bereitgestellten Material ersichtlich* – das genaue Entscheidungsdatum muss dem Volltext entnommen werden (vgl. Link). |
-| **Betroffene Rechtsnorm** | Im Hinweis wird § 11 Abs. 2 S. 2 **JVKostG** (Jahreskosten‑Gesetz) erwähnt, das die kostenfreie Bereitstellung für nicht‑gewerbliche Nutzung regelt. Die konkrete Entscheidung dürfte jedoch weitere verwaltungs‑ bzw. öffentlich‑rechtliche Vorschriften berühren (z. B. Verwaltungsverfahrensgesetz, Fachgesetze je nach Sachverhalt). |
-| **Kurzzusammenfassung** | 1. Der Beschluss des Bundesverwaltungsgerichts (Az. 2 B 49/25) behandelt einen verwaltungsrechtlichen Streit, wobei das Gericht die Entscheidung **nicht‑gewerblich kostenfrei** zur Verfügung stellt (§ 11 Abs. 2 S. 2 JVKostG). <br>2. Die Entscheidung ist ein **Beschluss** (keine Urteilsbegründung), d. h. sie regelt prozessuale oder verwaltungsorganisatorische Fragen, die im jeweiligen Verfahren relevant waren. <br>3. Für die inhaltliche Bewertung und die konkrete Rechtsnorm, die dem Beschluss zugrunde liegt, muss der Volltext (Link) konsultiert werden; das vorliegende Fragment liefert keine detaillierten materiellen Angaben. |
+**Kurz‑Analyse (juristische Wissensdatenbank)**  
 
 ---
 
-### Hinweis für die Datenbankpflege
-- **Volltext prüfen:** Das genaue Entscheidungs‑Datum, die vollständige Rechtsgrundlage und der konkrete Sachverhalt können nur dem PDF/HTML‑Dokument unter `https://www.bverwg.de/290626B2B49.25.0` entnommen werden.  
-- **Metadaten ergänzen:** Nach Sichtung des Volltexts bitte Aktenzeichen, Datum und alle relevanten Rechtsnormen (z. B. §§ XX VwVfG, Art. XYZ GG usw.) ergänzen.  
-- **Schlagwörter:** Bundesverwaltungsgericht, Beschluss, JVKostG, nicht‑gewerbliche Nutzung, Verwaltungsverfahrensrecht.  
+### Aktenzeichen
+**BVerwG 2 B 49.25** (ECLI:DE:BVerwG:2026:290626B2B49.25.0)
+
+### Datum
+**29. Juni 2026**
+
+### Betroffene Rechtsnormen  
+- Art. 2 Abs. 1 i.V.m. Art. 1 Abs. 1 GG  
+- Art. 5 Abs. 1 Satz 1 GG  
+- § 70 SächsDG i.V.m. § 132 Abs. 2 Nr. 1 VwGO  
+- § 78 Abs. 4 SächsDG i.V.m. § 154 Abs. 2 VwGO  
+- § 79 Abs. 1 SächsDG (Gebühren‑/Kostenbestimmungen)
+
+### Kurzzusammenfassung (3 Sätze)  
+1. Das Bundesverwaltungsgericht wies die Beschwerde des Klägers gegen die Nichtzulassung der Revision des OVG‑Urteils vom 28. März 2025 zurück und verurteilte ihn zur Kostentragung.  
+2. Das Gericht stellte fest, dass die Polizeimeisterin trotz ihres Kontakts zu Mitgliedern einer rechtsextremen Gruppe und ihrer telefonischen Bitte um Löschung von Videoaufzeichnungen ihre Pflicht zur Verfassungstreue nicht verletzt habe, da die betroffenen Äußerungen im geschützten Vertrauensverhältnis stattfanden und keine straf‑ bzw. disziplinarrechtlich relevante Verfassungs­treue‑Verletzung vorlag.  
+3. Die von der Beschwerde aufgeworfene Rechtsfrage zur Disziplinierung vertraulicher Kommunikation in privaten Beziehungen wurde als nicht entscheidungserheblich bewertet, sodass das Verfahren ohne Weiteres beendet wurde.  
