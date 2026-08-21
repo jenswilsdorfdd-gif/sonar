@@ -49,6 +49,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [uploadingHistId, setUploadingHistId] = useState(null);
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null);
+  
+  // --- NEU: State für das Dropdown-Menü in den Fristen-Karten ---
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
@@ -116,6 +119,41 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           }
        }
     }
+  };
+
+  // --- NEU: Nachhaken-Logik für Fristen-Radar ---
+  const handleNachhaken = (akteId) => {
+    const akte = akten.find(a => a.id === akteId);
+    if (!akte) return;
+
+    setSelectedAkteId(akteId);
+    setModus('bestehend');
+    setGegnerName(akte.gegner_name || '');
+    setGegnerAnsprechpartner(akte.gegner_ansprechpartner || '');
+    setGegnerTelefon(akte.gegner_telefon || '');
+    setGegnerEmail(akte.gegner_email || '');
+    setUnsereFirma(akte.unsere_firma || '');
+    setUnserAnsprechpartner(akte.unser_ansprechpartner || '');
+    setThema(akte.thema || '');
+    setAktenzeichen(akte.aktenzeichen || '');
+    setTyp('Ausgang');
+
+    if (akte.gegner_name) {
+      const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(akte.gegner_name));
+      if (crmGegner) {
+        setGegnerFax(crmGegner.fax || '');
+        if (!akte.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
+      } else {
+        setGegnerFax('');
+      }
+    }
+
+    const template = `Sehr geehrte Damen und Herren,\n\nbezugnehmend auf unsere bisherige Korrespondenz in der obigen Angelegenheit bitten wir höflich um einen kurzen Sachstandsbericht, da wir bislang noch keine Rückmeldung erhalten haben.\n\nSollten Ihnen noch Unterlagen zur Bearbeitung fehlen, lassen Sie es uns bitte wissen.\n\nMit freundlichen Grüßen\n\n${akte.unser_ansprechpartner || 'Jens Wilsdorf'}`;
+    setBriefEntwurf(template);
+
+    setOpenMenuId(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast("✅ Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
   const handleJsonImport = async (e) => {
@@ -1165,36 +1203,49 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       🏢 {w.akte_gegner}
                     </strong>
 
-                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                    {/* --- NEUES AKTIONEN DROPDOWN --- */}
+                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
                       <button 
-                        onClick={() => {
-                          if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
-                          else handleInlineEdit(w.id, 'frist_extern', null);
-                        }} 
-                        style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                        onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)}
+                        style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
-                        ✓ Erledigt
+                        ⚙️ Aktionen {openMenuId === w.id ? '▲' : '▼'}
                       </button>
 
-                      <button 
-                        disabled={shiftDisabled}
-                        onClick={() => {
-                          if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso);
-                          else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
-                        }} 
-                        style={{ 
-                          background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, 
-                          color: shiftDisabled ? theme.textMuted : theme.textMain, 
-                          border: 'none', padding: '6px 12px', borderRadius: '4px', 
-                          cursor: shiftDisabled ? 'not-allowed' : 'pointer', 
-                          fontSize: '12px', fontWeight: 'bold',
-                          opacity: shiftDisabled ? 0.6 : 1,
-                          whiteSpace: 'nowrap'
-                        }}
-                        title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
-                      >
-                        +3 Tage {shiftDisabled ? '🔒' : ''}
-                      </button>
+                      {openMenuId === w.id && (
+                        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '160px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
+                          <button 
+                            onClick={() => {
+                              if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
+                              else handleInlineEdit(w.id, 'frist_extern', null);
+                              setOpenMenuId(null);
+                            }} 
+                            style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+                          >
+                            ✓ Erledigt
+                          </button>
+
+                          <button 
+                            disabled={shiftDisabled}
+                            onClick={() => {
+                              if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso);
+                              else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
+                              setOpenMenuId(null);
+                            }} 
+                            style={{ background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, color: shiftDisabled ? theme.textMuted : theme.textMain, border: 'none', padding: '8px', borderRadius: '4px', cursor: shiftDisabled ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', opacity: shiftDisabled ? 0.6 : 1, textAlign: 'left', width: '100%' }}
+                            title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
+                          >
+                            +3 Tage {shiftDisabled ? '🔒' : ''}
+                          </button>
+
+                          <button 
+                            onClick={() => handleNachhaken(w.akte_id)}
+                            style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+                          >
+                            ✉️ Nachhaken
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
