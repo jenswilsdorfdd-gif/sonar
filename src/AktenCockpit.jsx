@@ -227,28 +227,44 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         return; 
       }
 
-      setAktenzeichen(obj.aktenzeichen || '')
-      setThema(obj.thema || '')
-      setGegnerName(obj.kontakt || '') 
-      setGegnerAnsprechpartner(obj.ansprechpartner || '')
-      setGegnerTelefon(obj.gegner_telefon || '')
-      setGegnerFax(obj.gegner_fax || '')
-      setGegnerEmail(obj.gegner_email || '')
-      setFristExtern(obj.frist_extern || '')
-      setBriefEntwurf(obj.brief_entwurf || '')
-      setAktion(obj.aktion || '')
-      setKanal(obj.kanal || 'Post / Fax / E-Mail')
-      setTyp(obj.typ || 'Eingang')
+      // --- NEU: KUGELSICHERES FALLBACK-MAPPING FÜR KI-HALLUZINATIONEN ---
+      const fallbackAktenzeichen = obj.aktenzeichen || '';
+      const fallbackThema = obj.thema || obj.betreff || '';
+      const fallbackGegnerName = obj.kontakt || (obj.empfaenger ? obj.empfaenger.name : '') || '';
+      const fallbackGegnerAnsprechpartner = obj.ansprechpartner || (obj.empfaenger ? obj.empfaenger.abteilung : '') || '';
+      const fallbackGegnerTelefon = obj.gegner_telefon || '';
+      const fallbackGegnerFax = obj.gegner_fax || obj.versand_faxnummer_gegner || (obj.empfaenger ? obj.empfaenger.fax : '') || '';
+      const fallbackGegnerEmail = obj.gegner_email || obj.versand_e_mail_gegner || (obj.empfaenger ? obj.empfaenger.email : '') || '';
+      const fallbackFristExtern = obj.frist_extern || '';
+      const fallbackBriefEntwurf = obj.brief_entwurf || obj.textentwurf || obj.nachricht || '';
+      const fallbackAktion = obj.aktion || obj.status || '';
+      const fallbackKanal = obj.kanal || obj.versandweg || 'Post / Fax / E-Mail';
+      const fallbackTyp = obj.typ || obj.dokumententyp || 'Eingang';
+      const fallbackUnsereFirma = obj.unsere_firma || (obj.absender ? obj.absender.name : '') || '';
+      
+      setAktenzeichen(fallbackAktenzeichen)
+      setThema(fallbackThema)
+      setGegnerName(fallbackGegnerName) 
+      setGegnerAnsprechpartner(fallbackGegnerAnsprechpartner)
+      setGegnerTelefon(fallbackGegnerTelefon)
+      setGegnerFax(fallbackGegnerFax)
+      setGegnerEmail(fallbackGegnerEmail)
+      setFristExtern(fallbackFristExtern)
+      setBriefEntwurf(fallbackBriefEntwurf)
+      setAktion(fallbackAktion)
+      setKanal(fallbackKanal)
+      setTyp(fallbackTyp)
       setDatum(new Date().toISOString().split('T')[0])
+      // -------------------------------------------------------------------
 
-      if (obj.aktenzeichen) {
-        let match = akten.find(a => a.aktenzeichen === obj.aktenzeichen);
+      if (fallbackAktenzeichen) {
+        let match = akten.find(a => a.aktenzeichen === fallbackAktenzeichen);
 
         if (!match) {
           const { data: dbMatch, error: dbErr } = await supabase
             .from('akten')
             .select('*, akten_historie (*)')
-            .eq('aktenzeichen', obj.aktenzeichen)
+            .eq('aktenzeichen', fallbackAktenzeichen)
             .single();
 
           if (dbMatch && !dbErr) {
@@ -262,7 +278,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         if (match) {
           setModus('bestehend');
           setSelectedAkteId(match.id);
-          if (!obj.gegner_fax && match.gegner_name) {
+          if (!fallbackGegnerFax && match.gegner_name) {
              const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(match.gegner_name));
              if (crmGegner && crmGegner.fax) {
                 setGegnerFax(crmGegner.fax);
@@ -270,8 +286,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           }
         } else {
           setModus('neu');
-          if (obj.kontakt) {
-             const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(obj.kontakt));
+          if (fallbackGegnerName) {
+             const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(fallbackGegnerName));
              if (crmGegner && crmGegner.fax) {
                 setGegnerFax(crmGegner.fax);
              }
@@ -281,15 +297,15 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setModus('neu');
       }
 
-      if (obj.unsere_firma) {
-        const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(obj.unsere_firma));
-        const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || '';
+      if (fallbackUnsereFirma) {
+        const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(fallbackUnsereFirma));
+        const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
         const parsedTelefon = cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '';
         const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
-        const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || '';
+        const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || (obj.absender ? `${obj.absender.strasse || ''}, ${obj.absender.plz_ort || ''}` : '') || '';
 
         if (!existingMandant) {
-          setUnsereFirma(obj.unsere_firma || '');
+          setUnsereFirma(fallbackUnsereFirma);
           setUnserAnsprechpartner(parsedAnsprechpartner);
           setUnserTelefon(parsedTelefon);
           setUnserEmail(parsedEmail);
@@ -297,6 +313,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             typ: 'neu', 
             obj: { 
               ...obj, 
+              unsere_firma: fallbackUnsereFirma,
               unser_ansprechpartner: parsedAnsprechpartner, 
               unser_telefon: parsedTelefon, 
               unser_email: parsedEmail, 
@@ -631,7 +648,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setKanal(versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)');
       setTyp('Ausgang');
 
-      showToast(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet!\nDas PDF wurde generiert. Klicke jetzt noch unten auf "+ In Akte abheften", um den Vorgang endgültig in der Akte zu speichern.`, 'success');
+      showToast(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet!\nDas PDF wurde generiert. Klicke jetzt noch unten auf "+ In Akte abheften", um endgültig zu speichern.`, 'success');
 
     } catch (e) {
       console.error("Versandfehler:", e);
