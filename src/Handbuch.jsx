@@ -62,7 +62,14 @@ export default function Handbuch({ theme }) {
     fontFamily: 'monospace',
     fontSize: '13px',
     overflowX: 'auto',
-    margin: '15px 0'
+    margin: '15px 0',
+    border: '1px solid #334155'
+  };
+
+  const linkStyle = {
+    color: theme.accent || '#00e5ff',
+    textDecoration: 'none',
+    fontWeight: 'bold'
   };
 
   // --- INHALTE DER BAUABSCHNITTE ---
@@ -71,27 +78,32 @@ export default function Handbuch({ theme }) {
       case 1:
         return (
           <div>
-            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>BAUABSCHNITT 1: DIE WERKSTATT EINRICHTEN</h2>
-            <p>Bevor wir Code anfassen, müssen wir die Infrastruktur aufbauen. Das SONAR Cockpit besteht aus verschiedenen Modulen, die alle nahtlos miteinander kommunizieren müssen.</p>
+            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>
+              BAUABSCHNITT 1: DIE WERKSTATT EINRICHTEN (INFRASTRUKTUR)
+            </h2>
+            <p>Bevor wir Code schreiben, bauen wir das Fundament. SONAR besteht aus Frontend (React/Vite) und Backend (Supabase). Alles wird über GitHub synchronisiert.</p>
             
-            <h3>Schritt 1: Der Master-Schlüssel (GitHub)</h3>
-            <p>GitHub ist unser zentraler Speicherort für den Code und die Wissensdatenbank. Gleichzeitig nutzen wir es als "Generalschlüssel" (Login), um uns bei allen anderen Diensten anzumelden.</p>
-            <ul>
-              <li>Gehe auf github.com und erstelle einen Account.</li>
-              <li>Bleibe im Browser eingeloggt.</li>
-            </ul>
+            <h3>1. Der Master-Schlüssel (GitHub)</h3>
+            <p>
+              <strong>Warum?</strong> GitHub hostet unseren Code und fungiert als Auth-Provider (Login). Supabase und Vercel greifen beide darauf zu.<br/>
+              <strong>To-Do:</strong> Gehe zu <a href="https://github.com" target="_blank" rel="noreferrer" style={linkStyle}>github.com</a>, erstelle einen Account und bleibe im Browser eingeloggt.
+            </p>
             
             {/* PLATZHALTER FÜR SCREENSHOT */}
             <div style={imagePlaceholder}>
               <img src="/docs/step1-github.jpg" alt="GitHub Setup" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
-              <span>📷 Bild-Platzhalter: <strong>/docs/step1-github.jpg</strong><br/>(Lade einen Screenshot der GitHub-Registrierung hier hoch)</span>
+              <span>📷 Bild-Platzhalter: <strong>/docs/step1-github.jpg</strong><br/>(Screenshot deines GitHub Repositories einfügen)</span>
             </div>
 
-            <h3>Schritt 2: Das Backend & Datenbank (Supabase)</h3>
-            <p>Supabase ist der Motor im Hintergrund. Hier liegen später alle Akten, Mandanten und Dateien.</p>
+            <h3>2. Das Backend & Datenbank (Supabase)</h3>
+            <p>
+              <strong>Warum?</strong> Supabase ist unsere PostgreSQL-Datenbank und unser Datei-Server.<br/>
+              <strong>To-Do:</strong>
+            </p>
             <ul>
-              <li>Gehe auf supabase.com und logge dich über "Continue with GitHub" ein.</li>
-              <li>Erstelle ein neues Projekt (Region: Frankfurt). Notiere das Datenbank-Passwort!</li>
+              <li>Gehe auf <a href="https://supabase.com" target="_blank" rel="noreferrer" style={linkStyle}>supabase.com</a> und klicke auf "Start your project".</li>
+              <li>Logge dich über "Continue with GitHub" ein.</li>
+              <li>Erstelle ein neues Projekt (Region: <strong>Frankfurt</strong>). <strong>Wichtig:</strong> Kopiere das Datenbank-Passwort und speichere es sicher ab!</li>
             </ul>
 
             <div style={imagePlaceholder}>
@@ -99,46 +111,72 @@ export default function Handbuch({ theme }) {
               <span>📷 Bild-Platzhalter: <strong>/docs/step1-supabase.jpg</strong></span>
             </div>
             
-            <h3>Schritt 3: Storage (Dateispeicher) einrichten</h3>
-            <p>Wir müssen der Datenbank mitteilen, wo unsere Dateien landen.</p>
+            <h3>3. Storage (Dateispeicher) einrichten</h3>
+            <p>
+              <strong>Warum?</strong> In der Datenbank speichern wir Texte, im Storage speichern wir PDFs, Scans und Bilder.<br/>
+              <strong>To-Do:</strong>
+            </p>
             <ul>
-              <li>Gehe im Supabase-Menü auf "Storage" (Ordner-Symbol).</li>
-              <li>Erstelle den Bucket <strong>dokumente</strong> (zwingend als Public markieren!).</li>
-              <li>Erstelle den Bucket <strong>unterschriften</strong> (zwingend als Public markieren!).</li>
+              <li>Klicke im Supabase-Dashboard links auf "Storage" (Ordner-Symbol).</li>
+              <li>Klicke auf "New Bucket".</li>
+              <li>Name: <strong>dokumente</strong>. Schalte den Toggle "Public bucket" zwingend auf <strong>ON</strong>.</li>
+              <li>Wiederhole das für einen zweiten Bucket namens <strong>unterschriften</strong> (ebenfalls Public).</li>
             </ul>
           </div>
         );
       case 2:
         return (
           <div>
-             <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>BAUABSCHNITT 2: DAS GEHIRN & DIE SCHLÜSSEL</h2>
-             <p>Wir bauen das "Gehirn" (den KI-Prompt), das unsere juristischen Dokumente analysiert, und besorgen die "Schlüssel" (API-Keys).</p>
+             <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>
+               BAUABSCHNITT 2: DAS GEHIRN & DIE SCHLÜSSEL (APIs)
+             </h2>
+             <p>SONAR ist dumm, bis wir es mit KI und externen Diensten verknüpfen. Hierfür brauchen wir API-Keys (Zugangscodes), die wir sicher in Supabase lagern.</p>
              
-             <h3>Schritt 1: Das KI-Gehirn erschaffen</h3>
-             <p>Gehe in Gemini und erstelle ein neues Gem namens <strong>SONAR MEGA LEGAL</strong>. Nutze den Master-Prompt für die Anweisungen.</p>
+             <h3>1. Das KI-Gehirn erschaffen (Google Gemini)</h3>
+             <p>
+               <strong>Warum?</strong> Gemini analysiert unsere juristischen Texte, extrahiert Daten und befüllt das Akten-Cockpit.<br/>
+               <strong>To-Do:</strong> Gehe zu <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={linkStyle}>Google AI Studio</a>, logge dich ein und klicke auf "Get API Key". Kopiere diesen Key.
+             </p>
              
              <div style={imagePlaceholder}>
               <img src="/docs/step2-gemini.jpg" alt="Gemini Setup" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
               <span>📷 Bild-Platzhalter: <strong>/docs/step2-gemini.jpg</strong></span>
             </div>
 
-             <h3>Schritt 2: API Keys in Supabase hinterlegen</h3>
-             <p>Die gesammelten API-Keys (Groq, Resend, GitHub etc.) müssen in Supabase als "Secrets" gespeichert werden (Unter Edge Functions &gt; Secrets).</p>
+             <h3>2. API Keys in Supabase hinterlegen (Secrets)</h3>
+             <p>
+               <strong>Warum?</strong> Wir dürfen API-Keys niemals direkt in den React-Code schreiben (Sicherheitsrisiko). Die Supabase Edge Functions rufen sie serverseitig ab.<br/>
+               <strong>To-Do:</strong> 
+             </p>
+             <ul>
+                <li>Gehe in Supabase zu <strong>Project Settings</strong> (Zahnrad unten links) &gt; <strong>Edge Functions</strong>.</li>
+                <li>Füge dort als "Secrets" folgende Keys hinzu:</li>
+             </ul>
              <div style={codeBlock}>
-               Name: GITHUB_PAT | Value: [Token]<br/>
-               Name: RESEND_API_KEY | Value: [Token]<br/>
-               Name: GROQ_API_KEY | Value: [Token]
+               Name: GEMINI_API_KEY | Value: [Dein kopierter Key]<br/>
+               Name: GITHUB_PAT | Value: [Dein Personal Access Token von GitHub]<br/>
+               Name: RESEND_API_KEY | Value: [Dein E-Mail Versand Key]
              </div>
           </div>
         );
       case 3:
         return (
           <div>
-            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>BAUABSCHNITT 3: FUNDAMENT (DATENBANK)</h2>
-            <p>Wir legen die Tabellenstruktur in Supabase an.</p>
+            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>
+              BAUABSCHNITT 3: FUNDAMENT (DATENBANKSTRUKTUR)
+            </h2>
+            <p>Damit React (Frontend) Daten speichern kann, müssen in Supabase exakte Tabellen existieren. Das machen wir automatisiert per SQL-Skript.</p>
             
-            <h3>Schritt 1: SQL Editor</h3>
-            <p>Öffne in Supabase den "SQL Editor", erstelle eine neue Abfrage und führe den Master-Code aus, um die Tabellen (akten, mandanten, gegner etc.) anzulegen.</p>
+            <h3>1. SQL Editor ausführen</h3>
+            <p>
+              <strong>Warum?</strong> Anstatt händisch Spalten anzulegen, jagen wir einen Master-Code durch die Datenbank, der `akten`, `mandanten`, `gegner` und `wissensdatenbank` in Sekunden aufbaut.<br/>
+              <strong>To-Do:</strong>
+            </p>
+            <ul>
+              <li>Klicke im Supabase-Dashboard links auf den <strong>SQL Editor</strong>.</li>
+              <li>Klicke auf "New Query".</li>
+              <li>Füge den Master-SQL-Code für das SONAR-System ein und klicke unten rechts auf <strong>Run</strong>.</li>
+            </ul>
             
             <div style={imagePlaceholder}>
               <img src="/docs/step3-sql.jpg" alt="SQL Setup" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
@@ -149,11 +187,33 @@ export default function Handbuch({ theme }) {
       case 4:
         return (
           <div>
-            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>BAUABSCHNITT 4: MASCHINENRÄUME (EDGE FUNCTIONS)</h2>
-            <p>Wir richten die Hintergrund-Prozesse ein (z.B. E-Mail Versand, GitHub Sync, Scraper).</p>
+            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>
+              BAUABSCHNITT 4: MASCHINENRÄUME (EDGE FUNCTIONS)
+            </h2>
+            <p>Edge Functions sind winzige Server-Skripte, die bei Supabase liegen. Sie übernehmen gefährliche oder unsichtbare Aufgaben wie E-Mails versenden oder KI-Abfragen durchführen.</p>
             
-            <h3>Schritt 1: Ordner anlegen</h3>
-            <p>Nutze die Supabase CLI, um die Funktionen zu generieren (z.B. <code>npx supabase functions new sonar-send-email</code>).</p>
+            <h3>1. Supabase CLI (Terminal Befehle)</h3>
+            <p>
+              <strong>Warum?</strong> Um Functions zu Supabase hochzuladen, müssen wir das Terminal in StackBlitz (oder VS Code) nutzen.<br/>
+              <strong>To-Do:</strong> Öffne das Terminal und führe nacheinander diese Befehle aus:
+            </p>
+            
+            <div style={codeBlock}>
+              <span style={{ color: '#94a3b8' }}># 1. In Supabase einloggen (Browser öffnet sich zur Bestätigung)</span><br/>
+              npx supabase login<br/><br/>
+              
+              <span style={{ color: '#94a3b8' }}># 2. Projekt lokal initialisieren</span><br/>
+              npx supabase init<br/><br/>
+              
+              <span style={{ color: '#94a3b8' }}># 3. Projekt verknüpfen (Ersetze [PROJECT_REF] mit der ID aus deiner Supabase URL)</span><br/>
+              npx supabase link --project-ref [PROJECT_REF]<br/><br/>
+              
+              <span style={{ color: '#94a3b8' }}># 4. Neue Funktion erstellen</span><br/>
+              npx supabase functions new sonar-ai-task<br/><br/>
+              
+              <span style={{ color: '#94a3b8' }}># 5. Funktion live auf den Supabase-Server laden</span><br/>
+              npx supabase functions deploy sonar-ai-task
+            </div>
             
             <div style={imagePlaceholder}>
               <img src="/docs/step4-functions.jpg" alt="Edge Functions" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
@@ -164,11 +224,22 @@ export default function Handbuch({ theme }) {
       case 5:
         return (
           <div>
-            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>BAUABSCHNITT 5: DIE CHROME BRÜCKE</h2>
-            <p>Die Erweiterung für den Magic-Import Button in Google Gemini.</p>
+            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>
+              BAUABSCHNITT 5: DIE CHROME BRÜCKE (EXTENSION)
+            </h2>
+            <p>Damit du Daten aus dem echten Leben (z.B. aus Web-Portalen) ins SONAR Cockpit bekommst, nutzen wir eine Chrome Extension.</p>
             
-            <h3>Schritt 1: Plugin laden</h3>
-            <p>Gehe in Chrome auf <code>chrome://extensions</code>, aktiviere den Entwicklermodus und lade den entpackten Ordner hoch.</p>
+            <h3>1. Plugin lokal in Chrome laden</h3>
+            <p>
+              <strong>Warum?</strong> Die Extension agiert als "Kopierer". Sie liest markierte Texte auf Webseiten und schickt sie per API direkt in deine Supabase-Datenbank.<br/>
+              <strong>To-Do:</strong>
+            </p>
+            <ul>
+              <li>Gib in die Adresszeile deines Browsers ein: <code>chrome://extensions</code></li>
+              <li>Aktiviere oben rechts den <strong>Entwicklermodus (Developer mode)</strong>.</li>
+              <li>Klicke oben links auf <strong>Entpackte Erweiterung laden (Load unpacked)</strong>.</li>
+              <li>Wähle den Ordner auf deiner Festplatte aus, in dem die Dateien `manifest.json` und `popup.html` liegen.</li>
+            </ul>
             
             <div style={imagePlaceholder}>
               <img src="/docs/step5-chrome.jpg" alt="Chrome Extension" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
@@ -179,11 +250,30 @@ export default function Handbuch({ theme }) {
       case 6:
         return (
           <div>
-            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>BAUABSCHNITT 6: COCKPIT LIVE SCHALTEN</h2>
-            <p>Der finale Schritt: Das Frontend ins Netz bringen.</p>
+            <h2 style={{ color: theme.handbuchAccent || '#10b981', borderBottom: `1px solid ${theme.border}`, paddingBottom: '10px' }}>
+              BAUABSCHNITT 6: COCKPIT LIVE SCHALTEN (VERCEL)
+            </h2>
+            <p>Dein React-Code aus StackBlitz muss als echte Webseite ins Netz. Dafür nutzen wir Vercel.</p>
             
-            <h3>Schritt 1: Vercel Deployment</h3>
-            <p>Logge dich bei Vercel ein, importiere dein GitHub Repository und setze zwingend die Environment Variables (<code>VITE_SUPABASE_URL</code> und <code>VITE_SUPABASE_ANON_KEY</code>).</p>
+            <h3>1. Projekt deployen</h3>
+            <p>
+              <strong>Warum?</strong> Vercel zieht sich bei jedem Git-Commit automatisch den neuesten Code von GitHub und baut die Seite neu.<br/>
+              <strong>To-Do:</strong>
+            </p>
+            <ul>
+              <li>Gehe auf <a href="https://vercel.com" target="_blank" rel="noreferrer" style={linkStyle}>vercel.com</a> und logge dich mit GitHub ein.</li>
+              <li>Klicke auf <strong>Add New... &gt; Project</strong> und importiere dein SONAR-Repository.</li>
+              <li><strong>WICHTIG:</strong> Bevor du auf "Deploy" klickst, musst du die Environment Variables setzen!</li>
+            </ul>
+
+            <div style={codeBlock}>
+              Name: VITE_SUPABASE_URL<br/>
+              Value: [Deine Supabase Projekt URL, z.B. https://xyz.supabase.co]<br/><br/>
+              Name: VITE_SUPABASE_ANON_KEY<br/>
+              Value: [Dein langer anon/public key aus Supabase]
+            </div>
+            
+            <p>Klicke danach auf <strong>Deploy</strong>. Fertig!</p>
             
             <div style={imagePlaceholder}>
               <img src="/docs/step6-vercel.jpg" alt="Vercel Deployment" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
