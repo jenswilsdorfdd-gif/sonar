@@ -42,11 +42,38 @@ export default function App() {
     }
   }, [isPublicHandbuch])
 
-  // Wenn die öffentliche URL aufgerufen wurde, zeige NUR das Handbuch
+  // Wenn die öffentliche URL aufgerufen wurde, zeige Header + Handbuch
   if (isPublicHandbuch) {
     return (
-      <div style={{ backgroundColor: publicTheme.bg, minHeight: '100vh', padding: '20px' }}>
-        <Handbuch theme={publicTheme} />
+      <div style={{ backgroundColor: publicTheme.bg, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        
+        {/* Header-Leiste für das öffentliche Handbuch */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '15px 30px',
+          backgroundColor: publicTheme.cardBg,
+          borderBottom: `1px solid ${publicTheme.border}`,
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }}>
+          {/* Logo / Branding */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '24px' }}>📡</span>
+            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: publicTheme.accent, letterSpacing: '1px' }}>
+              SONAR COCKPIT
+            </h1>
+          </div>
+          {/* Titel der Seite */}
+          <div style={{ fontSize: '14px', color: publicTheme.textMuted, fontWeight: '500' }}>
+            Technisches Handbuch zur System-Einrichtung
+          </div>
+        </div>
+
+        {/* Eigentlicher Handbuch-Inhalt */}
+        <div style={{ padding: '20px', flex: 1 }}>
+          <Handbuch theme={publicTheme} />
+        </div>
       </div>
     )
   }
