@@ -5,6 +5,7 @@ import AktenCockpit from './AktenCockpit';
 import Wissensspeicher from './Wissensspeicher';
 import FirmenTresor from './FirmenTresor';
 import GegnerCrm from './GegnerCrm';
+import Handbuch from './Handbuch'; // <-- Import des Handbuchs
 
 export default function Dashboard({ session }) {
   // --- GLOBALES ROUTING & THEME ---
@@ -72,6 +73,7 @@ export default function Dashboard({ session }) {
     accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
     wissenAccent: '#a855f7', wissenBg: 'rgba(168, 85, 247, 0.1)',
     gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
+    handbuchAccent: '#10b981', handbuchBg: 'rgba(16, 185, 129, 0.1)', 
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e',
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a',
     cardItemBg: 'rgba(15, 23, 42, 0.7)'
@@ -80,6 +82,7 @@ export default function Dashboard({ session }) {
     accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e', tresorBg: '#f0fdfa',
     wissenAccent: '#7e22ce', wissenBg: '#faf5ff',
     gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
+    handbuchAccent: '#059669', handbuchBg: '#d1fae5', 
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48',
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e',
     cardItemBg: '#ffffff'
@@ -90,6 +93,7 @@ export default function Dashboard({ session }) {
       case 'wissen': return theme.wissenAccent;
       case 'tresor': return theme.tresorAccent;
       case 'gegner': return theme.gegnerAccent;
+      case 'handbuch': return theme.handbuchAccent;
       default: return theme.accent;
     }
   };
@@ -185,6 +189,15 @@ export default function Dashboard({ session }) {
           </h1>
           
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            
+            {/* --- NEU: HANDBUCH BUTTON IM HEADER --- */}
+            <button
+              onClick={() => setActiveTab('handbuch')}
+              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '16px', lineHeight: '16px' }}>📖</span> Tech-Handbuch
+            </button>
+            {/* -------------------------------------- */}
+
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
@@ -199,7 +212,7 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* --- TAB NAVIGATION --- */}
+        {/* --- TAB NAVIGATION (HAUPTMENÜ) --- */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
           <button
             onClick={() => setActiveTab('akten')}
@@ -298,6 +311,11 @@ export default function Dashboard({ session }) {
             showToast={showToast}
             suchbegriff={suchbegriff}
           />
+        )}
+
+        {/* --- NEU: HANDBUCH VIEW --- */}
+        {activeTab === 'handbuch' && (
+          <Handbuch theme={theme} />
         )}
 
       </div>
