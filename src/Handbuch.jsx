@@ -57,6 +57,22 @@ export default function Handbuch({ theme }) {
     fontWeight: 'bold'
   };
 
+  const imagePlaceholder = {
+    width: '100%',
+    minHeight: '200px',
+    background: theme.bg,
+    border: `2px dashed ${theme.border}`,
+    borderRadius: '8px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '20px 0',
+    padding: '20px',
+    color: theme.textMuted,
+    textAlign: 'center'
+  };
+
   // --- INHALTE DER BAUABSCHNITTE ---
   const renderContent = () => {
     switch (activeStep) {
@@ -75,6 +91,11 @@ export default function Handbuch({ theme }) {
               <li>Klicke oben rechts auf <strong>"Sign up"</strong> und erstelle einen kostenlosen Account.</li>
               <li>Bestätige deine E-Mail-Adresse. Bleibe in deinem Browser bei GitHub eingeloggt.</li>
             </ol>
+
+            <div style={imagePlaceholder}>
+              <img src="/docs/step1-github.jpg" alt="GitHub Repository" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step1-github.jpg</strong><br/>(Zeigt das fertig angelegte GitHub-Repository)</span>
+            </div>
             
             <h3>Schritt 2: Das Backend & die Datenbank (Supabase)</h3>
             <p>Supabase ist der Motor im Hintergrund. Hier liegen später alle Akten, Mandanten und Dateien.</p>
@@ -111,6 +132,11 @@ export default function Handbuch({ theme }) {
               <li><strong>Die digitale Festplatte (Storage) einrichten:</strong> Klicke links auf das <strong>"Storage"</strong>-Icon. Klicke auf <strong>"New Bucket"</strong>. Name: <strong><code>dokumente</code></strong>. Schalte <strong>"Public bucket"</strong> zwingend ein! Save.</li>
               <li>Wiederhole das für einen zweiten Bucket namens <strong><code>unterschriften</code></strong> (auch Public). Save.</li>
             </ol>
+
+            <div style={imagePlaceholder}>
+              <img src="/docs/step1-supabase-storage.jpg" alt="Supabase Storage" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step1-supabase-storage.jpg</strong><br/>(Zeigt die beiden erstellten Public-Buckets in Supabase)</span>
+            </div>
           </div>
         );
       case 2:
@@ -202,6 +228,11 @@ WICHTIG: GENERIERE DAS JSON NIEMALS AUTOMATISCH!
 Frage den Mandanten ausschließlich: "Soll ich das Ausgangs-JSON für dein SONAR Cockpit generieren?"
 Generiere das JSON erst, wenn der Mandant diese Frage mit "Ja", "Gib mir das JSON" oder ähnlich explizit beantwortet.`}</pre>
 
+            <div style={imagePlaceholder}>
+              <img src="/docs/step2-gemini.jpg" alt="Gemini Setup" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step2-gemini.jpg</strong><br/>(Zeigt das fertig angelegte Custom Gem im Google AI Studio)</span>
+            </div>
+
              <h3>Schritt 2: Die Schlüsselmeister (API-Keys besorgen)</h3>
              <p>Besorge dir bei folgenden Diensten einen kostenlosen Account und generiere dort jeweils einen API-Key:</p>
              <ul>
@@ -226,6 +257,11 @@ Name: OPENAI_API_KEY | Value: [Dein OpenAI Key]
 Name: GEMINI_API_KEY | Value: [Dein Gemini Key]
 Name: LLAMA_CLOUD_API_KEY | Value: [Dein Llama Cloud Key]
 Name: SONAR_COCKPIT | Value: [Dein Master-Key]`}</pre>
+
+            <div style={imagePlaceholder}>
+              <img src="/docs/step2-secrets.jpg" alt="Supabase Secrets" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step2-secrets.jpg</strong><br/>(Zeigt die Liste der fertig eingetragenen API-Keys in Supabase)</span>
+            </div>
           </div>
         );
       case 3:
@@ -358,6 +394,11 @@ SELECT cron.schedule(
     )
   $$
 );`}</pre>
+
+            <div style={imagePlaceholder}>
+              <img src="/docs/step3-sql.jpg" alt="SQL Editor Success" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step3-sql.jpg</strong><br/>(Zeigt den SQL-Editor in Supabase nach dem erfolgreichen Ausführen)</span>
+            </div>
           </div>
         );
       case 4:
@@ -412,6 +453,11 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
 
             <h3>Schritt 4: Die Funktionen online schalten</h3>
             <p>Führe im Terminal aus: <code>npx supabase functions deploy</code></p>
+
+            <div style={imagePlaceholder}>
+              <img src="/docs/step4-deploy.jpg" alt="Supabase Deploy" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step4-deploy.jpg</strong><br/>(Zeigt das Terminal nach dem erfolgreichen Upload der Funktionen)</span>
+            </div>
           </div>
         );
       case 5:
@@ -461,6 +507,11 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
               <li>Schalte oben rechts den <strong>Entwicklermodus</strong> EIN.</li>
               <li>Klicke auf <strong>Entpackte Erweiterung laden</strong>. Wähle den Ordner aus.</li>
             </ol>
+
+            <div style={imagePlaceholder}>
+              <img src="/docs/step5-chrome.jpg" alt="Chrome Extension" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step5-chrome.jpg</strong><br/>(Zeigt die geladene "Sonar Bridge" Kachel in den Chrome-Erweiterungen)</span>
+            </div>
           </div>
         );
       case 6:
@@ -488,6 +539,11 @@ VITE_SUPABASE_ANON_KEY=[Dein anon Key]`}</pre>
               <li><strong>ABSOLUT KRITISCH:</strong> Klappe das Menü "Environment Variables" auf und trage exakt die zwei Variablen (VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY) ein.</li>
               <li>Klicke auf "Deploy". Nach 2 Minuten ist dein SONAR Cockpit live!</li>
             </ol>
+
+            <div style={imagePlaceholder}>
+              <img src="/docs/step6-vercel.jpg" alt="Vercel Environment Variables" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <span>📷 Bild-Platzhalter: <strong>/docs/step6-vercel.jpg</strong><br/>(Zeigt exakt den Bereich in Vercel, wo die Environment Variables eingetragen werden)</span>
+            </div>
           </div>
         );
       default:
