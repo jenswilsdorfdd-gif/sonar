@@ -16,9 +16,9 @@ export default function App() {
     bg: '#0f172a',
     cardBg: '#1e293b',
     border: '#334155',
-    textMain: '#f8fafc',
+    textMain: '#ffffff', // KORRIGIERT: Logo-Schrift ist absolut weiß
     textMuted: '#94a3b8',
-    accent: '#00e5ff',
+    accent: '#10b981', // KORRIGIERT: Das echte Sonar-Grün statt Cyan
     handbuchBg: 'rgba(16, 185, 129, 0.1)',
     handbuchAccent: '#10b981'
   };
@@ -58,9 +58,13 @@ export default function App() {
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
         }}>
           {/* Logo / Branding */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '24px' }}>📡</span>
-            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: publicTheme.accent, letterSpacing: '1px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Das echte Schall-Logo in Grün */}
+            <span style={{ fontSize: '22px', fontWeight: 'bold', color: publicTheme.accent, letterSpacing: '1px' }}>
+              ((o))
+            </span>
+            {/* Schriftzug in Weiß */}
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '500', color: publicTheme.textMain, letterSpacing: '-0.5px' }}>
               SONAR COCKPIT
             </h1>
           </div>
