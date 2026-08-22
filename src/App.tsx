@@ -2,8 +2,26 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 // @ts-ignore
 import Dashboard from './Dashboard'
+// Handbuch importieren
+import Handbuch from './Handbuch'
 
 export default function App() {
+  // Prüfen, ob die URL den Parameter ?public=handbuch enthält
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPublicHandbuch = urlParams.get('public') === 'handbuch';
+
+  // Standard-Theme für die öffentliche Handbuch-Ansicht (Dark Mode orientiert)
+  const publicTheme = {
+    bg: '#0f172a',
+    cardBg: '#1e293b',
+    border: '#334155',
+    textMain: '#f8fafc',
+    textMuted: '#94a3b8',
+    accent: '#00e5ff',
+    handbuchBg: 'rgba(16, 185, 129, 0.1)',
+    handbuchAccent: '#10b981'
+  };
+
   // useState<any> behebt den Session-Fehler
   const [session, setSession] = useState<any>(null)
   const [email, setEmail] = useState('')
@@ -11,14 +29,26 @@ export default function App() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
+    // Auth-Listener nur starten, wenn wir nicht im öffentlichen Handbuch sind
+    if (!isPublicHandbuch) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session)
+      })
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-  }, [])
+      supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session)
+      })
+    }
+  }, [isPublicHandbuch])
+
+  // Wenn die öffentliche URL aufgerufen wurde, zeige NUR das Handbuch
+  if (isPublicHandbuch) {
+    return (
+      <div style={{ backgroundColor: publicTheme.bg, minHeight: '100vh', padding: '20px' }}>
+        <Handbuch theme={publicTheme} />
+      </div>
+    )
+  }
 
   // (e: any) behebt den Parameter-Fehler
   const handleLogin = async (e: any) => {
