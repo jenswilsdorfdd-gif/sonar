@@ -93,7 +93,17 @@ export default function Handbuch({ theme }) {
             </ol>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step1-github.jpg" alt="GitHub Repository" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step1-github.jpg" 
+                alt="GitHub Repository" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step1-github.jpg</strong><br/>(Zeigt das fertig angelegte GitHub-Repository)</span>
             </div>
             
@@ -134,7 +144,17 @@ export default function Handbuch({ theme }) {
             </ol>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step1-supabase-storage.jpg" alt="Supabase Storage" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step1-supabase-storage.jpg" 
+                alt="Supabase Storage" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step1-supabase-storage.jpg</strong><br/>(Zeigt die beiden erstellten Public-Buckets in Supabase)</span>
             </div>
           </div>
@@ -229,7 +249,17 @@ Frage den Mandanten ausschließlich: "Soll ich das Ausgangs-JSON für dein SONAR
 Generiere das JSON erst, wenn der Mandant diese Frage mit "Ja", "Gib mir das JSON" oder ähnlich explizit beantwortet.`}</pre>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step2-gemini.jpg" alt="Gemini Setup" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step2-gemini.jpg" 
+                alt="Gemini Setup" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step2-gemini.jpg</strong><br/>(Zeigt das fertig angelegte Custom Gem im Google AI Studio)</span>
             </div>
 
@@ -259,7 +289,17 @@ Name: LLAMA_CLOUD_API_KEY | Value: [Dein Llama Cloud Key]
 Name: SONAR_COCKPIT | Value: [Dein Master-Key]`}</pre>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step2-secrets.jpg" alt="Supabase Secrets" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step2-secrets.jpg" 
+                alt="Supabase Secrets" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step2-secrets.jpg</strong><br/>(Zeigt die Liste der fertig eingetragenen API-Keys in Supabase)</span>
             </div>
           </div>
@@ -396,7 +436,17 @@ SELECT cron.schedule(
 );`}</pre>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step3-sql.jpg" alt="SQL Editor Success" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step3-sql.jpg" 
+                alt="SQL Editor Success" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step3-sql.jpg</strong><br/>(Zeigt den SQL-Editor in Supabase nach dem erfolgreichen Ausführen)</span>
             </div>
           </div>
@@ -455,7 +505,17 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
             <p>Führe im Terminal aus: <code>npx supabase functions deploy</code></p>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step4-deploy.jpg" alt="Supabase Deploy" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step4-deploy.jpg" 
+                alt="Supabase Deploy" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step4-deploy.jpg</strong><br/>(Zeigt das Terminal nach dem erfolgreichen Upload der Funktionen)</span>
             </div>
           </div>
@@ -509,7 +569,17 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
             </ol>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step5-chrome.jpg" alt="Chrome Extension" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step5-chrome.jpg" 
+                alt="Chrome Extension" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step5-chrome.jpg</strong><br/>(Zeigt die geladene "Sonar Bridge" Kachel in den Chrome-Erweiterungen)</span>
             </div>
           </div>
@@ -541,7 +611,17 @@ VITE_SUPABASE_ANON_KEY=[Dein anon Key]`}</pre>
             </ol>
 
             <div style={imagePlaceholder}>
-              <img src="/docs/step6-vercel.jpg" alt="Vercel Environment Variables" style={{ maxWidth: '100%', display: 'none' }} onError={(e) => e.target.style.display='none'} onLoad={(e) => e.target.parentElement.style.border='none'} />
+              <img 
+                src="/docs/step6-vercel.jpg" 
+                alt="Vercel Environment Variables" 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                onError={(e) => e.target.style.display='none'} 
+                onLoad={(e) => { 
+                  e.target.style.display='block'; 
+                  e.target.parentElement.style.border='none'; 
+                  if(e.target.nextSibling) e.target.nextSibling.style.display='none'; 
+                }} 
+              />
               <span>📷 Bild-Platzhalter: <strong>/docs/step6-vercel.jpg</strong><br/>(Zeigt exakt den Bereich in Vercel, wo die Environment Variables eingetragen werden)</span>
             </div>
           </div>
