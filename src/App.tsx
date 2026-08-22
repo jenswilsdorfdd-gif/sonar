@@ -16,18 +16,28 @@ export default function App() {
     bg: '#0f172a',
     cardBg: '#1e293b',
     border: '#334155',
-    textMain: '#ffffff', // KORRIGIERT: Logo-Schrift ist absolut weiß
+    textMain: '#ffffff',
     textMuted: '#94a3b8',
-    accent: '#10b981', // KORRIGIERT: Das echte Sonar-Grün statt Cyan
+    accent: '#10b981',
     handbuchBg: 'rgba(16, 185, 129, 0.1)',
     handbuchAccent: '#10b981'
   };
 
-  // useState<any> behebt den Session-Fehler
   const [session, setSession] = useState<any>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  
+  // --- NEU: Responsive State für den Public Wrapper ---
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Resize-Listener für die mobile Header-Anpassung
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    handleResize(); // Initialer Check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     // Auth-Listener nur starten, wenn wir nicht im öffentlichen Handbuch sind
@@ -52,30 +62,35 @@ export default function App() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '15px 30px',
+          padding: isMobile ? '12px 15px' : '15px 30px', // Weniger Padding auf Mobile
           backgroundColor: publicTheme.cardBg,
           borderBottom: `1px solid ${publicTheme.border}`,
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          gap: isMobile ? '10px' : '0' // Verhindert Überlappung bei kleinen Screens
         }}>
           {/* Logo / Branding */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Das echte Schall-Logo in Grün */}
-            <span style={{ fontSize: '22px', fontWeight: 'bold', color: publicTheme.accent, letterSpacing: '1px' }}>
+            <span style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: publicTheme.accent, letterSpacing: '1px' }}>
               ((o))
             </span>
-            {/* Schriftzug in Weiß */}
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '500', color: publicTheme.textMain, letterSpacing: '-0.5px' }}>
+            <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '20px', fontWeight: '500', color: publicTheme.textMain, letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
               SONAR COCKPIT
             </h1>
           </div>
           {/* Titel der Seite */}
-          <div style={{ fontSize: '14px', color: publicTheme.textMuted, fontWeight: '500' }}>
-            Technisches Handbuch zur System-Einrichtung
+          <div style={{ 
+            fontSize: isMobile ? '11px' : '14px', 
+            color: publicTheme.textMuted, 
+            fontWeight: '500',
+            textAlign: 'right',
+            lineHeight: '1.2'
+          }}>
+            Technisches Handbuch{isMobile ? <br /> : ' '}zur System-Einrichtung
           </div>
         </div>
 
         {/* Eigentlicher Handbuch-Inhalt */}
-        <div style={{ padding: '20px', flex: 1 }}>
+        <div style={{ padding: isMobile ? '10px' : '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
           <Handbuch theme={publicTheme} />
         </div>
       </div>
