@@ -2,24 +2,18 @@
 Quelle: https://www.bundesgerichtshof.de/SharedDocs/Entscheidungen/DE/Strafsenate/4_StS/2026/4_StR__24-26.html
 Veröffentlicht: Fri, 21 Aug 2026 00:00:00 GMT
 
-**Kurz‑Analyse – Juristische Wissensdatenbank**  
+**Kurz‑Analyse – Entscheidung des Bundesgerichtshofs**  
+*Aktenzeichen: 4 StR 24/26*  
+*Datum: 15. Juli 2026*  
 
----  
+| **Extrahiertes Element** | **Ergebnis** |
+|--------------------------|--------------|
+| **Aktenzeichen** | **4 StR 24/26** (Strafsenat, 4. Strafsenat) |
+| **Datum** | **15. Juli 2026** (Erscheinungs‑ bzw. Verkündungsdatum) |
+| **Betroffene Rechtsnorm** | **Nicht im vorliegenden HTML‑Auszug angegeben** – die konkrete Norm muss dem PDF‑Dokument entnommen werden. |
+| **Kurzzusammenfassung (3 Sätze)** | 1. Die Entscheidung **4 StR 24/26** wurde am 15.07.2026 vom Bundesgerichtshof veröffentlicht. <br>2. Der HTML‑Auszug enthält ausschließlich Navigations‑ und Metadaten (Titel, Menü, Download‑Link zum PDF) und liefert keinerlei inhaltliche Angaben zum Streitgegenstand, den Beteiligten oder der Rechtsfrage. <br>3. Für eine inhaltliche Auswertung (Tatbestand, Rechtslage, Urteil) ist das verlinkte PDF (117 KB) heranzuziehen; dort werden die betroffenen Normen, die rechtliche Begründung und das Ergebnis detailliert dargestellt. |
 
-### 📄 Aktenzeichen  
-**4 StR 24/26**  
+---
 
-### 📅 Datum  
-**15.07.2026**  
-
-### ⚖️ Betroffene Rechtsnorm  
-*Keine Rechtsnorm im bereitgestellten Text angegeben.*  
-
-### 📑 Kurzzusammenfassung (3 Sätze)  
-1. Die zur Verfügung stehende Quelle enthält ausschließlich Navigations‑ und Metadaten der BGH‑Website sowie einen Hinweis auf die Entscheidung **4 StR 24/26** vom **15.07.2026**, jedoch keinen eigentlichen Entscheidungs‑ oder Urteilsinhalt.  
-2. Aufgrund des Fehlens von Sachverhalt, Rechtsfrage und Argumentation kann die inhaltliche Substanz der Entscheidung nicht beurteilt oder zusammengefasst werden.  
-3. Für eine fundierte Analyse ist das Herunterladen und Auswerten der PDF‑Datei (117 KB, „nicht barrierefrei“) erforderlich, die den eigentlichen Urteilstext enthält.  
-
----  
-
-*Hinweis: Die Angaben basieren ausschließlich auf den in der Anfrage enthaltenen Navigations‑ und Metadaten. Zur vollständigen Auswertung sollte das Original‑PDF der Entscheidung konsultiert werden.*  
+### Hinweis für die Wissensdatenbank  
+*Der obenstehende Eintrag basiert ausschließlich auf den meta‑technischen Informationen der BGH‑Webseite. Die eigentliche Entscheidungsbegründung liegt im herunterladbaren PDF. Für eine vollständige Indexierung sollten die PDF‑Inhalte (z. B. mittels OCR/Text‑Extraktion) erfasst und die betroffenen Rechtsnormen sowie das konkrete Ergebnis ergänzt werden.*
