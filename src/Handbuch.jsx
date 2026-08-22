@@ -1,7 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function Handbuch({ theme }) {
   const [activeStep, setActiveStep] = useState(1);
+  
+  // --- NEU: Responsive State & Lightbox State ---
+  const [isMobile, setIsMobile] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      // Wenn man den Bildschirm wieder groß zieht, Sidebar-Overlay schließen
+      if (window.innerWidth > 768) setIsSidebarOpen(false);
+    };
+    
+    handleResize(); // Initialer Check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // --- STYLES ---
   const sidebarStyle = {
@@ -12,17 +29,30 @@ export default function Handbuch({ theme }) {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
-    borderRadius: '12px 0 0 12px'
+    // Mobile Anpassungen (Overlay-Logik)
+    position: isMobile ? 'fixed' : 'relative',
+    top: isMobile ? 0 : 'auto',
+    bottom: isMobile ? 0 : 'auto',
+    left: isMobile ? (isSidebarOpen ? 0 : '-300px') : 0,
+    height: isMobile ? '100vh' : 'auto',
+    zIndex: isMobile ? 1000 : 1,
+    transition: 'left 0.3s ease',
+    boxShadow: isMobile && isSidebarOpen ? '4px 0 15px rgba(0,0,0,0.5)' : 'none',
+    borderRadius: isMobile ? '0' : '12px 0 0 12px',
+    overflowY: 'auto'
   };
 
   const contentStyle = {
     flex: 1,
     background: theme.cardBg,
-    padding: '30px 40px',
+    padding: isMobile ? '20px' : '30px 40px',
     overflowY: 'auto',
-    borderRadius: '0 12px 12px 0',
+    borderRadius: isMobile ? '12px' : '0 12px 12px 0',
     color: theme.textMain,
-    lineHeight: '1.6'
+    lineHeight: '1.6',
+    // Verhindert, dass der Content scrollt, wenn das mobile Menü offen ist
+    height: isMobile && isSidebarOpen ? '100vh' : 'auto',
+    overflow: isMobile && isSidebarOpen ? 'hidden' : 'auto'
   };
 
   const buttonStyle = (isActive) => ({
@@ -73,6 +103,12 @@ export default function Handbuch({ theme }) {
     textAlign: 'center'
   };
 
+  // --- HILFSFUNKTION FÜR SIDEBAR-KLICKS (MOBILE) ---
+  const handleNavClick = (step) => {
+    setActiveStep(step);
+    if (isMobile) setIsSidebarOpen(false); // Sidebar nach Auswahl schließen
+  };
+
   // --- INHALTE DER BAUABSCHNITTE ---
   const renderContent = () => {
     switch (activeStep) {
@@ -96,7 +132,8 @@ export default function Handbuch({ theme }) {
               <img 
                 src="/docs/step1-github.jpg" 
                 alt="GitHub Repository" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step1-github.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -147,7 +184,8 @@ export default function Handbuch({ theme }) {
               <img 
                 src="/docs/step1-supabase-storage.jpg" 
                 alt="Supabase Storage" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step1-supabase-storage.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -252,7 +290,8 @@ Generiere das JSON erst, wenn der Mandant diese Frage mit "Ja", "Gib mir das JSO
               <img 
                 src="/docs/step2-gemini.jpg" 
                 alt="Gemini Setup" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step2-gemini.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -292,7 +331,8 @@ Name: SONAR_COCKPIT | Value: [Dein Master-Key]`}</pre>
               <img 
                 src="/docs/step2-secrets.jpg" 
                 alt="Supabase Secrets" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step2-secrets.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -439,7 +479,8 @@ SELECT cron.schedule(
               <img 
                 src="/docs/step3-sql.jpg" 
                 alt="SQL Editor Success" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step3-sql.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -508,7 +549,8 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
               <img 
                 src="/docs/step4-deploy.jpg" 
                 alt="Supabase Deploy" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step4-deploy.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -572,7 +614,8 @@ import { jsPDF } from "https://esm.sh/jspdf@2.5.1"
               <img 
                 src="/docs/step5-chrome.jpg" 
                 alt="Chrome Extension" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step5-chrome.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -614,7 +657,8 @@ VITE_SUPABASE_ANON_KEY=[Dein anon Key]`}</pre>
               <img 
                 src="/docs/step6-vercel.jpg" 
                 alt="Vercel Environment Variables" 
-                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px' }} 
+                style={{ maxWidth: '100%', display: 'none', borderRadius: '4px', cursor: 'zoom-in' }} 
+                onClick={() => setSelectedImage('/docs/step6-vercel.jpg')}
                 onError={(e) => e.target.style.display='none'} 
                 onLoad={(e) => { 
                   e.target.style.display='block'; 
@@ -632,17 +676,33 @@ VITE_SUPABASE_ANON_KEY=[Dein anon Key]`}</pre>
   };
 
   return (
-    <div style={{ display: 'flex', width: '100%', minHeight: '75vh', border: `1px solid ${theme.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', width: '100%', minHeight: '75vh', border: `1px solid ${theme.border}`, borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
       
+      {/* MOBILE OVERLAY BACKGROUND (Schließt die Sidebar bei Klick ins Leere) */}
+      {isMobile && isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 999
+          }}
+        />
+      )}
+
       {/* SIDEBAR NAVIGATION */}
       <div style={sidebarStyle}>
         <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', color: theme.textMain }}>📚 Tech-Handbuch</h3>
-        <button onClick={() => setActiveStep(1)} style={buttonStyle(activeStep === 1)}>1. Die Werkstatt</button>
-        <button onClick={() => setActiveStep(2)} style={buttonStyle(activeStep === 2)}>2. Gehirn & Schlüssel</button>
-        <button onClick={() => setActiveStep(3)} style={buttonStyle(activeStep === 3)}>3. Das Fundament</button>
-        <button onClick={() => setActiveStep(4)} style={buttonStyle(activeStep === 4)}>4. Edge Functions</button>
-        <button onClick={() => setActiveStep(5)} style={buttonStyle(activeStep === 5)}>5. Chrome Brücke</button>
-        <button onClick={() => setActiveStep(6)} style={buttonStyle(activeStep === 6)}>6. Live-Schaltung</button>
+        <button onClick={() => handleNavClick(1)} style={buttonStyle(activeStep === 1)}>1. Die Werkstatt</button>
+        <button onClick={() => handleNavClick(2)} style={buttonStyle(activeStep === 2)}>2. Gehirn & Schlüssel</button>
+        <button onClick={() => handleNavClick(3)} style={buttonStyle(activeStep === 3)}>3. Das Fundament</button>
+        <button onClick={() => handleNavClick(4)} style={buttonStyle(activeStep === 4)}>4. Edge Functions</button>
+        <button onClick={() => handleNavClick(5)} style={buttonStyle(activeStep === 5)}>5. Chrome Brücke</button>
+        <button onClick={() => handleNavClick(6)} style={buttonStyle(activeStep === 6)}>6. Live-Schaltung</button>
         
         <div style={{ marginTop: 'auto', paddingTop: '20px', fontSize: '11px', color: theme.textMuted, borderTop: `1px solid ${theme.border}` }}>
           SONAR System v1.0<br/>Status: Online
@@ -651,8 +711,64 @@ VITE_SUPABASE_ANON_KEY=[Dein anon Key]`}</pre>
 
       {/* HAUPTINHALT */}
       <div style={contentStyle}>
+        {/* HAMBURGER BUTTON (Nur Mobile) */}
+        {isMobile && (
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            style={{
+              background: 'transparent',
+              color: theme.accent || '#10b981',
+              border: `1px solid ${theme.border}`,
+              padding: '10px 15px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>☰</span> Menü öffnen
+          </button>
+        )}
+        
         {renderContent()}
       </div>
+
+      {/* LIGHTBOX / ZOOM OVERLAY FÜR BILDER */}
+      {selectedImage && (
+        <div 
+          onClick={() => setSelectedImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'zoom-out',
+            padding: '20px'
+          }}
+        >
+          <img 
+            src={selectedImage} 
+            alt="Zoom Ansicht" 
+            style={{
+              maxWidth: '100%',
+              maxHeight: '90vh',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+            }} 
+          />
+        </div>
+      )}
 
     </div>
   );
