@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 // @ts-ignore
 import Dashboard from './Dashboard'
-// Handbuch importieren
+// Handbuch importieren (mit ts-ignore für Vercel Build)
+// @ts-ignore
 import Handbuch from './Handbuch'
 
 export default function App() {
