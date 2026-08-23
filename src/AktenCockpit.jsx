@@ -1215,7 +1215,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
                 const plusDreiIso = plusDreiDate.toISOString().split('T')[0];
                 
-                // NEU: Berechnungen für sauberes Layout und dynamische Button-Farben
                 const isOverdue = w.tageUebrig < 0;
                 const isDueToday = w.tageUebrig === 0;
                 const actionBg = isOverdue ? theme.warningBorder : theme.accent;
@@ -1290,7 +1289,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       </div>
                     </div>
 
-                    {/* NEU: Überfällig Info als cleaner Text statt ausbrechendem Badge */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
                       <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema}</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -1306,7 +1304,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 );
               })}
 
-              {/* NEU: Auch den UST Radar auf cleanen Text umgestellt, damit nichts ausbricht */}
               {ustRadar.map((r, i) => (
                 <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
@@ -1558,9 +1555,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               {isExpanded && (
                 <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.cardBg, padding: '12px 18px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ fontSize: '13px' }}>
+                    
+                    {/* --- NEU: color: theme.textMain hinzugefügt, um unsichtbaren Text im Light Mode zu verhindern --- */}
+                    <div style={{ fontSize: '13px', color: theme.textMain }}>
                       <strong>Aktuelle Behörde / Gegner:</strong> {akte.gegner_name}
                     </div>
+                    {/* -------------------------------------------------------------------------------------------------- */}
                     
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <button onClick={() => toggleAkteStatus(akte.id, akte.status)} style={{ background: akte.status === 'Erledigt' ? 'transparent' : '#10b981', color: akte.status === 'Erledigt' ? theme.textMain : '#ffffff', border: akte.status === 'Erledigt' ? `1px solid ${theme.border}` : 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
