@@ -52,6 +52,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   
   const [openMenuId, setOpenMenuId] = useState(null);
 
+  // --- NEU: State für einklappbare Alarme ---
+  const [isAlarmsOpen, setIsAlarmsOpen] = useState(true);
+
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
@@ -1173,123 +1176,145 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       {/* ALARME */}
       {(fristenWarnungen.length > 0 || ustRadar.length > 0) && (
         <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}` }}>
-          <h4 style={{ color: theme.warningText, margin: '0 0 15px 0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Icon name="alert" size={20} /> Dringende Alarme & Fällige Wiedervorlagen ({fristenWarnungen.length + ustRadar.length})
+          <h4 
+            onClick={() => setIsAlarmsOpen(!isAlarmsOpen)} // NEU: Klick-Event für Toggle
+            style={{ 
+              color: theme.warningText, 
+              margin: isAlarmsOpen ? '0 0 15px 0' : '0', // Margin ausblenden, wenn zugeklappt
+              textAlign: 'left', 
+              fontSize: '18px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', // NEU: Damit der Pfeil rechts anliegt
+              cursor: 'pointer', // NEU: Zeigt an, dass der Bereich klickbar ist
+              userSelect: 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Icon name="alert" size={20} /> Dringende Alarme & Fällige Wiedervorlagen ({fristenWarnungen.length + ustRadar.length})
+            </div>
+            <div style={{ color: theme.warningBorder }}>
+              <Icon name={isAlarmsOpen ? 'down' : 'right'} size={20} /> {/* NEU: Toggle-Pfeil */}
+            </div>
           </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
-            {fristenWarnungen.map(w => {
-              const zielDatum = new Date(w.aktivesDatum);
-              const plusDreiDate = new Date(zielDatum);
-              plusDreiDate.setDate(plusDreiDate.getDate() + 3);
+          
+          {/* NEU: Rendering der Alarm-Inhalte nur wenn ausgeklappt */}
+          {isAlarmsOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+              {fristenWarnungen.map(w => {
+                const zielDatum = new Date(w.aktivesDatum);
+                const plusDreiDate = new Date(zielDatum);
+                plusDreiDate.setDate(plusDreiDate.getDate() + 3);
 
-              let shiftDisabled = false;
-              if (w.frist_extern) {
-                const originalFristDate = new Date(w.frist_extern);
-                if (plusDreiDate > originalFristDate) {
-                  shiftDisabled = true;
+                let shiftDisabled = false;
+                if (w.frist_extern) {
+                  const originalFristDate = new Date(w.frist_extern);
+                  if (plusDreiDate > originalFristDate) {
+                    shiftDisabled = true;
+                  }
                 }
-              }
 
-              const plusDreiIso = plusDreiDate.toISOString().split('T')[0];
+                const plusDreiIso = plusDreiDate.toISOString().split('T')[0];
 
-              return (
-                <div 
-                  key={`warn-${w.id}`} 
-                  onClick={() => handleAlarmKlick(w.akte_id)}
-                  style={{ 
-                    background: theme.cardItemBg, 
-                    padding: '14px 18px', 
-                    borderRadius: '8px', 
-                    border: `1px solid ${theme.border}`,
-                    borderLeft: `5px solid ${theme.warningBorder}`,
-                    boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)',
-                    cursor: 'pointer', 
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px'
-                  }}
-                  title="Klicken, um diese Akte unten zu fokussieren!"
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
-                    <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      🏢 {w.akte_gegner}
-                    </strong>
+                return (
+                  <div 
+                    key={`warn-${w.id}`} 
+                    onClick={() => handleAlarmKlick(w.akte_id)}
+                    style={{ 
+                      background: theme.cardItemBg, 
+                      padding: '14px 18px', 
+                      borderRadius: '8px', 
+                      border: `1px solid ${theme.border}`,
+                      borderLeft: `5px solid ${theme.warningBorder}`,
+                      boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)',
+                      cursor: 'pointer', 
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                    title="Klicken, um diese Akte unten zu fokussieren!"
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
+                      <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        🏢 {w.akte_gegner}
+                      </strong>
 
-                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                      <button 
-                        onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)}
-                        style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        ⚙️ Aktionen {openMenuId === w.id ? '▲' : '▼'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)}
+                          style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          ⚙️ Aktionen {openMenuId === w.id ? '▲' : '▼'}
+                        </button>
 
-                      {openMenuId === w.id && (
-                        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '160px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
-                          <button 
-                            onClick={() => {
-                              if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
-                              else handleInlineEdit(w.id, 'frist_extern', null);
-                              setOpenMenuId(null);
-                            }} 
-                            style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}
-                          >
-                            ✓ Erledigt
-                          </button>
+                        {openMenuId === w.id && (
+                          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '160px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
+                            <button 
+                              onClick={() => {
+                                if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null);
+                                else handleInlineEdit(w.id, 'frist_extern', null);
+                                setOpenMenuId(null);
+                              }} 
+                              style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+                            >
+                              ✓ Erledigt
+                            </button>
 
-                          <button 
-                            disabled={shiftDisabled}
-                            onClick={() => {
-                              if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso);
-                              else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
-                              setOpenMenuId(null);
-                            }} 
-                            style={{ background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, color: shiftDisabled ? theme.textMuted : theme.textMain, border: 'none', padding: '8px', borderRadius: '4px', cursor: shiftDisabled ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', opacity: shiftDisabled ? 0.6 : 1, textAlign: 'left', width: '100%' }}
-                            title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
-                          >
-                            +3 Tage {shiftDisabled ? '🔒' : ''}
-                          </button>
+                            <button 
+                              disabled={shiftDisabled}
+                              onClick={() => {
+                                if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso);
+                                else handleInlineEdit(w.id, 'frist_extern', plusDreiIso);
+                                setOpenMenuId(null);
+                              }} 
+                              style={{ background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, color: shiftDisabled ? theme.textMuted : theme.textMain, border: 'none', padding: '8px', borderRadius: '4px', cursor: shiftDisabled ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', opacity: shiftDisabled ? 0.6 : 1, textAlign: 'left', width: '100%' }}
+                              title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}
+                            >
+                              +3 Tage {shiftDisabled ? '🔒' : ''}
+                            </button>
 
-                          <button 
-                            onClick={() => handleNachhaken(w.akte_id)}
-                            style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}
-                          >
-                            ✉️ Nachhaken
-                          </button>
-                        </div>
-                      )}
+                            <button 
+                              onClick={() => handleNachhaken(w.akte_id)}
+                              style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+                            >
+                              ✉️ Nachhaken
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
+                      <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
+                        <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
+                        {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8}}>(Frist: {formatDatum(w.frist_extern)})</span>}
+                        
+                        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                          {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
+                        </span>
+                      </div>
                     </div>
                   </div>
+                );
+              })}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
-                    <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
-                      <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
-                      {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8}}>(Frist: {formatDatum(w.frist_extern)})</span>}
-                      
-                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: theme.warningBorder, color: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                        {w.tageUebrig < 0 ? `Überfällig: ${Math.abs(w.tageUebrig)} Tage` : w.tageUebrig === 0 ? 'HEUTE FÄLLIG!' : `Noch ${w.tageUebrig} Tage`}
-                      </span>
-                    </div>
+              {ustRadar.map((r, i) => (
+                <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div>
+                    <strong style={{ color: theme.tresorAccent }}>🏛️ {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '13px', color: theme.textMuted, marginRight: '10px' }}>Fällig am {formatDatum(r.datum)}</span>
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: theme.tresorAccent, color: '#000', fontWeight: 'bold' }}>
+                      Noch {r.tageUebrig} Tage
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-
-            {ustRadar.map((r, i) => (
-              <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div>
-                  <strong style={{ color: theme.tresorAccent }}>🏛️ {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: '13px', color: theme.textMuted, marginRight: '10px' }}>Fällig am {formatDatum(r.datum)}</span>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: theme.tresorAccent, color: '#000', fontWeight: 'bold' }}>
-                    Noch {r.tageUebrig} Tage
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
