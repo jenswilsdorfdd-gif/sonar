@@ -12,6 +12,16 @@ export default function Dashboard({ session }) {
   const [activeTab, setActiveTab] = useState('akten');
   const [isDarkMode, setIsDarkMode] = useState(true);
 
+  // --- NEU: RESPONSIVE STATE FÜR HEADER-BUTTONS ---
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    handleResize(); // Initialer Check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // --- GLOBALE DATEN-STATES (Source of Truth) ---
   const [akten, setAkten] = useState([]);
   const [mandanten, setMandanten] = useState([]);
@@ -108,7 +118,7 @@ export default function Dashboard({ session }) {
       styleTag.id = styleId;
       document.head.appendChild(styleTag);
     }
-    // --- NEU: KUGELSICHERE CSS-MEDIA-QUERIES FÜR DAS HEADER-MENÜ ---
+    // --- CSS-MEDIA-QUERIES FÜR DAS HEADER-MENÜ ---
     styleTag.innerHTML = `
       html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100vh !important; background-color: ${theme.bg} !important; overflow-x: hidden !important; }
       * { box-sizing: border-box !important; }
@@ -206,61 +216,60 @@ export default function Dashboard({ session }) {
           
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             
-            {/* --- RESPONSIVE BUTTONS (CSS-Gesteuert) --- */}
+            {/* --- RESPONSIVE BUTTONS (JS Gesteuert) --- */}
             <button
               title="Tech-Handbuch"
-              className="header-btn"
               onClick={() => setActiveTab('handbuch')}
-              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
               <span style={{ fontSize: '16px', lineHeight: '16px' }}>📖</span> 
-              <span className="header-btn-text">Tech-Handbuch</span>
+              {!isMobile && <span>Tech-Handbuch</span>}
             </button>
 
             <button
               title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
-              className="header-btn"
               onClick={() => setIsDarkMode(!isDarkMode)}
-              style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+              style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
               <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> 
-              <span className="header-btn-text">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+              {!isMobile && <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
             
             <button
               title="Abmelden"
-              className="header-btn"
               onClick={handleLogout}
-              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontWeight: 'bold', opacity: 0.8 }}>
+              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold', opacity: 0.8 }}>
               <Icon name="x" size={18} /> 
-              <span className="header-btn-text">Abmelden</span>
+              {!isMobile && <span>Abmelden</span>}
             </button>
           </div>
         </div>
 
-        {/* --- TAB NAVIGATION (HAUPTMENÜ) --- */}
+        {/* --- TAB NAVIGATION (HAUPTMENÜ) NEUE REIHENFOLGE --- */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
+          
           <button
             onClick={() => setActiveTab('akten')}
             style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <Icon name="cabinet" size={22} /> Akten-Cockpit
-          </button>
-
-          <button
-            onClick={() => setActiveTab('wissen')}
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <Icon name="brain" size={22} /> 🧠 KI-Wissensspeicher ({wissenEintraege.length})
+            <Icon name="cabinet" size={22} /> AKTEN
           </button>
 
           <button
             onClick={() => setActiveTab('tresor')}
             style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <Icon name="building" size={22} /> Firmen-Tresor
+            <Icon name="building" size={22} /> WIR
           </button>
 
           <button
             onClick={() => setActiveTab('gegner')}
             style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <Icon name="shield" size={22} /> Behörden / Gegner CRM
+            <Icon name="shield" size={22} /> GEGNER
           </button>
+
+          <button
+            onClick={() => setActiveTab('wissen')}
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="brain" size={22} /> WISSEN
+          </button>
+
         </div>
 
         {/* --- DYNAMISCHE VOLLTEXT-SUCHLEISTE (GLOBAL) --- */}
