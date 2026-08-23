@@ -711,14 +711,14 @@ VITE_SUPABASE_ANON_KEY=[Dein anon Key]`}</pre>
 
       {/* HAUPTINHALT */}
       <div style={contentStyle}>
-        {/* HAMBURGER BUTTON (Nur Mobile) */}
+        {/* HAMBURGER BUTTON (Nur Mobile) - KORRIGIERTE FARBEN */}
         {isMobile && (
           <button 
             onClick={() => setIsSidebarOpen(true)}
             style={{
               background: 'transparent',
-              color: theme.accent || '#10b981',
-              border: `1px solid ${theme.border}`,
+              color: theme.handbuchAccent || '#10b981', // NEU: Zieht jetzt das exakte Grün
+              border: `1px solid ${theme.handbuchAccent || '#10b981'}`, // NEU: Rahmen ebenfalls grün
               padding: '10px 15px',
               borderRadius: '8px',
               marginBottom: '20px',

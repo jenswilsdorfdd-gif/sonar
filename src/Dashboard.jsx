@@ -108,7 +108,7 @@ export default function Dashboard({ session }) {
       styleTag.id = styleId;
       document.head.appendChild(styleTag);
     }
-    // --- CSS-MEDIA-QUERIES FÜR DAS HEADER-MENÜ ---
+    // --- NEU: KUGELSICHERE CSS-MEDIA-QUERIES FÜR DAS HEADER-MENÜ ---
     styleTag.innerHTML = `
       html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100vh !important; background-color: ${theme.bg} !important; overflow-x: hidden !important; }
       * { box-sizing: border-box !important; }
@@ -236,13 +236,18 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* --- TAB NAVIGATION (HAUPTMENÜ) NEUE REIHENFOLGE --- */}
+        {/* --- TAB NAVIGATION (HAUPTMENÜ) --- */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
-          
           <button
             onClick={() => setActiveTab('akten')}
             style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="cabinet" size={22} /> Akten-Cockpit
+          </button>
+
+          <button
+            onClick={() => setActiveTab('wissen')}
+            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="brain" size={22} /> 🧠 KI-Wissensspeicher ({wissenEintraege.length})
           </button>
 
           <button
@@ -254,15 +259,8 @@ export default function Dashboard({ session }) {
           <button
             onClick={() => setActiveTab('gegner')}
             style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <Icon name="shield" size={22} /> Behörden / Gegner
+            <Icon name="shield" size={22} /> Behörden / Gegner CRM
           </button>
-
-          <button
-            onClick={() => setActiveTab('wissen')}
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <Icon name="brain" size={22} /> 🧠 KI-Wissensspeicher ({wissenEintraege.length})
-          </button>
-
         </div>
 
         {/* --- DYNAMISCHE VOLLTEXT-SUCHLEISTE (GLOBAL) --- */}
