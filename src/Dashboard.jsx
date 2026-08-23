@@ -5,7 +5,7 @@ import AktenCockpit from './AktenCockpit';
 import Wissensspeicher from './Wissensspeicher';
 import FirmenTresor from './FirmenTresor';
 import GegnerCrm from './GegnerCrm';
-import Handbuch from './Handbuch'; // <-- Import des Handbuchs
+import Handbuch from './Handbuch';
 
 export default function Dashboard({ session }) {
   // --- GLOBALES ROUTING & THEME ---
@@ -64,7 +64,7 @@ export default function Dashboard({ session }) {
   // --- LOGOUT LOGIK ---
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.reload(); // Erzwingt sofortigen Sprung auf den Login-Screen
+    window.location.reload(); 
   };
 
   // --- THEME-ENGINE ---
@@ -108,6 +108,7 @@ export default function Dashboard({ session }) {
       styleTag.id = styleId;
       document.head.appendChild(styleTag);
     }
+    // --- NEU: KUGELSICHERE CSS-MEDIA-QUERIES FÜR DAS HEADER-MENÜ ---
     styleTag.innerHTML = `
       html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100vh !important; background-color: ${theme.bg} !important; overflow-x: hidden !important; }
       * { box-sizing: border-box !important; }
@@ -115,6 +116,21 @@ export default function Dashboard({ session }) {
       input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
       @keyframes slideInRight { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
       @keyframes fadeOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
+
+      .header-btn {
+        padding: 8px 16px !important;
+        gap: 8px !important;
+      }
+      
+      @media (max-width: 850px) {
+        .header-btn {
+          padding: 8px 12px !important;
+          gap: 0 !important;
+        }
+        .header-btn-text {
+          display: none !important;
+        }
+      }
     `;
 
     return () => { if (styleTag) document.head.removeChild(styleTag); };
@@ -188,26 +204,34 @@ export default function Dashboard({ session }) {
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
           </h1>
           
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             
-            {/* --- NEU: HANDBUCH BUTTON IM HEADER --- */}
+            {/* --- RESPONSIVE BUTTONS (CSS-Gesteuert) --- */}
             <button
+              title="Tech-Handbuch"
+              className="header-btn"
               onClick={() => setActiveTab('handbuch')}
-              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-              <span style={{ fontSize: '16px', lineHeight: '16px' }}>📖</span> Tech-Handbuch
+              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '16px', lineHeight: '16px' }}>📖</span> 
+              <span className="header-btn-text">Tech-Handbuch</span>
             </button>
-            {/* -------------------------------------- */}
 
             <button
+              title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
+              className="header-btn"
               onClick={() => setIsDarkMode(!isDarkMode)}
-              style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
-              <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+              <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> 
+              <span className="header-btn-text">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
             </button>
             
             <button
+              title="Abmelden"
+              className="header-btn"
               onClick={handleLogout}
-              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', opacity: 0.8 }}>
-              <Icon name="x" size={18} /> Abmelden
+              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontWeight: 'bold', opacity: 0.8 }}>
+              <Icon name="x" size={18} /> 
+              <span className="header-btn-text">Abmelden</span>
             </button>
           </div>
         </div>
