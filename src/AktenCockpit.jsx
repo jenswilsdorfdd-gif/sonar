@@ -647,17 +647,28 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
          setVersandPdfUrl(resData.pdfUrl);
       }
       
-      setAktion(`${versandArt === 'email' ? 'E-Mail' : 'E-Fax (Simple-Fax)'} versendet an ${targetAddress}`);
-      setKanal(versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)');
+      const successAktion = `${versandArt === 'email' ? 'E-Mail' : 'E-Fax (Simple-Fax)'} versendet an ${targetAddress}`;
+      const successKanal = versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)';
+      
+      setAktion(successAktion);
+      setKanal(successKanal);
       setTyp('Ausgang');
 
-      showToast(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet!\nDas PDF wurde generiert. Klicke jetzt noch unten auf "+ In Akte abheften", um endgültig zu speichern.`, 'success');
+      showToast(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet! Auto-Save wird ausgeführt...`, 'success');
+
+      // NEU: AUTO-SAVE LOGIK (Triggert das direkte Speichern nach Versand)
+      await speichereEintragLogik({
+        overridePdfUrl: resData.pdfUrl || null,
+        overrideAktion: successAktion,
+        overrideKanal: successKanal,
+        overrideTyp: 'Ausgang'
+      });
 
     } catch (e) {
       console.error("Versandfehler:", e);
       showToast("❌ Rückmeldung von Resend: " + e.message, 'error');
+      setLaedt(false);
     }
-    setLaedt(false);
   };
 
   const handleSpeichernCheck = (e) => {
@@ -669,7 +680,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
-  const speichereEintragLogik = async () => {
+  // NEU: Funktion akzeptiert optionale Parameter für den direkten Auto-Save nach Versand
+  const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
     setLaedt(true);
 
@@ -755,18 +767,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
     }
     
-    if (versandPdfUrl) {
-      alleUrls.push(versandPdfUrl);
+    // NEU: Setzt die aktive PDF URL (entweder aus dem State oder aus dem Override vom Auto-Save)
+    const activeVersandPdfUrl = autoSaveOverrides && autoSaveOverrides.overridePdfUrl !== undefined ? autoSaveOverrides.overridePdfUrl : versandPdfUrl;
+
+    if (activeVersandPdfUrl) {
+      alleUrls.push(activeVersandPdfUrl);
       
       await supabase.from('wissensdatenbank').insert([{
         datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`,
         firma: unsereFirma || 'Allgemein',
         inhalt_text: `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Thema: ${thema || 'Ohne Thema'}\n\n\n${briefEntwurf}`,
-        dokument_url: versandPdfUrl
+        dokument_url: activeVersandPdfUrl
       }]);
 
       const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
-      await syncToGithub(ausgangName, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${versandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, versandPdfUrl, null, showToast);
+      await syncToGithub(ausgangName, `Versendetes Dokument\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, activeVersandPdfUrl, null, showToast);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
       const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
       await syncToGithub(entwurfName, `Text-Entwurf\nThema: ${thema || 'Ohne Thema'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`, null, null, showToast);
@@ -792,11 +807,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       aktuelleAkteId = neueAkte[0].id
     }
 
+    // NEU: Überschreiben der Textfelder durch Auto-Save-Übergaben (oder regulärer State)
+    const activeAktion = autoSaveOverrides && autoSaveOverrides.overrideAktion !== undefined ? autoSaveOverrides.overrideAktion : aktion;
+    const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : kanal;
+    const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
+
     const { error: histError } = await supabase
       .from('akten_historie')
       .insert([{ 
-        akte_id: aktuelleAkteId, user_id: session.user.id, typ: typ, datum: datum || null,
-        aktion: aktion || null, kanal: kanal || null, frist_extern: fristExtern || null,
+        akte_id: aktuelleAkteId, user_id: session.user.id, typ: activeTyp, datum: datum || null,
+        aktion: activeAktion || null, kanal: activeKanal || null, frist_extern: fristExtern || null,
         wiedervorlage: wiedervorlage || null, dokument_url: dokumentUrl, brief_entwurf: briefEntwurf || null 
       }])
 
@@ -1556,11 +1576,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.cardBg, padding: '12px 18px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '10px' }}>
                     
-                    {/* --- NEU: color: theme.textMain hinzugefügt, um unsichtbaren Text im Light Mode zu verhindern --- */}
                     <div style={{ fontSize: '13px', color: theme.textMain }}>
                       <strong>Aktuelle Behörde / Gegner:</strong> {akte.gegner_name}
                     </div>
-                    {/* -------------------------------------------------------------------------------------------------- */}
                     
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <button onClick={() => toggleAkteStatus(akte.id, akte.status)} style={{ background: akte.status === 'Erledigt' ? 'transparent' : '#10b981', color: akte.status === 'Erledigt' ? theme.textMain : '#ffffff', border: akte.status === 'Erledigt' ? `1px solid ${theme.border}` : 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
