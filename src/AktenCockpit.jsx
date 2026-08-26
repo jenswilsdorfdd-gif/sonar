@@ -37,7 +37,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [aktion, setAktion] = useState('');
   const [kanal, setKanal] = useState('');
   
-  // NEU: State für die Smart-Clear Checkbox der Fristen
   const [clearOldFristen, setClearOldFristen] = useState(true);
 
   const [dateien, setDateien] = useState([]);
@@ -606,7 +605,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); setLaedt(false); return; }
       aktuelleAkteId = neueAkte[0].id
     } else {
-      // NEU: Alte Fristen & WV nullen, wenn Checkbox gesetzt und wir in eine bestehende Akte speichern
       if (clearOldFristen && aktuelleAkteId) {
          await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('akte_id', aktuelleAkteId);
       }
@@ -623,7 +621,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); 
-      setClearOldFristen(true); // NEU: Checkbox nach erfolgreichem Speichern wieder auf default setzen
+      setClearOldFristen(true);
       setVersandPdfUrl(null); 
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten();
@@ -725,6 +723,22 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
   });
 
+  // NEU: Sortierung und Textgenerierung für Dropdowns (Chronologisch nach letzter Aktion)
+  const sortedAktenForDropdown = [...akten].sort((a, b) => {
+    const getLatestTime = (akte) => {
+      if (!akte.akten_historie || akte.akten_historie.length === 0) return new Date(akte.created_at || 0).getTime();
+      return new Date(akte.akten_historie[0].datum || akte.akten_historie[0].created_at || 0).getTime();
+    };
+    return getLatestTime(b) - getLatestTime(a);
+  });
+
+  const getAkteDropdownText = (akte) => {
+    const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
+    const letzteAktionDate = letzteAktion ? formatDatum(letzteAktion.datum) : '-';
+    const az = akte.aktenzeichen ? `AZ: ${akte.aktenzeichen}` : 'Kein AZ';
+    return `[Letzte Aktion: ${letzteAktionDate}] ${az} | ${akte.gegner_name || 'Unbekannt'} | ${akte.thema || 'Ohne Thema'}`;
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
@@ -810,7 +824,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       <form onSubmit={handleSpeichernCheck} style={panelStyle}>
         
-        {/* NEU: GEGNER CRM PROMPT */}
         {gegnerPrompt && (
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: gegnerPrompt.typ === 'update' ? '12px' : '0' }}>
@@ -841,7 +854,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           </div>
         )}
 
-        {/* TRESOR PROMPT */}
         {tresorPrompt && (
           <div style={{ background: theme.accent, color: '#000', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: tresorPrompt.typ === 'update' ? '12px' : '0' }}>
@@ -872,7 +884,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
               <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
                 <option value="">-- Ziel-Akte wählen --</option>
-                {akten.map(a => <option key={a.id} value={a.id}> {a.gegner_name} | {a.thema}</option>)}
+                {/* NEU: Sortierte und speziell formatierte Liste nutzen */}
+                {sortedAktenForDropdown.map(a => <option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>)}
               </select>
             </div>
           )}
@@ -941,7 +954,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             </div>
           </div>
           
-          {/* NEU: Smart-Clear Checkbox für Fristen */}
           {modus === 'bestehend' && (
             <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', borderRadius: '6px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
@@ -1024,9 +1036,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
                       {mergeSourceId === akte.id ? (
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', width: '220px' }}>
+                          <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', minWidth: '220px', maxWidth: '450px' }}>
                             <option value="">-- Ziel-Akte wählen --</option>
-                            {akten.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}> {a.gegner_name} | {a.thema}</option>))}
+                            {sortedAktenForDropdown.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>))}
                           </select>
                           <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
                           <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
