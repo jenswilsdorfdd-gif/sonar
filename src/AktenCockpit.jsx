@@ -37,12 +37,14 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [aktion, setAktion] = useState('');
   const [kanal, setKanal] = useState('');
   
+  // NEU: State für die Smart-Clear Checkbox der Fristen
+  const [clearOldFristen, setClearOldFristen] = useState(true);
+
   const [dateien, setDateien] = useState([]);
   const [briefEntwurf, setBriefEntwurf] = useState('');
   const [versandPdfUrl, setVersandPdfUrl] = useState('');
   const [tresorPrompt, setTresorPrompt] = useState(null); 
   
-  // NEU: States für Gegner Prompt und Fax Z.Hd.
   const [gegnerPrompt, setGegnerPrompt] = useState(null);
   const [faxZhd, setFaxZhd] = useState('');
 
@@ -115,7 +117,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
        if (a) {
           setGegnerName(a.gegner_name || '');
           setGegnerAnsprechpartner(a.gegner_ansprechpartner || '');
-          setFaxZhd(a.gegner_ansprechpartner || ''); // NEU: Synct das Z.Hd.-Feld
+          setFaxZhd(a.gegner_ansprechpartner || '');
           setGegnerTelefon(a.gegner_telefon || '');
           setGegnerEmail(a.gegner_email || '');
           setUnsereFirma(a.unsere_firma || '');
@@ -144,7 +146,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setModus('bestehend');
     setGegnerName(akte.gegner_name || '');
     setGegnerAnsprechpartner(akte.gegner_ansprechpartner || '');
-    setFaxZhd(akte.gegner_ansprechpartner || ''); // NEU
+    setFaxZhd(akte.gegner_ansprechpartner || '');
     setGegnerTelefon(akte.gegner_telefon || '');
     setGegnerEmail(akte.gegner_email || '');
     setUnsereFirma(akte.unsere_firma || '');
@@ -179,7 +181,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const obj = JSON.parse(val);
 
       if (obj.typ === 'Bulk-Gegner' && Array.isArray(obj.daten)) {
-        // Bulk-Logic bleibt unverändert
         setLaedt(true);
         let addedCount = 0; let updatedCount = 0;
         for (const item of obj.daten) {
@@ -226,9 +227,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setBriefEntwurf(fallbackBriefEntwurf); setAktion(fallbackAktion); setKanal(fallbackKanal); setTyp(fallbackTyp);
       setDatum(new Date().toISOString().split('T')[0]);
       
-      setFaxZhd(fallbackGegnerAnsprechpartner); // NEU
+      setFaxZhd(fallbackGegnerAnsprechpartner);
 
-      // NEU: GEGNER-PROMPT (Identisch zur Firmen-Tresor Logik)
       if (fallbackGegnerName) {
         const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(fallbackGegnerName));
         if (!existingGegner) {
@@ -364,7 +364,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setTresorPrompt(null);
   };
 
-  // NEU: Die Accept-Logik für Gegner/Behörden Änderungen
   const handleGegnerPromptAccept = async () => {
     if (!gegnerPrompt) return;
     if (gegnerPrompt.typ === 'neu') {
@@ -507,7 +506,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           unsereFirma: unsereFirma || 'Jens Wilsdorf',
           mandantProfil: mandantProfil,
           gegnerName: gegnerName,
-          gegnerAnsprechpartner: faxZhd || gegnerAnsprechpartner, // NEU: Nutzt Z.Hd. für das Deckblatt
+          gegnerAnsprechpartner: faxZhd || gegnerAnsprechpartner,
           gegnerFax: gegnerFax,
           extraAttachments: extraAttachments.length > 0 ? extraAttachments : undefined
         })
@@ -546,7 +545,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (mData) ladeDaten();
     }
     
-    // NEU: Wenn Gegner-Prompt noch offen ist und vom Typ 'neu', legen wir es an
     if (gegnerPrompt && gegnerPrompt.typ === 'neu') {
       await supabase.from('gegner').insert([{
         user_id: session.user.id, name: gegnerPrompt.obj.name, fax: gegnerPrompt.obj.fax || null, email: gegnerPrompt.obj.email || null,
@@ -607,6 +605,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: unserAnsprechpartner || null, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select()
       if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); setLaedt(false); return; }
       aktuelleAkteId = neueAkte[0].id
+    } else {
+      // NEU: Alte Fristen & WV nullen, wenn Checkbox gesetzt und wir in eine bestehende Akte speichern
+      if (clearOldFristen && aktuelleAkteId) {
+         await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('akte_id', aktuelleAkteId);
+      }
     }
 
     const activeAktion = autoSaveOverrides && autoSaveOverrides.overrideAktion !== undefined ? autoSaveOverrides.overrideAktion : aktion;
@@ -619,7 +622,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
-      setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); // NEU: Aufräumen
+      setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); 
+      setClearOldFristen(true); // NEU: Checkbox nach erfolgreichem Speichern wieder auf default setzen
       setVersandPdfUrl(null); 
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       ladeDaten();
@@ -936,11 +940,20 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <button type="button" onClick={() => setzeWV(0, 1)} style={quickBtnStyle}>+1M</button>
             </div>
           </div>
+          
+          {/* NEU: Smart-Clear Checkbox für Fristen */}
+          {modus === 'bestehend' && (
+            <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', borderRadius: '6px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
+                <input type="checkbox" checked={clearOldFristen} onChange={(e) => setClearOldFristen(e.target.checked)} style={{ accentColor: '#10b981', width: '16px', height: '16px' }} />
+                ☑️ Alle bisherigen Fristen & Wiedervorlagen dieser Akte als erledigt markieren
+              </label>
+            </div>
+          )}
         </div>
 
         <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
           
-          {/* NEU: Versand-Block mit z.Hd. Feld */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>
             <div>
               <label style={{...labelStyle, color: theme.textMain}}>Versand-E-Mail (Gegner)</label>
