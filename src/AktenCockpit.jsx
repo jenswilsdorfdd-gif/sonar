@@ -732,11 +732,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return getLatestTime(b) - getLatestTime(a);
   });
 
+  // NEU ANGEPASST: String-Struktur für das Dropdown
   const getAkteDropdownText = (akte) => {
     const letzteAktion = akte.akten_historie && akte.akten_historie.length > 0 ? akte.akten_historie[0] : null;
-    const letzteAktionDate = letzteAktion ? formatDatum(letzteAktion.datum) : '-';
-    const az = akte.aktenzeichen ? `AZ: ${akte.aktenzeichen}` : 'Kein AZ';
-    return `[Letzte Aktion: ${letzteAktionDate}] ${az} | ${akte.gegner_name || 'Unbekannt'} | ${akte.thema || 'Ohne Thema'}`;
+    const letzteAktionDate = letzteAktion ? formatDatum(letzteAktion.datum) : 'Kein Datum';
+    const gegner = akte.gegner_name || 'Unbekannter Gegner';
+    const ansprechpartner = akte.gegner_ansprechpartner || 'Kein AP';
+    const thema = akte.thema || 'Ohne Thema';
+    const az = akte.aktenzeichen ? `${akte.aktenzeichen}` : 'Kein Zeichen';
+
+    return `${gegner} | ${letzteAktionDate} | ${ansprechpartner} | ${thema} | ${az}`;
   };
 
   return (
@@ -958,7 +963,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', borderRadius: '6px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
                 <input type="checkbox" checked={clearOldFristen} onChange={(e) => setClearOldFristen(e.target.checked)} style={{ accentColor: '#10b981', width: '16px', height: '16px' }} />
-                ☑️ Alle bisherigen Fristen & Wiedervorlagen dieser Akte als erledigt markieren
+                Alle bisherigen Fristen & Wiedervorlagen dieser Akte als erledigt markieren
               </label>
             </div>
           )}
