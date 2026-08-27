@@ -37,7 +37,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [wiedervorlage, setWiedervorlage] = useState('');
   const [aktion, setAktion] = useState('');
   const [kanal, setKanal] = useState('');
-  const [bezugId, setBezugId] = useState(''); // NEU: Bezugs-ID für Auto-Kill
+  const [bezugId, setBezugId] = useState(''); 
   
   const [clearOldFristen, setClearOldFristen] = useState(true);
 
@@ -70,6 +70,18 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const isDarkMode = theme.bg === '#020617';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
+
+  // --- STRIKTER RUFNUMMERN FORMATTER ---
+  const formatRufnummer = (nummer) => {
+    if (!nummer) return '';
+    let clean = String(nummer).replace(/[\s\-\/\(\)]/g, ''); 
+    if (clean.startsWith('0049')) {
+      clean = '+49' + clean.substring(4);
+    } else if (clean.startsWith('0')) {
+      clean = '+49' + clean.substring(1);
+    }
+    return clean;
+  };
 
   useEffect(() => {
     if (globalUrlText) {
@@ -109,7 +121,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const handleAkteAuswahl = (e) => {
     const val = e.target.value;
     setSelectedAkteId(val);
-    setBezugId(''); // Reset Bezug bei Aktenwechsel
+    setBezugId(''); 
     if (val) {
        const a = akten.find(x => x.id === val);
        if (a) {
@@ -117,7 +129,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           setGegnerName(a.gegner_name || '');
           setGegnerAnsprechpartner(a.gegner_ansprechpartner || '');
           setFaxZhd(a.gegner_ansprechpartner || '');
-          setGegnerTelefon(a.gegner_telefon || '');
+          setGegnerTelefon(formatRufnummer(a.gegner_telefon || ''));
           setGegnerEmail(a.gegner_email || '');
           setUnsereFirma(a.unsere_firma || '');
           setUnserAnsprechpartner(a.unser_ansprechpartner || '');
@@ -127,7 +139,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           if (a.gegner_name) {
              const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(a.gegner_name));
              if (crmGegner) {
-                setGegnerFax(crmGegner.fax || '');
+                setGegnerFax(formatRufnummer(crmGegner.fax || ''));
                 if (!a.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
              } else {
                 setGegnerFax('');
@@ -148,7 +160,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setGegnerName(akte.gegner_name || '');
     setGegnerAnsprechpartner(akte.gegner_ansprechpartner || '');
     setFaxZhd(akte.gegner_ansprechpartner || '');
-    setGegnerTelefon(akte.gegner_telefon || '');
+    setGegnerTelefon(formatRufnummer(akte.gegner_telefon || ''));
     setGegnerEmail(akte.gegner_email || '');
     setUnsereFirma(akte.unsere_firma || '');
     setUnserAnsprechpartner(akte.unser_ansprechpartner || '');
@@ -159,7 +171,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (akte.gegner_name) {
       const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(akte.gegner_name));
       if (crmGegner) {
-        setGegnerFax(crmGegner.fax || '');
+        setGegnerFax(formatRufnummer(crmGegner.fax || ''));
         if (!akte.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
       } else {
         setGegnerFax('');
@@ -188,17 +200,17 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
            if (!item.gegner_name) continue;
            const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(item.gegner_name));
            if (!existingGegner) {
-              await supabase.from('gegner').insert([{ user_id: session.user.id, name: item.gegner_name, fax: item.fax || null, email: item.email || null, notizen: JSON.stringify([{ abteilung: item.abteilung || '', name: item.ansprechpartner || '', telefon: item.telefon || '', email: item.email || '' }]) }]);
+              await supabase.from('gegner').insert([{ user_id: session.user.id, name: item.gegner_name, fax: formatRufnummer(item.fax), email: item.email || null, notizen: JSON.stringify([{ abteilung: item.abteilung || '', name: item.ansprechpartner || '', telefon: formatRufnummer(item.telefon), email: item.email || '' }]) }]);
               addedCount++;
            } else {
               let updates = {}; let needsUpdate = false;
-              if (!existingGegner.fax && item.fax) { updates.fax = item.fax; needsUpdate = true; }
+              if (!existingGegner.fax && item.fax) { updates.fax = formatRufnummer(item.fax); needsUpdate = true; }
               if (!existingGegner.email && item.email) { updates.email = item.email; needsUpdate = true; }
               let currentContacts = [];
               try { currentContacts = typeof existingGegner.notizen === 'string' ? JSON.parse(existingGegner.notizen) : (existingGegner.notizen || []); if (!Array.isArray(currentContacts)) currentContacts = []; } catch(e) { currentContacts = []; }
               if (item.ansprechpartner || item.abteilung) {
                  const contactExists = currentContacts.some(c => (c.name || '').toLowerCase() === (item.ansprechpartner || '').toLowerCase() && (c.abteilung || '').toLowerCase() === (item.abteilung || '').toLowerCase());
-                 if (!contactExists) { currentContacts.push({ abteilung: item.abteilung || '', name: item.ansprechpartner || '', telefon: item.telefon || '', email: item.email || '' }); updates.notizen = JSON.stringify(currentContacts); needsUpdate = true; }
+                 if (!contactExists) { currentContacts.push({ abteilung: item.abteilung || '', name: item.ansprechpartner || '', telefon: formatRufnummer(item.telefon), email: item.email || '' }); updates.notizen = JSON.stringify(currentContacts); needsUpdate = true; }
               }
               if (needsUpdate) { await supabase.from('gegner').update(updates).eq('id', existingGegner.id); updatedCount++; }
            }
@@ -225,7 +237,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       
       setUnserZeichen(fallbackUnserZeichen); setAktenzeichen(fallbackAktenzeichen); setThema(fallbackThema); 
       setGegnerName(fallbackGegnerName); setGegnerAnsprechpartner(fallbackGegnerAnsprechpartner); 
-      setGegnerTelefon(fallbackGegnerTelefon); setGegnerFax(fallbackGegnerFax); setGegnerEmail(fallbackGegnerEmail); 
+      setGegnerTelefon(formatRufnummer(fallbackGegnerTelefon)); setGegnerFax(formatRufnummer(fallbackGegnerFax)); setGegnerEmail(fallbackGegnerEmail); 
       handleFristChange(fallbackFristExtern); setBriefEntwurf(fallbackBriefEntwurf); setAktion(fallbackAktion); 
       setKanal(fallbackKanal); setTyp(fallbackTyp);
       setDatum(new Date().toISOString().split('T')[0]);
@@ -237,13 +249,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         if (!existingGegner) {
            setGegnerPrompt({
              typ: 'neu',
-             obj: { name: fallbackGegnerName, ansprechpartner: fallbackGegnerAnsprechpartner, telefon: fallbackGegnerTelefon, fax: fallbackGegnerFax, email: fallbackGegnerEmail }
+             obj: { name: fallbackGegnerName, ansprechpartner: fallbackGegnerAnsprechpartner, telefon: formatRufnummer(fallbackGegnerTelefon), fax: formatRufnummer(fallbackGegnerFax), email: fallbackGegnerEmail }
            });
         } else {
            let gUpdates = {};
            let needsUpdate = false;
 
-           if (!existingGegner.fax && fallbackGegnerFax) { gUpdates.fax = fallbackGegnerFax; needsUpdate = true; }
+           if (!existingGegner.fax && fallbackGegnerFax) { gUpdates.fax = formatRufnummer(fallbackGegnerFax); needsUpdate = true; }
            if (!existingGegner.email && fallbackGegnerEmail) { gUpdates.email = fallbackGegnerEmail; needsUpdate = true; }
 
            let currentContacts = [];
@@ -256,7 +268,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                    currentContacts.push({
                        abteilung: '',
                        name: fallbackGegnerAnsprechpartner,
-                       telefon: fallbackGegnerTelefon || existingGegner.telefon || '',
+                       telefon: formatRufnummer(fallbackGegnerTelefon) || existingGegner.telefon || '',
                        email: fallbackGegnerEmail || existingGegner.email || existingGegner.email_zentrale || ''
                    });
                    gUpdates.notizen = JSON.stringify(currentContacts);
@@ -292,7 +304,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (fallbackUnsereFirma) {
         const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(fallbackUnsereFirma));
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
-        const parsedTelefon = cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '';
+        const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '');
         const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
         const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || (obj.absender ? `${obj.absender.strasse || ''}, ${obj.absender.plz_ort || ''}` : '') || '';
 
@@ -324,7 +336,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (tresorPrompt.typ === 'neu') {
       const { data, error } = await supabase.from('mandanten').insert([{
         user_id: session.user.id, firmenname: tresorPrompt.obj.unsere_firma, ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
-        telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '', email: cleanVal(tresorPrompt.obj.unser_email) || '', adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
+        telefon: formatRufnummer(cleanVal(tresorPrompt.obj.unser_telefon) || ''), email: cleanVal(tresorPrompt.obj.unser_email) || '', adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '', ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '', betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
         vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '', handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '', iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
@@ -339,12 +351,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       await supabase.from('gegner').insert([{
         user_id: session.user.id,
         name: gegnerPrompt.obj.name,
-        fax: gegnerPrompt.obj.fax || null,
+        fax: formatRufnummer(gegnerPrompt.obj.fax),
         email: gegnerPrompt.obj.email || null,
         notizen: JSON.stringify([{
             abteilung: '',
             name: gegnerPrompt.obj.ansprechpartner || '',
-            telefon: gegnerPrompt.obj.telefon || '',
+            telefon: formatRufnummer(gegnerPrompt.obj.telefon),
             email: gegnerPrompt.obj.email || ''
         }])
       }]);
@@ -439,7 +451,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
     setLaedt(true);
     try {
-      const rawFax = gegnerFax ? gegnerFax.replace(/[^0-9]/g, '') : '';
+      const formattedFax = formatRufnummer(gegnerFax);
+      // Entferne alle Zeichen die nicht Zahl ODER '+' sind (um das Länderkennzeichen zu behalten)
+      const rawFax = formattedFax ? formattedFax.replace(/[^0-9+]/g, '') : '';
       const targetAddress = versandArt === 'email' ? gegnerEmail : `${rawFax}@simple-fax.de`; 
       const betreff = `Unser Zeichen: ${unserZeichen || 'Neu'} / AZ: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
@@ -467,7 +481,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           mandantProfil: mandantProfil,
           gegnerName: gegnerName,
           gegnerAnsprechpartner: faxZhd || gegnerAnsprechpartner,
-          gegnerFax: gegnerFax,
+          gegnerFax: rawFax,
           extraAttachments: extraAttachments.length > 0 ? extraAttachments : undefined
         })
       });
@@ -498,7 +512,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (tresorPrompt && tresorPrompt.typ === 'neu') {
       const { data: mData } = await supabase.from('mandanten').insert([{
         user_id: session.user.id, firmenname: tresorPrompt.obj.unsere_firma, ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
-        telefon: cleanVal(tresorPrompt.obj.unser_telefon) || '', email: cleanVal(tresorPrompt.obj.unser_email) || '', adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
+        telefon: formatRufnummer(cleanVal(tresorPrompt.obj.unser_telefon) || ''), email: cleanVal(tresorPrompt.obj.unser_email) || '', adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '', ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '', betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
         vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '', handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '', iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
@@ -507,8 +521,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     
     if (gegnerPrompt && gegnerPrompt.typ === 'neu') {
       await supabase.from('gegner').insert([{
-        user_id: session.user.id, name: gegnerPrompt.obj.name, fax: gegnerPrompt.obj.fax || null, email: gegnerPrompt.obj.email || null,
-        notizen: JSON.stringify([{ abteilung: '', name: gegnerPrompt.obj.ansprechpartner || '', telefon: gegnerPrompt.obj.telefon || '', email: gegnerPrompt.obj.email || '' }])
+        user_id: session.user.id, name: gegnerPrompt.obj.name, fax: formatRufnummer(gegnerPrompt.obj.fax) || null, email: gegnerPrompt.obj.email || null,
+        notizen: JSON.stringify([{ abteilung: '', name: gegnerPrompt.obj.ansprechpartner || '', telefon: formatRufnummer(gegnerPrompt.obj.telefon) || '', email: gegnerPrompt.obj.email || '' }])
       }]);
     }
 
@@ -575,7 +589,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : kanal;
     const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
 
-    // NEU: Insert mit bezug_id
     const { error: histError } = await supabase.from('akten_historie').insert([{ 
       akte_id: aktuelleAkteId, 
       user_id: session.user.id, 
@@ -591,7 +604,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }])
 
     if (!histError) {
-      // NEU: AUTO-KILL Logik für Fristen
       if (bezugId) {
          await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('id', bezugId);
       }
@@ -600,7 +612,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); 
-      setBezugId(''); // Reset Bezug
+      setBezugId(''); 
       setClearOldFristen(true);
       setVersandPdfUrl(null); 
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
@@ -647,16 +659,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const handleTresorAuswahl = (e) => {
     const mId = e.target.value; if(!mId) return; const m = mandanten.find(x => x.id === mId);
-    if(m) { setUnsereFirma(m.firmenname || ''); setUnserAnsprechpartner(m.ansprechpartner || ''); setUnserTelefon(m.telefon || ''); setUnserEmail(m.email || ''); }
+    if(m) { setUnsereFirma(m.firmenname || ''); setUnserAnsprechpartner(m.ansprechpartner || ''); setUnserTelefon(formatRufnummer(m.telefon || '')); setUnserEmail(m.email || ''); }
   }
 
   const handleGegnerAuswahl = (e) => {
     const val = e.target.value; if(!val) return; const [gId, ansIdx] = val.split('|'); const g = gegnerListe.find(x => x.id === gId);
     if(g) {
-      setGegnerName(g.name || ''); setGegnerFax(g.fax || '');
+      setGegnerName(g.name || ''); setGegnerFax(formatRufnummer(g.fax || ''));
       let ansprechpartnerObj = null;
       try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed) && parsed[ansIdx]) { ansprechpartnerObj = parsed[ansIdx]; } } catch(e){}
-      if (ansprechpartnerObj) { setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || ''); setFaxZhd(ansprechpartnerObj.name || g.ansprechpartner || ''); setGegnerTelefon(ansprechpartnerObj.telefon || g.telefon || ''); setGegnerEmail(ansprechpartnerObj.email || g.email || g.email_zentrale || ''); } else { setGegnerAnsprechpartner(g.ansprechpartner || ''); setFaxZhd(g.ansprechpartner || ''); setGegnerTelefon(g.telefon || ''); setGegnerEmail(g.email || g.email_zentrale || ''); }
+      if (ansprechpartnerObj) { setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || ''); setFaxZhd(ansprechpartnerObj.name || g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(ansprechpartnerObj.telefon || g.telefon || '')); setGegnerEmail(ansprechpartnerObj.email || g.email || g.email_zentrale || ''); } else { setGegnerAnsprechpartner(g.ansprechpartner || ''); setFaxZhd(g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(g.telefon || '')); setGegnerEmail(g.email || g.email_zentrale || ''); }
     }
   }
 
@@ -670,7 +682,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setTimeout(() => { const el = document.getElementById(`akte-karte-${akteId}`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 150);
   };
 
-  // NEU: ENTFEFESSELTES ALARM-PORTAL (Alle Einzel-Fristen anzeigen)
   const fristenWarnungen = [];
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if (akte.akten_historie && akte.akten_historie.length > 0) {
@@ -823,7 +834,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
                       
-                      {/* NEU: Gegenstand + Spezifischer Vorgangs-Titel im Alarm */}
                       <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -921,8 +931,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               </div>
               <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} onBlur={(e) => setGegnerTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={inputStyle} /></div>
               <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
               
               <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
@@ -939,7 +949,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>E-Mail (Mandant)</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} onBlur={(e) => setUnserTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
             </>
           )}
 
@@ -947,15 +957,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div><label style={labelStyle}>Typ*</label><select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}><option value="Eingang">Eingang</option><option value="Ausgang">Ausgang</option><option value="Intern">Intern</option></select></div>
           <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
           
-          {/* NEU: AUTO-KILL BEZUGS-DROPDOWN */}
+          {/* NEU: ENTBLINDETES BEZUGS-DROPDOWN MIT DETAILLIERTEN TEXT-SNIPPETS */}
           {activeAkteObj && activeAkteObj.akten_historie && activeAkteObj.akten_historie.length > 0 && (
             <div style={{ gridColumn: '1 / -1', padding: '10px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '6px' }}>
               <label style={{...labelStyle, color: theme.textMain}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
               <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{...inputStyle, borderColor: '#0ea5e9'}}>
                 <option value="">-- Kein direkter Bezug --</option>
-                {activeAkteObj.akten_historie.map(h => (
-                  <option key={h.id} value={h.id}>{formatDatum(h.datum)} - {h.typ}: {h.aktion || 'Ohne Titel'}</option>
-                ))}
+                {activeAkteObj.akten_historie.map(h => {
+                  const briefSnippet = h.brief_entwurf ? ` | 📝 "${h.brief_entwurf.substring(0, 40).replace(/\n/g, ' ')}..."` : '';
+                  const aktionSnippet = h.aktion ? ` | ⚙️ ${h.aktion}` : '';
+                  return (
+                    <option key={h.id} value={h.id}>
+                      {formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}
@@ -994,7 +1010,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             </div>
             <div>
               <label style={{...labelStyle, color: theme.textMain}}>Versand-Faxnummer (Gegner)</label>
-              <input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} placeholder="z.B. 0351 123456" style={{...inputStyle, padding: '8px'}} />
+              <input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} placeholder="z.B. 0351 123456" style={{...inputStyle, padding: '8px'}} />
             </div>
             <div>
               <label style={{...labelStyle, color: theme.textMain}}>z. Hd. (Fax-Deckblatt)</label>
@@ -1050,10 +1066,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', flexWrap: 'nowrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
                 <div style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
                 
-                {/* INHALT DER MATRIX: VOLLSTÄNDIGER INLINE EDIT */}
+                {/* INHALT DER MATRIX */}
                 <div style={{ flex: '1 1 100%' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 2fr 1.5fr 1.5fr', gap: '15px', alignItems: 'center' }}>
-                    {/* Unser Zeichen */}
                     <div>
                       <input 
                         type="text" 
@@ -1064,7 +1079,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.accent, width: '100%', fontSize: '14px', fontWeight: 'bold', padding: '2px', outline: 'none', cursor: 'text' }} 
                       />
                     </div>
-                    {/* Gegner Name */}
                     <div>
                       <input 
                         type="text" 
@@ -1075,7 +1089,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMain, width: '100%', fontSize: '15px', fontWeight: 'bold', padding: '2px', outline: 'none', cursor: 'text' }} 
                       />
                     </div>
-                    {/* Gegenstand (Thema) */}
                     <div>
                       <input 
                         type="text" 
@@ -1086,7 +1099,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMain, width: '100%', fontSize: '14px', padding: '2px', outline: 'none', cursor: 'text' }} 
                       />
                     </div>
-                    {/* Ansprechpartner */}
                     <div>
                       <input 
                         type="text" 
@@ -1097,7 +1109,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMuted, width: '100%', fontSize: '13px', padding: '2px', outline: 'none', cursor: 'text' }} 
                       />
                     </div>
-                    {/* Aktenzeichen */}
                     <div>
                       <input 
                         type="text" 
@@ -1111,7 +1122,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   </div>
                 </div>
 
-                {/* Status Dropdown */}
                 <div style={{ width: '80px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                   <select 
                     value={akte.status || 'Offen'} 
@@ -1132,7 +1142,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
                       <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
                       
-                      {/* SAUBERER SERVER-SIDE MERGE */}
                       {mergeSourceId === akte.id ? (
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', minWidth: '220px', maxWidth: '450px' }}>
@@ -1163,8 +1172,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       <tbody>
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                            
-                            {/* VOLLE EDITIERBARKEIT: INLINE INPUTS (onBlur statt onChange) */}
                             <td style={{ padding: '10px' }}>
                                <select 
                                  defaultValue={hist.typ || ''} 
