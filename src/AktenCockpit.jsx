@@ -264,7 +264,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
            if (needsUpdate) {
                supabase.from('gegner').update(gUpdates).eq('id', existingGegner.id).then(() => ladeDaten());
-               showToast(`ℹ️ Gegner-Stammdaten von "${existingGegner.name}" wurden im Hintergrund aktualisiert.`, 'success');
            }
            setGegnerPrompt(null);
         }
@@ -364,18 +363,17 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const { error } = await supabase.from('akten_historie').update(updates).eq('id', histId);
     if (!error) { 
       ladeDaten(); 
-      showToast('Änderung gespeichert!', 'success'); 
+      // Erfolgs-Toast für geräuschloses Speichern entfernt
     } else { 
       showToast("Fehler beim Speichern: " + error.message, 'error'); 
     }
   };
 
-  // NEU: Generische Inline-Edit Funktion für alle Akten-Stammdaten
   const handleAkteStammdatenEdit = async (akteId, feld, wert) => {
     const { error } = await supabase.from('akten').update({ [feld]: wert || null }).eq('id', akteId);
     if (!error) {
       ladeDaten();
-      showToast('Akten-Stammdaten aktualisiert!', 'success');
+      // Erfolgs-Toast für geräuschloses Speichern entfernt
     } else {
       showToast("Fehler beim Speichern: " + error.message, 'error');
     }
@@ -1104,29 +1102,58 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
                             
-                            {/* VOLLE EDITIERBARKEIT: INLINE INPUTS */}
+                            {/* VOLLE EDITIERBARKEIT: INLINE INPUTS (onBlur statt onChange) */}
                             <td style={{ padding: '10px' }}>
-                               <select value={hist.typ || ''} onChange={(e) => handleInlineEdit(hist.id, 'typ', e.target.value)} style={{...inlineInputStyle, fontWeight: 'bold'}}>
+                               <select 
+                                 defaultValue={hist.typ || ''} 
+                                 onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
+                                 style={{...inlineInputStyle, fontWeight: 'bold'}}
+                               >
                                   <option value="Eingang">Eingang</option>
                                   <option value="Ausgang">Ausgang</option>
                                   <option value="Intern">Intern</option>
                                </select>
                             </td>
                             <td style={{ padding: '10px' }}>
-                               <input type="date" value={hist.datum || ''} onChange={(e) => handleInlineEdit(hist.id, 'datum', e.target.value)} style={inlineInputStyle} />
+                               <input 
+                                 type="date" 
+                                 defaultValue={hist.datum || ''} 
+                                 onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
+                                 style={inlineInputStyle} 
+                               />
                             </td>
                             <td style={{ padding: '10px' }}>
-                               <input type="text" value={hist.aktion || ''} onChange={(e) => handleInlineEdit(hist.id, 'aktion', e.target.value)} style={inlineInputStyle} placeholder="Ohne Aktion" />
+                               <input 
+                                 type="text" 
+                                 defaultValue={hist.aktion || ''} 
+                                 onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
+                                 style={inlineInputStyle} 
+                                 placeholder="Ohne Aktion" 
+                               />
                             </td>
                             <td style={{ padding: '10px' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <span style={{ fontSize: '11px', color: theme.textMuted, width: '30px' }}>Frist:</span>
-                                  <input type="date" value={hist.frist_extern || ''} onChange={(e) => handleInlineEdit(hist.id, 'frist_extern', e.target.value)} style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} title="Frist setzen (löscht automatisch WV)" />
+                                  <input 
+                                    type="date" 
+                                    key={`frist-${hist.frist_extern}`}
+                                    defaultValue={hist.frist_extern || ''} 
+                                    onBlur={(e) => { if (e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }} 
+                                    style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                    title="Frist setzen (löscht automatisch WV)" 
+                                  />
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold', width: '30px' }}>WV:</span>
-                                  <input type="date" value={hist.wiedervorlage || ''} onChange={(e) => handleInlineEdit(hist.id, 'wiedervorlage', e.target.value)} style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} title="WV setzen (löscht automatisch Frist)" />
+                                  <input 
+                                    type="date" 
+                                    key={`wv-${hist.wiedervorlage}`}
+                                    defaultValue={hist.wiedervorlage || ''} 
+                                    onBlur={(e) => { if (e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }} 
+                                    style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                    title="WV setzen (löscht automatisch Frist)" 
+                                  />
                                 </div>
                               </div>
                             </td>
