@@ -29,7 +29,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [unserAnsprechpartner, setUnserAnsprechpartner] = useState('');
   const [unserTelefon, setUnserTelefon] = useState('');
   const [unserEmail, setUnserEmail] = useState('');
-  const [thema, setThema] = useState(''); // In der UI als "Gegenstand" bezeichnet
+  const [thema, setThema] = useState(''); // Entspricht in der UI nun dem "Gegenstand"
   
   const [typ, setTyp] = useState('Eingang');
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0]);
@@ -358,7 +358,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const handleInlineEdit = async (histId, feld, wert) => {
     let updates = { [feld]: wert || null };
     
-    // XOR Logik für Frist und WV
     if (feld === 'frist_extern' && wert) updates.wiedervorlage = null;
     if (feld === 'wiedervorlage' && wert) updates.frist_extern = null;
 
@@ -595,24 +594,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (!error) { await supabase.from('akten_historie').insert([{ akte_id: akteId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: `Zuständigkeit übergeben von [${alterGegner}] an [${neuerGegnerName}]`, kanal: 'Behördenwechsel' }]); setTransferAkteId(null); setNeuerGegnerName(''); ladeDaten(); showToast(`✅ Akte an "${neuerGegnerName}" übergeben!`, 'success'); } else { showToast("Fehler bei der Übergabe: " + error.message, 'error'); }
   };
 
-  // SERVER-SIDE MERGE LOGIK (Kugelsicher, kein Datenverlust)
   const mergeAkte = async (sourceId) => {
     if (!mergeTargetId) { showToast("Bitte wähle zuerst eine Ziel-Akte aus!", 'warning'); return; }
     if (sourceId === mergeTargetId) { showToast("Quell- und Ziel-Akte dürfen nicht identisch sein!", 'warning'); return; }
-    if (!window.confirm("Achtung: Die komplette Historie (inkl. Dokumente) wird in die Ziel-Akte verschoben. Die aktuelle, leere Akten-Hülle wird anschließend gelöscht. Fortfahren?")) return;
     
-    // 1. Alle Einträge auf Serverebene verschieben
+    // SICHERHEIT: Neuer Text und KEIN automatisches Löschen der Alt-Akte
+    if (!window.confirm("Möchtest du alle Inhalte (Historie & Dokumente) aus dieser Akte in die gewählte Ziel-Akte verschieben? Diese Akte bleibt danach als leere Hülle bestehen.")) return;
+    
     const { error: moveErr } = await supabase.from('akten_historie').update({ akte_id: mergeTargetId }).eq('akte_id', sourceId);
     if (moveErr) { showToast("Fehler beim Verschieben der Inhalte: " + moveErr.message, 'error'); return; }
 
-    // 2. Dokumentationstrace in der Zielakte anlegen
     const sourceAkte = akten.find(a => a.id === sourceId);
     await supabase.from('akten_historie').insert([{ akte_id: mergeTargetId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: `Akte zusammengeführt: Inhalte aus "${sourceAkte.thema || 'Unbekannt'}" (${sourceAkte.unser_zeichen || 'Kein Zeichen'}) wurden integriert.` }]);
     
-    // 3. Leere Alt-Akte sicher löschen
-    await supabase.from('akten').delete().eq('id', sourceId); 
-    
-    setMergeSourceId(null); setMergeTargetId(''); ladeDaten(); showToast("✅ Akteninhalte erfolgreich übertragen und Alt-Akte gelöscht!", 'success');
+    setMergeSourceId(null); setMergeTargetId(''); ladeDaten(); 
+    showToast("✅ Akteninhalte erfolgreich übertragen! Die leere Quell-Akte kann nun manuell gelöscht werden.", 'success');
   };
 
   const toggleAkte = (id) => {
