@@ -37,6 +37,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [wiedervorlage, setWiedervorlage] = useState('');
   const [aktion, setAktion] = useState('');
   const [kanal, setKanal] = useState('');
+  const [bezugId, setBezugId] = useState(''); // NEU: Bezugs-ID für Auto-Kill
   
   const [clearOldFristen, setClearOldFristen] = useState(true);
 
@@ -108,6 +109,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const handleAkteAuswahl = (e) => {
     const val = e.target.value;
     setSelectedAkteId(val);
+    setBezugId(''); // Reset Bezug bei Aktenwechsel
     if (val) {
        const a = akten.find(x => x.id === val);
        if (a) {
@@ -141,6 +143,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
     setSelectedAkteId(akteId);
     setModus('bestehend');
+    setBezugId('');
     setUnserZeichen(akte.unser_zeichen || '');
     setGegnerName(akte.gegner_name || '');
     setGegnerAnsprechpartner(akte.gegner_ansprechpartner || '');
@@ -229,7 +232,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       
       setFaxZhd(fallbackGegnerAnsprechpartner);
 
-      // SILENT SYNC LOGIK FÜR GEGNER
       if (fallbackGegnerName) {
         const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(fallbackGegnerName));
         if (!existingGegner) {
@@ -269,7 +271,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
       }
 
-      // AKTEN ZUWEISUNG (Priorität: Unser Zeichen, dann Aktenzeichen)
       if (fallbackUnserZeichen) {
         let match = akten.find(a => a.unser_zeichen === fallbackUnserZeichen);
         if (match) {
@@ -288,7 +289,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setModus('neu');
       }
 
-      // SILENT SYNC LOGIK FÜR MANDANTEN/TRESOR
       if (fallbackUnsereFirma) {
         const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(fallbackUnsereFirma));
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
@@ -363,7 +363,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const { error } = await supabase.from('akten_historie').update(updates).eq('id', histId);
     if (!error) { 
       ladeDaten(); 
-      // Erfolgs-Toast für geräuschloses Speichern entfernt
     } else { 
       showToast("Fehler beim Speichern: " + error.message, 'error'); 
     }
@@ -373,7 +372,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const { error } = await supabase.from('akten').update({ [feld]: wert || null }).eq('id', akteId);
     if (!error) {
       ladeDaten();
-      // Erfolgs-Toast für geräuschloses Speichern entfernt
     } else {
       showToast("Fehler beim Speichern: " + error.message, 'error');
     }
@@ -577,13 +575,32 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : kanal;
     const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
 
-    const { error: histError } = await supabase.from('akten_historie').insert([{ akte_id: aktuelleAkteId, user_id: session.user.id, typ: activeTyp, datum: datum || null, aktion: activeAktion || null, kanal: activeKanal || null, frist_extern: fristExtern || null, wiedervorlage: wiedervorlage || null, dokument_url: dokumentUrl, brief_entwurf: briefEntwurf || null }])
+    // NEU: Insert mit bezug_id
+    const { error: histError } = await supabase.from('akten_historie').insert([{ 
+      akte_id: aktuelleAkteId, 
+      user_id: session.user.id, 
+      typ: activeTyp, 
+      datum: datum || null, 
+      aktion: activeAktion || null, 
+      kanal: activeKanal || null, 
+      frist_extern: fristExtern || null, 
+      wiedervorlage: wiedervorlage || null, 
+      dokument_url: dokumentUrl, 
+      brief_entwurf: briefEntwurf || null,
+      bezug_id: bezugId || null 
+    }])
 
     if (!histError) {
+      // NEU: AUTO-KILL Logik für Fristen
+      if (bezugId) {
+         await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('id', bezugId);
+      }
+
       setUnserZeichen(''); setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); 
+      setBezugId(''); // Reset Bezug
       setClearOldFristen(true);
       setVersandPdfUrl(null); 
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
@@ -607,7 +624,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (!mergeTargetId) { showToast("Bitte wähle zuerst eine Ziel-Akte aus!", 'warning'); return; }
     if (sourceId === mergeTargetId) { showToast("Quell- und Ziel-Akte dürfen nicht identisch sein!", 'warning'); return; }
     
-    // SICHERHEIT: Neuer Text und KEIN automatisches Löschen der Alt-Akte
     if (!window.confirm("Möchtest du alle Inhalte (Historie & Dokumente) aus dieser Akte in die gewählte Ziel-Akte verschieben? Diese Akte bleibt danach als leere Hülle bestehen.")) return;
     
     const { error: moveErr } = await supabase.from('akten_historie').update({ akte_id: mergeTargetId }).eq('akte_id', sourceId);
@@ -654,16 +670,44 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setTimeout(() => { const el = document.getElementById(`akte-karte-${akteId}`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 150);
   };
 
+  // NEU: ENTFEFESSELTES ALARM-PORTAL (Alle Einzel-Fristen anzeigen)
   const fristenWarnungen = [];
   akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
     if (akte.akten_historie && akte.akten_historie.length > 0) {
       const relevanteEintraege = akte.akten_historie.filter(h => h.wiedervorlage || h.frist_extern);
-      if (relevanteEintraege.length > 0) {
-        const neuestesDokument = relevanteEintraege[0]; let zielDatum = null; let isWV = false; let sollAlarmMachen = false;
-        if (neuestesDokument.wiedervorlage) { const wvTage = berechneTageBis(neuestesDokument.wiedervorlage); if (wvTage !== null && wvTage <= 0) { zielDatum = neuestesDokument.wiedervorlage; isWV = true; sollAlarmMachen = true; } } 
-        if (!sollAlarmMachen && neuestesDokument.frist_extern) { const fristTage = berechneTageBis(neuestesDokument.frist_extern); if (fristTage !== null && fristTage <= 7) { zielDatum = neuestesDokument.frist_extern; isWV = false; sollAlarmMachen = true; } }
-        if (sollAlarmMachen && zielDatum) { const tage = berechneTageBis(zielDatum); let alarmStufe = '1. ERINNERUNG'; if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG'; if (tage <= 2) alarmStufe = 'ALARM'; fristenWarnungen.push({ ...neuestesDokument, akte_id: akte.id, akte_thema: akte.thema, akte_gegner: akte.gegner_name, tageUebrig: tage, alarmStufe, isWiedervorlage: isWV, aktivesDatum: zielDatum, unser_zeichen: akte.unser_zeichen }); }
-      }
+      
+      relevanteEintraege.forEach(dokument => {
+        let zielDatum = null; let isWV = false; let sollAlarmMachen = false;
+        
+        if (dokument.wiedervorlage) { 
+          const wvTage = berechneTageBis(dokument.wiedervorlage); 
+          if (wvTage !== null && wvTage <= 0) { zielDatum = dokument.wiedervorlage; isWV = true; sollAlarmMachen = true; } 
+        } 
+        
+        if (!sollAlarmMachen && dokument.frist_extern) { 
+          const fristTage = berechneTageBis(dokument.frist_extern); 
+          if (fristTage !== null && fristTage <= 7) { zielDatum = dokument.frist_extern; isWV = false; sollAlarmMachen = true; } 
+        }
+        
+        if (sollAlarmMachen && zielDatum) { 
+          const tage = berechneTageBis(zielDatum); 
+          let alarmStufe = '1. ERINNERUNG'; 
+          if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG'; 
+          if (tage <= 2) alarmStufe = 'ALARM'; 
+          
+          fristenWarnungen.push({ 
+            ...dokument, 
+            akte_id: akte.id, 
+            akte_thema: akte.thema, 
+            akte_gegner: akte.gegner_name, 
+            tageUebrig: tage, 
+            alarmStufe, 
+            isWiedervorlage: isWV, 
+            aktivesDatum: zielDatum, 
+            unser_zeichen: akte.unser_zeichen 
+          }); 
+        }
+      });
     }
   });
   fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
@@ -713,6 +757,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const thema = akte.thema || 'Ohne Gegenstand';
     return `${uZ} ${gegner} | ${thema}`;
   };
+
+  const activeAkteObj = modus === 'bestehend' && selectedAkteId ? akten.find(a => a.id === selectedAkteId) : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -776,7 +822,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
-                      <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema}</span>
+                      
+                      {/* NEU: Gegenstand + Spezifischer Vorgangs-Titel im Alarm */}
+                      <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
+                      
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
                         {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8}}>(Frist: {formatDatum(w.frist_extern)})</span>}
@@ -898,6 +947,19 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div><label style={labelStyle}>Typ*</label><select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}><option value="Eingang">Eingang</option><option value="Ausgang">Ausgang</option><option value="Intern">Intern</option></select></div>
           <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
           
+          {/* NEU: AUTO-KILL BEZUGS-DROPDOWN */}
+          {activeAkteObj && activeAkteObj.akten_historie && activeAkteObj.akten_historie.length > 0 && (
+            <div style={{ gridColumn: '1 / -1', padding: '10px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '6px' }}>
+              <label style={{...labelStyle, color: theme.textMain}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
+              <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{...inputStyle, borderColor: '#0ea5e9'}}>
+                <option value="">-- Kein direkter Bezug --</option>
+                {activeAkteObj.akten_historie.map(h => (
+                  <option key={h.id} value={h.id}>{formatDatum(h.datum)} - {h.typ}: {h.aktion || 'Ohne Titel'}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label style={labelStyle}>Frist (Behörde)</label>
             <input type="date" value={fristExtern} onChange={(e) => handleFristChange(e.target.value)} style={inputStyle} />
