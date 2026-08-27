@@ -229,7 +229,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       
       setFaxZhd(fallbackGegnerAnsprechpartner);
 
-      // SILENT SYNC LOGIK FÜR GEGNER (Kein nerviges Prompting für Updates)
+      // SILENT SYNC LOGIK FÜR GEGNER
       if (fallbackGegnerName) {
         const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(fallbackGegnerName));
         if (!existingGegner) {
@@ -367,6 +367,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       showToast('Änderung gespeichert!', 'success'); 
     } else { 
       showToast("Fehler beim Speichern: " + error.message, 'error'); 
+    }
+  };
+
+  const handleAkteThemaEdit = async (akteId, neuerWert) => {
+    const { error } = await supabase.from('akten').update({ thema: neuerWert || null }).eq('id', akteId);
+    if (!error) {
+      ladeDaten();
+      showToast('Gegenstand erfolgreich aktualisiert!', 'success');
+    } else {
+      showToast("Fehler beim Speichern: " + error.message, 'error');
     }
   };
 
@@ -984,7 +994,23 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 2fr 1.5fr 1.5fr', gap: '15px', alignItems: 'center' }}>
                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: theme.accent }}>{akte.unser_zeichen || '---'}</div>
                     <div style={{ fontSize: '15px', fontWeight: 'bold', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{akte.gegner_name}</div>
-                    <div style={{ fontSize: '14px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{akte.thema || '-'}</div>
+                    
+                    {/* NEU: INLINE-EDIT FÜR GEGENSTAND (THEMA) */}
+                    <div>
+                      <input
+                        type="text"
+                        defaultValue={akte.thema || ''}
+                        onBlur={(e) => {
+                          if (e.target.value !== akte.thema) {
+                            handleAkteThemaEdit(akte.id, e.target.value);
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Gegenstand"
+                        style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMain, width: '100%', fontSize: '14px', padding: '2px', outline: 'none', cursor: 'text' }}
+                      />
+                    </div>
+
                     <div style={{ fontSize: '13px', color: theme.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{akte.gegner_ansprechpartner || '-'}</div>
                     <div style={{ fontSize: '13px', color: theme.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{akte.aktenzeichen || '-'}</div>
                   </div>
@@ -1004,7 +1030,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
                       <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
                       
-                      {/* SAUBERER SERVER-SIDE MERGE */}
                       {mergeSourceId === akte.id ? (
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', minWidth: '220px', maxWidth: '450px' }}>
@@ -1036,7 +1061,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         {akte.akten_historie.map((hist) => (
                           <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
                             
-                            {/* VOLLE EDITIERBARKEIT: INLINE INPUTS */}
                             <td style={{ padding: '10px' }}>
                                <select value={hist.typ || ''} onChange={(e) => handleInlineEdit(hist.id, 'typ', e.target.value)} style={{...inlineInputStyle, fontWeight: 'bold'}}>
                                   <option value="Eingang">Eingang</option>
