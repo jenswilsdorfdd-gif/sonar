@@ -72,8 +72,9 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   };
 
   const holeKiDateiname = async (text, originalName) => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) throw new Error("VITE_GEMINI_API_KEY fehlt in der .env Datei");
+    // HIER IST DER CACHE-BUSTER FÜR STACKBLITZ:
+    const apiKey = import.meta.env.VITE_GEMINI_KEY_LIVE;
+    if (!apiKey) throw new Error("VITE_GEMINI_KEY_LIVE fehlt in der .env Datei");
 
     const systemPrompt = `Du bist ein hochpräziser Assistent zur Dateibenennung.
 Analysiere den folgenden OCR-Text eines eingescannten Dokuments und extrahiere die benötigten Werte, um EXAKT folgendes Dateinamen-Format zu generieren:
@@ -550,4 +551,4 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt in exakt diesem Format: {
       </div>
     </div>
   );
-} 
+}
