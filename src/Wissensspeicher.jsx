@@ -3,6 +3,10 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub } from './utils';
 
+// --- PDF.js Import für die clientseitige Extraktion ---
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
 export default function Wissensspeicher({ theme, wissenEintraege, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff }) {
   const [laedt, setLaedt] = useState(false);
   const [bulkDateien, setBulkDateien] = useState([]);
@@ -14,7 +18,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   const [githubFiles, setGithubFiles] = useState([]);
   const [loadingGithub, setLoadingGithub] = useState(false);
 
-  // --- NEU: RESPONSIVE STATE FÜR MOBILE CARD-ANSICHT ---
+  // --- RESPONSIVE STATE FÜR MOBILE CARD-ANSICHT ---
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -53,6 +57,68 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     }
   }, [wissenAnzeigeModus]);
 
+  // --- HILFSFUNKTIONEN FÜR KI UND EXTRAKTION ---
+  const extractTextFromPDF = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += `--- Seite ${i} ---\n${pageText}\n\n`;
+    }
+    return fullText;
+  };
+
+  const holeKiDateiname = async (text, originalName) => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) throw new Error("VITE_GEMINI_API_KEY fehlt in der .env Datei");
+
+    const systemPrompt = `Du bist ein hochpräziser Assistent zur Dateibenennung.
+Analysiere den folgenden OCR-Text eines eingescannten Dokuments und extrahiere die benötigten Werte, um EXAKT folgendes Dateinamen-Format zu generieren:
+"YYYYMMDD-absender-empfaenger-betreff"
+
+Befolge diese STRIKTEN REGELN:
+1. Datum: Finde das Datum des Schreibens und formatiere es als YYYYMMDD (z.B. 20260806). KEINE Bindestriche im Datum. Findest du keins, nimm 00000000.
+2. Absender (Verfasser): Wer hat das Dokument verfasst/gesendet?
+3. Empfänger: An wen ist das Dokument gerichtet?
+4. Betreff: Finde den exakten Betreff (Achte auf "Betrifft:", "Betreff:" oder "Unser Zeichen"). Fasse ihn in wenigen Worten zusammen.
+
+5. ZWINGENDE ABKÜRZUNGEN (Ersetze diese Namen IMMER durch die folgenden Kürzel):
+   - "Wilsdorf & Sommer GmbH" WIRD ZU "wus"
+   - "SmartBizz Services UG (haftungsbeschränkt)" WIRD ZU "sbs"
+   - "Jens Wilsdorf" WIRD ZU "jw"
+   - "Alexander und Jens Wilsdorf" WIRD ZU "wir"
+
+6. FORMATIERUNG DES DATEINAMENS:
+   - Zwingende Reihenfolge: Datum-Absender-Empfänger-Betreff
+   - Trenne die Blöcke und Worte NUR mit Bindestrichen (-).
+   - Ersetze ALLE Leerzeichen durch Bindestriche.
+   - Wandle den GESAMTEN Dateinamen in Kleinbuchstaben um (z.B. "deutschepost", "wus").
+   - Entferne ALLE Sonderzeichen und Anführungszeichen. Nutze KEINE doppelten oder einfachen Anführungszeichen im Dateinamen.
+   - Hänge KEINE Dateiendung (.pdf/.md) an.
+
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt in exakt diesem Format: {"newName": "dein_generierter_dateiname"}`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${systemPrompt}\n\nOriginaler Dateiname: ${originalName}\n\nOCR-Text:\n${text}` }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+      })
+    });
+
+    if (!response.ok) throw new Error(`Gemini API Fehler: ${response.statusText}`);
+    const data = await response.json();
+    const resultText = data.candidates[0].content.parts[0].text;
+    const match = resultText.match(/"newName"\s*:\s*"([^"]+)"/);
+    if (!match || !match[1]) throw new Error("Regex-Extraktion fehlgeschlagen.");
+    return match[1];
+  };
+
+  // --- HAUPT-IMPORT FUNKTION MIT KI ---
   const StarteBulkImport = async (e) => {
     e.preventDefault();
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -62,43 +128,114 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
 
     setLaedt(true);
     const gesamt = bulkDateien.length;
+    let currentStep = 0;
+    
+    // Mapping-Objekt, um Paare (PDF & MD) wiederzufinden
+    const nameMapping = {}; 
 
-    for (let i = 0; i < gesamt; i++) {
-      const file = bulkDateien[i];
-      setBulkStatus({ fortschritt: i + 1, gesamt: gesamt, text: `Verarbeite: ${file.name}...` });
+    // Sortiere Dateien in MD und den Rest (PDFs / Bilder)
+    const mdFiles = bulkDateien.filter(f => f.name.toLowerCase().endsWith('.md'));
+    const nonMdFiles = bulkDateien.filter(f => !f.name.toLowerCase().endsWith('.md'));
+
+    // 1. DURCHLAUF: Zuerst alle MD-Dateien analysieren und KI-Namen generieren
+    for (const file of mdFiles) {
+      currentStep++;
+      setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `KI-Analyse (MD): ${file.name}...` });
+      
+      try {
+        const originalBaseName = file.name.substring(0, file.name.lastIndexOf('.'));
+        const mdInhalt = await file.text();
+        const finalDbText = mdInhalt.substring(0, 3000);
+
+        let kiName = originalBaseName.replace(/[^a-zA-Z0-9.-]/g, '_'); // Fallback Name
+        
+        try {
+          const fetchedKiName = await holeKiDateiname(finalDbText, file.name);
+          kiName = fetchedKiName.replace(/[^a-zA-Z0-9.-]/g, '-');
+          nameMapping[originalBaseName] = kiName; // Merken für evtl. passendes PDF
+        } catch (kiErr) {
+          console.error(`KI Fehler bei ${file.name}:`, kiErr);
+          showToast(`⚠️ KI-Generierung für ${file.name} fehlgeschlagen. Nutze Originalname.`, 'warning');
+        }
+
+        const newFileName = `${kiName}.md`;
+
+        await supabase.from('wissensdatenbank').insert([{
+          datei_name: newFileName,
+          firma: bulkFirma || 'Allgemein',
+          inhalt_text: finalDbText,
+          dokument_url: null
+        }]);
+
+        await syncToGithub(newFileName, mdInhalt, null, null, showToast);
+      } catch (err) {
+        console.error("Import-Fehler bei MD File:", file.name, err);
+      }
+    }
+
+    // 2. DURCHLAUF: Alle PDFs / Sonstige hochladen
+    for (const file of nonMdFiles) {
+      currentStep++;
+      setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `Verarbeite (PDF/Sonstiges): ${file.name}...` });
 
       try {
-        const isMd = file.name.toLowerCase().endsWith('.md');
-        let pubUrl = null;
-        let finalDbText = '';
+        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+        const originalBaseName = file.name.substring(0, file.name.lastIndexOf('.'));
+        let finalBaseName = nameMapping[originalBaseName]; // Prüfen, ob wir in Lauf 1 schon einen Namen haben
+        
+        let extrahierterText = '';
+        let hasGeneratedMd = false;
 
-        if (isMd) {
-          const mdInhalt = await file.text();
-          finalDbText = mdInhalt.substring(0, 3000);
+        // Wenn es eine nackte PDF ohne MD-Gegenstück ist
+        if (!finalBaseName && isPdf) {
+           setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `Lese nacktes PDF aus: ${file.name}...` });
+           try {
+               extrahierterText = await extractTextFromPDF(file);
+               if (extrahierterText.trim().length > 50) {
+                  const fetchedKiName = await holeKiDateiname(extrahierterText.substring(0, 3000), file.name);
+                  finalBaseName = fetchedKiName.replace(/[^a-zA-Z0-9.-]/g, '-');
+                  hasGeneratedMd = true; // Wir müssen danach das MD nachbauen
+               } else {
+                  finalBaseName = originalBaseName.replace(/[^a-zA-Z0-9.-]/g, '_');
+               }
+           } catch (pdfErr) {
+               console.error("Fehler bei PDF Extraktion:", pdfErr);
+               finalBaseName = originalBaseName.replace(/[^a-zA-Z0-9.-]/g, '_');
+           }
+        } else if (!finalBaseName) {
+           // Weder MD noch PDF (z.B. Bilder)
+           finalBaseName = originalBaseName.replace(/[^a-zA-Z0-9.-]/g, '_');
+        }
+
+        const fileExtension = file.name.substring(file.name.lastIndexOf('.'));
+        const newFileName = `${finalBaseName}${fileExtension}`;
+        const storagePath = `wissen_${Date.now()}_${newFileName}`;
+        
+        const { error: uploadError } = await supabase.storage.from('dokumente').upload(storagePath, file);
+
+        if (!uploadError) {
+          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storagePath);
+          const pubUrl = linkData.publicUrl;
 
           await supabase.from('wissensdatenbank').insert([{
-            datei_name: file.name,
+            datei_name: newFileName,
             firma: bulkFirma || 'Allgemein',
-            inhalt_text: finalDbText,
-            dokument_url: null
+            inhalt_text: hasGeneratedMd ? extrahierterText.substring(0, 3000) : `Dokument: ${newFileName}\n(PDF/Bilddatei - Kein separates MD vorhanden)`,
+            dokument_url: pubUrl
           }]);
 
-          await syncToGithub(file.name, mdInhalt, null, null, showToast);
-        } else {
-          const sichererName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-          const storagePath = `wissen_${Date.now()}_${sichererName}`;
-          const { error: uploadError } = await supabase.storage.from('dokumente').upload(storagePath, file);
-
-          if (!uploadError) {
-            const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storagePath);
-            pubUrl = linkData.publicUrl;
-
-            await supabase.from('wissensdatenbank').insert([{
-              datei_name: file.name,
-              firma: bulkFirma || 'Allgemein',
-              inhalt_text: `Dokument: ${file.name}\n(PDF/Bilddatei - Kein Text-Extrakt vorhanden)`,
-              dokument_url: pubUrl
-            }]);
+          // Fehlendes MD-Gegenstück generieren und ins GitHub schieben
+          if (hasGeneratedMd) {
+             const mdFileName = `${finalBaseName}.md`;
+             const mdContent = `Upload via Wissensspeicher.\nOriginal-PDF: ${pubUrl}\n\n${extrahierterText}`;
+             
+             await supabase.from('wissensdatenbank').insert([{
+                datei_name: mdFileName,
+                firma: bulkFirma || 'Allgemein',
+                inhalt_text: extrahierterText.substring(0, 3000),
+                dokument_url: pubUrl
+             }]);
+             await syncToGithub(mdFileName, mdContent, pubUrl, null, showToast);
           }
         }
       } catch (err) {
@@ -111,7 +248,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     setLaedt(false);
     setTimeout(() => { ladeDaten(); if(wissenAnzeigeModus === 'md') fetchGithubFiles(); }, 300);
     if (document.getElementById('bulk-file-input')) document.getElementById('bulk-file-input').value = '';
-    showToast(`✅ KI-Wissensspeicher Import abgeschlossen!`, 'success');
+    showToast(`✅ KI-Upload abgeschlossen! Dateien wurden analysiert und umbenannt.`, 'success');
   };
 
   const loescheWissenEintrag = async (id) => {
