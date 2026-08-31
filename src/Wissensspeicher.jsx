@@ -551,4 +551,4 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt in exakt diesem Format: {
       </div>
     </div>
   );
-}
+} 
