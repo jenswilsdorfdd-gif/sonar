@@ -1,0 +1,602 @@
+Telefax
+An: Bundesamt für Justiz
+Referat: VI 2
+Zu Händen: Frau Thormann
+Fax-Nr.: +49 228 410-6450
+
+Von: SmartBizz Services UG (haftungsbeschränkt), vertreten durch die Geschäftsführung
+
+Datum: 22.06.2026
+
+Betreff:
+
+Aktenzeichen EHUG-0016079012023 - 01101 / Ordnungsgeldverfahren nach § 335 HGB
+Sehr geehrte Frau Thormann,
+
+ich nehme Bezug auf Ihr Schreiben vom 10. April 2026 bezüglich der Offenlegung der
+Rechnungslegungsunterlagen für das Geschäftsjahr 2021.
+
+Hiermit teile ich Ihnen mit, dass inzwischen alle erforderlichen Unterlagen auf der
+entsprechenden Publikationsplattform hochgeladen und eingereicht wurden.
+
+Ich bitte Sie höflich, dies entsprechend zu überprüfen. Sollten wider Erwarten noch
+Dokumente oder Angaben fehlen, bitte ich um eine kurze Mitteilung. Da unsererseits alle
+Erklärungen und Unterlagen abschließend fertiggestellt sind, kann einem etwaigen Mangel
+dann sofort abgeholfen werden.
+
+Mit freundlichen Grüßen                     az,obr 0LL
+
+    hhM&                                             o
+
+ ens Wilsdorf
+
+Geschäftsführer
+
+SmartBizz Services UG (haftungsbeschränkt)
+          r                                                                                                                      Justiz'  Führungszeugnisse
+                                                                                                                                          online beantragen.
+              Bundesamt
+              für Justiz                                                                                                                  www.bundesjustlzamt.de
+
+            tti
+                                                                                                                                                     .
+                   Bundesamt 6)r Justiz, 53094 Bonn                                       HAUSANSCHRIFT                          Adenauerallee 99- 103, 53113 Bonn
+                 E
+                   DV 04 2,51 Deutsche Post y J                                           POSTANSCHRIFT                          53094 Bonn
+
+                                                   ePZA                         {         BEARBEITET VON                         Frau Thormann
+                   AZ EHUG -00160790/2023- 01/01
+                                                                                                 REFERAT                         VI 2
+                   Gegen Postzusteffungsurkunde
+                                                                                                   TEL                           *49228410-5986
+          125731 SmartBizz Services UG (haftungsbeschränkt),
+                                                                                                 FAX                             *49228410-6450
+          0002 vormals: Terminagenten Vertriebs & Verwal-
+
+                   tungs UG (haftungsbeschränkt)
+
+                   vertreten durch die Geschäftsführung                                                        AKTENZEICHEN EHUG - 0016079012023 - 01101
+
+                   Wittenberger Straße 78
+
+                   01309 Dresden
+
+                                                                                                                             DATUM Bonn, den 10. April 2026
+
+          BETREFF  Ordnungsgeldverfahren nach § 335 HGB
+                   gegen SmartBizz Services UG (haftungsbeschränkt), vormals: Terminagenten Vertriebs &
+                   Verwaltungs UG (haftungsbeschränkt) in Dresden (die/der Beteiligte),
+                   vertreten durch die Geschäftsführung
+                   Rechnungslegungsunterlagen für das Geschäftsjahr mit dem Beginn 01. Januar 2021 und
+
+                   dem Ende 31. Dezember 2021
+
+          HIER A. Androhungsverfügung vom 23. Mai 2023; Ihr Einspruch vom 20. Juni 2024
+                B. Erneute Androhung eines Ordnungsgeldes
+
+                   Sehr geehrte Damen und Herren,
+
+                   das Bundesamt für Justiz wendet sich wegen der Offenlegung von Rechnungslegungsunterla-
+                   gen an Sie.
+
+                   Die Pflicht zur Offenlegung der verfahrensgegenständlichen Rechnungslegungsunterlagen
+                   wurde bereits mit Androhungsverfügung vom 23. Mai 2023 angemahnt. Hiergegen haben Sie
+                   mit Schreiben vom 20. Juni 2024 Einspruch eingelegt. Der von Ihnen eingelegte Einspruch ist
+                   zu bescheiden. Zudem ist aufgrund des seit der letzten Androhungsverfügung verstrichenen
+                   Zeitraums die ursprüngliche Verfügung zu wiederholen, und ohne weitere Kosten unter noch-
+                   maliger Fristsetzung das Ordnungsgeld erneut anzudrohen.
+
+                   A.  Einspruchsverwerfung
+
+       0         DATENSCHUTZ UND INTERNET                                                 VERKEHRSANBINDUNG                      BANKVERBINDUNG
+10 0
+o
+
+g
+
+                 Informationen gemäß Artikel 13 und 14 der Datenschutz-Grundveror dnung   Q - Bahn 16, 63, 66                    Deutsche Bundesbank;
+
+                 und § 55 des Bundesdatenschutzgesetzes sind in der Datenschutzerklärung  Haltestelle: Bundesrechnungshof! Aus-  Filiale Saarbrücken
+
+ti'              auf der Internetseite des Bundesamts für Justizveröffentlicht            wärtiges Amt (nicht ban ierefrei)      IBAN: DE 81 5900 0000 0059 0010 20
+
+                 Internet: www.bundesjuslizamt.de                                         Haltestelle mit Aufzug: Museum König   BIC: MARKDEF1590
+              SEITE2 Gemäß § 335 HGB ergeht gegen SmartBizz Services UG (haftungsbeschränkt), vormals:
+                     Terminagenten Vertriebs & Verwaltungs UG (haftungsbeschränkt) in Dresden, vertreten
+                      durch die Geschäftsführung, folgende
+
+                                                                           Entscheidung:
+
+                      Der Einspruch vom 20. Juni 2024 gegen die Androhungs- und Kostenverfügung vom 23. Mai
+           ,25,3, 2023 wird verworfen.
+
+                               0002
+
+                      Begründung:
+
+                     Mit Androhungsverfügung vom 23. Mai 2023 war der/dem Beteiligten aufgegeben worden, den
+
+                   gesetzlichen Verpflichtungen zur Offenlegung von Rechnungslegüng sunterlagen zum im Be-
+
+                      treff genannten Stichtag gegenüber dem Betreiber des Bundesanzeigers binnen sechs Wo-
+                      chen nachzukommen. Die Androhungsverfügung wurde am 31. Mai 2023 zugestellt.
+
+                     Der gegen diese Verfügung eingelegte Einspruch ist hier am 20. Juni 2024, also nach Ablauf
+                     der Frist von sechs Wochen, eingegangen. Der Einspruch ist damit verfristet und zu verwerfen.
+
+                  Im Übrigen wäre dieser auch unbegründet.
+
+                      Die im Einspruch dargelegten Gründe sind nicht geeignet, die Unterlassung der fristgerechten
+                     ordnungsgemäßen Offenlegung zu rechtfertigen und entbinden nicht von der Pflicht, die Ver-
+                      fahrenskosten zu tragen.
+
+                      Unternehmen haben sich auf die Erfüllung ihrer gesetzlichen Verpflichtungen, gegebenenfalls
+                      durch entsprechende organisatorische Maßnahmen, einzustellen. Die Folgen der Nichterfül-
+                      lung sind ihnen bekannt; sie ergeben sich aus dem Gesetz.
+
+                      Sofern bei der Beteiligten Unklarheiten über das Bestehen bzw. die Art und Weise der Einhal-
+                      tung der Offenlegungspflicht bestanden, hätte sie rechtzeitig den Rat eines sachkundigen Drit-
+                      ten - z. B. eines Steuerberaters - einholen müssen. Ein Verschulden des vertretungsberech-
+                      tigten Organs muss sich das Unternehmen zurechnen lassen.
+
+                     Auf eine steuerrechtliche Beurteilung kommt es nicht an. Insbesondere wird durch ein „Stillhal-
+                      teagreement" mit dem Finanzamt weder die Verpflichtung zur Erstellung eines Jahresabschlus-
+
+       O
+00
+
+ÖN
+
+O
+O r)
+
+       M
+N tr
+  SEITE3 ses, noch zu dessen Offenlegung nach § 325 Abs. 1 und 2 HGB berührt. Das Finanzamt han-
+          delt nach fiskalischen Erwägungen, die in keinem Zusammenhang mit den durch die §§ 264,
+          325 HGB geschützten Interessen stehen.
+
+          Dem Antrag auf Verlängerung der gesetzten Nachfrist kann nicht entsprochen werden. Das
+          Gesetz sieht keine Verlängerung der sechswöchigen Nachfrist des § 335 Abs. 3 Satz 1 HGB
+          vor. Ein Ermessensspielraum ist dem Bundesamt für Justiz insoweit nicht eingeräumt.
+
+125731
+ 0002
+
+          Mit Zustellung der Androhungsverfügung werden die Kosten für die Durchführung des Ord-
+          nungsgeldverfahrens in Höhe von 103,50 EUR fällig (Gebühr Nr. 1210 des Kostenverzeichnis-
+          ses des JVKostG i.V.m. § 335 HGB sowie Auslagen nach Vorbemerkung 2 des Kostenver-
+          zeichnisses des JVKostG i.V.m. Nr. 9002 des Kostenverzeichnisses des GKG).
+
+          Sollten die bereits mit der ersten Ordnungsgeldandrohung verbundenen Verfahrenskosten
+          noch nicht gezahlt sein, sind diese nunmehr spätestens binnen zwei Wochen nach Zustellung
+          dieser Entscheidung auf das in der ersten Ordnungsgeldandrohung genannte Konto zu über-
+
+             weisen:
+                                                                              Bundeskasse
+
+                                                Deutsche Bundesbank; Filiale Saarbrücken
+
+                                                            IBAN: DE 81 5900 0000 0059 001020
+                                                                           BIC: MARKDEF1590
+
+          Als Verwendungszweck sind dabei das in der ersten Ordnungsgeldan drohung vergebene Kas-
+          senzeichen 855647747648 sowie das Stichwort „EHUG" anzugeben.
+
+B.  Erneute Androhungsverfügung
+
+Da der Offenlegungspflicht für das verfahrensgegenständliche Geschäftsjahr bis heute nicht
+nachgekommen _wurde, wird die ursprüngliche_Androhungsverfügung_ wiederholt, und ohne
+weitere Kosten unter nochmaliger Fristsetzung das Ordnungsgeld erneut angedroht.
+
+                     Unternehmen bestimmter Rechtsformen oder Tätigkeitsschwerpunkte müssen ihre ordnungs-
+
+                     gemäß aufgestellten und geprüften Rechnungslegungsunterlagen nach § 325 des Handelsge-
+
+                     setzbuchs (HGB) für jedes Geschäftsjahr offenlegen. Zur Offenlegung müssen die Rechnungs-
+
+                      legungsunterlagen für Geschäftsjahre, die nach dem 31. Dezember 2021 begonnen haben,
+
+                     der das Unternehmensregister führenden Stelle, der Bundesanzeiger Verlag GmbH in Köln,
+
+       o
+o
+             SEITE4 elektronisch zur Einstellung in das Unternehmensregister übermittelt werden. Für Geschäfts-
+                      jahre, die vor dem 1. Januar 2022 begonnen haben, müssen sie beim Betreiber des Bundes-
+                      anzeigers, ebenfalls der Bundesanzeiger Verlag GmbH in Köln, in elektronischer Form einge-
+
+                            reicht werden.
+
+                     Der Betreiber des Bundesanzeigers hat dem Bundesamt für Justiz gemäß § 329 Absatz 4 HGB
+                      mitgeteilt, dass Ihr Unternehmen seiner Pflicht zur Offenlegung der Rechnungslegungsun-
+          125,3, terlagen zum Abschlussstichtag 31. Dezember 2021 bisher nicht ordnungsgemäß nachge-
+
+                             0002
+
+                            kommen ist.
+
+                     Das Bundesamt für Justiz hat die Aufgabe, die Pflicht zur Offenlegung der Rechnungslegungs-
+                     unterlagen durch Ordnungsgelder von Amts wegen durchzusetzen. Das einzelne Ordnungs-
+                     geld beträgt mindestens 2.500 EUR und höchstens 25.000 EUR; ist das Unternehmen kapital-
+                      marktorientiert im Sinne des § 264d HGB oder handelt es sich um einen Emittenten von Ver-
+                      mögensanlagen gemäß § 1 Absatz 3 des Gesetzes über Vermögensanlagen (VermAnlG), gilt
+                     ein höherer Höchstbetrag.
+
+                     Gegen SmartBizz Services UG (haftungsbeschränkt), vormals: Terminagenten Vertriebs &
+                      Verwaltungs UG (haftungsbeschränkt) in Dresden, vertreten durch die Geschäftsführung, er-
+                     lässt das Bundesamt für Justiz gemäß § 335 HGB folgende Androhungsverfügung:
+
+                      1. Das Bundesamt für Justiz gibt Ihnen auf, innerhalb einer Frist von sechs Wochen nach
+                           Zustellung dieser Verfüciunci die nach den §§ 325, 326, 327 HGB erforderlichen Rech-
+                           nungslegungsunterlagen für das Geschäftsjahr mit dem Beginn 01. Januar 2021 und dem
+                           Ende 31. Dezember 2021 bei dem Betreiber des Bundesanzeigers vollständig in elektroni-
+                           scher Form zur Offenlegung einzureichen oder-die-Unterfassung-mi ttels Einspruchs zu
+                            rechtfertigen. Diese Frist ist nicht verlängerbar.
+
+                     2. Das Bundesamt für Justiz droht Ihnen an, ein Ordnungsgeld in Höhe von 2.500 EUR fest-
+                           zusetzen, falls Sie die Vorgaben in Ziffer 1 nicht erfüllen.
+
+                      Gemäß § 325 Absatz 1 Satz 1 HGB sind offenlegungspflichtige Rechnungslegungsunterlagen
+                      der aus Bilanz, Gewinn- und Verlustrechnung sowie Anhang bestehende Jahresabschluss, der
+
+NO
+0
+0C
+Nf
+             SEITE S Lagebericht, der Bestätigungs- bzw. Versagungsvermerk des Abschlussprüfers und gegebe-
+                      nenfalls weitere gesetzlich geforderte Unterlagen. Jahresabschlüsse für Geschäftsjahre, die
+                     nach dem 31. Dezember 2015 begonnen haben, müssen bei ihrer Offenlegung bereits festge-
+                     stellt oder gebilligt sein. Für bestimmte Unternehmen gelten größenabhängige Erleichterungen
+                     (§§ 326, 327 HGB).
+
+                      Zur Offenlegung sind die Rechnungslegungsunterlagen in elektronischer Form beim Betreiber
+
+          ,25,3, des Bundesanzeigers einzureichen und im Bundesanzeiger bekannt machen zu lassen.
+
+                               0002
+
+                     Hierfür ist die Publikationsplattform des Betreibers des Bundesanzeigers unter
+
+                         www.publikations-plattform.de zu nutzen.
+
+                     Die gemäß § 325 HGB offenzulegenden Rechnungslegungsunterlagen müssen spätestens ein
+                    Jahr nach dem Abschlussstichtag des Geschäftsjahres, auf das sie sich beziehen, eingereicht
+                      sein. Für bestimmte Unternehmen gelten fristverkürzende Sonderregelungen (z. B. § 325 Ab-
+
+                   satz 4 Satz 1 HGB, § 26 Absatz 1 VermAnlG, §160 Absatz 1 KAGB). Bei neugegründeten
+
+                 Unternehmen beginnt das Geschäftsjahr regelmäßig mit der Aufnahme der Geschäftstätigkeit,
+
+                     spätestens jedoch mit der Eintragung im Handelsregister.
+
+                      Handelt es sich bei dem offenlegungspflichtigen Unternehmen um eine Kleinstkapitalgesell-
+                     schaft (§ 267a HGB) und ist die Inanspruchnahme größenabhängiger Erleichterungen nicht
+                      gesetzlich ausgeschlossen, kann die Pflicht zur Offenlegung für Jahresabschlüsse mit einem
+                     Abschlussstichtag ab dem 31. Dezember 2012 auch dadurch erfüllt werden, dass die Bilanz
+                     beim Betreiber des Bundesanzeigers in elektronischer Form zur dauerhaften Hinterlegung ein-
+                      gereicht und dabei zugleich ein Hinterlegungsauftrag erteilt wird.
+
+                           Weitere Hinweise:
+
+                     Führt ein gegen ein Unternehmen eingeleitetes Ordnungsgeldverfah ren nicht zu einer ord-
+
+               nungsgemäßen Offenlegung, muss damit gerechnet werden, dass das Verfahren stattdessen
+
+                      gegen die Mitglieder des vertretungsberechtigten Organs persönlich geführt wird. Die Andro-
+                      hung und Festsetzung weiterer Ordnungsgelder erfolgt dann gegen die Mitglieder des vertre-
+                     tungsberechtigten Organs persönlich.
+
+                      Das Bundesamt für Justiz ist als mitteilungspflichtige Stelle im Sinne des § 93c Absatz 1 der
+                      Abgabenordnung in bestimmten Fällen gemäß § 4a der Mitteilungsverordnung verpflichtet, den
+                     Finanzbehörden Informationen zu festgesetzten Ordnungsgeldern zu übermitteln.
+
+0O
+
+Oö
+
+o e,
+t0 C1
+N1
+
+F• 'y•f
+
+  JF
+          SEITE Bitte beachten Sie weiter die Änderungen gesetzlicher Pflichten durch das Gesetz zur Umset-
+
+                  zung der Digitalisierungsrichtlinie (DiRUG) vom 5. Juli 2021 (BGBl.1 S. 3338). Die §§ 264, 325,
+                  326, 327, 328 und 329 HGB in der bis zum 31. Juli 2022 geltenden Fassung sind weiterhin
+                  anzuwenden für Geschäftsjahre, die vor dem 1. Januar 2022 begonnen haben (vgl. Artikel 88
+                  Absatz 2 des Einführungsgesetzes zum Handelsgesetzbuch).
+
+                    Sie finden die bis zum 31. Juli 2022 geltende Fassung des HGB im Internet unter
+
+          125731 www.bundesiustizamt.de/ehug. Dort und auf dem beiliegenden Merkblatt sowie telefonisch
+
+           0002
+
+                    unter der zentralen Rufnummer +49 228 410-6500 (Verbindung mit einem Sachbearbeiter
+
+                    montags bis donnerstags von 9:00 Uhr bis 15:00 Uhr sowie freitags von 9:00 Uhr bis 12:00
+
+                    Uhr) erhalten Sie auch weitere Informationen zur Offenlegungspfl icht und zum
+
+                    Ordnungsgeldverfahren.
+
+          Rechtsbehelfsbelehrungen:
+
+          Zu A. Einspruchsverwerfung:
+
+          Gegen die Entscheidung über die Verwerfung des Einspruchs ist die Beschwerde statthaft, die
+          binnen zwei Wochen nach Zustellung dieser Entscheidung ausschließlich beim Bundesamt
+          für Justiz eingelegt werden kann. Sie kann schriftlich (53094 Bonn; Fax-Nr. +49 228 410-
+          6450) oder zu Protokoll der Geschäftsstelle eingelegt werden. Die Beschwerde kann auch
+          durch ein elektronisches Dokument eingelegt werden, sofern dieses für die Bearbeitung durch
+          das Bundesamt für Justiz und das Gericht geeignet ist. Die verantwortende Person muss das
+
+          Dokument entweder
+
+               - qualifiziert elektronisch signieren und über das elektronische Gerichts- und Verwal-
+
+                  tungspostfach (EGVP) oder auf einem sicheren Übermittlungsweg gemäß § 32a Straf-
+
+                    prozessordnung einreichen oder
+
+              - signieren und auf einem sicheren Übermittlungsweg gemäß § 32a Strafprozessord-
+
+                    nung einreichen.
+          Die Voraussetzungen im Einzelnen ergeben sich aus § 32a Strafprozessordnung in Verbin-
+          dung mit der Verordnung über die technischen Rahmenbedingungen des elektronischen
+          Rechtsverkehrs und über das besondere elektronische Behördenpostfach (Elektronischer-
+          Rechtsverkehr-Verordnung). Nähere Informationen erhalten Sie auf der Internetseite:
+          www.bundesjustizamt.de/ehug
+
+          Zu B. Erneute Androhungsverfügung:
+
+          Gegen die Androhungsverfügung ist-der Einspruch statthaft: Dieser ist beim Bundesamt für
+          Justiz innerhalb von sechs Wochen nach Zustellung dieser Androhungsverfügung einzulegen.
+          Es wird gebeten, zur Einlegung des Einspruchs das anliegende Formblatt zu verwenden. Der
+          Einspruch kann auch durch ein elektronisches Dokument eingelegt werden, sofern dieses für
+          die Bearbeitung durch das Bundesamt für Justiz geeignet ist. Die Voraussetzungen im Einzel-
+          nen ergeben sich aus § 32a Strafprozessordnung in Verbindung mit der Verordnung über die
+          technischen Rahmenbedingungen des elektronischen Rechtsverkehrs und über das beson-
+          dere elektronische Behördenpostfach (Elektronischer-Rechtsverkeh r-Verordnung). Der Ein-
+          spruch hat keine aufschiebende Wirkung. Daraus folgt: Sollten die Rechnungslegungsunterla-
+          gen nicht innerhalb der gesetzten sechswöchigen Nachfrist beim Betreiber des Bundesanzei-
+          gers eingereicht werden und sollte der Einspruch zu einem späteren Zeitpunkt zurückgewiesen
+          werden, so wird gleichzeitig damit, also ohne vorherige weitere Mitteilung, das angedrohte
+          Ordnungsgeld festgesetzt.
+
+       W
+0O
+o
+
+QQ
+
+N e,
+04 e,
+N I'-
+
+   yk t
+
+1
+           SEITE 7
+
+                     Mit freundlichen Grüßen
+
+                   Im Auftrag
+
+                     Thormann
+
+                                              z4  v,y
+
+           125731  - Dieses Schreiben wurde maschinell erstellt und ist ohne Unterschrift gültig -
+            0002
+
+       co
+   )O
+
+or
+
+   o
+
+(O C
+(JC
+N ‚-
+                          SEITE 8
+
+                                                                                     Absender (Geschäftsjahr Ende: 31.12.2021)
+
+                                                                                         SmartBizz Services UG (haftungs
+                                                                                         beschränkt), vormals: Terminagenten V
+                                                                                         Wittenberger Straße 78
+
+                                                                                          01309 Dresden
+
+                                          Bundesamt für Justiz                       AZ:             EHUG - 00160790/2023 - 01/01
+                                          Referat VI 2
+                                                                                     Datum:
+                                          53094 Bonn
+
+                          125731
+                            0002
+
+                                   Gegen die Ordnungsgeldandrohungsverfügung wird Einspruch eingelegt:
+
+                                       ❑  Das Unternehmen hat folgendes vom genannten Abschlussstichtag abweichendes
+                                          Geschäftsjahr:
+                                  -
+                                          von (TTMM)_ _( bis_(TTMM) _                         entsprechender Nachweis (z. B. Satzung
+                                       ❑  Ein
+
+                                          oder Beschluss) ist ungeheftet beigefügt.
+
+                                          Das Unternehmen ist der Einreichungspflicht bereits vor Zustellung der Androhungsverfügung
+                                          nachgekommen. Die erforderlichen Rechnungslegungsunterlagen sind am
+
+                                                                    (TTMMJJJJ) unter der Offenlegungsnummer (=Auftragsnummer aus
+
+                                          der Auftragsbestätigung)
+
+                                          beim Betreiber des Bundesanzeigers eingereicht worden.
+
+                                          Auftragsbestätigung oder Kostenrechnung des Bundesanzeigers ist ungeheftet beigefügt.
+
+                                   ❑      Das Unternehmen ist von der Offenlegungspflicht aus folgendem Grund befreit:
+
+                                          ❑ Es handelt sich um eine Personenhandelsgesellschaft und eine natürliche Person ist persön-
+
+                                               lich haftender Gesellschafter (Nachweis ungeheftet anbei).
+
+                                          ❑ Das Unternehmen ist als Tochtergesellschaft nach § 264 Absatz 3, § 264b HGB befreit.
+
+                                          Vollständiger Name des Mutterunternehmens:
+
+                                   ❑      Im Falle der Insolvenz des Unternehmens:
+
+                                          Name des Amtsgerichts mit Aktenzeichen:
+
+                          f ❑ Daslnsolvenzverfahrenwurde mangels Masse-eingestellt (Nächweis üngeheftet anbei).
+
+                                          ❑ Der Antrag auf Eröffnung des Insolvenzverfahrens wurde mangels Masse abgewiesen
+
+                                              (Nachweisungeheftetanbei).
+
+                                   ❑      Es wurde ein Löschungsverfahren eingeleitet oder ein Antrag auf Löschung gestellt (Nachweis
+
+                                          ungeheftet anbei).
+
+     N                             ❑      Sonstiges: Begründung ungeheftet anbei.
+
+     0
+
+     N
+
+                                   ❑      Begründung/Belege zur Unternehmensgröße ungeheftet anbei.
+
+                       b                  Firmenstempel                  Telefonnummer                  Unterschrift
+                   0)                                               (für etwaige Rückfragen)
+
+                 N
+
+NöoÖ ad
+                   m
+ 0
+
+t.k
+   Bundesamt
+
+I für Justiz
+
+Merkblatt zur Offenlegungspflicht von Rechnungslegungsunterlagen
+
+1. Wer ist zur Offenlegung verpflichtet?         frist offenzulegen. Die Offenlegung eines vor-
+                                                 läufigen Jahresabschlusses reicht zur Erfüllung
+Offenlegungspflichtig sind insbesondere          der Offenlegungspflicht nicht aus.
+
+• Kapitalgesellschaften: AG, KGaA, GmbH,         3. Wo und wie müssen die Unterlagen of-
+     UG (haftungsbeschränkt);                         fengelegt werden?
+
+• Personenhandelsgesellschaften ohne eine        Zur Offenlegung müssen die Rechnungsle-
+     natürliche Person als persönlich haftenden  gungsunterlagen an die das Unternehmensre-
+     Gesellschafter (z. B. GmbH & Co. KG);       gister führende Stelle, die Bundesanzeiger Ver-
+                                                 lag GmbH in Köln, elektronisch zur Einstellung
+• Zweigniederlassungen von ausländischen         in das Unternehmensregister übermittelt wer-
+     Kapitalgesellschaften;                      den. Nur für Geschäftsjahre, die vor dem 1. Ja-
+                                                 nuar 2022 begonnen haben, müssen sie wei-
+• Genossenschaften;                              terhin beim Betreiber des Bundesanzeigers,
+• Emittenten von bestimmten Vermögensan-         ebenfalls der Bundesanzeiger Verlag GmbH in
+                                                 Köln, in elektronischer Form eingereicht wer-
+     lagen;                                      den (vgl. Artikel 88 Absatz 2 EGHGB).
+
+• Mutterunternehmen für den Konzern.
+
+Auch Gesellschaften ohne Geschäftstätig-
+
+keit und Gesellschaften in Insolvenz oder
+
+Liquidation sind offenlegungspflichtig.
+
+2. Was ist offenzulegen?                         Kleinstunternehmen (vgl. § 267a HGB) kön-
+                                                 nen ihre Offenlegungspflicht auch dadurch er-
+Der Umfang der offenzulegenden Rechnungs-        füllen, dass sie ihre Bilanz dauerhaft hinterle-
+legungsunterlagen hängt von der Größe des        gen lassen.
+Unternehmens ab, wobei für einige Branchen
+Sonderregeln bestehen. Die Größe eines Un-       In allen Fällen ist für die elektronische Über-
+                                                 mittlung die Publikationsplattform der Bundes-
+ternehmens bemisst sich nach den drei Krite-     anzeiger Verlag GmbH zu nutzen:
+                                                 www.publikations-plattform.de. Hier finden
+rien Bilanzsumme, Umsatzerlöse und Zahl der      Sie auch Informationen zum vorgeschalteten
+Arbeitnehmer im Jahresdurchschnitt (§§ 267,      Identifizierungsverfahren.
+267a HGB).
+                                                 Für Fragen ist die Bundesanzeiger Verlag
+Bei Kleinstunternehmen (vgl. § 267a HGB)
+genügt nach § 326 Absatz 2 Satz 1 HGB die        GmbH unter der aus dem deutschen Festnetz
+Offenlegung der Bilanz.                          kostenfreien Servicerufnummer 0800 1234339
+                                                 zu erreichen.
+Kleine Unternehmen (vgl. § 267 Absatz 1
+HGB) müssen nach § 326 Absatz 1 HGB nur          Eine Offenlegung durch Übersendung der
+Bilanz und Anhang offenlegen, dabei muss
+der Anhang die die Gewinn- und Verlustrech-      Rechnungslegungsunterlagen an das Bun-
+nung betreffenden Angaben nicht enthalten.       desamt für Justiz ist nicht möglich. Eine
+                                                 Mitteilung über die erfolgte Offenlegung bei
+Für Geschäftsjahre mit einem Beginn nach         der Bundesanzeiger Verlag GmbH an das
+dem 31. Dezember 2015 ist der festgestellte
+Jahresabschluss innerhalb der Offenlegungs-      Bundesamt für Justiz ist nicht erforderlich.
+4. Wann müssen die Unterlagen offenge-             Tag der Auflösung beginnt regelmäßig ein
+     legt werden?
+                                                   neues Geschäftsjahr. Im Fall einer Liquidation
+Die Rechnungslegungsunterlagen müssen              sind grundsätzlich die letzten Rechnungsle-
+spätestens ein Jahr nach dem Abschluss-            gungsunterlagen der werbenden Gesellschaft,
+stichtag des Geschäftsjahres, auf das sie sich     die Liquidationseröffnungsbilanz nebst erläu-
+beziehen, übermittelt bzw. eingereicht sein. Für   terndem Bericht und die Rechnungslegungsun-
+bestimmte Unternehmen (z. B. kapitalmarktori-      terlagen für jedes Geschäftsjahr der in Liquida-
+                                                   tion befindlichen Gesellschaft offenzulegen.
+entierte Gesellschaften oder Emittenten von        Kleinstunternehmen (vgl. § 267a HGB) kön-
+                                                   nen die Unterlagen auch hinterlegen und dabei
+Vermögensanlagen) gelten kürzere Fristen.          auf den erläuternden Bericht zur Liquidations-
+                                                   eröffnungsbilanz verzichten.
+Die Offenlegungsfrist kann nicht verlängert
+werden. Dies gilt auch, wenn der Jahresab-         7. Welche Konsequenzen hat eine Nichter-
+schluss noch nicht aufgestellt oder ein Prüfauf-        füllung der Offenlegungspflicht?
+trag noch nicht erteilt ist. Steuerrechtliche As-
+pekte wie die verlängerte Abgabefrist oder eine    Werden die offenlegungspflichtigen Unterlagen
+Betriebsprüfung rechtfertigen das Versäumen        nicht innerhalb der gesetzlichen Frist offenge-
+der Offenlegungsfrist nicht.                       legt, so leitet das Bundesamt für Justiz ein Ord-
+                                                   nungsgeldverfahren nach § 335 HGB ein. Das
+5. Ist eine Befreiung von der Offenlegungs-        Ordnungsgeldverfahren kann entweder gegen
+     pflicht möglich?                              die Gesellschaft oder gegen deren gesetzliche
+                                                   Vertreter persönlich betrieben werden. Im Ord-
+Eine Befreiung von der Offenlegungspflicht ist     nungsgeldverfahren werden grundsätzlich so-
+grundsätzlich nicht möglich. Lediglich be-         lange wiederholt Ordnungsgelder angedroht
+                                                   und bei Nichteinhaltung der Frist aus der An-
+stimmte Tochterunternehmen, die in den Kon-        drohungsverfügung festgesetzt, bis die Offenle-
+                                                   gungspflichten erfüllt sind oder deren Unterlas-
+zernabschluss eines Mutterunternehmens ein-        sung gerechtfertigt wird.
+
+bezogen sind, sind unter den in § 264 Absatz 3     Werden die Rechnungslegungsunterlagen
+bzw. § 264b HGB genannten Voraussetzungen          zwar verspätet, aber noch vor Festsetzung des
+von der Offenlegungspflicht befreit.               Ordnungsgelds offengelegt, wird das ange-
+                                                   drohte Ordnungsgeld nach Maßgabe des § 335
+6. Was gilt bei Liquidation oder Einstellung       Absatz 4 Satz 2 und Satz 3 HGB herabgesetzt.
+
+      des Betriebs?
+
+Die Pflicht zur Offenlegung von Rechnungs-
+legungsunterlagen besteht auch für Unterneh-
+men in Liquidation bzw. Abwicklung fort. Sie
+entfällt erst mit Eintragung der Löschung
+des Unternehmens im Handelsregister. Mit
+dem in dem Auflösungsbeschluss festgelegten
+
+Weitere Informationen zur Offenlegung von Rechnungslegungsunterl agen sowie zum Ord-
+nungsgeldverfahren nach § 335 HGB erhalten Sie auf der Homepage des Bundesamts für Jus-
+tiz unter www.bundesiustizamt.delehug sowie telefonisch unter +49 228 410-6500 (Verbindung
+mit einer Sachbearbeiterin oder einem Sachbearbeiter montags bis donnerstags von 9 Uhr bis
+15 Uhr sowie freitags von 9 Uhr bis 12 Uhr).
+
+Das Erteilen von Rechtsauskünften oder die Unterstützung bei der individuellen Rechtsverfol-
+gung gehört nicht zu den Aufgaben des Bundesamts für Justiz. Bitte wenden Sie sich an die
+für die Rechtsberatung besonders befugten Personen und Stellen wie zum Beispiel eine
+Rechtsanwältin oder einen Rechtsanwalt oder eine Steuerberatungs kanzlei.
+
+                                                                                                                                                                    121251
