@@ -43,6 +43,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [dateien, setDateien] = useState([]);
   const [briefEntwurf, setBriefEntwurf] = useState('');
+  const [emailAnhaenge, setEmailAnhaenge] = useState([]); // Dezidierte E-Mail-Anhänge direkt im Textentwurf
   const [versandPdfUrl, setVersandPdfUrl] = useState('');
   const [tresorPrompt, setTresorPrompt] = useState(null); 
   
@@ -50,6 +51,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [faxZhd, setFaxZhd] = useState('');
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
+  const [showVersandHistorie, setShowVersandHistorie] = useState(false); // Modal Versandhistorie
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
   const [transferAkteId, setTransferAkteId] = useState(null);
   const [neuerGegnerName, setNeuerGegnerName] = useState('');
@@ -444,6 +446,14 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     printWindow.document.close();
   };
 
+  // --- SENDEBERICHT DRUCKEN (FÜR VERSANDHISTORIE) ---
+  const druckeSendebericht = (eintrag) => {
+    const printWindow = window.open('', '_blank');
+    const anhaengeText = eintrag.dokument_url ? eintrag.dokument_url.split(',').map(url => extractFilename(url)).join(', ') : 'Keine Anhänge';
+    printWindow.document.write(`<html><head><title>Sendebericht - ${eintrag.unser_zeichen || 'Ausgang'}</title><style>body { font-family: Arial, sans-serif; padding: 30px; color: #111; line-height: 1.6; } .box { border: 2px solid #000; padding: 20px; border-radius: 6px; margin-bottom: 20px; } h1 { font-size: 22px; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 20px; text-transform: uppercase; } .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px; margin-bottom: 20px; } .meta-item { border-bottom: 1px solid #ddd; padding-bottom: 5px; } .badge { display: inline-block; background: #10b981; color: #fff; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; } pre { white-space: pre-wrap; font-family: Courier, monospace; background: #f8f9fa; padding: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }</style></head><body><h1>SONAR SENDEBERICHT / AUSGANGSNACHWEIS</h1><div class="box"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;"><div><span class="badge">STATUS: ERFOLGREICH VERSENDET</span></div><div><strong>Sendedatum:</strong> ${formatDatum(eintrag.datum)}</div></div><div class="meta-grid"><div class="meta-item"><strong>Absender / Mandant:</strong><br/>${eintrag.unsere_firma || '-'}</div><div class="meta-item"><strong>Empfänger / Behörde:</strong><br/>${eintrag.gegner_name || '-'}</div><div class="meta-item"><strong>Unser Zeichen:</strong><br/>${eintrag.unser_zeichen || '-'}</div><div class="meta-item"><strong>Aktenzeichen (Gegner):</strong><br/>${eintrag.aktenzeichen || '-'}</div><div class="meta-item"><strong>Versandart / Kanal:</strong><br/>${eintrag.kanal || 'E-Mail / Fax'}</div><div class="meta-item"><strong>Vorgang / Zieladresse:</strong><br/>${eintrag.aktion || '-'}</div><div class="meta-item" style="grid-column: 1 / -1;"><strong>Gegenstand (Thema):</strong><br/>${eintrag.thema || '-'}</div><div class="meta-item" style="grid-column: 1 / -1;"><strong>Übermittelte Dateianhänge:</strong><br/>${anhaengeText}</div></div></div><h3>DOKUMENTIERTES SCHREIBEN (TEXTINHALT):</h3><pre>${eintrag.brief_entwurf || '(Kein Textkörper hinterlegt)'}</pre><script>window.onload = function() { window.print(); window.close(); }</script></body></html>`);
+    printWindow.document.close();
+  };
+
   const handleResendVersand = async (versandArt) => {
     if (!briefEntwurf || briefEntwurf.trim() === '') { showToast("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!", 'warning'); return; }
     if (!gegnerEmail && versandArt === 'email') { showToast("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!", 'warning'); return; }
@@ -458,10 +468,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const betreff = `Unser Zeichen: ${unserZeichen || 'Neu'} / AZ: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
 
+      // Kombiniere bestehende Akten-Dateien mit dezidierten E-Mail-Anhängen aus dem Schreibfenster
+      const alleAnhangDateien = [...dateien, ...emailAnhaenge];
+
       let extraAttachments = [];
-      if (versandArt === 'email' && dateien.length > 0) {
+      if (versandArt === 'email' && alleAnhangDateien.length > 0) {
         showToast("⏳ Verarbeite Dateien für E-Mail-Anhang...", "success");
-        for (const f of dateien) {
+        for (const f of alleAnhangDateien) {
           try {
             const b64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(f); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = e => reject(e); });
             extraAttachments.push({ filename: f.name, content: b64 });
@@ -502,7 +515,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const handleSpeichernCheck = (e) => {
     e.preventDefault();
-    if (dateien.length === 0) { setShowUploadReminder(true); } else { speichereEintragLogik(); }
+    if (dateien.length === 0 && emailAnhaenge.length === 0) { setShowUploadReminder(true); } else { speichereEintragLogik(); }
   };
 
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
@@ -527,8 +540,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
 
     let alleUrls = [];
-    if (dateien && dateien.length > 0) {
-      for (const f of dateien) {
+    const zuSpeicherndeDateien = [...dateien, ...emailAnhaenge];
+
+    if (zuSpeicherndeDateien && zuSpeicherndeDateien.length > 0) {
+      for (const f of zuSpeicherndeDateien) {
         const isMd = f.name.toLowerCase().endsWith('.md');
         const isPdf = f.name.toLowerCase().endsWith('.pdf');
         const zugewieseneFirma = unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein');
@@ -542,7 +557,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
            const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f);
            if (!uploadError) {
              const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName); alleUrls.push(linkData.publicUrl);
-             const hatMdGegenstueck = dateien.some(d => d.name.toLowerCase() === f.name.toLowerCase().replace('.pdf', '.md'));
+             const hatMdGegenstueck = zuSpeicherndeDateien.some(d => d.name.toLowerCase() === f.name.toLowerCase().replace('.pdf', '.md'));
              if (isPdf && !hatMdGegenstueck) {
                 showToast(`⚙️ Lese digitalen Text aus PDF (${f.name}) aus...`, 'success');
                 try {
@@ -610,12 +625,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       setUnserZeichen(''); setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
-      setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); 
+      setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
       setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); 
       setBezugId(''); 
       setClearOldFristen(true);
       setVersandPdfUrl(null); 
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
+      if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
       ladeDaten();
       showToast('✅ Akteneintrag erfolgreich gespeichert!', 'success');
     } else {
@@ -769,6 +785,25 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return `${uZ} ${gegner} | ${thema}`;
   };
 
+  // Aggregation aller Ausgangssendungen über alle Akten hinweg für die globale Versandhistorie
+  const alleAusgaenge = [];
+  akten.forEach(a => {
+    if (a.akten_historie && a.akten_historie.length > 0) {
+      a.akten_historie.filter(h => h.typ === 'Ausgang').forEach(h => {
+        alleAusgaenge.push({
+          ...h,
+          akte_id: a.id,
+          unser_zeichen: a.unser_zeichen,
+          aktenzeichen: a.aktenzeichen,
+          gegner_name: a.gegner_name,
+          unsere_firma: a.unsere_firma,
+          thema: a.thema
+        });
+      });
+    }
+  });
+  alleAusgaenge.sort((a, b) => new Date(b.datum || b.created_at || 0) - new Date(a.datum || a.created_at || 0));
+
   const activeAkteObj = modus === 'bestehend' && selectedAkteId ? akten.find(a => a.id === selectedAkteId) : null;
 
   return (
@@ -786,6 +821,77 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => setShowUploadReminder(false)} style={{ padding: '12px 18px', background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Abbrechen & Dateien auswählen</button>
               <button onClick={speichereEintragLogik} style={{ padding: '12px 18px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Trotzdem ohne Dateien speichern</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VERSANDHISTORIE & SENDEBERICHTE */}
+      {showVersandHistorie && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1100px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
+              <h3 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px' }}>
+                <Icon name="send" size={20} /> Globale Versandhistorie & Sendeberichte ({alleAusgaenge.length} Einträge)
+              </h3>
+              <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}>✕</button>
+            </div>
+
+            <div style={{ overflowY: 'auto', padding: '20px' }}>
+              {alleAusgaenge.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben per E-Mail oder Fax versendet.</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: theme.border, color: theme.textMain }}>
+                      <th style={{ padding: '10px' }}>Datum</th>
+                      <th style={{ padding: '10px' }}>Unser Zeichen / Akte</th>
+                      <th style={{ padding: '10px' }}>Gegner / Empfänger</th>
+                      <th style={{ padding: '10px' }}>Kanal & Vorgang</th>
+                      <th style={{ padding: '10px' }}>Anhänge</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alleAusgaenge.map((ausgang) => (
+                      <tr key={ausgang.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                        <td style={{ padding: '10px', whiteSpace: 'nowrap', fontWeight: 'bold' }}>{formatDatum(ausgang.datum)}</td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{ color: theme.accent, fontWeight: 'bold' }}>[{ausgang.unser_zeichen || '---'}]</span><br/>
+                          <small style={{ color: theme.textMuted }}>{ausgang.thema || '-'}</small>
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <strong>{ausgang.gegner_name || '-'}</strong><br/>
+                          <small style={{ color: theme.textMuted }}>Mandant: {ausgang.unsere_firma || '-'}</small>
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{ display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
+                            {ausgang.kanal || 'Ausgang'}
+                          </span><br/>
+                          <span>{ausgang.aktion || '-'}</span>
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
+                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', color: theme.accent, textDecoration: 'none', marginRight: '6px', fontSize: '12px' }} title={extractFilename(url)}>
+                              📄 {extractFilename(url).substring(0, 12)}...
+                            </a>
+                          )) : <span style={{ color: theme.textMuted }}>-</span>}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                          <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            🖨️ Sendebericht
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div style={{ padding: '15px 20px', borderTop: `1px solid ${theme.border}`, background: theme.inputBg, textAlign: 'right' }}>
+              <button onClick={() => setShowVersandHistorie(false)} style={{ padding: '8px 16px', background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Schließen</button>
             </div>
           </div>
         </div>
@@ -1022,9 +1128,50 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
             <label style={{...labelStyle, color: theme.accent, margin: 0}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="clock" size={14} /> 📜 Versandhistorie</button>
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="send" size={14} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)</button>
             </div>
+          </div>
+
+          {/* DATEIANHÄNGE DIREKT IM SCHREIBFENSTER */}
+          <div style={{ marginBottom: '15px', padding: '12px', background: theme.cardBg, border: `1px dashed ${theme.border}`, borderRadius: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <label style={{ ...labelStyle, margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Icon name="paperclip" size={14} /> E-Mail-Dateianhänge ({emailAnhaenge.length})
+              </label>
+              <label style={{ background: theme.border, color: theme.textMain, padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                + Datei(en) anhängen
+                <input 
+                  id="email-anhaenge-upload" 
+                  type="file" 
+                  multiple 
+                  style={{ display: 'none' }} 
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files);
+                    setEmailAnhaenge(prev => [...prev, ...files]);
+                    e.target.value = '';
+                  }} 
+                />
+              </label>
+            </div>
+            {emailAnhaenge.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+                {emailAnhaenge.map((f, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '4px 8px', fontSize: '12px', color: theme.textMain }}>
+                    <span style={{ marginRight: '6px' }}>📎 {f.name}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setEmailAnhaenge(prev => prev.filter((_, i) => i !== idx))} 
+                      style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '0 2px', fontWeight: 'bold' }} 
+                      title="Anhang entfernen"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} placeholder="Trage hier deinen Brief- oder E-Mail-Text ein..." style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} />
