@@ -1,0 +1,7 @@
+Auto-Extraktion (PDF). Gegner: Deutsche Post AG | Gegenstand: Zurückweisung der Kündigung wegen Rechtsunwirksamkeit, Rüge des Annahmeverzugs und Fristsetzung zur Schlüsselübergabe Postfach 19 01 17
+
+Original-PDF: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/1788433032948_Gmail_-_Postfach_Kundendaten__ndern.pdf
+
+--- Seite 1 ---
+SmartBizz Services UG <smartbizzgroup.office@gmail.com>  Postfach Kundendaten ändern  1   Nachricht  noreply@deutschepost.de   <noreply@deutschepost.de>   6. August 2026 um 10:38  An: smartbizzgroup.office@gmail.com  Guten Tag,  vielen Dank für Ihre Nachricht zum Postfach.  Wir werden Ihr Anliegen so schnell wie möglich bearbeiten. Bitte sehen Sie von Rückfragen zum Bearbeitungsstatus Ihres Anliegens ab, falls es zu längeren Bearbeitungszeiten kommen sollte. Vielen Dank für Ihr Verständnis.  Beste Grüße  Ihr Deutsche Post Kundenservice Team  ============================== =============================  Für Ihren Datenschutz:  Wir weisen darauf hin, dass wir Ihre Daten zur Bearbeitung Ihres Anliegens in unseren Kundensystemen erfassen. Nach Abschluss der Bearbeitung werden diese Daten auf Basis eines berechtigten Interesses in der Regel bis zu 2 Jahre gespeichert und dann von uns gelöscht. Weitere Informationen finden Sie im Internet unter  https://www.deutschepost.de/ datenschutz .  03.09.26, 12:38   Gmail - Postfach Kundendaten ändern  https://mail.google.com/mail/u/0/?ik=0353a3055a&view=pt&search=all&permthid=thread-f:1872762514618086007&simpl=msg-f:1872762514618…   1/1
+
