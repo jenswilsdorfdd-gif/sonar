@@ -130,7 +130,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const newZeichen = `${mPrefix}-${gPrefix}-${nextNum}`;
       
       setUnserZeichen(prev => {
-        // Überschreibe nur, wenn das Feld leer ist ODER der User den letzten generierten Wert nicht verändert hat
         if (!prev || prev === autoGenRef.current) {
           autoGenRef.current = newZeichen;
           return newZeichen;
@@ -1178,7 +1177,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
             <label style={{...labelStyle, color: theme.accent, margin: 0}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="clock" size={14} /> Versandhistorie</button>
+              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="cabinet" size={14} /> Versandhistorie</button>
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="send" size={14} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)</button>
             </div>
@@ -1188,7 +1187,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div style={{ marginBottom: '15px', padding: '12px', background: theme.cardBg, border: `1px dashed ${theme.border}`, borderRadius: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <label style={{ ...labelStyle, margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icon name="paperclip" size={14} /> E-Mail-Dateianhänge ({emailAnhaenge.length})
+                <Icon name="paperclip" size={14} /> Versand-Dateianhänge (E-Mail / Fax) ({emailAnhaenge.length})
               </label>
               <label style={{ background: theme.accent, color: '#000', border: 'none', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Icon name="paperclip" size={14} /> Datei(en) anhängen
@@ -1242,7 +1241,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           onClick={() => setZeigeErledigte(!zeigeErledigte)}
           style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
-          <Icon name="eye" size={14} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
+          <Icon name="folder" size={14} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
         </button>
       </div>
 
