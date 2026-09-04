@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, normalizeName, cleanVal } from './utils';
@@ -52,6 +52,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
   const [showVersandHistorie, setShowVersandHistorie] = useState(false); // Modal Versandhistorie
+  const [zeigeErledigte, setZeigeErledigte] = useState(false); // Filter für Erledigte Akten
+  
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
   const [transferAkteId, setTransferAkteId] = useState(null);
   const [neuerGegnerName, setNeuerGegnerName] = useState('');
@@ -62,6 +64,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   
   const [openMenuId, setOpenMenuId] = useState(null);
   const [isAlarmsOpen, setIsAlarmsOpen] = useState(true);
+
+  const autoGenRef = useRef(''); // Speichert das zuletzt generierte Unser Zeichen
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
@@ -91,6 +95,50 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setGlobalUrlText(null); 
     }
   }, [globalUrlText, setGlobalUrlText]);
+
+  // --- AUTOMATIK: UNSER ZEICHEN GENERIEREN ---
+  const generatePrefix = (name) => {
+    if (!name) return '';
+    const n = name.toLowerCase();
+    if (n.includes('jens wilsdorf')) return 'JW';
+    if (n.includes('smartbizz') || n.includes('sbs')) return 'SBS';
+    if (n.includes('brand & market') || n.includes('bam')) return 'BAM';
+    if (n.includes('wilsdorf & sommer') || n.includes('wus')) return 'WUS';
+    if (n.includes('wir')) return 'WIR';
+    return name.split(/[\s-]+/).filter(w => w.length > 0).slice(0, 3).map(w => w[0]).join('').toUpperCase();
+  };
+
+  useEffect(() => {
+    if (modus === 'neu' && unsereFirma && gegnerName) {
+      const mPrefix = generatePrefix(unsereFirma);
+      const gPrefix = gegnerName.trim();
+      const baseZeichen = `${mPrefix}-${gPrefix}-`;
+
+      let maxNum = 0;
+      akten.forEach(a => {
+        if (a.unser_zeichen && a.unser_zeichen.toUpperCase().startsWith(baseZeichen.toUpperCase())) {
+          const parts = a.unser_zeichen.split('-');
+          const lastPart = parts[parts.length - 1];
+          const num = parseInt(lastPart, 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      });
+
+      const nextNum = String(maxNum + 1).padStart(3, '0');
+      const newZeichen = `${mPrefix}-${gPrefix}-${nextNum}`;
+      
+      setUnserZeichen(prev => {
+        // Überschreibe nur, wenn das Feld leer ist ODER der User den letzten generierten Wert nicht verändert hat
+        if (!prev || prev === autoGenRef.current) {
+          autoGenRef.current = newZeichen;
+          return newZeichen;
+        }
+        return prev;
+      });
+    }
+  }, [unsereFirma, gegnerName, modus, akten]);
 
   const extractTextFromPDF = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
@@ -630,6 +678,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setBezugId(''); 
       setClearOldFristen(true);
       setVersandPdfUrl(null); 
+      autoGenRef.current = '';
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
       ladeDaten();
@@ -758,6 +807,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
   const gefilterteAkten = akten.filter((akte) => {
+    if (!zeigeErledigte && akte.status === 'Erledigt') return false; // Filter für Erledigte Akten
     if (!suchbegriff.trim()) return true;
     const s = suchbegriff.toLowerCase(); 
     const uZ = (akte.unser_zeichen || '').toLowerCase();
@@ -879,7 +929,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           )) : <span style={{ color: theme.textMuted }}>-</span>}
                         </td>
                         <td style={{ padding: '10px', textAlign: 'center' }}>
-                          <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             🖨️ Sendebericht
                           </button>
                         </td>
@@ -1128,9 +1178,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
             <label style={{...labelStyle, color: theme.accent, margin: 0}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="clock" size={14} /> 📜 Versandhistorie</button>
-              <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="send" size={14} /> E-Mail senden (Resend)</button>
-              <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)</button>
+              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="clock" size={14} /> 📜 Versandhistorie</button>
+              <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="send" size={14} /> E-Mail senden (Resend)</button>
+              <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)</button>
             </div>
           </div>
 
@@ -1140,7 +1190,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <label style={{ ...labelStyle, margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Icon name="paperclip" size={14} /> E-Mail-Dateianhänge ({emailAnhaenge.length})
               </label>
-              <label style={{ background: theme.border, color: theme.textMain, padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ background: theme.accent, color: '#000', border: 'none', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 + Datei(en) anhängen
                 <input 
                   id="email-anhaenge-upload" 
@@ -1185,7 +1235,15 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       {/* AKTEN UBERSICHT */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px', flexWrap: 'wrap', gap: '10px' }}>
-        <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}><Icon name="cabinet" size={24} /> Akten-Übersicht</h2>
+        <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
+          <Icon name="cabinet" size={24} /> Akten-Übersicht
+        </h2>
+        <button 
+          onClick={() => setZeigeErledigte(!zeigeErledigte)}
+          style={{ background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          {zeigeErledigte ? '👁️ Erledigte ausblenden' : '👁️ Erledigte einblenden'}
+        </button>
       </div>
 
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg }}>
@@ -1400,4 +1458,4 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       </div>
     </div>
   );
-} 
+}
