@@ -1465,4 +1465,4 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       </div>
     </div>
   );
-}
+} 
