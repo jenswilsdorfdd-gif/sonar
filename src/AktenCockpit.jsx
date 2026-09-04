@@ -100,23 +100,25 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const generatePrefix = (name) => {
     if (!name) return '';
     const n = name.toLowerCase();
-    if (n.includes('jens wilsdorf')) return 'JW';
-    if (n.includes('smartbizz') || n.includes('sbs')) return 'SBS';
-    if (n.includes('brand & market') || n.includes('bam')) return 'BAM';
-    if (n.includes('wilsdorf & sommer') || n.includes('wus')) return 'WUS';
-    if (n.includes('wir')) return 'WIR';
-    return name.split(/[\s-]+/).filter(w => w.length > 0).slice(0, 3).map(w => w[0]).join('').toUpperCase();
+    // Rückgabe in strikten Kleinbuchstaben
+    if (n.includes('jens wilsdorf')) return 'jw';
+    if (n.includes('smartbizz') || n.includes('sbs')) return 'sbs';
+    if (n.includes('brand & market') || n.includes('bam')) return 'bam';
+    if (n.includes('wilsdorf & sommer') || n.includes('wus')) return 'wus';
+    if (n.includes('wir')) return 'wir';
+    return name.split(/[\s-]+/).filter(w => w.length > 0).slice(0, 3).map(w => w[0]).join('').toLowerCase();
   };
 
   useEffect(() => {
     if (modus === 'neu' && unsereFirma && gegnerName) {
       const mPrefix = generatePrefix(unsereFirma);
-      const gPrefix = gegnerName.trim();
+      // Gegner-Name ebenfalls in strikten Kleinbuchstaben
+      const gPrefix = gegnerName.trim().toLowerCase();
       const baseZeichen = `${mPrefix}-${gPrefix}-`;
 
       let maxNum = 0;
       akten.forEach(a => {
-        if (a.unser_zeichen && a.unser_zeichen.toUpperCase().startsWith(baseZeichen.toUpperCase())) {
+        if (a.unser_zeichen && a.unser_zeichen.toLowerCase().startsWith(baseZeichen)) {
           const parts = a.unser_zeichen.split('-');
           const lastPart = parts[parts.length - 1];
           const num = parseInt(lastPart, 10);
@@ -126,10 +128,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
       });
 
-      const nextNum = String(maxNum + 1).padStart(3, '0');
+      // 4-stellige Nummer (0012, 0013...)
+      const nextNum = String(maxNum + 1).padStart(4, '0');
       const newZeichen = `${mPrefix}-${gPrefix}-${nextNum}`;
       
       setUnserZeichen(prev => {
+        // Überschreibe nur, wenn das Feld leer ist ODER der User den letzten generierten Wert nicht verändert hat
         if (!prev || prev === autoGenRef.current) {
           autoGenRef.current = newZeichen;
           return newZeichen;
@@ -284,7 +288,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const fallbackTyp = obj.typ || obj.dokumententyp || 'Eingang';
       const fallbackUnsereFirma = obj.unsere_firma || (obj.absender ? obj.absender.name : '') || '';
       
-      setUnserZeichen(fallbackUnserZeichen); setAktenzeichen(fallbackAktenzeichen); setThema(fallbackThema); 
+      // Auto-Gen übernimmt die Generierung, falls unser_zeichen nicht per JSON forciert wurde
+      if (fallbackUnserZeichen) {
+          setUnserZeichen(fallbackUnserZeichen);
+      }
+      setAktenzeichen(fallbackAktenzeichen); setThema(fallbackThema); 
       setGegnerName(fallbackGegnerName); setGegnerAnsprechpartner(fallbackGegnerAnsprechpartner); 
       setGegnerTelefon(formatRufnummer(fallbackGegnerTelefon)); setGegnerFax(formatRufnummer(fallbackGegnerFax)); setGegnerEmail(fallbackGegnerEmail); 
       handleFristChange(fallbackFristExtern); setBriefEntwurf(fallbackBriefEntwurf); setAktion(fallbackAktion); 
@@ -1064,7 +1072,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
                 </div>
               </div>
-              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. sbs-fiamt-0001" style={inputStyle} /></div>
+              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. jw-fiamt-0012" style={inputStyle} /></div>
               <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
 
