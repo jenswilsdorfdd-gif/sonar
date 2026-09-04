@@ -924,13 +924,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         <td style={{ padding: '10px' }}>
                           {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
                             <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', color: theme.accent, textDecoration: 'none', marginRight: '6px', fontSize: '12px' }} title={extractFilename(url)}>
-                              📄 {extractFilename(url).substring(0, 12)}...
+                              <Icon name="file" size={12} /> {extractFilename(url).substring(0, 12)}...
                             </a>
                           )) : <span style={{ color: theme.textMuted }}>-</span>}
                         </td>
                         <td style={{ padding: '10px', textAlign: 'center' }}>
                           <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            🖨️ Sendebericht
+                            <Icon name="print" size={14} /> Sendebericht
                           </button>
                         </td>
                       </tr>
@@ -956,7 +956,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         <div style={{ ...panelStyle, margin: 0, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
           <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}><Icon name="paperclip" size={16} /> MANUELLER UPLOAD (PDF/MD)</label>
           <input id="datei-upload-manuell" type="file" multiple onChange={(e) => { setDateien(Array.from(e.target.files)); }} style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '10px', fontSize: '13px', transition: 'border-color 0.3s ease'}} />
-          {dateien.length > 0 && <span style={{fontSize: '13px', color: theme.accent, marginTop: '8px', fontWeight: 'bold'}}>📂 {dateien.length} Datei(en) gewählt</span>}
+          {dateien.length > 0 && <span style={{fontSize: '13px', color: theme.accent, marginTop: '8px', fontWeight: 'bold'}}><Icon name="folder" size={12} /> {dateien.length} Datei(en) gewählt</span>}
         </div>
       </div>
 
@@ -978,19 +978,19 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
                       <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🏢 [{w.unser_zeichen || '---'}] {w.akte_gegner}</strong>
                       <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} style={{ background: actionBg, color: actionColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}>⚙️ Aktionen {openMenuId === w.id ? '▲' : '▼'}</button>
+                        <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} style={{ background: actionBg, color: actionColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}><Icon name="settings" size={12} /> Aktionen {openMenuId === w.id ? '▲' : '▼'}</button>
                         {openMenuId === w.id && (
                           <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '160px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
                             <button onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null); else handleInlineEdit(w.id, 'frist_extern', null); setOpenMenuId(null); }} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}>✓ Erledigt</button>
                             <button disabled={shiftDisabled} onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso); else handleInlineEdit(w.id, 'frist_extern', plusDreiIso); setOpenMenuId(null); }} style={{ background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, color: shiftDisabled ? theme.textMuted : theme.textMain, border: 'none', padding: '8px', borderRadius: '4px', cursor: shiftDisabled ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', opacity: shiftDisabled ? 0.6 : 1, textAlign: 'left', width: '100%' }} title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}>+3 Tage {shiftDisabled ? '🔒' : ''}</button>
-                            <button onClick={() => handleNachhaken(w.akte_id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}>✉️ Nachhaken</button>
+                            <button onClick={() => handleNachhaken(w.akte_id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}><Icon name="send" size={12} /> Nachhaken</button>
                           </div>
                         )}
                       </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
                       
-                      <span style={{ color: theme.textMain, fontWeight: '500' }}>📋 {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
+                      <span style={{ color: theme.textMain, fontWeight: '500' }}><Icon name="file" size={12} /> {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
@@ -1018,7 +1018,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
               <strong style={{ fontSize: '15px' }}>
-                🛡️ Unbekannte Behörde: "{gegnerPrompt.obj.name}" neu ins Gegner-CRM aufnehmen?
+                <Icon name="alert" size={14} /> Unbekannte Behörde: "{gegnerPrompt.obj.name}" neu ins Gegner-CRM aufnehmen?
               </strong>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" onClick={handleGegnerPromptAccept} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -1035,7 +1035,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         {tresorPrompt && (
           <div style={{ background: theme.accent, color: '#000', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-              <strong style={{ fontSize: '15px' }}>🏢 Unbekannter Mandant: "{tresorPrompt.obj.unsere_firma}" neu in den Tresor aufnehmen?</strong>
+              <strong style={{ fontSize: '15px' }}><Icon name="alert" size={14} /> Unbekannter Mandant: "{tresorPrompt.obj.unsere_firma}" neu in den Tresor aufnehmen?</strong>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Ja, anlegen</button>
                 <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid #000', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Nein</button>
@@ -1178,7 +1178,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
             <label style={{...labelStyle, color: theme.accent, margin: 0}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="clock" size={14} /> 📜 Versandhistorie</button>
+              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="clock" size={14} /> Versandhistorie</button>
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="send" size={14} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)</button>
             </div>
@@ -1191,7 +1191,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 <Icon name="paperclip" size={14} /> E-Mail-Dateianhänge ({emailAnhaenge.length})
               </label>
               <label style={{ background: theme.accent, color: '#000', border: 'none', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                + Datei(en) anhängen
+                <Icon name="paperclip" size={14} /> Datei(en) anhängen
                 <input 
                   id="email-anhaenge-upload" 
                   type="file" 
@@ -1209,7 +1209,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
                 {emailAnhaenge.map((f, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '4px 8px', fontSize: '12px', color: theme.textMain }}>
-                    <span style={{ marginRight: '6px' }}>📎 {f.name}</span>
+                    <span style={{ marginRight: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="paperclip" size={12} /> {f.name}</span>
                     <button 
                       type="button" 
                       onClick={() => setEmailAnhaenge(prev => prev.filter((_, i) => i !== idx))} 
@@ -1240,9 +1240,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </h2>
         <button 
           onClick={() => setZeigeErledigte(!zeigeErledigte)}
-          style={{ background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+          style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
-          {zeigeErledigte ? '👁️ Erledigte ausblenden' : '👁️ Erledigte einblenden'}
+          <Icon name="eye" size={14} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
         </button>
       </div>
 
