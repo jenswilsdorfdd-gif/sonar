@@ -52,7 +52,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
   const [showVersandHistorie, setShowVersandHistorie] = useState(false);
-  const [expandedVersandId, setExpandedVersandId] = useState(null); // Accordion State für die Versandhistorie
+  const [expandedVersandId, setExpandedVersandId] = useState(null);
   const [zeigeErledigte, setZeigeErledigte] = useState(false); 
   
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
@@ -892,29 +892,35 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 ) : (
                   alleAusgaenge.map((ausgang) => {
                     const isExpanded = expandedVersandId === ausgang.id;
+                    const numAnhaenge = ausgang.dokument_url ? ausgang.dokument_url.split(',').length : 0;
                     return (
                       <div
                         key={ausgang.id}
                         style={{ background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.cardBg, borderRadius: '8px', border: `1px solid ${theme.border}`, padding: '12px 16px', cursor: 'pointer', transition: 'all 0.2s ease', margin: 0 }}
                         onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
                       >
-                        {/* SINGLE LINE DEFAULT */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
-                          <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-                            <strong style={{ color: theme.textMain, fontSize: '13px', minWidth: '80px' }}>{formatDatum(ausgang.datum)}</strong>
-                            <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '13px', minWidth: '130px' }}>[{ausgang.unser_zeichen || '---'}]</span>
-                            <strong style={{ color: theme.textMain, fontSize: '13px', minWidth: '200px' }}>{ausgang.gegner_name || '-'}</strong>
-                            <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
+                        {/* ECHTE GRID-ZEILE FÜR ABSOLUTE FLUCHTEN */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '80px 140px 1fr 220px 100px 30px', gap: '15px', alignItems: 'center', width: '100%' }}>
+                          <strong style={{ color: theme.textMain, fontSize: '13px' }}>{formatDatum(ausgang.datum)}</strong>
+                          <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '13px' }}>[{ausgang.unser_zeichen || '---'}]</span>
+                          <strong style={{ color: theme.textMain, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ausgang.gegner_name || '-'}</strong>
+                          
+                          <div style={{ width: '100%' }}>
+                            <span style={{ display: 'inline-block', width: '100%', textAlign: 'center', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '4px 0', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
                               {ausgang.kanal || 'Ausgang'}
                             </span>
-                            {ausgang.dokument_url && <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="paperclip" size={12} /> {ausgang.dokument_url.split(',').length}</span>}
                           </div>
-                          <div style={{ color: theme.textMuted }}>
+                          
+                          <span style={{ fontSize: '12px', color: theme.textMuted, whiteSpace: 'nowrap' }}>
+                            {numAnhaenge > 0 ? `(${numAnhaenge} ${numAnhaenge === 1 ? 'Anhang' : 'Anhänge'})` : ''}
+                          </span>
+                          
+                          <div style={{ color: theme.textMuted, textAlign: 'right' }}>
                             <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                           </div>
                         </div>
 
-                        {/* EXPANDED CONTENT */}
+                        {/* EXPANDED CONTENT (angepasst an Grid) */}
                         {isExpanded && (
                           <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
