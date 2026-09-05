@@ -52,6 +52,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
   const [showVersandHistorie, setShowVersandHistorie] = useState(false);
+  const [expandedVersandId, setExpandedVersandId] = useState(null);
   const [zeigeErledigte, setZeigeErledigte] = useState(false); 
   
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
@@ -203,6 +204,55 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           }
        }
     }
+  };
+
+  // NEU: SICHERER ABSPRUNG AUS DER VERSANDHISTORIE
+  const handleAktenAbsprung = (akteId) => {
+    if (briefEntwurf.trim() !== '' || dateien.length > 0 || emailAnhaenge.length > 0) {
+      if (!window.confirm("Möchtest du wirklich zu dieser Akte wechseln? Deine aktuellen, ungespeicherten Eingaben im Cockpit (Text/Dateien) gehen dabei verloren.")) {
+        return;
+      }
+    }
+    
+    // Reset Formular
+    setBriefEntwurf('');
+    setDateien([]);
+    setEmailAnhaenge([]);
+    if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
+    if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
+
+    setModus('bestehend');
+    
+    // Manuelles Triggern der Ladelogik
+    setSelectedAkteId(akteId);
+    setBezugId(''); 
+    const a = akten.find(x => x.id === akteId);
+    if (a) {
+      setUnserZeichen(a.unser_zeichen || '');
+      setGegnerName(a.gegner_name || '');
+      setGegnerAnsprechpartner(a.gegner_ansprechpartner || '');
+      setFaxZhd(a.gegner_ansprechpartner || '');
+      setGegnerTelefon(formatRufnummer(a.gegner_telefon || ''));
+      setGegnerEmail(a.gegner_email || '');
+      setUnsereFirma(a.unsere_firma || '');
+      setUnserAnsprechpartner(a.unser_ansprechpartner || '');
+      setThema(a.thema || '');
+      setAktenzeichen(a.aktenzeichen || '');
+      
+      if (a.gegner_name) {
+        const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(a.gegner_name));
+        if (crmGegner) {
+          setGegnerFax(formatRufnummer(crmGegner.fax || ''));
+          if (!a.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
+        } else {
+          setGegnerFax('');
+        }
+      }
+    }
+
+    setShowVersandHistorie(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast("Akte erfolgreich geladen!", "success");
   };
 
   const handleNachhaken = (akteId) => {
@@ -853,7 +903,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   });
   alleAusgaenge.sort((a, b) => new Date(b.datum || b.created_at || 0) - new Date(a.datum || a.created_at || 0));
 
-  // FILTER: Zeige nur Ausgänge der aktiven Akte, wenn eine gewählt ist. Sonst alle.
   const anzeigeAusgaenge = (modus === 'bestehend' && selectedAkteId) 
     ? alleAusgaenge.filter(a => a.akte_id === selectedAkteId) 
     : alleAusgaenge;
@@ -896,62 +945,88 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0', textAlign: 'left', border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden' }}>
                 
                 {/* STRICT GRID HEADER */}
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 3fr 2.5fr 160px 220px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '11px', textTransform: 'uppercase' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 2.5fr 2.5fr 140px 220px 30px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '11px', textTransform: 'uppercase' }}>
                   <div>Datum</div>
                   <div>Vorgang & Akte</div>
                   <div>Gegner & Kontakt</div>
                   <div style={{textAlign: 'center'}}>Versandart</div>
                   <div>Anhänge</div>
+                  <div></div>
                 </div>
 
                 {anzeigeAusgaenge.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben für diese Auswahl versendet.</div>
                 ) : (
-                  anzeigeAusgaenge.map((ausgang) => (
-                    <div key={ausgang.id} style={{ display: 'grid', gridTemplateColumns: '80px 3fr 2.5fr 160px 220px', gap: '15px', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, alignItems: 'start', background: theme.cardBg }}>
-                      
-                      {/* 1. Datum */}
-                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain, paddingTop: '4px' }}>
-                        {formatDatum(ausgang.datum)}
-                      </div>
+                  anzeigeAusgaenge.map((ausgang) => {
+                    const isExpanded = expandedVersandId === ausgang.id;
+                    return (
+                      <div key={ausgang.id} style={{ borderBottom: `1px solid ${theme.border}`, background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.cardBg }}>
+                        <div 
+                          onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
+                          style={{ display: 'grid', gridTemplateColumns: '80px 2.5fr 2.5fr 140px 220px 30px', gap: '15px', padding: '15px 20px', alignItems: 'start', cursor: 'pointer' }}
+                        >
+                          {/* 1. Datum */}
+                          <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain, paddingTop: '4px' }}>
+                            {formatDatum(ausgang.datum)}
+                          </div>
 
-                      {/* 2. Vorgang & Akte */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <strong style={{ color: theme.accent, fontSize: '13px' }}>[{ausgang.unser_zeichen || '---'}] {ausgang.aktenzeichen ? `| AZ: ${ausgang.aktenzeichen}` : ''}</strong>
-                        <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500' }}>{ausgang.thema || '-'}</span>
-                        <span style={{ fontSize: '12px', color: theme.textMuted, lineHeight: '1.4' }}>{ausgang.aktion || '-'}</span>
-                      </div>
+                          {/* 2. Vorgang & Akte */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <strong style={{ color: theme.accent, fontSize: '13px' }}>[{ausgang.unser_zeichen || '---'}]</strong>
+                            <span style={{ fontSize: '11px', color: theme.textMuted }}>AZ Gegner: {ausgang.aktenzeichen || '-'}</span>
+                            <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500' }}>{ausgang.thema || '-'}</span>
+                          </div>
 
-                      {/* 3. Gegner */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
-                        <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Icon name="user" size={10} /> {ausgang.gegner_ansprechpartner || 'Zentrale / Allgemein'}
-                        </span>
-                      </div>
+                          {/* 3. Gegner */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
+                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Icon name="user" size={10} /> {ausgang.gegner_ansprechpartner || 'Zentrale / Allgemein'}
+                            </span>
+                          </div>
 
-                      {/* 4. Versandart & Sendebericht */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                        <div style={{ background: theme.accent, color: '#000', padding: '6px 4px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
-                          {ausgang.kanal || 'Ausgang'}
+                          {/* 4. Versandart */}
+                          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '4px' }}>
+                            <div style={{ background: theme.accent, color: '#000', padding: '6px 4px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
+                              {ausgang.kanal || 'Ausgang'}
+                            </div>
+                          </div>
+
+                          {/* 5. Anhänge */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
+                              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', fontSize: '11px', color: theme.textMain, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', textDecoration: 'none', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
+                                <Icon name="file" size={10} style={{ flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extractFilename(url)}</span>
+                              </a>
+                            )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
+                          </div>
+
+                          {/* 6. Chevron */}
+                          <div style={{ color: theme.textMuted, textAlign: 'right', paddingTop: '4px' }}>
+                            <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                          </div>
                         </div>
-                        <button onClick={() => druckeSendebericht(ausgang)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 4px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          <Icon name="print" size={12} /> Sendebericht
-                        </button>
-                      </div>
 
-                      {/* 5. Anhänge */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
-                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', fontSize: '11px', color: theme.textMain, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', textDecoration: 'none', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)}>
-                            <Icon name="file" size={10} style={{ flexShrink: 0 }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extractFilename(url)}</span>
-                          </a>
-                        )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
+                        {/* EXPANDED CONTENT: Sendebericht & ABSPRUNG BUTTON */}
+                        {isExpanded && (
+                          <div style={{ padding: '0 20px 20px 20px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                              <div style={{ fontSize: '12px', color: theme.textMuted }}>Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen, oder öffne die gesamte Akte.</div>
+                              <div style={{ display: 'flex', gap: '10px' }}>
+                                <button onClick={() => druckeSendebericht(ausgang)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                  <Icon name="print" size={14} /> Sendebericht drucken
+                                </button>
+                                <button onClick={() => handleAktenAbsprung(ausgang.akte_id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                  <Icon name="folder" size={14} /> Ganze Akte öffnen
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
