@@ -52,6 +52,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
   const [showVersandHistorie, setShowVersandHistorie] = useState(false);
+  const [expandedVersandId, setExpandedVersandId] = useState(null); // Accordion State für die Versandhistorie
   const [zeigeErledigte, setZeigeErledigte] = useState(false); 
   
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
@@ -103,7 +104,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   }, [globalUrlText, setGlobalUrlText]);
 
-  // --- AUTOMATIK: UNSER ZEICHEN GENERIEREN ---
   const generatePrefix = (name) => {
     if (!name) return '';
     const n = name.toLowerCase();
@@ -884,57 +884,84 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               </h3>
               <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}>✕</button>
             </div>
+            
             <div style={{ overflowY: 'auto', padding: '20px' }}>
-              {alleAusgaenge.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben per E-Mail oder Fax versendet.</div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ background: theme.border, color: theme.textMain }}>
-                      <th style={{ padding: '10px' }}>Datum</th>
-                      <th style={{ padding: '10px' }}>Unser Zeichen / Akte</th>
-                      <th style={{ padding: '10px' }}>Gegner / Empfänger</th>
-                      <th style={{ padding: '10px' }}>Kanal & Vorgang</th>
-                      <th style={{ padding: '10px' }}>Anhänge</th>
-                      <th style={{ padding: '10px', textAlign: 'center' }}>Aktion</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alleAusgaenge.map((ausgang) => (
-                      <tr key={ausgang.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                        <td style={{ padding: '10px', whiteSpace: 'nowrap', fontWeight: 'bold' }}>{formatDatum(ausgang.datum)}</td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{ color: theme.accent, fontWeight: 'bold' }}>[{ausgang.unser_zeichen || '---'}]</span><br/>
-                          <small style={{ color: theme.textMuted }}>{ausgang.thema || '-'}</small>
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          <strong>{ausgang.gegner_name || '-'}</strong><br/>
-                          <small style={{ color: theme.textMuted }}>Mandant: {ausgang.unsere_firma || '-'}</small>
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{ display: 'inline-block', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
-                            {ausgang.kanal || 'Ausgang'}
-                          </span><br/>
-                          <span>{ausgang.aktion || '-'}</span>
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
-                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', color: theme.accent, textDecoration: 'none', marginRight: '6px', fontSize: '12px' }} title={extractFilename(url)}>
-                              <Icon name="file" size={12} /> {extractFilename(url).substring(0, 12)}...
-                            </a>
-                          )) : <span style={{ color: theme.textMuted }}>-</span>}
-                        </td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
-                          <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <Icon name="print" size={14} /> Sendebericht
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
+                {alleAusgaenge.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben per E-Mail oder Fax versendet.</div>
+                ) : (
+                  alleAusgaenge.map((ausgang) => {
+                    const isExpanded = expandedVersandId === ausgang.id;
+                    return (
+                      <div
+                        key={ausgang.id}
+                        style={{ background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.cardBg, borderRadius: '8px', border: `1px solid ${theme.border}`, padding: '12px 16px', cursor: 'pointer', transition: 'all 0.2s ease', margin: 0 }}
+                        onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
+                      >
+                        {/* SINGLE LINE DEFAULT */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
+                          <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+                            <strong style={{ color: theme.textMain, fontSize: '13px', minWidth: '80px' }}>{formatDatum(ausgang.datum)}</strong>
+                            <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '13px', minWidth: '130px' }}>[{ausgang.unser_zeichen || '---'}]</span>
+                            <strong style={{ color: theme.textMain, fontSize: '13px', minWidth: '200px' }}>{ausgang.gegner_name || '-'}</strong>
+                            <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
+                              {ausgang.kanal || 'Ausgang'}
+                            </span>
+                            {ausgang.dokument_url && <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="paperclip" size={12} /> {ausgang.dokument_url.split(',').length}</span>}
+                          </div>
+                          <div style={{ color: theme.textMuted }}>
+                            <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                          </div>
+                        </div>
+
+                        {/* EXPANDED CONTENT */}
+                        {isExpanded && (
+                          <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                              
+                              <div>
+                                <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Vorgang & Akte</strong>
+                                <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div><strong>Gegenstand:</strong> {ausgang.thema || '-'}</div>
+                                  <div><strong>Aktenzeichen:</strong> {ausgang.aktenzeichen || '-'}</div>
+                                  <div><strong>Aktion:</strong> {ausgang.aktion || '-'}</div>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Mandant / Absender</strong>
+                                <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Icon name="user" size={14} /> {ausgang.unsere_firma || '-'}
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Dateianhänge</strong>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
+                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px', fontSize: '11px', color: theme.textMain, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', textDecoration: 'none', width: 'fit-content' }} title={extractFilename(url)}>
+                                      <Icon name="file" size={12} /> {extractFilename(url).length > 25 ? extractFilename(url).substring(0, 22) + '...' : extractFilename(url)}
+                                    </a>
+                                  )) : <span style={{ fontSize: '13px', color: theme.textMuted }}>Keine Anhänge</span>}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                               <div style={{ fontSize: '12px', color: theme.textMuted }}>Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen.</div>
+                               <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                 <Icon name="print" size={14} /> Sendebericht drucken
+                               </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
+            
             <div style={{ padding: '15px 20px', borderTop: `1px solid ${theme.border}`, background: theme.inputBg, textAlign: 'right' }}>
               <button onClick={() => setShowVersandHistorie(false)} style={{ padding: '8px 16px', background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Schließen</button>
             </div>
