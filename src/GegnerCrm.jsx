@@ -19,8 +19,8 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
 
-  // Striktes Raster für die Kontakt-Liste (Name | Telefon | E-Mail | Action)
-  const contactGrid = "3.5fr 2fr 2.5fr 50px";
+  // Striktes Raster für Hauptzeile und Unterzeilen (mobil-abgesichert mit minmax)
+  const contactGrid = "minmax(240px, 3fr) minmax(180px, 2fr) minmax(220px, 2.5fr) 50px";
 
   const gefilterteGegner = gegnerListe.filter((g) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
@@ -58,7 +58,14 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
       await supabase.from('gegner').insert([payload]);
       showToast('Neue Behörde im CRM angelegt!', 'success');
     }
-    setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); ladeDaten(); setLaedt(false);
+    setEditGegnerId(null); 
+    setG_name(''); 
+    setG_adresse(''); 
+    setG_fax(''); 
+    setG_email(''); 
+    setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); 
+    ladeDaten(); 
+    setLaedt(false);
   };
 
   const loescheGegner = async (id) => {
@@ -120,7 +127,11 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
       </h2>
       <form onSubmit={speichereGegner} style={{ ...panelStyle, marginBottom: '20px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', textAlign: 'left' }}>
-          <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: 0, color: theme.gegnerAccent, display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="building" size={16} /> 1. Hauptdaten der Behörde / Gegners</h4></div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <h4 style={{ margin: 0, color: theme.gegnerAccent, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon name="building" size={16} /> 1. Hauptdaten der Behörde / Gegners
+            </h4>
+          </div>
           <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
           <div><label style={labelStyle}>Zentrale Postadresse</label><input value={g_adresse} onChange={e=>setG_adresse(e.target.value)} style={inputStyle}/></div>
           <div><label style={labelStyle}>Zentrale Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
@@ -128,7 +139,9 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
 
           <div style={{ gridColumn: '1 / -1', marginTop: '15px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-              <h4 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="users" size={16} /> 2. Abteilungen & Ansprechpartner</h4>
+              <h4 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="users" size={16} /> 2. Abteilungen & Ansprechpartner
+              </h4>
               <button type="button" onClick={addAnsprechpartnerRow} style={{ background: theme.gegnerAccent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
                 + Ansprechpartner / Abteilung hinzufügen
               </button>
@@ -169,10 +182,10 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
       </h3>
 
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
-        <div style={{ minWidth: '850px' }}>
+        <div style={{ minWidth: '780px' }}>
           
           {/* HEADER ROW */}
-          <div style={{ display: 'grid', gridTemplateColumns: contactGrid, gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: contactGrid, gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left', alignItems: 'center' }}>
             <div>Behörde / Kontakt</div>
             <div>Telefon / Fax</div>
             <div>E-Mail</div>
@@ -193,12 +206,19 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
             return (
               <div 
                 key={g.id} 
-                style={{ padding: '0', borderBottom: `1px solid ${theme.border}`, borderLeft: isActive ? `4px solid ${theme.gegnerAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : 'transparent', transition: 'all 0.2s ease', margin: 0, textAlign: 'left' }}
+                style={{ 
+                  borderBottom: `1px solid ${theme.border}`, 
+                  borderLeft: (isExpanded || isActive) ? `4px solid ${theme.gegnerAccent}` : `4px solid transparent`, 
+                  background: theme.cardBg, 
+                  transition: 'all 0.2s ease', 
+                  margin: 0, 
+                  textAlign: 'left' 
+                }}
               >
-                {/* SINGLE LINE DEFAULT (CLICKABLE HEADER) */}
+                {/* HAUPTZEILE */}
                 <div 
                   onClick={() => { ladeInFormularGegner(g); setExpandedId(isExpanded ? null : g.id); }}
-                  style={{ display: 'grid', gridTemplateColumns: contactGrid, gap: '15px', alignItems: 'center', width: '100%', padding: '15px 20px', cursor: 'pointer' }}
+                  style={{ display: 'grid', gridTemplateColumns: contactGrid, gap: '15px', alignItems: 'center', width: '100%', padding: '15px 20px', cursor: 'pointer', boxSizing: 'border-box' }}
                 >
                   <strong style={{ color: theme.gegnerAccent, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</strong>
                   <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -207,54 +227,65 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
                   <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <Icon name="mail" size={14} /> {g.email || g.email_zentrale || '-'}
                   </span>
-                  <div style={{ color: isActive ? theme.gegnerAccent : theme.textMuted, textAlign: 'center' }}>
+                  <div style={{ color: (isExpanded || isActive) ? theme.gegnerAccent : theme.textMuted, textAlign: 'center' }}>
                     <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                   </div>
                 </div>
 
-                {/* EXPANDED CONTENT (STRICT GRID LIST) */}
+                {/* AUFGEKLAPPTE KONTAKTLISTE (EXAKTE VERTIKALE FLUCHT) */}
                 {isExpanded && (
-                  <div style={{ padding: '0 20px 20px 20px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden' }}>
-                      
-                      {/* Adresse als dezente Kopfzeile im Kasten */}
-                      {g.adresse && (
-                        <div style={{ padding: '10px 15px', borderBottom: `1px solid ${theme.border}`, fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.1)' }}>
-                          <Icon name="map" size={12} /> {g.adresse}
+                  <div style={{ cursor: 'default', background: 'transparent' }} onClick={(e) => e.stopPropagation()}>
+                    
+                    {/* Adresse als dezente Infozeile */}
+                    {g.adresse && (
+                      <div style={{ padding: '8px 20px', fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', borderTop: `1px dashed ${theme.border}`, background: 'rgba(0,0,0,0.05)' }}>
+                        <Icon name="map" size={12} /> {g.adresse}
+                      </div>
+                    )}
+
+                    {/* Zeilenweise Kontakte untereinander im exakt gleichen Grid */}
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {ansList.length > 0 ? (
+                        ansList.map((ans, idx) => (
+                          <div 
+                            key={idx} 
+                            style={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: contactGrid, 
+                              gap: '15px', 
+                              alignItems: 'center', 
+                              padding: '12px 20px', 
+                              borderTop: `1px solid ${theme.border}`,
+                              boxSizing: 'border-box',
+                              background: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
+                            }}
+                          >
+                            <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {formatContactName(ans.abteilung, ans.name)}
+                            </span>
+                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <Icon name="phone" size={12} /> {ans.telefon || '-'}
+                            </span>
+                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <Icon name="mail" size={12} /> {ans.email || '-'}
+                            </span>
+                            <div></div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '12px 20px', fontSize: '12px', color: theme.textMuted, borderTop: `1px solid ${theme.border}` }}>
+                          Keine weiteren Ansprechpartner hinterlegt.
                         </div>
                       )}
-
-                      {/* Die Kontakte untereinander im exakten Raster */}
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {ansList.length > 0 ? (
-                          ansList.map((ans, idx) => (
-                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: contactGrid, gap: '15px', alignItems: 'center', padding: '12px 15px', borderBottom: idx < ansList.length - 1 ? `1px solid ${theme.border}` : 'none' }}>
-                              <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500' }}>
-                                {formatContactName(ans.abteilung, ans.name)}
-                              </span>
-                              <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Icon name="phone" size={12} /> {ans.telefon || '-'}
-                              </span>
-                              <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Icon name="mail" size={12} /> {ans.email || '-'}
-                              </span>
-                              <div></div> {/* Leere Spalte für das Raster (wo oben der Pfeil ist) */}
-                            </div>
-                          ))
-                        ) : (
-                          <div style={{ padding: '15px', fontSize: '12px', color: theme.textMuted, textAlign: 'center' }}>
-                            Keine spezifischen Ansprechpartner hinterlegt.
-                          </div>
-                        )}
-                      </div>
                     </div>
 
-                    {/* Löschen Button (Unten rechts im Accordion) */}
-                    <div style={{ marginTop: '15px', textAlign: 'right' }}>
-                      <button onClick={() => loescheGegner(g.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    {/* Löschen-Button */}
+                    <div style={{ padding: '12px 20px 16px 20px', textAlign: 'right', borderTop: `1px dashed ${theme.border}` }}>
+                      <button onClick={() => loescheGegner(g.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <Icon name="trash" size={14} /> Behörde aus CRM löschen
                       </button>
                     </div>
+
                   </div>
                 )}
               </div>
