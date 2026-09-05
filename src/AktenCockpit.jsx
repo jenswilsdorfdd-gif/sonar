@@ -762,7 +762,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if(g) {
       setGegnerName(g.name || ''); setGegnerFax(formatRufnummer(g.fax || ''));
       let ansprechpartnerObj = null;
-      try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed) && parsed[ansIdx]) { ansprechpartnerObj = parsed[ansIdx]; } } catch(e){}
+      try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
       if (ansprechpartnerObj) { setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || ''); setFaxZhd(ansprechpartnerObj.name || g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(ansprechpartnerObj.telefon || g.telefon || '')); setGegnerEmail(ansprechpartnerObj.email || g.email || g.email_zentrale || ''); } else { setGegnerAnsprechpartner(g.ansprechpartner || ''); setFaxZhd(g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(g.telefon || '')); setGegnerEmail(g.email || g.email_zentrale || ''); }
     }
   };
@@ -895,7 +895,15 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       
       {/* RESPONSIVE CSS RULES FÜR VERSANDHISTORIE, AKTEN-ÜBERSICHT & HISTORIEN-VORGÄNGE */}
       <style>{`
-        /* VERSANDHISTORIE */
+        /* HELPER KLASSEN FÜR STRIKTE TRENNUNG */
+        .desktop-only {
+          display: initial;
+        }
+        .mobile-only {
+          display: none !important;
+        }
+
+        /* VERSANDHISTORIE DESKTOP */
         .vh-desktop-header {
           display: grid;
           grid-template-columns: 80px 2.5fr 2.5fr 190px 190px 30px;
@@ -921,7 +929,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           align-items: center;
         }
 
-        /* AKTEN-ÜBERSICHT */
+        /* AKTEN-ÜBERSICHT DESKTOP */
         .akten-desktop-header {
           display: flex;
           align-items: center;
@@ -974,6 +982,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
         /* MOBILER CARD-MODUS (<= 768px) */
         @media (max-width: 768px) {
+          .desktop-only {
+            display: none !important;
+          }
+          .mobile-only {
+            display: flex !important;
+          }
+
           /* VERSANDHISTORIE MOBIL */
           .vh-desktop-header {
             display: none !important;
@@ -983,12 +998,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             flex-direction: column !important;
             gap: 12px !important;
             padding: 15px !important;
-          }
-          .vh-col-top {
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            width: 100% !important;
           }
           .vh-col-full {
             width: 100% !important;
@@ -1002,7 +1011,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             width: 100% !important;
           }
 
-          /* AKTEN-ÜBERSICHT MOBIL CARD-STACKING */
+          /* AKTEN-ÜBERSICHT MOBIL */
           .akten-desktop-header {
             display: none !important;
           }
@@ -1042,7 +1051,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             min-height: 40px !important;
           }
 
-          /* HISTORIEN-VORGÄNGE MOBIL CARD-STACKING */
+          /* HISTORIEN-VORGÄNGE MOBIL */
           .hist-desktop-table {
             min-width: 100% !important;
             display: block !important;
@@ -1142,7 +1151,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           className="vh-row-grid"
                           onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
                         >
-                          <div className="vh-col-top">
+                          {/* MOBILER KOPF (DATUM, ZEICHEN & PFEIL) */}
+                          <div className="mobile-only" style={{ justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                             <span style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain }}>
                               {formatDatum(ausgang.datum)}
                             </span>
@@ -1158,7 +1168,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </span>
                           </div>
 
+                          {/* SPALTE 1 DESKTOP: REINES DATUM */}
+                          <div className="desktop-only" style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain, paddingTop: '6px' }}>
+                            {formatDatum(ausgang.datum)}
+                          </div>
+
+                          {/* SPALTE 2: VORGANG & AKTE (DESKTOP) / VORGANG DETAILS (MOBIL) */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <strong 
+                              className="desktop-only"
+                              onClick={(e) => { e.stopPropagation(); springeZuAkteAusgang(ausgang.akte_id, ausgang.id); }} 
+                              style={{ color: theme.accent, fontSize: '13px', cursor: 'pointer', width: 'fit-content' }}
+                              title="Klicken, um diesen Vorgang direkt in der Akte anzuzeigen"
+                            >
+                              [{ausgang.unser_zeichen || '---'}]
+                            </strong>
                             {ausgang.aktenzeichen && (
                               <span style={{ fontSize: '12px', color: theme.textMain, fontWeight: 'bold' }}>
                                 {ausgang.aktenzeichen}
@@ -1169,6 +1193,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </span>
                           </div>
 
+                          {/* SPALTE 3: GEGNER & KONTAKT */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
                             <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1181,6 +1206,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             )}
                           </div>
 
+                          {/* SPALTE 4: VERSANDART */}
                           <div className="vh-col-full">
                             <div style={{ background: 'transparent', border: `1px solid ${theme.accent}`, color: theme.accent, padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
                               <Icon name={ausgang.kanal?.toLowerCase().includes('mail') ? 'mail' : 'phone'} size={12} />
@@ -1188,6 +1214,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </div>
                           </div>
 
+                          {/* SPALTE 5: ANHÄNGE */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
                               <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', fontSize: '11px', color: theme.accent, background: 'transparent', border: `1px solid ${theme.accent}`, borderRadius: '4px', textDecoration: 'none', width: '100%', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
@@ -1196,10 +1223,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                               </a>
                             )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
                           </div>
+
+                          {/* SPALTE 6: DESKTOP CHEVRON */}
+                          <div className="desktop-only" style={{ color: theme.textMuted, textAlign: 'right', paddingTop: '6px' }}>
+                            <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                          </div>
                         </div>
 
+                        {/* EXPANDED CONTENT */}
                         {isExpanded && (
-                          <div style={{ padding: '0 15px 15px 15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                          <div style={{ padding: '0 20px 15px 20px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                             <div className="vh-expanded-grid" style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '12px' }}>
                               <div style={{ gridColumn: '1 / 4', fontSize: '12px', color: theme.textMuted }}>
                                 Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen, oder springe direkt zum Vorgang in der Akte.
@@ -1214,6 +1247,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                   <Icon name="folder" size={13} /> Vorgang in Akte öffnen
                                 </button>
                               </div>
+                              <div className="desktop-only"></div>
                             </div>
                           </div>
                         )}
@@ -1563,29 +1597,36 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               
               <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)}>
                 
-                {/* MOBILER KOPF */}
-                <div className="akten-mobile-top">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '24px', color: istFokussiert ? theme.accent : theme.textMuted }}>
-                      <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                {/* 1. DESKTOP CHEVRON */}
+                <div className="desktop-only" style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}>
+                  <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                </div>
+
+                {/* 2. MOBILER KOPF */}
+                <div className="mobile-only" style={{ width: '100%' }}>
+                  <div className="akten-mobile-top">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '24px', color: istFokussiert ? theme.accent : theme.textMuted }}>
+                        <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                      </div>
+                      <strong style={{ color: theme.accent, fontSize: '14px' }}>
+                        [{akte.unser_zeichen || '---'}]
+                      </strong>
                     </div>
-                    <strong style={{ color: theme.accent, fontSize: '14px' }}>
-                      [{akte.unser_zeichen || '---'}]
-                    </strong>
-                  </div>
-                  <div style={{ width: '85px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                    <select 
-                      value={akte.status || 'Offen'} 
-                      onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                      style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : '#000', border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
-                    >
-                      <option value="Offen">Offen</option>
-                      <option value="Erledigt">Erledigt</option>
-                    </select>
+                    <div style={{ width: '85px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      <select 
+                        value={akte.status || 'Offen'} 
+                        onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
+                        style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : '#000', border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
+                      >
+                        <option value="Offen">Offen</option>
+                        <option value="Erledigt">Erledigt</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
                 
-                {/* FELDER CONTAINER */}
+                {/* 3. FELDER CONTAINER */}
                 <div style={{ flex: '1 1 100%', width: '100%', boxSizing: 'border-box' }}>
                   <div className="akten-desktop-grid">
                     
@@ -1647,9 +1688,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   </div>
                 </div>
 
+                {/* 4. DESKTOP STATUS BUTTON (RECHTE SPALTE) */}
+                <div className="desktop-only" style={{ width: '80px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                  <select 
+                    value={akte.status || 'Offen'} 
+                    onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
+                    style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : '#000', border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
+                  >
+                    <option value="Offen">Offen</option>
+                    <option value="Erledigt">Erledigt</option>
+                  </select>
+                </div>
+
               </div>
 
-              {/* AUFGEKLAPPTER BEREICH (AKTIONSMENÜ & HISTORIEN-VORGÄNGE) */}
+              {/* AUFGEKLAPPTER BEREICH */}
               {isExpanded && (
                 <div style={{ background: theme.inputBg, padding: '15px', borderTop: `1px solid ${theme.border}`, width: '100%', boxSizing: 'border-box' }}>
                   
@@ -1697,8 +1750,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           return (
                             <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
                               
-                              {/* MOBILER KOPF (TYP, DATUM & LÖSCHEN) / DESKTOP: ZELLEN 1 & 2 */}
-                              <td>
+                              {/* MOBILER KOPF (NUR MOBIL) */}
+                              <td className="mobile-only">
                                 <div className="hist-mobile-header-row">
                                   <select 
                                     defaultValue={hist.typ || ''} 
@@ -1721,8 +1774,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                 </div>
                               </td>
 
-                              {/* DESKTOP DATUM (WIRD MOBIL IN KOPFZEILE GERENDERT) */}
-                              <td style={{ padding: '8px 10px' }} className="vh-desktop-header">
+                              {/* DESKTOP SPALTE 1: TYP */}
+                              <td style={{ padding: '8px 10px' }} className="desktop-only">
+                                 <select 
+                                   defaultValue={hist.typ || ''} 
+                                   onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
+                                   style={{...inlineInputStyle, fontWeight: 'bold'}}
+                                 >
+                                    <option value="Eingang">Eingang</option>
+                                    <option value="Ausgang">Ausgang</option>
+                                    <option value="Intern">Intern</option>
+                                 </select>
+                              </td>
+
+                              {/* DESKTOP SPALTE 2: DATUM */}
+                              <td style={{ padding: '8px 10px' }} className="desktop-only">
                                 <input 
                                   type="date" 
                                   defaultValue={hist.datum || ''} 
@@ -1786,8 +1852,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                 </div>
                               </td>
 
-                              {/* DESKTOP LÖSCHEN */}
-                              <td style={{ padding: '8px 10px', textAlign: 'center' }} className="vh-desktop-header">
+                              {/* DESKTOP SPALTE 6: LÖSCHEN */}
+                              <td style={{ padding: '8px 10px', textAlign: 'center' }} className="desktop-only">
                                 <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button>
                               </td>
 
