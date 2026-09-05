@@ -12,11 +12,12 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
   const [g_email, setG_email] = useState('');
   const [g_ansprechpartnerListe, setG_ansprechpartnerListe] = useState([{ abteilung: '', name: '', telefon: '', email: '' }]);
 
+  const isDarkMode = theme.bg === '#020617';
+
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
 
-  // --- NEU: GLOBALE FILTER-LOGIK ---
   const gefilterteGegner = gegnerListe.filter((g) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
     const s = suchbegriff.toLowerCase();
@@ -106,7 +107,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
       </h2>
       <form onSubmit={speichereGegner} style={{ ...panelStyle, marginBottom: '20px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', textAlign: 'left' }}>
-          <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: 0, color: theme.gegnerAccent }}>1. Hauptdaten der Behörde / Gegners</h4></div>
+          <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: 0, color: theme.gegnerAccent, display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="building" size={16} /> 1. Hauptdaten der Behörde / Gegners</h4></div>
           <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
           <div><label style={labelStyle}>Zentrale Postadresse</label><input value={g_adresse} onChange={e=>setG_adresse(e.target.value)} style={inputStyle}/></div>
           <div><label style={labelStyle}>Zentrale Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
@@ -114,7 +115,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
 
           <div style={{ gridColumn: '1 / -1', marginTop: '15px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-              <h4 style={{ margin: 0, color: theme.textMain }}>2. Abteilungen & Ansprechpartner</h4>
+              <h4 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="user" size={16} /> 2. Abteilungen & Ansprechpartner</h4>
               <button type="button" onClick={addAnsprechpartnerRow} style={{ background: theme.gegnerAccent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
                 + Ansprechpartner / Abteilung hinzufügen
               </button>
@@ -139,54 +140,77 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
-          <button type="submit" disabled={laedt} style={{ padding: '12px', background: theme.gegnerAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: '1 1 auto' }}>
-            {laedt ? 'Speichere...' : (editGegnerId ? '💾 Änderungen der Behörde speichern' : '+ Behörde / Gegner im CRM speichern')}
+          <button type="submit" disabled={laedt} style={{ padding: '14px', background: theme.gegnerAccent, color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: '1 1 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {laedt ? 'Speichere...' : (editGegnerId ? <><Icon name="check" size={16} /> Änderungen der Behörde speichern</> : '+ Behörde / Gegner im CRM speichern')}
           </button>
           {editGegnerId && (
-            <button type="button" onClick={() => { setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); }} style={{ padding: '12px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: '1 1 auto' }}>
+            <button type="button" onClick={() => { setEditGegnerId(null); setG_name(''); setG_adresse(''); setG_fax(''); setG_email(''); setG_ansprechpartnerListe([{ abteilung: '', name: '', telefon: '', email: '' }]); }} style={{ padding: '14px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: '1 1 auto' }}>
               Abbrechen
             </button>
           )}
         </div>
       </form>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '15px', textAlign: 'left' }}>
-        {gefilterteGegner.map(g => {
-          let ansList = [];
-          try {
-            const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
-            if (Array.isArray(parsed)) ansList = parsed;
-          } catch(e){}
+      <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <Icon name="shield" size={20} /> Gespeicherte Behörden & Gegner
+      </h3>
 
-          return (
-            <div key={g.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative' }} onClick={() => ladeInFormularGegner(g)}>
-              <button onClick={(e) => { e.stopPropagation(); loescheGegner(g.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Behörde löschen">
-                <Icon name="trash" size={18} />
-              </button>
+      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
+        <div style={{ minWidth: '850px' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 2fr 3.5fr 50px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
+            <div>Behörde / Gegner</div>
+            <div>Zentrale Kontaktdaten</div>
+            <div>Abteilungen & Ansprechpartner</div>
+            <div style={{ textAlign: 'center' }}>Aktion</div>
+          </div>
 
-              <h3 style={{ margin: '0 0 5px 0', color: theme.gegnerAccent, paddingRight: '30px' }}>{g.name}</h3>
-              <div style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '10px' }}>
-                📍 {g.adresse || 'Keine Adresse'}<br/>
-                📟 Fax: {g.fax || '-'} | ✉️ Mail: {g.email || g.email_zentrale || '-'}
+          {gefilterteGegner.map(g => {
+            let ansList = [];
+            try {
+              const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
+              if (Array.isArray(parsed)) ansList = parsed;
+            } catch(e){}
+
+            return (
+              <div key={g.id} style={{ display: 'grid', gridTemplateColumns: '2.5fr 2fr 3.5fr 50px', gap: '15px', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, cursor: 'pointer', background: editGegnerId === g.id ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent', borderLeft: editGegnerId === g.id ? `4px solid ${theme.gegnerAccent}` : '4px solid transparent', transition: 'all 0.2s ease', textAlign: 'left', alignItems: 'start' }} onClick={() => ladeInFormularGegner(g)}>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <strong style={{ color: theme.gegnerAccent, fontSize: '15px' }}>{g.name}</strong>
+                  <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{g.adresse || '-'}</span></span>
+                </div>
+
+                <div style={{ fontSize: '12px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="phone" size={12}/> Fax: {g.fax || '-'}</span>
+                  <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="mail" size={12}/> {g.email || g.email_zentrale || '-'}</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {ansList.length > 0 ? (
+                    ansList.map((ans, idx) => (
+                      <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '11px' }}>
+                        <div style={{ color: theme.gegnerAccent, fontWeight: 'bold', marginBottom: '4px' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
+                        <div style={{ color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {ans.name || '-'}</div>
+                        <div style={{ color: theme.textMuted, display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="phone" size={10}/> {ans.telefon || '-'}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="mail" size={10}/> {ans.email || '-'}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: '11px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
+                  )}
+                </div>
+
+                <div style={{ textAlign: 'center' }}>
+                   <button onClick={(e) => { e.stopPropagation(); loescheGegner(g.id); }} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Behörde löschen">
+                     <Icon name="trash" size={16} />
+                   </button>
+                </div>
               </div>
-
-              <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <strong style={{ color: theme.textMuted }}>Hinterlegte Abteilungen ({ansList.length}):</strong>
-                {ansList.length > 0 ? (
-                  ansList.map((ans, idx) => (
-                    <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-                      <div style={{ color: theme.gegnerAccent, fontWeight: 'bold' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
-                      <div style={{ color: theme.textMain }}>👤 {ans.name || '-'}</div>
-                      <div style={{ color: theme.textMuted, fontSize: '11px' }}>📞 {ans.telefon || '-'} | ✉️ {ans.email || '-'}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ color: theme.textMain }}>👤 {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
