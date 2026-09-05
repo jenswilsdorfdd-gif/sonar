@@ -181,7 +181,8 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
         <Icon name="shield" size={20} /> Gespeicherte Behörden & Gegner
       </h3>
 
-      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
+      {/* MOBILER HORIZONTALER SCROLL-CONTAINER (BILD 3 FIX) */}
+      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: theme.cardBg }}>
         <div style={{ minWidth: '780px' }}>
           
           {/* HEADER ROW */}
@@ -232,7 +233,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
                   </div>
                 </div>
 
-                {/* AUFGEKLAPPTE KONTAKTLISTE (EXAKTE VERTIKALE FLUCHT) */}
+                {/* AUFGEKLAPPTE KONTAKTLISTE */}
                 {isExpanded && (
                   <div style={{ cursor: 'default', background: 'transparent' }} onClick={(e) => e.stopPropagation()}>
                     
