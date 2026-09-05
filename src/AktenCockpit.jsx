@@ -69,9 +69,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const h4StyleAkten = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
-  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
+  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
   const quickBtnStyle = { background: theme.border, color: theme.textMain, border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' };
-  const inlineInputStyle = { background: 'transparent', border: '1px dashed transparent', color: theme.textMain, width: '100%', fontSize: '13px', padding: '4px', outline: 'none', cursor: 'text', borderBottom: `1px dashed ${theme.border}` };
+  const inlineInputStyle = { background: 'transparent', border: '1px dashed transparent', color: theme.textMain, width: '100%', fontSize: '13px', padding: '4px', outline: 'none', cursor: 'text', borderBottom: `1px dashed ${theme.border}`, boxSizing: 'border-box' };
 
   const isDarkMode = theme.bg === '#020617';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
@@ -893,8 +893,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* RESPONSIVE CSS RULES FÜR VERSANDHISTORIE */}
+      {/* RESPONSIVE CSS RULES FÜR VERSANDHISTORIE & AKTEN-ÜBERSICHT */}
       <style>{`
+        /* VERSANDHISTORIE */
         .vh-desktop-header {
           display: grid;
           grid-template-columns: 80px 2.5fr 2.5fr 190px 190px 30px;
@@ -920,7 +921,43 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           align-items: center;
         }
 
+        /* AKTEN-ÜBERSICHT */
+        .akten-desktop-header {
+          display: flex;
+          align-items: center;
+          padding: 15px 20px;
+          font-weight: bold;
+          font-size: 12px;
+          text-transform: uppercase;
+        }
+        .akten-desktop-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 2fr 2fr 1.5fr 1.5fr;
+          gap: 15px;
+          align-items: center;
+        }
+        .akten-row-wrapper {
+          display: flex;
+          align-items: center;
+          padding: 15px 20px;
+          cursor: pointer;
+          flex-wrap: nowrap;
+          gap: 10px;
+        }
+        .akten-actions-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 18px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        /* MOBILER CARD-MODUS (<= 768px) */
         @media (max-width: 768px) {
+          /* VERSANDHISTORIE MOBIL */
           .vh-desktop-header {
             display: none !important;
           }
@@ -939,12 +976,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           .vh-col-full {
             width: 100% !important;
           }
-          .vh-actions-grid {
-            display: grid !important;
-            grid-template-columns: 1fr !important;
-            gap: 8px !important;
-            width: 100% !important;
-          }
           .vh-expanded-grid {
             display: flex !important;
             flex-direction: column !important;
@@ -952,6 +983,46 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           }
           .vh-expanded-grid > div {
             width: 100% !important;
+          }
+
+          /* AKTEN-ÜBERSICHT MOBIL CARD-STACKING */
+          .akten-desktop-header {
+            display: none !important;
+          }
+          .akten-row-wrapper {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 15px !important;
+            gap: 10px !important;
+          }
+          .akten-mobile-top {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            width: 100% !important;
+          }
+          .akten-desktop-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+            width: 100% !important;
+          }
+          .akten-field-box {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 2px !important;
+            width: 100% !important;
+          }
+          .akten-actions-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .akten-actions-bar button {
+            width: 100% !important;
+            justify-content: center !important;
+            min-height: 40px !important;
           }
         }
       `}</style>
@@ -987,7 +1058,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', padding: '4px 8px' }}>✕</button>
             </div>
             
-            {/* INHALT CONTAINER - RESPONSIV & OHNE OVERFLOW-BREAK */}
             <div style={{ overflowY: 'auto', padding: '15px', width: '100%', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', width: '100%' }}>
                 
@@ -1017,7 +1087,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           className="vh-row-grid"
                           onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
                         >
-                          {/* 1. Kopfzeile Mobil: Datum & Aktenzeichen & Chevron */}
                           <div className="vh-col-top">
                             <span style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain }}>
                               {formatDatum(ausgang.datum)}
@@ -1034,7 +1103,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </span>
                           </div>
 
-                          {/* 2. Vorgang Details */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             {ausgang.aktenzeichen && (
                               <span style={{ fontSize: '12px', color: theme.textMain, fontWeight: 'bold' }}>
@@ -1046,7 +1114,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </span>
                           </div>
 
-                          {/* 3. Gegner & Kontakt */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
                             <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1059,7 +1126,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             )}
                           </div>
 
-                          {/* 4. Versandart */}
                           <div className="vh-col-full">
                             <div style={{ background: 'transparent', border: `1px solid ${theme.accent}`, color: theme.accent, padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
                               <Icon name={ausgang.kanal?.toLowerCase().includes('mail') ? 'mail' : 'phone'} size={12} />
@@ -1067,7 +1133,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </div>
                           </div>
 
-                          {/* 5. Anhänge */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
                               <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', fontSize: '11px', color: theme.accent, background: 'transparent', border: `1px solid ${theme.accent}`, borderRadius: '4px', textDecoration: 'none', width: '100%', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
@@ -1076,12 +1141,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                               </a>
                             )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
                           </div>
-
-                          {/* 6. Desktop Chevron Platzhalter */}
-                          <div className="vh-desktop-header" style={{ display: 'none' }}></div>
                         </div>
 
-                        {/* EXPANDED CONTENT */}
                         {isExpanded && (
                           <div style={{ padding: '0 15px 15px 15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                             <div className="vh-expanded-grid" style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '12px' }}>
@@ -1419,220 +1480,253 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </button>
       </div>
 
-      {/* HORIZONTALER SCROLL-CONTAINER FÜR AKTEN-ÜBERSICHT */}
-      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', WebkitOverflowScrolling: 'touch', textAlign: 'left', background: theme.cardBg }}>
-        <div style={{ minWidth: '820px' }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase' }}>
-            <div style={{ width: '30px' }}></div>
-            <div style={{ flex: '1 1 100%' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 2fr 1.5fr 1.5fr', gap: '15px', alignItems: 'center' }}>
-                <div>Unser Zeichen</div>
-                <div>Gegner</div>
-                <div>Gegenstand</div>
-                <div>Ansprechpartner</div>
-                <div>Aktenzeichen</div>
-              </div>
+      {/* AKTEN-ÜBERSICHT WRAPPER (MOBIL CARD-STACKING, KEIN OVERFLOW-BREAK) */}
+      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
+        
+        {/* DESKTOP HEADER (WIRD MOBIL VIA CSS AUSGEBLENDET) */}
+        <div className="akten-desktop-header" style={{ background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted }}>
+          <div style={{ width: '30px' }}></div>
+          <div style={{ flex: '1 1 100%' }}>
+            <div className="akten-desktop-grid">
+              <div>Unser Zeichen</div>
+              <div>Gegner</div>
+              <div>Gegenstand</div>
+              <div>Ansprechpartner</div>
+              <div>Aktenzeichen</div>
             </div>
-            <div style={{ width: '80px', textAlign: 'right' }}>Status</div>
           </div>
+          <div style={{ width: '80px', textAlign: 'right' }}>Status</div>
+        </div>
 
-          {gefilterteAkten.map((akte) => {
-            const isExpanded = aufgeklappteAkten.includes(akte.id);
-            const istFokussiert = (fokussierteAkteId === akte.id);
+        {/* AKTEN EINTRÄGE */}
+        {gefilterteAkten.map((akte) => {
+          const isExpanded = aufgeklappteAkten.includes(akte.id);
+          const istFokussiert = (fokussierteAkteId === akte.id);
 
-            return (
-              <div id={`akte-karte-${akte.id}`} key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istFokussiert ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent', borderLeft: istFokussiert ? `6px solid ${theme.accent}` : '6px solid transparent', transition: 'all 0.3s ease' }}>
-                <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', flexWrap: 'nowrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
-                  <div style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
-                  
-                  <div style={{ flex: '1 1 100%' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 2fr 1.5fr 1.5fr', gap: '15px', alignItems: 'center' }}>
-                      <div>
-                        <input 
-                          type="text" 
-                          defaultValue={akte.unser_zeichen || ''} 
-                          onBlur={(e) => { if (e.target.value !== (akte.unser_zeichen || '')) handleAkteStammdatenEdit(akte.id, 'unser_zeichen', e.target.value); }} 
-                          onClick={(e) => e.stopPropagation()} 
-                          placeholder="Unser Zeichen" 
-                          style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.accent, width: '100%', fontSize: '14px', fontWeight: 'bold', padding: '2px', outline: 'none', cursor: 'text' }} 
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="text" 
-                          defaultValue={akte.gegner_name || ''} 
-                          onBlur={(e) => { if (e.target.value !== (akte.gegner_name || '')) handleAkteStammdatenEdit(akte.id, 'gegner_name', e.target.value); }} 
-                          onClick={(e) => e.stopPropagation()} 
-                          placeholder="Gegner" 
-                          style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMain, width: '100%', fontSize: '15px', fontWeight: 'bold', padding: '2px', outline: 'none', cursor: 'text' }} 
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="text" 
-                          defaultValue={akte.thema || ''} 
-                          onBlur={(e) => { if (e.target.value !== (akte.thema || '')) handleAkteStammdatenEdit(akte.id, 'thema', e.target.value); }} 
-                          onClick={(e) => e.stopPropagation()} 
-                          placeholder="Gegenstand" 
-                          style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMain, width: '100%', fontSize: '14px', padding: '2px', outline: 'none', cursor: 'text' }} 
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="text" 
-                          defaultValue={akte.gegner_ansprechpartner || ''} 
-                          onBlur={(e) => { if (e.target.value !== (akte.gegner_ansprechpartner || '')) handleAkteStammdatenEdit(akte.id, 'gegner_ansprechpartner', e.target.value); }} 
-                          onClick={(e) => e.stopPropagation()} 
-                          placeholder="Ansprechpartner" 
-                          style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMuted, width: '100%', fontSize: '13px', padding: '2px', outline: 'none', cursor: 'text' }} 
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="text" 
-                          defaultValue={akte.aktenzeichen || ''} 
-                          onBlur={(e) => { if (e.target.value !== (akte.aktenzeichen || '')) handleAkteStammdatenEdit(akte.id, 'aktenzeichen', e.target.value); }} 
-                          onClick={(e) => e.stopPropagation()} 
-                          placeholder="Aktenzeichen" 
-                          style={{ background: 'transparent', border: '1px dashed transparent', borderBottom: `1px dashed ${theme.border}`, color: theme.textMuted, width: '100%', fontSize: '13px', padding: '2px', outline: 'none', cursor: 'text' }} 
-                        />
-                      </div>
+          return (
+            <div id={`akte-karte-${akte.id}`} key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istFokussiert ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent', borderLeft: istFokussiert ? `6px solid ${theme.accent}` : '6px solid transparent', transition: 'all 0.3s ease', width: '100%', boxSizing: 'border-box' }}>
+              
+              <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)}>
+                
+                {/* MOBILER KOPF (PFEIL, ZEICHEN & STATUS-DROPDOWN) */}
+                <div className="akten-mobile-top">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', color: istFokussiert ? theme.accent : theme.textMuted }}>
+                      <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                     </div>
+                    <strong style={{ color: theme.accent, fontSize: '14px' }}>
+                      [{akte.unser_zeichen || '---'}]
+                    </strong>
                   </div>
-
-                  <div style={{ width: '80px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ width: '85px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                     <select 
                       value={akte.status || 'Offen'} 
                       onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                      style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : '#000', border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
+                      style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : '#000', border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
                     >
                       <option value="Offen">Offen</option>
                       <option value="Erledigt">Erledigt</option>
                     </select>
                   </div>
                 </div>
-
-                {isExpanded && (
-                  <div style={{ background: theme.inputBg, padding: '20px', borderTop: `1px solid ${theme.border}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.cardBg, padding: '12px 18px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '10px' }}>
-                      <div style={{ fontSize: '13px', color: theme.textMain }}><strong>Aktions-Menü (Zusammenführen & Löschen)</strong></div>
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
-                        <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
-                        
-                        {mergeSourceId === akte.id ? (
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', minWidth: '220px', maxWidth: '450px' }}>
-                              <option value="">-- Ziel-Akte wählen --</option>
-                              {sortedAktenForDropdown.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>))}
-                            </select>
-                            <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge in Ziel-Akte bestätigen</button>
-                            <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setMergeSourceId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px dashed ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="link" size={14} /> Akte in Sammelakte verschieben (Merge)</button>
-                        )}
-                      </div>
+                
+                {/* FELDER CONTAINER (DESKTOP: GRID / MOBIL: STACK) */}
+                <div style={{ flex: '1 1 100%', width: '100%', boxSizing: 'border-box' }}>
+                  <div className="akten-desktop-grid">
+                    
+                    {/* 1. Unser Zeichen (Desktop Input / Mobil Input) */}
+                    <div className="akten-field-box">
+                      <input 
+                        type="text" 
+                        defaultValue={akte.unser_zeichen || ''} 
+                        onBlur={(e) => { if (e.target.value !== (akte.unser_zeichen || '')) handleAkteStammdatenEdit(akte.id, 'unser_zeichen', e.target.value); }} 
+                        onClick={(e) => e.stopPropagation()} 
+                        placeholder="Unser Zeichen" 
+                        style={{ ...inlineInputStyle, color: theme.accent, fontSize: '14px', fontWeight: 'bold', padding: '2px' }} 
+                      />
                     </div>
 
-                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', borderRadius: '8px' }}>
-                      <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg, overflow: 'hidden' }}>
-                        <thead>
-                          <tr style={{ background: theme.border, color: theme.textMain }}>
-                            <th style={{ padding: '10px', textAlign: 'left', width: '120px' }}>Typ</th>
-                            <th style={{ padding: '10px', textAlign: 'left', width: '140px' }}>Datum</th>
-                            <th style={{ padding: '10px', textAlign: 'left', width: '250px' }}>Aktion</th>
-                            <th style={{ padding: '10px', textAlign: 'left', width: '160px' }}>Frist / WV</th>
-                            <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
-                            <th style={{ padding: '10px', textAlign: 'center', width: '50px' }}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {akte.akten_historie.map((hist) => {
-                            const istHervorgehoben = fokussierterHistId === hist.id;
+                    {/* 2. Gegner */}
+                    <div className="akten-field-box">
+                      <input 
+                        type="text" 
+                        defaultValue={akte.gegner_name || ''} 
+                        onBlur={(e) => { if (e.target.value !== (akte.gegner_name || '')) handleAkteStammdatenEdit(akte.id, 'gegner_name', e.target.value); }} 
+                        onClick={(e) => e.stopPropagation()} 
+                        placeholder="Gegner" 
+                        style={{ ...inlineInputStyle, color: theme.textMain, fontSize: '15px', fontWeight: 'bold', padding: '2px' }} 
+                      />
+                    </div>
 
-                            return (
-                              <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
-                                <td style={{ padding: '10px' }}>
-                                   <select 
-                                     defaultValue={hist.typ || ''} 
-                                     onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
-                                     style={{...inlineInputStyle, fontWeight: 'bold'}}
-                                   >
-                                      <option value="Eingang">Eingang</option>
-                                      <option value="Ausgang">Ausgang</option>
-                                      <option value="Intern">Intern</option>
-                                   </select>
-                                </td>
-                                <td style={{ padding: '10px' }}>
-                                   <input 
-                                     type="date" 
-                                     defaultValue={hist.datum || ''} 
-                                     onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
-                                     style={inlineInputStyle} 
-                                   />
-                                </td>
-                                <td style={{ padding: '10px' }}>
-                                   <input 
-                                     type="text" 
-                                     defaultValue={hist.aktion || ''} 
-                                     onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
-                                     style={inlineInputStyle} 
-                                     placeholder="Ohne Aktion" 
-                                   />
-                                </td>
-                                <td style={{ padding: '10px' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <span style={{ fontSize: '11px', color: theme.textMuted, width: '30px' }}>Frist:</span>
-                                      <input 
-                                        type="date" 
-                                        key={`frist-${hist.frist_extern}`}
-                                        defaultValue={hist.frist_extern || ''} 
-                                        onBlur={(e) => { if (e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }} 
-                                        style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
-                                        title="Frist setzen (löscht automatisch WV)" 
-                                      />
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold', width: '30px' }}>WV:</span>
-                                      <input 
-                                        type="date" 
-                                        key={`wv-${hist.wiedervorlage}`}
-                                        defaultValue={hist.wiedervorlage || ''} 
-                                        onBlur={(e) => { if (e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }} 
-                                        style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
-                                        title="WV setzen (löscht automatisch Frist)" 
-                                      />
-                                    </div>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '10px' }}>
-                                  {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
-                                    const fileName = extractFilename(url);
-                                    return (
-                                      <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-                                        <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
-                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen"><Icon name="x" size={12} /></button>
-                                      </div>
-                                    )
-                                  })}
-                                  {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
-                                </td>
-                                <td style={{ padding: '10px', textAlign: 'center' }}><button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button></td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    {/* 3. Gegenstand (Thema) */}
+                    <div className="akten-field-box">
+                      <input 
+                        type="text" 
+                        defaultValue={akte.thema || ''} 
+                        onBlur={(e) => { if (e.target.value !== (akte.thema || '')) handleAkteStammdatenEdit(akte.id, 'thema', e.target.value); }} 
+                        onClick={(e) => e.stopPropagation()} 
+                        placeholder="Gegenstand" 
+                        style={{ ...inlineInputStyle, color: theme.textMain, fontSize: '14px', padding: '2px' }} 
+                      />
+                    </div>
+
+                    {/* 4. Ansprechpartner */}
+                    <div className="akten-field-box">
+                      <input 
+                        type="text" 
+                        defaultValue={akte.gegner_ansprechpartner || ''} 
+                        onBlur={(e) => { if (e.target.value !== (akte.gegner_ansprechpartner || '')) handleAkteStammdatenEdit(akte.id, 'gegner_ansprechpartner', e.target.value); }} 
+                        onClick={(e) => e.stopPropagation()} 
+                        placeholder="Ansprechpartner" 
+                        style={{ ...inlineInputStyle, color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
+                      />
+                    </div>
+
+                    {/* 5. Aktenzeichen Behörde */}
+                    <div className="akten-field-box">
+                      <input 
+                        type="text" 
+                        defaultValue={akte.aktenzeichen || ''} 
+                        onBlur={(e) => { if (e.target.value !== (akte.aktenzeichen || '')) handleAkteStammdatenEdit(akte.id, 'aktenzeichen', e.target.value); }} 
+                        onClick={(e) => e.stopPropagation()} 
+                        placeholder="Aktenzeichen" 
+                        style={{ ...inlineInputStyle, color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
+                      />
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+
+              {/* AUFGEKLAPPTER BEREICH (AKTIONSMENÜ & TABELLE) */}
+              {isExpanded && (
+                <div style={{ background: theme.inputBg, padding: '15px', borderTop: `1px solid ${theme.border}`, width: '100%', boxSizing: 'border-box' }}>
+                  
+                  {/* AKTIONSMENÜ */}
+                  <div className="akten-actions-bar" style={{ background: theme.cardBg, border: `1px solid ${theme.border}` }}>
+                    <div style={{ fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
+                      Aktions-Menü
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', maxWidth: '600px' }}>
+                      <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
+                      <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
+                      
+                      {mergeSourceId === akte.id ? (
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
+                          <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', flex: '1 1 auto' }}>
+                            <option value="">-- Ziel-Akte wählen --</option>
+                            {sortedAktenForDropdown.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>))}
+                          </select>
+                          <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
+                          <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setMergeSourceId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px dashed ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="link" size={14} /> In Sammelakte verschieben (Merge)</button>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+
+                  {/* HISTORIEN-TABELLE: INNERHALB DER KARTE ISOLIERT HORIZONTAL SCROLLBAR */}
+                  <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                    <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg }}>
+                      <thead>
+                        <tr style={{ background: theme.border, color: theme.textMain }}>
+                          <th style={{ padding: '10px', textAlign: 'left', width: '110px' }}>Typ</th>
+                          <th style={{ padding: '10px', textAlign: 'left', width: '130px' }}>Datum</th>
+                          <th style={{ padding: '10px', textAlign: 'left', width: '230px' }}>Aktion</th>
+                          <th style={{ padding: '10px', textAlign: 'left', width: '160px' }}>Frist / WV</th>
+                          <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
+                          <th style={{ padding: '10px', textAlign: 'center', width: '40px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {akte.akten_historie.map((hist) => {
+                          const istHervorgehoben = fokussierterHistId === hist.id;
+
+                          return (
+                            <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
+                              <td style={{ padding: '8px 10px' }}>
+                                 <select 
+                                   defaultValue={hist.typ || ''} 
+                                   onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
+                                   style={{...inlineInputStyle, fontWeight: 'bold'}}
+                                 >
+                                    <option value="Eingang">Eingang</option>
+                                    <option value="Ausgang">Ausgang</option>
+                                    <option value="Intern">Intern</option>
+                                 </select>
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>
+                                 <input 
+                                   type="date" 
+                                   defaultValue={hist.datum || ''} 
+                                   onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
+                                   style={inlineInputStyle} 
+                                 />
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>
+                                 <input 
+                                   type="text" 
+                                   defaultValue={hist.aktion || ''} 
+                                   onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
+                                   style={inlineInputStyle} 
+                                   placeholder="Ohne Aktion" 
+                                 />
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', color: theme.textMuted, width: '30px' }}>Frist:</span>
+                                    <input 
+                                      type="date" 
+                                      key={`frist-${hist.frist_extern}`}
+                                      defaultValue={hist.frist_extern || ''} 
+                                      onBlur={(e) => { if (e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }} 
+                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                      title="Frist setzen (löscht automatisch WV)" 
+                                    />
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold', width: '30px' }}>WV:</span>
+                                    <input 
+                                      type="date" 
+                                      key={`wv-${hist.wiedervorlage}`}
+                                      defaultValue={hist.wiedervorlage || ''} 
+                                      onBlur={(e) => { if (e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }} 
+                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                      title="WV setzen (löscht automatisch Frist)" 
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>
+                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                  const fileName = extractFilename(url);
+                                  return (
+                                    <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
+                                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen"><Icon name="x" size={12} /></button>
+                                    </div>
+                                  )
+                                })}
+                                {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
+                              </td>
+                              <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   );
