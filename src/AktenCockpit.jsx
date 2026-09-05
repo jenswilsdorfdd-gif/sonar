@@ -29,7 +29,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [unserAnsprechpartner, setUnserAnsprechpartner] = useState('');
   const [unserTelefon, setUnserTelefon] = useState('');
   const [unserEmail, setUnserEmail] = useState('');
-  const [thema, setThema] = useState(''); // Entspricht in der UI nun dem "Gegenstand"
+  const [thema, setThema] = useState(''); 
   
   const [typ, setTyp] = useState('Eingang');
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0]);
@@ -43,7 +43,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [dateien, setDateien] = useState([]);
   const [briefEntwurf, setBriefEntwurf] = useState('');
-  const [emailAnhaenge, setEmailAnhaenge] = useState([]); // Dezidierte E-Mail-Anhänge direkt im Textentwurf
+  const [emailAnhaenge, setEmailAnhaenge] = useState([]); 
   const [versandPdfUrl, setVersandPdfUrl] = useState('');
   const [tresorPrompt, setTresorPrompt] = useState(null); 
   
@@ -51,8 +51,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [faxZhd, setFaxZhd] = useState('');
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
-  const [showVersandHistorie, setShowVersandHistorie] = useState(false); // Modal Versandhistorie
-  const [zeigeErledigte, setZeigeErledigte] = useState(false); // Filter für Erledigte Akten
+  const [showVersandHistorie, setShowVersandHistorie] = useState(false);
+  const [zeigeErledigte, setZeigeErledigte] = useState(false); 
   
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
   const [transferAkteId, setTransferAkteId] = useState(null);
@@ -65,7 +65,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [openMenuId, setOpenMenuId] = useState(null);
   const [isAlarmsOpen, setIsAlarmsOpen] = useState(true);
 
-  const autoGenRef = useRef(''); // Speichert das zuletzt generierte Unser Zeichen
+  const autoGenRef = useRef('');
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
@@ -77,7 +77,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const isDarkMode = theme.bg === '#020617';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
-  // --- STRIKTER RUFNUMMERN FORMATTER ---
   const formatRufnummer = (nummer) => {
     if (!nummer) return '';
     let clean = String(nummer).replace(/[\s\-\/\(\)]/g, ''); 
@@ -87,6 +86,14 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       clean = '+49' + clean.substring(1);
     }
     return clean;
+  };
+
+  const fuzzyMatch = (str1, str2) => {
+    if(!str1 || !str2) return false;
+    const n1 = normalizeName(str1) || '';
+    const n2 = normalizeName(str2) || '';
+    if(n1.length < 4 || n2.length < 4) return n1 === n2;
+    return n1.includes(n2) || n2.includes(n1);
   };
 
   useEffect(() => {
@@ -100,7 +107,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const generatePrefix = (name) => {
     if (!name) return '';
     const n = name.toLowerCase();
-    // Rückgabe in strikten Kleinbuchstaben
     if (n.includes('jens wilsdorf')) return 'jw';
     if (n.includes('smartbizz') || n.includes('sbs')) return 'sbs';
     if (n.includes('brand & market') || n.includes('bam')) return 'bam';
@@ -112,28 +118,26 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   useEffect(() => {
     if (modus === 'neu' && unsereFirma && gegnerName) {
       const mPrefix = generatePrefix(unsereFirma);
-      // Gegner-Name ebenfalls in strikten Kleinbuchstaben
       const gPrefix = gegnerName.trim().toLowerCase();
       const baseZeichen = `${mPrefix}-${gPrefix}-`;
 
-      let maxNum = 0;
+      let maxGlobalNum = 0;
       akten.forEach(a => {
-        if (a.unser_zeichen && a.unser_zeichen.toLowerCase().startsWith(baseZeichen)) {
-          const parts = a.unser_zeichen.split('-');
-          const lastPart = parts[parts.length - 1];
-          const num = parseInt(lastPart, 10);
-          if (!isNaN(num) && num > maxNum) {
-            maxNum = num;
+        if (a.unser_zeichen) {
+          const match = a.unser_zeichen.match(/-(\d{4})$/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxGlobalNum) {
+              maxGlobalNum = num;
+            }
           }
         }
       });
 
-      // 4-stellige Nummer (0012, 0013...)
-      const nextNum = String(maxNum + 1).padStart(4, '0');
-      const newZeichen = `${mPrefix}-${gPrefix}-${nextNum}`;
+      const nextNum = String(maxGlobalNum + 1).padStart(4, '0');
+      const newZeichen = `${baseZeichen}${nextNum}`;
       
       setUnserZeichen(prev => {
-        // Überschreibe nur, wenn das Feld leer ist ODER der User den letzten generierten Wert nicht verändert hat
         if (!prev || prev === autoGenRef.current) {
           autoGenRef.current = newZeichen;
           return newZeichen;
@@ -239,6 +243,43 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     showToast("✅ Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
+  const checkGegnerDiff = (neuName, neuFax, neuEmail, neuAnsprechpartner, neuTelefon) => {
+    if (!neuName) return false;
+    
+    let exactMatch = gegnerListe.find(g => normalizeName(g.name) === normalizeName(neuName));
+    let simMatch = null;
+    
+    if (!exactMatch) {
+      simMatch = gegnerListe.find(g => fuzzyMatch(g.name, neuName));
+    }
+    
+    const target = exactMatch || simMatch;
+    
+    if (target) {
+      const diffs = [];
+      if (neuFax && formatRufnummer(neuFax) !== formatRufnummer(target.fax || '')) diffs.push(`Fax: ${target.fax || '-'} ➔ ${formatRufnummer(neuFax)}`);
+      if (neuEmail && neuEmail !== target.email && neuEmail !== target.email_zentrale) diffs.push(`E-Mail: ${target.email || '-'} ➔ ${neuEmail}`);
+      
+      if (diffs.length > 0 || simMatch) {
+        setGegnerPrompt({
+          typ: 'diff',
+          targetId: target.id,
+          targetName: target.name,
+          diffs: diffs,
+          obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail }
+        });
+        return true;
+      }
+      return false;
+    } else {
+      setGegnerPrompt({
+        typ: 'neu',
+        obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail }
+      });
+      return true;
+    }
+  };
+
   const handleJsonImport = async (e) => {
     const val = e.target.value.trim();
     setJsonImport(val);
@@ -260,7 +301,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               if (!existingGegner.fax && item.fax) { updates.fax = formatRufnummer(item.fax); needsUpdate = true; }
               if (!existingGegner.email && item.email) { updates.email = item.email; needsUpdate = true; }
               let currentContacts = [];
-              try { currentContacts = typeof existingGegner.notizen === 'string' ? JSON.parse(existingGegner.notizen) : (existingGegner.notizen || []); if (!Array.isArray(currentContacts)) currentContacts = []; } catch(e) { currentContacts = []; }
+              try { currentContacts = typeof existingGegner.notizen === 'string' ? JSON.parse(existingGegner.notizen) : (existingGegner.notizen || []); if (!Array.isArray(currentContacts)) currentContacts = []; } catch(err) { currentContacts = []; }
               if (item.ansprechpartner || item.abteilung) {
                  const contactExists = currentContacts.some(c => (c.name || '').toLowerCase() === (item.ansprechpartner || '').toLowerCase() && (c.abteilung || '').toLowerCase() === (item.abteilung || '').toLowerCase());
                  if (!contactExists) { currentContacts.push({ abteilung: item.abteilung || '', name: item.ansprechpartner || '', telefon: formatRufnummer(item.telefon), email: item.email || '' }); updates.notizen = JSON.stringify(currentContacts); needsUpdate = true; }
@@ -288,57 +329,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const fallbackTyp = obj.typ || obj.dokumententyp || 'Eingang';
       const fallbackUnsereFirma = obj.unsere_firma || (obj.absender ? obj.absender.name : '') || '';
       
-      // Auto-Gen übernimmt die Generierung, falls unser_zeichen nicht per JSON forciert wurde
-      if (fallbackUnserZeichen) {
-          setUnserZeichen(fallbackUnserZeichen);
-      }
+      if (fallbackUnserZeichen) setUnserZeichen(fallbackUnserZeichen);
       setAktenzeichen(fallbackAktenzeichen); setThema(fallbackThema); 
       setGegnerName(fallbackGegnerName); setGegnerAnsprechpartner(fallbackGegnerAnsprechpartner); 
       setGegnerTelefon(formatRufnummer(fallbackGegnerTelefon)); setGegnerFax(formatRufnummer(fallbackGegnerFax)); setGegnerEmail(fallbackGegnerEmail); 
       handleFristChange(fallbackFristExtern); setBriefEntwurf(fallbackBriefEntwurf); setAktion(fallbackAktion); 
       setKanal(fallbackKanal); setTyp(fallbackTyp);
       setDatum(new Date().toISOString().split('T')[0]);
-      
       setFaxZhd(fallbackGegnerAnsprechpartner);
 
-      if (fallbackGegnerName) {
-        const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(fallbackGegnerName));
-        if (!existingGegner) {
-           setGegnerPrompt({
-             typ: 'neu',
-             obj: { name: fallbackGegnerName, ansprechpartner: fallbackGegnerAnsprechpartner, telefon: formatRufnummer(fallbackGegnerTelefon), fax: formatRufnummer(fallbackGegnerFax), email: fallbackGegnerEmail }
-           });
-        } else {
-           let gUpdates = {};
-           let needsUpdate = false;
-
-           if (!existingGegner.fax && fallbackGegnerFax) { gUpdates.fax = formatRufnummer(fallbackGegnerFax); needsUpdate = true; }
-           if (!existingGegner.email && fallbackGegnerEmail) { gUpdates.email = fallbackGegnerEmail; needsUpdate = true; }
-
-           let currentContacts = [];
-           try { currentContacts = typeof existingGegner.notizen === 'string' ? JSON.parse(existingGegner.notizen) : (existingGegner.notizen || []); } catch(e) { currentContacts = []; }
-           if (!Array.isArray(currentContacts)) currentContacts = [];
-
-           if (fallbackGegnerAnsprechpartner) {
-               const contactExists = currentContacts.some(c => (c.name || '').toLowerCase() === fallbackGegnerAnsprechpartner.toLowerCase());
-               if (!contactExists) {
-                   currentContacts.push({
-                       abteilung: '',
-                       name: fallbackGegnerAnsprechpartner,
-                       telefon: formatRufnummer(fallbackGegnerTelefon) || existingGegner.telefon || '',
-                       email: fallbackGegnerEmail || existingGegner.email || existingGegner.email_zentrale || ''
-                   });
-                   gUpdates.notizen = JSON.stringify(currentContacts);
-                   needsUpdate = true;
-               }
-           }
-
-           if (needsUpdate) {
-               supabase.from('gegner').update(gUpdates).eq('id', existingGegner.id).then(() => ladeDaten());
-           }
-           setGegnerPrompt(null);
-        }
-      }
+      checkGegnerDiff(fallbackGegnerName, fallbackGegnerFax, fallbackGegnerEmail, fallbackGegnerAnsprechpartner, fallbackGegnerTelefon);
 
       if (fallbackUnserZeichen) {
         let match = akten.find(a => a.unser_zeichen === fallbackUnserZeichen);
@@ -374,14 +374,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         } else {
            setUnsereFirma(existingMandant.firmenname); setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(existingMandant.ansprechpartner) || '');
            setUnserTelefon(parsedTelefon || cleanVal(existingMandant.telefon) || ''); setUnserEmail(parsedEmail || cleanVal(existingMandant.email) || '');
-
-           let updates = {}; let needsUpdate = false;
-           if (!existingMandant.telefon && parsedTelefon) { updates.telefon = parsedTelefon; needsUpdate = true; }
-           if (!existingMandant.email && parsedEmail) { updates.email = parsedEmail; needsUpdate = true; }
-
-           if (needsUpdate) {
-              supabase.from('mandanten').update(updates).eq('id', existingMandant.id).then(() => ladeDaten());
-           }
            setTresorPrompt(null);
         }
       }
@@ -404,6 +396,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const handleGegnerPromptAccept = async () => {
     if (!gegnerPrompt) return;
+    
     if (gegnerPrompt.typ === 'neu') {
       await supabase.from('gegner').insert([{
         user_id: session.user.id,
@@ -418,7 +411,36 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }])
       }]);
       showToast(`✅ Behörde/Gegner "${gegnerPrompt.obj.name}" ins CRM aufgenommen!`, 'success');
+      
+    } else if (gegnerPrompt.typ === 'diff') {
+      const existing = gegnerListe.find(g => g.id === gegnerPrompt.targetId);
+      if (existing) {
+        let gUpdates = {};
+        if (gegnerPrompt.obj.fax && formatRufnummer(gegnerPrompt.obj.fax) !== existing.fax) gUpdates.fax = formatRufnummer(gegnerPrompt.obj.fax);
+        if (gegnerPrompt.obj.email && gegnerPrompt.obj.email !== existing.email && gegnerPrompt.obj.email !== existing.email_zentrale) gUpdates.email = gegnerPrompt.obj.email;
+        
+        let currentContacts = [];
+        try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e) {}
+        if (!Array.isArray(currentContacts)) currentContacts = [];
+
+        if (gegnerPrompt.obj.ansprechpartner) {
+           const contactExists = currentContacts.some(c => (c.name || '').toLowerCase() === gegnerPrompt.obj.ansprechpartner.toLowerCase());
+           if (!contactExists) {
+               currentContacts.push({
+                   abteilung: '',
+                   name: gegnerPrompt.obj.ansprechpartner,
+                   telefon: formatRufnummer(gegnerPrompt.obj.telefon) || existing.telefon || '',
+                   email: gegnerPrompt.obj.email || existing.email || existing.email_zentrale || ''
+               });
+               gUpdates.notizen = JSON.stringify(currentContacts);
+           }
+        }
+        
+        await supabase.from('gegner').update(gUpdates).eq('id', existing.id);
+        showToast(`✅ CRM-Daten für "${existing.name}" aktualisiert!`, 'success');
+      }
     }
+    
     ladeDaten();
     setGegnerPrompt(null);
   };
@@ -501,7 +523,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     printWindow.document.close();
   };
 
-  // --- SENDEBERICHT DRUCKEN (FÜR VERSANDHISTORIE) ---
   const druckeSendebericht = (eintrag) => {
     const printWindow = window.open('', '_blank');
     const anhaengeText = eintrag.dokument_url ? eintrag.dokument_url.split(',').map(url => extractFilename(url)).join(', ') : 'Keine Anhänge';
@@ -517,18 +538,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setLaedt(true);
     try {
       const formattedFax = formatRufnummer(gegnerFax);
-      // Entferne alle Zeichen die nicht Zahl ODER '+' sind (um das Länderkennzeichen zu behalten)
       const rawFax = formattedFax ? formattedFax.replace(/[^0-9+]/g, '') : '';
       const targetAddress = versandArt === 'email' ? gegnerEmail : `${rawFax}@simple-fax.de`; 
       const betreff = `Unser Zeichen: ${unserZeichen || 'Neu'} / AZ: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
       const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
 
-      // Kombiniere bestehende Akten-Dateien mit dezidierten E-Mail-Anhängen aus dem Schreibfenster
       const alleAnhangDateien = [...dateien, ...emailAnhaenge];
 
       let extraAttachments = [];
       if (versandArt === 'email' && alleAnhangDateien.length > 0) {
-        showToast("⏳ Verarbeite Dateien für E-Mail-Anhang...", "success");
+        showToast("Verarbeite Dateien für E-Mail-Anhang...", "success");
         for (const f of alleAnhangDateien) {
           try {
             const b64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(f); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = e => reject(e); });
@@ -577,23 +596,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setShowUploadReminder(false);
     setLaedt(true);
 
-    if (tresorPrompt && tresorPrompt.typ === 'neu') {
-      const { data: mData } = await supabase.from('mandanten').insert([{
-        user_id: session.user.id, firmenname: tresorPrompt.obj.unsere_firma, ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
-        telefon: formatRufnummer(cleanVal(tresorPrompt.obj.unser_telefon) || ''), email: cleanVal(tresorPrompt.obj.unser_email) || '', adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
-        steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '', ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '', betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
-        vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '', handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '', iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
-      }]).select();
-      if (mData) ladeDaten();
-    }
-    
-    if (gegnerPrompt && gegnerPrompt.typ === 'neu') {
-      await supabase.from('gegner').insert([{
-        user_id: session.user.id, name: gegnerPrompt.obj.name, fax: formatRufnummer(gegnerPrompt.obj.fax) || null, email: gegnerPrompt.obj.email || null,
-        notizen: JSON.stringify([{ abteilung: '', name: gegnerPrompt.obj.ansprechpartner || '', telefon: formatRufnummer(gegnerPrompt.obj.telefon) || '', email: gegnerPrompt.obj.email || '' }])
-      }]);
-    }
-
     let alleUrls = [];
     const zuSpeicherndeDateien = [...dateien, ...emailAnhaenge];
 
@@ -614,16 +616,15 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
              const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName); alleUrls.push(linkData.publicUrl);
              const hatMdGegenstueck = zuSpeicherndeDateien.some(d => d.name.toLowerCase() === f.name.toLowerCase().replace('.pdf', '.md'));
              if (isPdf && !hatMdGegenstueck) {
-                showToast(`⚙️ Lese digitalen Text aus PDF (${f.name}) aus...`, 'success');
+                showToast(`Lese digitalen Text aus PDF (${f.name}) aus...`, 'success');
                 try {
                    const extrahierterText = await extractTextFromPDF(f);
                    if (extrahierterText.trim().length > 50) {
                       const baseInfo = `Auto-Extraktion (PDF). Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}`; const finalDbText = `${baseInfo}\n\n${extrahierterText.substring(0, 3000)}...`; const mdFileName = f.name.replace(/\.[^/.]+$/, "") + ".md";
                       await supabase.from('wissensdatenbank').insert([{ datei_name: mdFileName, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: linkData.publicUrl }]);
                       await syncToGithub(mdFileName, `${baseInfo}\n\nOriginal-PDF: ${linkData.publicUrl}\n\n${extrahierterText}`, linkData.publicUrl, null, showToast);
-                      showToast(`✅ Text aus PDF extrahiert und archiviert!`, 'success');
-                   } else { showToast(`⚠️ PDF "${f.name}" enthält keinen lesbaren Text (vermutlich ein Bild-Scan). Nur als PDF abgelegt.`, 'warning'); }
-                } catch (err) { console.error("Fehler bei PDF-Extraktion:", err); showToast(`❌ Fehler beim Auslesen der PDF: ${err.message}`, 'error'); }
+                   }
+                } catch (err) { console.error("Fehler bei PDF-Extraktion:", err); }
              }
            }
         }
@@ -643,12 +644,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
 
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
-    let aktuelleAkteId = selectedAkteId
+    let aktuelleAkteId = selectedAkteId;
 
     if (modus === 'neu') {
-      const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, unser_zeichen: unserZeichen || null, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: unserAnsprechpartner || null, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select()
+      const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, unser_zeichen: unserZeichen || null, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: unserAnsprechpartner || null, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select();
       if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); setLaedt(false); return; }
-      aktuelleAkteId = neueAkte[0].id
+      aktuelleAkteId = neueAkte[0].id;
     } else {
       if (clearOldFristen && aktuelleAkteId) {
          await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('akte_id', aktuelleAkteId);
@@ -671,7 +672,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       dokument_url: dokumentUrl, 
       brief_entwurf: briefEntwurf || null,
       bezug_id: bezugId || null 
-    }])
+    }]);
 
     if (!histError) {
       if (bezugId) {
@@ -693,15 +694,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     } else {
       showToast('❌ Fehler beim Speichern der Historie: ' + histError.message, 'error');
     }
-    setLaedt(false)
-  }
+    setLaedt(false);
+  };
 
-  const naechsterGegnerUebergeben = async (akteId) => {
-    if (!neuerGegnerName) { showToast("Bitte gib den Namen der neuen Behörde / des neuen Gegners ein!", 'warning'); return; }
-    const akte = akten.find(a => a.id === akteId); if (!akte) return;
-    const alterGegner = akte.gegner_name;
-    const { error } = await supabase.from('akten').update({ vorgaenger_gegner: alterGegner, gegner_name: neuerGegnerName, uebergeben_am: new Date().toISOString() }).eq('id', akteId);
-    if (!error) { await supabase.from('akten_historie').insert([{ akte_id: akteId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: `Zuständigkeit übergeben von [${alterGegner}] an [${neuerGegnerName}]`, kanal: 'Behördenwechsel' }]); setTransferAkteId(null); setNeuerGegnerName(''); ladeDaten(); showToast(`✅ Akte an "${neuerGegnerName}" übergeben!`, 'success'); } else { showToast("Fehler bei der Übergabe: " + error.message, 'error'); }
+  const toggleAkte = (id) => {
+    if (aufgeklappteAkten.includes(id)) setAufgeklappteAkten(aufgeklappteAkten.filter(aId => aId !== id));
+    else setAufgeklappteAkten([...aufgeklappteAkten, id]);
+  };
+
+  const loescheAkte = async (id) => {
+    if(!window.confirm("Ganze Akte löschen?")) return; await supabase.from('akten').delete().eq('id', id); ladeDaten(); showToast('Akte komplett gelöscht.', 'success');
   };
 
   const mergeAkte = async (sourceId) => {
@@ -717,22 +719,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     await supabase.from('akten_historie').insert([{ akte_id: mergeTargetId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: `Akte zusammengeführt: Inhalte aus "${sourceAkte.thema || 'Unbekannt'}" (${sourceAkte.unser_zeichen || 'Kein Zeichen'}) wurden integriert.` }]);
     
     setMergeSourceId(null); setMergeTargetId(''); ladeDaten(); 
-    showToast("✅ Akteninhalte erfolgreich übertragen! Die leere Quell-Akte kann nun manuell gelöscht werden.", 'success');
+    showToast("✅ Akteninhalte erfolgreich übertragen!", 'success');
   };
-
-  const toggleAkte = (id) => {
-    if (aufgeklappteAkten.includes(id)) setAufgeklappteAkten(aufgeklappteAkten.filter(aId => aId !== id))
-    else setAufgeklappteAkten([...aufgeklappteAkten, id])
-  }
-
-  const loescheAkte = async (id) => {
-    if(!window.confirm("Ganze Akte löschen?")) return; await supabase.from('akten').delete().eq('id', id); ladeDaten(); showToast('Akte komplett gelöscht.', 'success');
-  }
 
   const handleTresorAuswahl = (e) => {
     const mId = e.target.value; if(!mId) return; const m = mandanten.find(x => x.id === mId);
     if(m) { setUnsereFirma(m.firmenname || ''); setUnserAnsprechpartner(m.ansprechpartner || ''); setUnserTelefon(formatRufnummer(m.telefon || '')); setUnserEmail(m.email || ''); }
-  }
+  };
 
   const handleGegnerAuswahl = (e) => {
     const val = e.target.value; if(!val) return; const [gId, ansIdx] = val.split('|'); const g = gegnerListe.find(x => x.id === gId);
@@ -742,7 +735,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed) && parsed[ansIdx]) { ansprechpartnerObj = parsed[ansIdx]; } } catch(e){}
       if (ansprechpartnerObj) { setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || ''); setFaxZhd(ansprechpartnerObj.name || g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(ansprechpartnerObj.telefon || g.telefon || '')); setGegnerEmail(ansprechpartnerObj.email || g.email || g.email_zentrale || ''); } else { setGegnerAnsprechpartner(g.ansprechpartner || ''); setFaxZhd(g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(g.telefon || '')); setGegnerEmail(g.email || g.email_zentrale || ''); }
     }
-  }
+  };
 
   const berechneTageBis = (datumStr) => {
     if (!datumStr) return null; let rawDate = String(datumStr).trim(); if (rawDate.length === 8 && rawDate.endsWith('206')) { rawDate = rawDate.replace('206', '2026'); }
@@ -814,7 +807,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
   const gefilterteAkten = akten.filter((akte) => {
-    if (!zeigeErledigte && akte.status === 'Erledigt') return false; // Filter für Erledigte Akten
+    if (!zeigeErledigte && akte.status === 'Erledigt') return false; 
     if (!suchbegriff.trim()) return true;
     const s = suchbegriff.toLowerCase(); 
     const uZ = (akte.unser_zeichen || '').toLowerCase();
@@ -842,7 +835,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return `${uZ} ${gegner} | ${thema}`;
   };
 
-  // Aggregation aller Ausgangssendungen über alle Akten hinweg für die globale Versandhistorie
   const alleAusgaenge = [];
   akten.forEach(a => {
     if (a.akten_historie && a.akten_historie.length > 0) {
@@ -883,18 +875,15 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </div>
       )}
 
-      {/* MODAL: VERSANDHISTORIE & SENDEBERICHTE */}
       {showVersandHistorie && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1100px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-            
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
               <h3 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px' }}>
                 <Icon name="send" size={20} /> Globale Versandhistorie & Sendeberichte ({alleAusgaenge.length} Einträge)
               </h3>
               <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}>✕</button>
             </div>
-
             <div style={{ overflowY: 'auto', padding: '20px' }}>
               {alleAusgaenge.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben per E-Mail oder Fax versendet.</div>
@@ -946,7 +935,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 </table>
               )}
             </div>
-
             <div style={{ padding: '15px 20px', borderTop: `1px solid ${theme.border}`, background: theme.inputBg, textAlign: 'right' }}>
               <button onClick={() => setShowVersandHistorie(false)} style={{ padding: '8px 16px', background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Schließen</button>
             </div>
@@ -956,12 +944,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px', width: '100%' }}>
         <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.accent}`, transition: 'border-color 0.3s ease' }}>
-          <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}><Icon name="wand" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)</label>
+          <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}><Icon name="folder" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)</label>
           <textarea id="magic-import" value={jsonImport} onChange={handleJsonImport} placeholder='{"typ": "Eingang", "unser_zeichen": "sbs-fiamt-0001", "thema": "..."}' style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} />
         </div>
 
         <div style={{ ...panelStyle, margin: 0, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
-          <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}><Icon name="paperclip" size={16} /> MANUELLER UPLOAD (PDF/MD)</label>
+          <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}><Icon name="file" size={16} /> MANUELLER UPLOAD (PDF/MD)</label>
           <input id="datei-upload-manuell" type="file" multiple onChange={(e) => { setDateien(Array.from(e.target.files)); }} style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '10px', fontSize: '13px', transition: 'border-color 0.3s ease'}} />
           {dateien.length > 0 && <span style={{fontSize: '13px', color: theme.accent, marginTop: '8px', fontWeight: 'bold'}}><Icon name="folder" size={12} /> {dateien.length} Datei(en) gewählt</span>}
         </div>
@@ -983,22 +971,22 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 return (
                   <div key={`warn-${w.id}`} onClick={() => handleAlarmKlick(w.akte_id)} style={{ background: theme.cardItemBg, padding: '14px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.warningBorder}`, boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px' }} title="Klicken, um diese Akte unten zu fokussieren!">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
-                      <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🏢 [{w.unser_zeichen || '---'}] {w.akte_gegner}</strong>
+                      <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Icon name="folder" size={14} /> [{w.unser_zeichen || '---'}] {w.akte_gegner}
+                      </strong>
                       <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} style={{ background: actionBg, color: actionColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}><Icon name="settings" size={12} /> Aktionen {openMenuId === w.id ? '▲' : '▼'}</button>
                         {openMenuId === w.id && (
                           <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '160px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
-                            <button onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null); else handleInlineEdit(w.id, 'frist_extern', null); setOpenMenuId(null); }} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}>✓ Erledigt</button>
-                            <button disabled={shiftDisabled} onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso); else handleInlineEdit(w.id, 'frist_extern', plusDreiIso); setOpenMenuId(null); }} style={{ background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, color: shiftDisabled ? theme.textMuted : theme.textMain, border: 'none', padding: '8px', borderRadius: '4px', cursor: shiftDisabled ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', opacity: shiftDisabled ? 0.6 : 1, textAlign: 'left', width: '100%' }} title={shiftDisabled ? "Sperre: Verschiebung um 3 Tage würde hinter der harten Originalfrist liegen!" : "Um 3 Tage verschieben"}>+3 Tage {shiftDisabled ? '🔒' : ''}</button>
+                            <button onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null); else handleInlineEdit(w.id, 'frist_extern', null); setOpenMenuId(null); }} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}>Erledigt</button>
+                            <button disabled={shiftDisabled} onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso); else handleInlineEdit(w.id, 'frist_extern', plusDreiIso); setOpenMenuId(null); }} style={{ background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, color: shiftDisabled ? theme.textMuted : theme.textMain, border: 'none', padding: '8px', borderRadius: '4px', cursor: shiftDisabled ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', opacity: shiftDisabled ? 0.6 : 1, textAlign: 'left', width: '100%' }}>+3 Tage</button>
                             <button onClick={() => handleNachhaken(w.akte_id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}><Icon name="send" size={12} /> Nachhaken</button>
                           </div>
                         )}
                       </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
-                      
-                      <span style={{ color: theme.textMain, fontWeight: '500' }}><Icon name="file" size={12} /> {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
-                      
+                      <span style={{ color: theme.textMain, fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="file" size={12} /> {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
                         {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8}}>(Frist: {formatDatum(w.frist_extern)})</span>}
@@ -1010,7 +998,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               })}
               {ustRadar.map((r, i) => (
                 <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div><strong style={{ color: theme.tresorAccent }}>🏛️ {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><strong style={{ color: theme.tresorAccent }}><Icon name="folder" size={14} /> {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}><span style={{ fontSize: '13px', color: theme.textMuted }}>Fällig am {formatDatum(r.datum)}</span><span style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain }}>(Noch {r.tageUebrig} Tage)</span></div>
                 </div>
               ))}
@@ -1023,16 +1011,24 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         
         {gegnerPrompt && (
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-              <strong style={{ fontSize: '15px' }}>
-                <Icon name="alert" size={14} /> Unbekannte Behörde: "{gegnerPrompt.obj.name}" neu ins Gegner-CRM aufnehmen?
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="alert" size={16} /> 
+                {gegnerPrompt.typ === 'neu' ? `Unbekannte Behörde: "${gegnerPrompt.obj.name}" erkannt` : `Abweichende Daten bei Behörde "${gegnerPrompt.targetName}" erkannt`}
               </strong>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              
+              {gegnerPrompt.typ === 'diff' && gegnerPrompt.diffs.length > 0 && (
+                <ul style={{ margin: '0 0 5px 25px', padding: 0, fontSize: '13px', opacity: 0.9 }}>
+                  {gegnerPrompt.diffs.map((d, i) => <li key={i}>{d}</li>)}
+                </ul>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
                 <button type="button" onClick={handleGegnerPromptAccept} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Ja, anlegen
+                  {gegnerPrompt.typ === 'neu' ? 'Ja, neu im CRM anlegen' : 'CRM dauerhaft aktualisieren'}
                 </button>
                 <button type="button" onClick={() => setGegnerPrompt(null)} style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Nein, nur für diese Akte
+                  Ignorieren & nur für diesen Vorgang verwenden
                 </button>
               </div>
             </div>
@@ -1042,7 +1038,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         {tresorPrompt && (
           <div style={{ background: theme.accent, color: '#000', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-              <strong style={{ fontSize: '15px' }}><Icon name="alert" size={14} /> Unbekannter Mandant: "{tresorPrompt.obj.unsere_firma}" neu in den Tresor aufnehmen?</strong>
+              <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="alert" size={16} /> Unbekannter Mandant: "{tresorPrompt.obj.unsere_firma}" neu in den Tresor aufnehmen?</strong>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Ja, anlegen</button>
                 <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid #000', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Nein</button>
@@ -1053,7 +1049,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
         <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
           <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} /><Icon name="folder" size={16} /> Neue Akte / Hülle anlegen</label>
-          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} /><Icon name="link" size={16} /> Zu bestehender Akte hinzufügen</label>
+          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} /><Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen</label>
           {modus === 'bestehend' && (
             <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
               <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
@@ -1076,7 +1072,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
 
-              {/* GEFIXTER DROPDOWN CONTAINER BEHÖRDE */}
               <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
                   <h4 style={{margin: 0, color: theme.textMain}}>2. Gegenpartei / Behörde</h4>
@@ -1099,7 +1094,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={inputStyle} /></div>
               <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
               
-              {/* GEFIXTER DROPDOWN CONTAINER MANDANT */}
               <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
                   <h4 style={{margin: 0, color: theme.textMain}}>3. Wir (Mandant)</h4>
@@ -1128,8 +1122,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{...inputStyle, borderColor: '#0ea5e9'}}>
                 <option value="">-- Kein direkter Bezug --</option>
                 {activeAkteObj.akten_historie.map(h => {
-                  const briefSnippet = h.brief_entwurf ? ` | 📝 "${h.brief_entwurf.substring(0, 40).replace(/\n/g, ' ')}..."` : '';
-                  const aktionSnippet = h.aktion ? ` | ⚙️ ${h.aktion}` : '';
+                  const briefSnippet = h.brief_entwurf ? ` | "${h.brief_entwurf.substring(0, 40).replace(/\n/g, ' ')}..."` : '';
+                  const aktionSnippet = h.aktion ? ` | ${h.aktion}` : '';
                   return (
                     <option key={h.id} value={h.id}>
                       {formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
@@ -1183,21 +1177,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-            <label style={{...labelStyle, color: theme.accent, margin: 0}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="cabinet" size={14} /> Versandhistorie</button>
-              <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="send" size={14} /> E-Mail senden (Resend)</button>
-              <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '8px 14px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={14} /> E-Fax senden (Simple-Fax)</button>
+            <label style={{...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', width: '100%' }}>
+              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
+              <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
+              <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
             </div>
           </div>
 
-          {/* DATEIANHÄNGE DIREKT IM SCHREIBFENSTER */}
           <div style={{ marginBottom: '15px', padding: '12px', background: theme.cardBg, border: `1px dashed ${theme.border}`, borderRadius: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <label style={{ ...labelStyle, margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icon name="paperclip" size={14} /> Versand-Dateianhänge (E-Mail / Fax) ({emailAnhaenge.length})
+                <Icon name="paperclip" size={14} /> Versand-Dateianhänge ({emailAnhaenge.length})
               </label>
-              <label style={{ background: theme.accent, color: '#000', border: 'none', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Icon name="paperclip" size={14} /> Datei(en) anhängen
                 <input 
                   id="email-anhaenge-upload" 
@@ -1223,7 +1217,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '0 2px', fontWeight: 'bold' }} 
                       title="Anhang entfernen"
                     >
-                      ✕
+                      <Icon name="x" size={12} />
                     </button>
                   </div>
                 ))}
@@ -1240,10 +1234,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </button>
       </form>
 
-      {/* AKTEN UBERSICHT */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-          <Icon name="cabinet" size={24} /> Akten-Übersicht
+          <Icon name="folder" size={24} /> Akten-Übersicht
         </h2>
         <button 
           onClick={() => setZeigeErledigte(!zeigeErledigte)}
@@ -1255,7 +1248,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg }}>
         
-        {/* TABELLENKOPF DER MATRIX */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase' }}>
           <div style={{ width: '30px' }}></div>
           <div style={{ flex: '1 1 100%' }}>
@@ -1279,7 +1271,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', flexWrap: 'nowrap', gap: '10px' }} onClick={() => toggleAkte(akte.id)}>
                 <div style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}><Icon name={isExpanded ? 'down' : 'right'} size={20} /></div>
                 
-                {/* INHALT DER MATRIX */}
                 <div style={{ flex: '1 1 100%' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 2fr 1.5fr 1.5fr', gap: '15px', alignItems: 'center' }}>
                     <div>
@@ -1449,7 +1440,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                   </div>
                                 )
                               })}
-                              {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}>⏳ Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
+                              {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
                             </td>
                             <td style={{ padding: '10px', textAlign: 'center' }}><button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button></td>
                           </tr>
@@ -1465,4 +1456,4 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       </div>
     </div>
   );
-} 
+}
