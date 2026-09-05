@@ -911,21 +911,24 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       )}
 
       {showVersandHistorie && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1200px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px' }}>
+          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1200px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
-              <h3 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px' }}>
-                <Icon name="send" size={20} />
-                {modus === 'bestehend' && selectedAkteId ? `Versandhistorie der Akte [${activeAkteObj?.unser_zeichen || 'Unbekannt'}]` : 'Globale Versandhistorie (Alle Akten)'} ({anzeigeAusgaenge.length} Einträge)
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
+              <h3 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
+                <Icon name="send" size={18} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {modus === 'bestehend' && selectedAkteId ? `Versandhistorie [${activeAkteObj?.unser_zeichen || 'Unbekannt'}]` : 'Globale Versandhistorie'} ({anzeigeAusgaenge.length})
+                </span>
               </h3>
-              <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}>✕</button>
+              <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', padding: '4px 8px' }}>✕</button>
             </div>
             
-            <div style={{ overflowY: 'auto', padding: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0', textAlign: 'left', border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden' }}>
+            {/* MOBILER SCROLL-WRAPPER MIT TOUCH-UNTERSTÜTZUNG */}
+            <div style={{ overflowY: 'auto', overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '15px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0', textAlign: 'left', border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden', minWidth: '850px' }}>
                 
-                {/* STRICT GRID HEADER MIT IDENTISCHEN SPALTENBREITEN FÜR 4 & 5 */}
+                {/* STRICT GRID HEADER MIT FEST DEFINIERTER MINDESTBREITE GEGEN QUELLUNG */}
                 <div style={{ display: 'grid', gridTemplateColumns: '80px 2.5fr 2.5fr 190px 190px 30px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '11px', textTransform: 'uppercase', alignItems: 'center' }}>
                   <div>Datum</div>
                   <div>Vorgang & Akte</div>
@@ -1040,7 +1043,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               </div>
             </div>
             
-            <div style={{ padding: '15px 20px', borderTop: `1px solid ${theme.border}`, background: theme.inputBg, textAlign: 'right' }}>
+            <div style={{ padding: '12px 20px', borderTop: `1px solid ${theme.border}`, background: theme.inputBg, textAlign: 'right' }}>
               <button onClick={() => setShowVersandHistorie(false)} style={{ padding: '8px 16px', background: theme.border, color: theme.textMain, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Schließen</button>
             </div>
           </div>
