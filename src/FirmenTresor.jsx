@@ -7,6 +7,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const [laedt, setLaedt] = useState(false);
   const [uploadingMandantId, setUploadingMandantId] = useState(null);
   const [editMandantId, setEditMandantId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null); // NEU: Steuert das Aufklappen (Accordion)
   
   const [m_firmenname, setM_firmenname] = useState('');
   const [m_ansprechpartner, setM_ansprechpartner] = useState('');
@@ -267,75 +268,99 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         <Icon name="archive" size={20} /> Gespeicherte Mandanten & Firmen
       </h3>
       
-      {/* NEUE KOMPAKTE LISTENANSICHT */}
-      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
-        <div style={{ minWidth: '950px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 2.5fr 2fr 50px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
-            <div>Firma / Mandant</div>
-            <div>Kontakt</div>
-            <div>Steuern & Bank</div>
-            <div>Dokumente</div>
-            <div style={{ textAlign: 'center' }}>Aktion</div>
-          </div>
+      {/* ECHTE ACCORDION-LISTE (Single-Line) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
+        {gefilterteMandanten.map(m => {
+          const isExpanded = expandedId === m.id;
+          const isActive = editMandantId === m.id;
 
-          {gefilterteMandanten.map(m => (
-            <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 2.5fr 2fr 50px', gap: '15px', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, cursor: 'pointer', background: editMandantId === m.id ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent', borderLeft: editMandantId === m.id ? `4px solid ${theme.tresorAccent}` : '4px solid transparent', transition: 'all 0.2s ease', textAlign: 'left', alignItems: 'start' }} onClick={() => ladeInFormularMandant(m)}>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <strong style={{ color: theme.tresorAccent, fontSize: '15px' }}>{m.firmenname}</strong>
-                <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="user" size={12} /> {cleanVal(m.ansprechpartner) || '-'}</span>
-                <div style={{ marginTop: '4px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block', width: 'fit-content' }}>
-                  USt: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}
+          return (
+            <div 
+              key={m.id} 
+              style={{ ...panelStyle, padding: '15px 20px', cursor: 'pointer', borderLeft: isActive ? `4px solid ${theme.tresorAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : theme.cardBg, transition: 'all 0.2s ease', margin: 0 }}
+              onClick={() => { ladeInFormularMandant(m); setExpandedId(isExpanded ? null : m.id); }}
+            >
+              {/* DEFAULT STATE: SINGLE LINE */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+                  <strong style={{ color: theme.tresorAccent, fontSize: '15px', minWidth: '220px' }}>{m.firmenname}</strong>
+                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px' }}><Icon name="phone" size={14} /> {cleanVal(m.telefon) || '-'}</span>
+                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={14} /> {cleanVal(m.email) || '-'}</span>
+                </div>
+                <div style={{ color: isActive ? theme.tresorAccent : theme.textMuted }}>
+                  <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                 </div>
               </div>
 
-              <div style={{ fontSize: '12px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{cleanVal(m.adresse) || '-'}</span></span>
-                <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="phone" size={12}/> {cleanVal(m.telefon) || '-'}</span>
-                <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="mail" size={12}/> {cleanVal(m.email) || '-'}</span>
-              </div>
+              {/* EXPANDED STATE: FULL DATA SHEET */}
+              {isExpanded && (
+                <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                    {/* Kontakt & Adresse */}
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Kontakt & Adresse</strong>
+                      <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="user" size={12} /> {cleanVal(m.ansprechpartner) || '-'}</span>
+                        <span style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px' }}/> <span>{cleanVal(m.adresse) || '-'}</span></span>
+                      </div>
+                    </div>
 
-              <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: theme.inputBg, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-                <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
-                <div><span style={{color: theme.textMuted}}>USt-Id:</span> {cleanVal(m.ust_id) || '-'}</div>
-                <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
-                <div><span style={{color: theme.textMuted}}>Betriebs-Nr:</span> {cleanVal(m.betriebsnummer) || '-'}</div>
-                <div style={{ gridColumn: '1 / -1' }}><span style={{color: theme.textMuted}}>IBAN:</span> {cleanVal(m.iban) || '-'}</div>
-              </div>
+                    {/* Steuern & Nummern */}
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Steuern & Nummern</strong>
+                      <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: theme.inputBg, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                        <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
+                        <div><span style={{color: theme.textMuted}}>USt-Id:</span> {cleanVal(m.ust_id) || '-'}</div>
+                        <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
+                        <div><span style={{color: theme.textMuted}}>Betr.-Nr:</span> {cleanVal(m.betriebsnummer) || '-'}</div>
+                        <div style={{ gridColumn: '1 / -1' }}><span style={{color: theme.textMuted}}>IBAN:</span> {cleanVal(m.iban) || '-'}</div>
+                      </div>
+                      <div style={{ marginTop: '8px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block' }}>
+                        USt-Radar: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}
+                      </div>
+                    </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                 {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
-                   const fileName = extractFilename(url);
-                   return (
-                     <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${theme.border}`, width: 'fit-content', maxWidth: '100%' }}>
-                       <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', fontSize: '10px', color: theme.textMain, background: 'rgba(0,0,0,0.1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fileName}>
-                         <Icon name="file" size={10} /> {fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName}
-                       </a>
-                       <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 4px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
-                         <Icon name="x" size={10} />
-                       </button>
-                     </div>
-                   )
-                 })}
-                 {uploadingMandantId === m.id ? (
-                   <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
-                 ) : (
-                   <label onClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer', fontSize: '10px', background: 'transparent', padding: '4px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, width: 'fit-content' }}>
-                     + Datei
-                     <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
-                   </label>
-                 )}
-              </div>
+                    {/* Dokumente */}
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Dokumente</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
+                          const fileName = extractFilename(url);
+                          return (
+                            <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${theme.border}`, width: 'fit-content', maxWidth: '100%' }}>
+                              <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fileName}>
+                                <Icon name="file" size={10} /> {fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName}
+                              </a>
+                              <button onClick={() => loescheDateiAusMandant(m.id, m.dokument_url, url)} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
+                                <Icon name="x" size={10} />
+                              </button>
+                            </div>
+                          )
+                        })}
+                        {uploadingMandantId === m.id ? (
+                          <span style={{ fontSize: '11px', color: theme.tresorAccent }}><Icon name="file" size={10}/> Upload...</span>
+                        ) : (
+                          <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, width: 'fit-content' }}>
+                            + Datei anhängen
+                            <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-              <div style={{ textAlign: 'center' }}>
-                 <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Mandant löschen">
-                   <Icon name="trash" size={16} />
-                 </button>
-              </div>
-
+                  {/* Löschen Button (Unten rechts im Accordion) */}
+                  <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '10px', textAlign: 'right' }}>
+                    <button onClick={() => loescheMandant(m.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon name="trash" size={14} /> Mandant aus Tresor löschen
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
