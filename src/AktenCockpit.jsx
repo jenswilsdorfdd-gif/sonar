@@ -5,7 +5,6 @@ import { syncToGithub, extractFilename, normalizeName, cleanVal } from './utils'
 
 // --- PDF.js Import für die clientseitige Extraktion ---
 import * as pdfjsLib from 'pdfjs-dist';
-// Verhindert Fehler im Build-Prozess und nutzt den CDN-Worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export default function AktenCockpit({ session, theme, akten, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff, globalUrlText, setGlobalUrlText }) {
@@ -56,12 +55,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [zeigeErledigte, setZeigeErledigte] = useState(false); 
   
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
-  const [transferAkteId, setTransferAkteId] = useState(null);
-  const [neuerGegnerName, setNeuerGegnerName] = useState('');
   const [mergeSourceId, setMergeSourceId] = useState(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [uploadingHistId, setUploadingHistId] = useState(null);
   const [fokussierteAkteId, setFokussierteAkteId] = useState(null);
+  const [fokussierterHistId, setFokussierterHistId] = useState(null);
   
   const [openMenuId, setOpenMenuId] = useState(null);
   const [isAlarmsOpen, setIsAlarmsOpen] = useState(true);
@@ -206,53 +204,37 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
-  // NEU: SICHERER ABSPRUNG AUS DER VERSANDHISTORIE
-  const handleAktenAbsprung = (akteId) => {
-    if (briefEntwurf.trim() !== '' || dateien.length > 0 || emailAnhaenge.length > 0) {
-      if (!window.confirm("Möchtest du wirklich zu dieser Akte wechseln? Deine aktuellen, ungespeicherten Eingaben im Cockpit (Text/Dateien) gehen dabei verloren.")) {
-        return;
-      }
-    }
-    
-    // Reset Formular
-    setBriefEntwurf('');
-    setDateien([]);
-    setEmailAnhaenge([]);
-    if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
-    if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
+  // DEEP-LINK IN DIE AKTE: Schließt Modal, klappt Akte auf, scrollt hin und fokussiert
+  const springeZuAkteAusgang = (akteId, histId) => {
+    setShowVersandHistorie(false);
 
-    setModus('bestehend');
-    
-    // Manuelles Triggern der Ladelogik
-    setSelectedAkteId(akteId);
-    setBezugId(''); 
-    const a = akten.find(x => x.id === akteId);
-    if (a) {
-      setUnserZeichen(a.unser_zeichen || '');
-      setGegnerName(a.gegner_name || '');
-      setGegnerAnsprechpartner(a.gegner_ansprechpartner || '');
-      setFaxZhd(a.gegner_ansprechpartner || '');
-      setGegnerTelefon(formatRufnummer(a.gegner_telefon || ''));
-      setGegnerEmail(a.gegner_email || '');
-      setUnsereFirma(a.unsere_firma || '');
-      setUnserAnsprechpartner(a.unser_ansprechpartner || '');
-      setThema(a.thema || '');
-      setAktenzeichen(a.aktenzeichen || '');
-      
-      if (a.gegner_name) {
-        const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(a.gegner_name));
-        if (crmGegner) {
-          setGegnerFax(formatRufnummer(crmGegner.fax || ''));
-          if (!a.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
-        } else {
-          setGegnerFax('');
+    const zielAkte = akten.find(a => a.id === akteId);
+    if (zielAkte && zielAkte.status === 'Erledigt' && !zeigeErledigte) {
+      setZeigeErledigte(true);
+    }
+
+    if (!aufgeklappteAkten.includes(akteId)) {
+      setAufgeklappteAkten(prev => [...prev, akteId]);
+    }
+
+    setFokussierteAkteId(akteId);
+    setFokussierterHistId(histId);
+
+    setTimeout(() => {
+      const histElement = document.getElementById(`hist-zeile-${histId}`);
+      if (histElement) {
+        histElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        const aktenElement = document.getElementById(`akte-karte-${akteId}`);
+        if (aktenElement) {
+          aktenElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
-    }
+    }, 250);
 
-    setShowVersandHistorie(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast("Akte erfolgreich geladen!", "success");
+    setTimeout(() => {
+      setFokussierterHistId(null);
+    }, 3500);
   };
 
   const handleNachhaken = (akteId) => {
@@ -289,7 +271,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
     setOpenMenuId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast("✅ Akte geladen & Follow-Up Vorlage eingefügt!", "success");
+    showToast("Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
   const checkGegnerDiff = (neuName, neuFax, neuEmail, neuAnsprechpartner, neuTelefon) => {
@@ -359,7 +341,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
            }
         }
         await ladeDaten(); setJsonImport(''); setLaedt(false);
-        showToast(`✅ KI-Gegner-Scan abgeschlossen!\n\n${addedCount} neue Behörden/Gegner angelegt.\n${updatedCount} bestehende aktualisiert.`, 'success');
+        showToast(`KI-Gegner-Scan abgeschlossen!\n\n${addedCount} neue Behörden/Gegner angelegt.\n${updatedCount} bestehende aktualisiert.`, 'success');
         return; 
       }
 
@@ -438,7 +420,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '', ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '', betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
         vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '', handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '', iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
-      if (!error && data) { showToast(`✅ Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`, 'success'); ladeDaten(); }
+      if (!error && data) { showToast(`Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`, 'success'); ladeDaten(); }
     }
     setTresorPrompt(null);
   };
@@ -459,7 +441,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             email: gegnerPrompt.obj.email || ''
         }])
       }]);
-      showToast(`✅ Behörde/Gegner "${gegnerPrompt.obj.name}" ins CRM aufgenommen!`, 'success');
+      showToast(`Behörde/Gegner "${gegnerPrompt.obj.name}" ins CRM aufgenommen!`, 'success');
       
     } else if (gegnerPrompt.typ === 'diff') {
       const existing = gegnerListe.find(g => g.id === gegnerPrompt.targetId);
@@ -486,7 +468,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
         
         await supabase.from('gegner').update(gUpdates).eq('id', existing.id);
-        showToast(`✅ CRM-Daten für "${existing.name}" aktualisiert!`, 'success');
+        showToast(`CRM-Daten für "${existing.name}" aktualisiert!`, 'success');
       }
     }
     
@@ -580,9 +562,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   };
 
   const handleResendVersand = async (versandArt) => {
-    if (!briefEntwurf || briefEntwurf.trim() === '') { showToast("⚠️ Bitte gib zuerst einen Text im Schreibfenster ein!", 'warning'); return; }
-    if (!gegnerEmail && versandArt === 'email') { showToast("⚠️ Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!", 'warning'); return; }
-    if (!gegnerFax && versandArt === 'fax') { showToast("⚠️ Bitte trage zuerst eine Faxnummer der Gegenseite ein!", 'warning'); return; }
+    if (!briefEntwurf || briefEntwurf.trim() === '') { showToast("Bitte gib zuerst einen Text im Schreibfenster ein!", 'warning'); return; }
+    if (!gegnerEmail && versandArt === 'email') { showToast("Bitte trage zuerst eine E-Mail-Adresse der Gegenseite / Behörde ein!", 'warning'); return; }
+    if (!gegnerFax && versandArt === 'fax') { showToast("Bitte trage zuerst eine Faxnummer der Gegenseite ein!", 'warning'); return; }
 
     setLaedt(true);
     try {
@@ -630,10 +612,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const successKanal = versandArt === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax via Resend)';
       
       setAktion(successAktion); setKanal(successKanal); setTyp('Ausgang');
-      showToast(`✅ ${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet! Auto-Save wird ausgeführt...`, 'success');
+      showToast(`${versandArt === 'email' ? 'E-Mail' : 'E-Fax'} erfolgreich versendet! Auto-Save wird ausgeführt...`, 'success');
 
       await speichereEintragLogik({ overridePdfUrl: resData.pdfUrl || null, overrideAktion: successAktion, overrideKanal: successKanal, overrideTyp: 'Ausgang' });
-    } catch (e) { console.error("Versandfehler:", e); showToast("❌ Rückmeldung von Resend: " + e.message, 'error'); setLaedt(false); }
+    } catch (e) { console.error("Versandfehler:", e); showToast("Rückmeldung von Resend: " + e.message, 'error'); setLaedt(false); }
   };
 
   const handleSpeichernCheck = (e) => {
@@ -739,9 +721,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
       ladeDaten();
-      showToast('✅ Akteneintrag erfolgreich gespeichert!', 'success');
+      showToast('Akteneintrag erfolgreich gespeichert!', 'success');
     } else {
-      showToast('❌ Fehler beim Speichern der Historie: ' + histError.message, 'error');
+      showToast('Fehler beim Speichern der Historie: ' + histError.message, 'error');
     }
     setLaedt(false);
   };
@@ -768,7 +750,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     await supabase.from('akten_historie').insert([{ akte_id: mergeTargetId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: `Akte zusammengeführt: Inhalte aus "${sourceAkte.thema || 'Unbekannt'}" (${sourceAkte.unser_zeichen || 'Kein Zeichen'}) wurden integriert.` }]);
     
     setMergeSourceId(null); setMergeTargetId(''); ladeDaten(); 
-    showToast("✅ Akteninhalte erfolgreich übertragen!", 'success');
+    showToast("Akteninhalte erfolgreich übertragen!", 'success');
   };
 
   const handleTresorAuswahl = (e) => {
@@ -812,7 +794,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         if (!sollAlarmMachen && dokument.frist_extern) { 
           const fristTage = berechneTageBis(dokument.frist_extern); 
           if (fristTage !== null && fristTage <= 7) { zielDatum = dokument.frist_extern; isWV = false; sollAlarmMachen = true; } 
-        }
+        } 
         
         if (sollAlarmMachen && zielDatum) { 
           const tage = berechneTageBis(zielDatum); 
@@ -959,6 +941,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 ) : (
                   anzeigeAusgaenge.map((ausgang) => {
                     const isExpanded = expandedVersandId === ausgang.id;
+                    const rawAction = ausgang.aktion || '';
+                    const zielKontakt = rawAction.includes('versendet an ') ? rawAction.split('versendet an ')[1] : '';
+
                     return (
                       <div key={ausgang.id} style={{ borderBottom: `1px solid ${theme.border}`, background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.cardBg }}>
                         <div 
@@ -970,55 +955,73 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             {formatDatum(ausgang.datum)}
                           </div>
 
-                          {/* 2. Vorgang & Akte */}
+                          {/* 2. Vorgang & Akte (Klick auf Unser Zeichen löst Deep-Link aus) */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <strong style={{ color: theme.accent, fontSize: '13px' }}>[{ausgang.unser_zeichen || '---'}]</strong>
-                            <span style={{ fontSize: '11px', color: theme.textMuted }}>AZ Gegner: {ausgang.aktenzeichen || '-'}</span>
-                            <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500' }}>{ausgang.thema || '-'}</span>
+                            <strong 
+                              onClick={(e) => { e.stopPropagation(); springeZuAkteAusgang(ausgang.akte_id, ausgang.id); }} 
+                              style={{ color: theme.accent, fontSize: '13px', cursor: 'pointer', width: 'fit-content' }}
+                              title="Klicken, um diesen Vorgang direkt in der Akte anzuzeigen"
+                            >
+                              [{ausgang.unser_zeichen || '---'}]
+                            </strong>
+                            {ausgang.aktenzeichen && (
+                              <span style={{ fontSize: '12px', color: theme.textMain, fontWeight: 'bold' }}>
+                                {ausgang.aktenzeichen}
+                              </span>
+                            )}
+                            <span style={{ fontSize: '13px', color: theme.textMain }}>
+                              {ausgang.thema || '-'}
+                            </span>
                           </div>
 
-                          {/* 3. Gegner */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* 3. Gegner & Kontakt */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
                             <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Icon name="user" size={10} /> {ausgang.gegner_ansprechpartner || 'Zentrale / Allgemein'}
                             </span>
+                            {zielKontakt && (
+                              <span style={{ fontSize: '11px', color: theme.accent, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Icon name={zielKontakt.includes('@') ? 'mail' : 'phone'} size={10} /> {zielKontakt}
+                              </span>
+                            )}
                           </div>
 
                           {/* 4. Versandart */}
-                          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '4px' }}>
-                            <div style={{ background: theme.accent, color: '#000', padding: '6px 4px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
-                              {ausgang.kanal || 'Ausgang'}
+                          <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <div style={{ background: theme.accent, color: '#000', padding: '6px 8px', minHeight: '32px', boxSizing: 'border-box', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
+                              <Icon name={ausgang.kanal?.toLowerCase().includes('mail') ? 'mail' : 'phone'} size={12} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{ausgang.kanal || 'Ausgang'}</span>
                             </div>
                           </div>
 
                           {/* 5. Anhänge */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
-                              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', fontSize: '11px', color: theme.textMain, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', textDecoration: 'none', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
-                                <Icon name="file" size={10} style={{ flexShrink: 0 }} />
+                              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', minHeight: '32px', boxSizing: 'border-box', fontSize: '11px', color: '#000', background: theme.accent, borderRadius: '4px', textDecoration: 'none', width: '100%', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
+                                <Icon name="file" size={12} style={{ flexShrink: 0 }} />
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extractFilename(url)}</span>
                               </a>
                             )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
                           </div>
 
                           {/* 6. Chevron */}
-                          <div style={{ color: theme.textMuted, textAlign: 'right', paddingTop: '4px' }}>
+                          <div style={{ color: theme.textMuted, textAlign: 'right', paddingTop: '6px' }}>
                             <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                           </div>
                         </div>
 
-                        {/* EXPANDED CONTENT: Sendebericht & ABSPRUNG BUTTON */}
+                        {/* EXPANDED CONTENT: Sendebericht & Vorgang in Akte öffnen */}
                         {isExpanded && (
                           <div style={{ padding: '0 20px 20px 20px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                             <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                              <div style={{ fontSize: '12px', color: theme.textMuted }}>Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen, oder öffne die gesamte Akte.</div>
+                              <div style={{ fontSize: '12px', color: theme.textMuted }}>Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen, oder springe direkt zum Vorgang in der Akte.</div>
                               <div style={{ display: 'flex', gap: '10px' }}>
-                                <button onClick={() => druckeSendebericht(ausgang)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 14px', minHeight: '32px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                   <Icon name="print" size={14} /> Sendebericht drucken
                                 </button>
-                                <button onClick={() => handleAktenAbsprung(ausgang.akte_id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                  <Icon name="folder" size={14} /> Ganze Akte öffnen
+                                <button onClick={() => springeZuAkteAusgang(ausgang.akte_id, ausgang.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 14px', minHeight: '32px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                  <Icon name="folder" size={14} /> Vorgang in Akte öffnen
                                 </button>
                               </div>
                             </div>
@@ -1470,77 +1473,81 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         </tr>
                       </thead>
                       <tbody>
-                        {akte.akten_historie.map((hist) => (
-                          <tr key={hist.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                            <td style={{ padding: '10px' }}>
-                               <select 
-                                 defaultValue={hist.typ || ''} 
-                                 onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
-                                 style={{...inlineInputStyle, fontWeight: 'bold'}}
-                               >
-                                  <option value="Eingang">Eingang</option>
-                                  <option value="Ausgang">Ausgang</option>
-                                  <option value="Intern">Intern</option>
-                               </select>
-                            </td>
-                            <td style={{ padding: '10px' }}>
-                               <input 
-                                 type="date" 
-                                 defaultValue={hist.datum || ''} 
-                                 onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
-                                 style={inlineInputStyle} 
-                               />
-                            </td>
-                            <td style={{ padding: '10px' }}>
-                               <input 
-                                 type="text" 
-                                 defaultValue={hist.aktion || ''} 
-                                 onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
-                                 style={inlineInputStyle} 
-                                 placeholder="Ohne Aktion" 
-                               />
-                            </td>
-                            <td style={{ padding: '10px' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  <span style={{ fontSize: '11px', color: theme.textMuted, width: '30px' }}>Frist:</span>
-                                  <input 
-                                    type="date" 
-                                    key={`frist-${hist.frist_extern}`}
-                                    defaultValue={hist.frist_extern || ''} 
-                                    onBlur={(e) => { if (e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }} 
-                                    style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
-                                    title="Frist setzen (löscht automatisch WV)" 
-                                  />
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold', width: '30px' }}>WV:</span>
-                                  <input 
-                                    type="date" 
-                                    key={`wv-${hist.wiedervorlage}`}
-                                    defaultValue={hist.wiedervorlage || ''} 
-                                    onBlur={(e) => { if (e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }} 
-                                    style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
-                                    title="WV setzen (löscht automatisch Frist)" 
-                                  />
-                                </div>
-                              </div>
-                            </td>
-                            <td style={{ padding: '10px' }}>
-                              {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
-                                const fileName = extractFilename(url);
-                                return (
-                                  <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-                                    <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
-                                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen"><Icon name="x" size={12} /></button>
+                        {akte.akten_historie.map((hist) => {
+                          const istHervorgehoben = fokussierterHistId === hist.id;
+
+                          return (
+                            <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
+                              <td style={{ padding: '10px' }}>
+                                 <select 
+                                   defaultValue={hist.typ || ''} 
+                                   onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
+                                   style={{...inlineInputStyle, fontWeight: 'bold'}}
+                                 >
+                                    <option value="Eingang">Eingang</option>
+                                    <option value="Ausgang">Ausgang</option>
+                                    <option value="Intern">Intern</option>
+                                 </select>
+                              </td>
+                              <td style={{ padding: '10px' }}>
+                                 <input 
+                                   type="date" 
+                                   defaultValue={hist.datum || ''} 
+                                   onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
+                                   style={inlineInputStyle} 
+                                 />
+                              </td>
+                              <td style={{ padding: '10px' }}>
+                                 <input 
+                                   type="text" 
+                                   defaultValue={hist.aktion || ''} 
+                                   onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
+                                   style={inlineInputStyle} 
+                                   placeholder="Ohne Aktion" 
+                                 />
+                              </td>
+                              <td style={{ padding: '10px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', color: theme.textMuted, width: '30px' }}>Frist:</span>
+                                    <input 
+                                      type="date" 
+                                      key={`frist-${hist.frist_extern}`}
+                                      defaultValue={hist.frist_extern || ''} 
+                                      onBlur={(e) => { if (e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }} 
+                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                      title="Frist setzen (löscht automatisch WV)" 
+                                    />
                                   </div>
-                                )
-                              })}
-                              {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
-                            </td>
-                            <td style={{ padding: '10px', textAlign: 'center' }}><button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button></td>
-                          </tr>
-                        ))}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold', width: '30px' }}>WV:</span>
+                                    <input 
+                                      type="date" 
+                                      key={`wv-${hist.wiedervorlage}`}
+                                      defaultValue={hist.wiedervorlage || ''} 
+                                      onBlur={(e) => { if (e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }} 
+                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                      title="WV setzen (löscht automatisch Frist)" 
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px' }}>
+                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                  const fileName = extractFilename(url);
+                                  return (
+                                    <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
+                                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen"><Icon name="x" size={12} /></button>
+                                    </div>
+                                  )
+                                })}
+                                {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
+                              </td>
+                              <td style={{ padding: '10px', textAlign: 'center' }}><button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button></td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
