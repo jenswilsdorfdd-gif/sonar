@@ -32,7 +32,8 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
 
-  const listGrid = "2fr 2fr 3fr 2.5fr 50px"; // Das strikte CSS-Grid für exakte vertikale Fluchten
+  // Striktes Grid-Layout für geschlossenen und aufgeklappten Zustand
+  const listGrid = "2.5fr 2fr 3fr 2.5fr 50px"; 
 
   const gefilterteMandanten = mandanten.filter((m) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
@@ -210,7 +211,6 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
           <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
           
-          {/* OPTISCHE BEREINIGUNG: Einheitliches Formular-Grid für Bank & Steuer */}
           <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
           <div><label style={labelStyle}>Bank Name</label><input value={m_bank_name} onChange={e=>setM_bank_name(e.target.value)} style={inputStyle}/></div>
           <div>
@@ -222,7 +222,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Dauerfristverlängerung (DFV)</label>
+            <label style={labelStyle}>Dauerfrist (DFV)</label>
             <select value={m_dauerfrist ? 'true' : 'false'} onChange={e=>setM_dauerfrist(e.target.value === 'true')} style={inputStyle}>
               <option value="false">Nein</option>
               <option value="true">Ja</option>
@@ -246,11 +246,9 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         <Icon name="archive" size={20} /> Gespeicherte Mandanten & Firmen
       </h3>
       
-      {/* ECHTE ACCORDION-LISTE MIT STRIKTEM CSS GRID */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
         <div style={{ minWidth: '950px' }}>
           
-          {/* HEADER ROW (Striktes Grid) */}
           <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
             <div>Firma / Mandant</div>
             <div>Kontakt</div>
@@ -259,7 +257,6 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
             <div style={{ textAlign: 'center' }}>Aktion</div>
           </div>
 
-          {/* ITEM ROWS */}
           {gefilterteMandanten.map(m => {
             const isExpanded = expandedId === m.id;
             const isActive = editMandantId === m.id;
@@ -271,7 +268,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                 style={{ padding: '15px 20px', cursor: 'pointer', borderBottom: `1px solid ${theme.border}`, borderLeft: isActive ? `4px solid ${theme.tresorAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : 'transparent', transition: 'all 0.2s ease', margin: 0, textAlign: 'left' }}
                 onClick={() => { ladeInFormularMandant(m); setExpandedId(isExpanded ? null : m.id); }}
               >
-                {/* SINGLE LINE DEFAULT (Nutzt exakt dasselbe listGrid) */}
+                {/* SINGLE LINE DEFAULT */}
                 <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', alignItems: 'center', width: '100%' }}>
                   
                   {/* Spalte 1: Firma */}
@@ -303,22 +300,22 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                   </div>
                 </div>
 
-                {/* EXPANDED CONTENT (Nutzt ebenfalls listGrid für strikte Fluchten!) */}
+                {/* EXPANDED CONTENT (Strikt im Raster) */}
                 {isExpanded && (
                   <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: listGrid, gap: '15px', cursor: 'default', alignItems: 'start' }} onClick={(e) => e.stopPropagation()}>
                     
-                    {/* Spalte 1: Firma Details */}
+                    {/* Spalte 1: Exakt linksbündig unter dem Namen */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{cleanVal(m.adresse) || '-'}</span></span>
+                      <span style={{ fontSize: '12px', color: theme.textMain }}>{cleanVal(m.adresse) || '-'}</span>
                       <div style={{ marginTop: '4px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block', width: 'fit-content' }}>
                         USt-Radar: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}
                       </div>
                     </div>
 
-                    {/* Spalte 2: Kontakt Details (Leer, da oben schon abgehandelt) */}
+                    {/* Spalte 2: Leer, damit das Grid erhalten bleibt */}
                     <div></div>
 
-                    {/* Spalte 3: Steuern & Bank Details */}
+                    {/* Spalte 3: Steuern Details */}
                     <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: theme.inputBg, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
                       <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
                       <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
@@ -326,7 +323,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       <div><span style={{color: theme.textMuted}}>Bank:</span> {cleanVal(m.bank_name) || '-'}</div>
                     </div>
 
-                    {/* Spalte 4: Dokumente Details */}
+                    {/* Spalte 4: Dokumente */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
                         const fileName = extractFilename(url);
