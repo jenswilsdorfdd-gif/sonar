@@ -24,12 +24,13 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const [m_dauerfrist, setM_dauerfrist] = useState(false);
   const [m_dateien, setM_dateien] = useState([]);
 
+  const isDarkMode = theme.bg === '#020617';
+
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
 
-  // --- NEU: GLOBALE FILTER-LOGIK ---
   const gefilterteMandanten = mandanten.filter((m) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
     const s = suchbegriff.toLowerCase();
@@ -233,7 +234,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
           <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
           <div><label style={labelStyle}>Bank Name</label><input value={m_bank_name} onChange={e=>setM_bank_name(e.target.value)} style={inputStyle}/></div>
           
-          <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+          <div>
             <label style={labelStyle}>USt-Voranmeldung</label>
             <select value={m_ust_intervall} onChange={e=>setM_ust_intervall(e.target.value)} style={inputStyle}>
               <option value="Monatlich">Monatlich</option>
@@ -242,7 +243,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
             </select>
           </div>
           
-          <div style={{ background: theme.inputBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '12px' }}>
             <label style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px' }}>
               <input type="checkbox" checked={m_dauerfrist} onChange={e=>setM_dauerfrist(e.target.checked)} style={{ transform: 'scale(1.3)', accentColor: theme.tresorAccent }}/>
               Dauerfristverlängerung (DFV)
@@ -251,8 +252,8 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '25px', flexWrap: 'wrap' }}>
-          <button type="submit" disabled={laedt} style={{ padding: '14px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: '1 1 auto' }}>
-            {laedt ? 'Speichere...' : (editMandantId ? '💾 Änderungen speichern' : '+ Mandant im Tresor ablegen')}
+          <button type="submit" disabled={laedt} style={{ padding: '14px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: '1 1 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {laedt ? 'Speichere...' : (editMandantId ? <><Icon name="check" size={16} /> Änderungen speichern</> : '+ Mandant im Tresor ablegen')}
           </button>
           {editMandantId && (
             <button type="button" onClick={resetMandantForm} style={{ padding: '14px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: '1 1 auto' }}>
@@ -262,63 +263,79 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         </div>
       </form>
 
-      <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left' }}>🗃️ Gespeicherte Mandanten & Firmen</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '20px', textAlign: 'left' }}>
-        {gefilterteMandanten.map(m => (
-          <div key={m.id} style={{ ...panelStyle, cursor: 'pointer', position: 'relative', border: editMandantId === m.id ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}` }} onClick={() => ladeInFormularMandant(m)}>
-            <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', fontSize: '18px', zIndex: 10 }} title="Mandant löschen">
-              <Icon name="trash" size={18} />
-            </button>
-
-            <h3 style={{ margin: '0 0 10px 0', color: theme.tresorAccent, fontSize: '18px', paddingRight: '30px' }}>{m.firmenname}</h3>
-            
-            <div style={{ fontSize: '13px', color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '15px' }}>
-              <span>👤 {cleanVal(m.ansprechpartner) || '-'}</span>
-              <span>📍 {cleanVal(m.adresse) || '-'}</span>
-              <span>📞 {cleanVal(m.telefon) || '-'} | ✉️ {cleanVal(m.email) || '-'}</span>
-            </div>
-
-            <div style={{ fontSize: '12px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: theme.inputBg, padding: '12px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-              <div><strong style={{color: theme.textMuted}}>Steuer-Nr:</strong><br/>{cleanVal(m.steuernummer) || '-'}</div>
-              <div><strong style={{color: theme.textMuted}}>USt-Id:</strong><br/>{cleanVal(m.ust_id) || '-'}</div>
-              <div><strong style={{color: theme.textMuted}}>VBG:</strong><br/>{cleanVal(m.vbg_nummer) || '-'}</div>
-              <div><strong style={{color: theme.textMuted}}>Betriebs-Nr:</strong><br/>{cleanVal(m.betriebsnummer) || '-'}</div>
-              <div><strong style={{color: theme.textMuted}}>HR-Nr:</strong><br/>{cleanVal(m.handelsregister) || '-'}</div>
-              <div><strong style={{color: theme.textMuted}}>Bank:</strong><br/>{cleanVal(m.bank_name) || '-'}</div>
-              <div style={{ gridColumn: '1 / -1' }}><strong style={{color: theme.textMuted}}>IBAN:</strong> {cleanVal(m.iban) || '-'}</div>
-            </div>
-
-            <div style={{ gridColumn: '1 / -1', marginTop: '12px' }}>
-              <strong style={{color: theme.textMuted, display: 'block', marginBottom: '6px', fontSize: '12px'}}>Dokumente:</strong>
-              {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
-                const fileName = extractFilename(url);
-                return (
-                  <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-                    <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}>
-                      <Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}
-                    </a>
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
-                      <Icon name="x" size={12} />
-                    </button>
-                  </div>
-                )
-              })}
-              
-              {uploadingMandantId === m.id ? (
-                <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
-              ) : (
-                <label onClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 8px', borderRadius: '6px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted }}>
-                  + Datei
-                  <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
-                </label>
-              )}
-            </div>
-
-            <div style={{ marginTop: '12px', padding: '8px', background: theme.bg, borderRadius: '6px', fontSize: '12px', color: theme.tresorAccent, fontWeight: 'bold' }}>
-              USt-Radar: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(mit DFV)' : ''}
-            </div>
+      <h3 style={{ margin: '30px 0 15px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <Icon name="archive" size={20} /> Gespeicherte Mandanten & Firmen
+      </h3>
+      
+      {/* NEUE KOMPAKTE LISTENANSICHT */}
+      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
+        <div style={{ minWidth: '950px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 2.5fr 2fr 50px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
+            <div>Firma / Mandant</div>
+            <div>Kontakt</div>
+            <div>Steuern & Bank</div>
+            <div>Dokumente</div>
+            <div style={{ textAlign: 'center' }}>Aktion</div>
           </div>
-        ))}
+
+          {gefilterteMandanten.map(m => (
+            <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 2.5fr 2fr 50px', gap: '15px', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, cursor: 'pointer', background: editMandantId === m.id ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent', borderLeft: editMandantId === m.id ? `4px solid ${theme.tresorAccent}` : '4px solid transparent', transition: 'all 0.2s ease', textAlign: 'left', alignItems: 'start' }} onClick={() => ladeInFormularMandant(m)}>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <strong style={{ color: theme.tresorAccent, fontSize: '15px' }}>{m.firmenname}</strong>
+                <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="user" size={12} /> {cleanVal(m.ansprechpartner) || '-'}</span>
+                <div style={{ marginTop: '4px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block', width: 'fit-content' }}>
+                  USt: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}
+                </div>
+              </div>
+
+              <div style={{ fontSize: '12px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{cleanVal(m.adresse) || '-'}</span></span>
+                <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="phone" size={12}/> {cleanVal(m.telefon) || '-'}</span>
+                <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="mail" size={12}/> {cleanVal(m.email) || '-'}</span>
+              </div>
+
+              <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: theme.inputBg, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
+                <div><span style={{color: theme.textMuted}}>USt-Id:</span> {cleanVal(m.ust_id) || '-'}</div>
+                <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
+                <div><span style={{color: theme.textMuted}}>Betriebs-Nr:</span> {cleanVal(m.betriebsnummer) || '-'}</div>
+                <div style={{ gridColumn: '1 / -1' }}><span style={{color: theme.textMuted}}>IBAN:</span> {cleanVal(m.iban) || '-'}</div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                 {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
+                   const fileName = extractFilename(url);
+                   return (
+                     <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${theme.border}`, width: 'fit-content', maxWidth: '100%' }}>
+                       <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', fontSize: '10px', color: theme.textMain, background: 'rgba(0,0,0,0.1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fileName}>
+                         <Icon name="file" size={10} /> {fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName}
+                       </a>
+                       <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusMandant(m.id, m.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 4px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
+                         <Icon name="x" size={10} />
+                       </button>
+                     </div>
+                   )
+                 })}
+                 {uploadingMandantId === m.id ? (
+                   <span style={{ fontSize: '11px', color: theme.tresorAccent }}>⏳ Upload...</span>
+                 ) : (
+                   <label onClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer', fontSize: '10px', background: 'transparent', padding: '4px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, width: 'fit-content' }}>
+                     + Datei
+                     <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
+                   </label>
+                 )}
+              </div>
+
+              <div style={{ textAlign: 'center' }}>
+                 <button onClick={(e) => { e.stopPropagation(); loescheMandant(m.id); }} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Mandant löschen">
+                   <Icon name="trash" size={16} />
+                 </button>
+              </div>
+
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
