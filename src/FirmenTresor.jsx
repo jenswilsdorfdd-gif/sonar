@@ -7,7 +7,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const [laedt, setLaedt] = useState(false);
   const [uploadingMandantId, setUploadingMandantId] = useState(null);
   const [editMandantId, setEditMandantId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null); // NEU: Steuert das Aufklappen (Accordion)
+  const [expandedId, setExpandedId] = useState(null);
   
   const [m_firmenname, setM_firmenname] = useState('');
   const [m_ansprechpartner, setM_ansprechpartner] = useState('');
@@ -32,6 +32,8 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const h4StyleTresor = { margin: '0', color: theme.textMain, borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', fontSize: '16px', fontWeight: '600' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
 
+  const listGrid = "2fr 2fr 3fr 2.5fr 50px"; // Das strikte CSS-Grid für exakte vertikale Fluchten
+
   const gefilterteMandanten = mandanten.filter((m) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
     const s = suchbegriff.toLowerCase();
@@ -39,7 +41,6 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     const ans = (m.ansprechpartner || '').toLowerCase();
     const mail = (m.email || '').toLowerCase();
     const adr = (m.adresse || '').toLowerCase();
-    
     return fName.includes(s) || ans.includes(s) || mail.includes(s) || adr.includes(s);
   });
 
@@ -78,24 +79,15 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     if (m_dateien && m_dateien.length > 0) {
       for (const f of m_dateien) {
         const isMd = f.name.toLowerCase().endsWith('.md');
-        
         if (isMd) {
           const mdInhalt = await f.text();
           const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`;
-          
-          await supabase.from('wissensdatenbank').insert([{
-            datei_name: f.name,
-            firma: m_firmenname || 'Allgemein',
-            inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`,
-            dokument_url: null
-          }]);
-
+          await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: m_firmenname || 'Allgemein', inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`, dokument_url: null }]);
           await syncToGithub(f.name, mdInhalt, null, null, showToast);
         } else {
           const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_');
           const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f);
-          
           if (!uploadError) {
             const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
             alleUrls.push(linkData.publicUrl);
@@ -150,14 +142,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     if (isMd) {
       const mdInhalt = await file.text();
       const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName}`;
-      
-      await supabase.from('wissensdatenbank').insert([{
-        datei_name: file.name,
-        firma: fName,
-        inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`,
-        dokument_url: null
-      }]);
-
+      await supabase.from('wissensdatenbank').insert([{ datei_name: file.name, firma: fName, inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`, dokument_url: null }]);
       await syncToGithub(file.name, mdInhalt, null, null, showToast);
       ladeDaten();
       showToast('Stammdokument angehängt!', 'success');
@@ -165,7 +150,6 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
       const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
       const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
-      
       if (!uploadError) {
         const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
         const newUrl = linkData.publicUrl;
@@ -177,7 +161,6 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         showToast("Fehler beim Upload: " + uploadError.message, 'error');
       }
     }
-    
     setUploadingMandantId(null);
     e.target.value = ''; 
   };
@@ -189,16 +172,10 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
     const { error: dbError } = await supabase.from('mandanten').update({ dokument_url: neuerUrlString }).eq('id', mId);
     if (!dbError) {
-       try {
-          const parts = decodeURIComponent(urlZumLoeschen).split('/');
-          const fileName = parts[parts.length - 1];
-          await supabase.storage.from('dokumente').remove([fileName]);
-       } catch (e) { }
+       try { const parts = decodeURIComponent(urlZumLoeschen).split('/'); const fileName = parts[parts.length - 1]; await supabase.storage.from('dokumente').remove([fileName]); } catch (e) { }
        ladeDaten();
        showToast('Datei erfolgreich aus Tresor entfernt!', 'success');
-    } else {
-       showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error');
-    }
+    } else { showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error'); }
   };
 
   return (
@@ -232,9 +209,10 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
           </div>
 
           <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
+          
+          {/* OPTISCHE BEREINIGUNG: Einheitliches Formular-Grid für Bank & Steuer */}
           <div><label style={labelStyle}>IBAN</label><input value={m_iban} onChange={e=>setM_iban(e.target.value)} style={inputStyle}/></div>
           <div><label style={labelStyle}>Bank Name</label><input value={m_bank_name} onChange={e=>setM_bank_name(e.target.value)} style={inputStyle}/></div>
-          
           <div>
             <label style={labelStyle}>USt-Voranmeldung</label>
             <select value={m_ust_intervall} onChange={e=>setM_ust_intervall(e.target.value)} style={inputStyle}>
@@ -243,12 +221,12 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
               <option value="Jährlich">Jährlich (Keine VA)</option>
             </select>
           </div>
-          
-          <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '12px' }}>
-            <label style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <input type="checkbox" checked={m_dauerfrist} onChange={e=>setM_dauerfrist(e.target.checked)} style={{ transform: 'scale(1.3)', accentColor: theme.tresorAccent }}/>
-              Dauerfristverlängerung (DFV)
-            </label>
+          <div>
+            <label style={labelStyle}>Dauerfristverlängerung (DFV)</label>
+            <select value={m_dauerfrist ? 'true' : 'false'} onChange={e=>setM_dauerfrist(e.target.value === 'true')} style={inputStyle}>
+              <option value="false">Nein</option>
+              <option value="true">Ja</option>
+            </select>
           </div>
         </div>
 
@@ -268,99 +246,124 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         <Icon name="archive" size={20} /> Gespeicherte Mandanten & Firmen
       </h3>
       
-      {/* ECHTE ACCORDION-LISTE (Single-Line) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
-        {gefilterteMandanten.map(m => {
-          const isExpanded = expandedId === m.id;
-          const isActive = editMandantId === m.id;
+      {/* ECHTE ACCORDION-LISTE MIT STRIKTEM CSS GRID */}
+      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
+        <div style={{ minWidth: '950px' }}>
+          
+          {/* HEADER ROW (Striktes Grid) */}
+          <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
+            <div>Firma / Mandant</div>
+            <div>Kontakt</div>
+            <div>Steuern & Bank</div>
+            <div>Dokumente</div>
+            <div style={{ textAlign: 'center' }}>Aktion</div>
+          </div>
 
-          return (
-            <div 
-              key={m.id} 
-              style={{ ...panelStyle, padding: '15px 20px', cursor: 'pointer', borderLeft: isActive ? `4px solid ${theme.tresorAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : theme.cardBg, transition: 'all 0.2s ease', margin: 0 }}
-              onClick={() => { ladeInFormularMandant(m); setExpandedId(isExpanded ? null : m.id); }}
-            >
-              {/* DEFAULT STATE: SINGLE LINE */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-                  <strong style={{ color: theme.tresorAccent, fontSize: '15px', minWidth: '220px' }}>{m.firmenname}</strong>
-                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px' }}><Icon name="phone" size={14} /> {cleanVal(m.telefon) || '-'}</span>
-                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={14} /> {cleanVal(m.email) || '-'}</span>
-                </div>
-                <div style={{ color: isActive ? theme.tresorAccent : theme.textMuted }}>
-                  <Icon name={isExpanded ? 'down' : 'right'} size={20} />
-                </div>
-              </div>
+          {/* ITEM ROWS */}
+          {gefilterteMandanten.map(m => {
+            const isExpanded = expandedId === m.id;
+            const isActive = editMandantId === m.id;
+            const numDocs = m.dokument_url ? m.dokument_url.split(',').length : 0;
 
-              {/* EXPANDED STATE: FULL DATA SHEET */}
-              {isExpanded && (
-                <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+            return (
+              <div 
+                key={m.id} 
+                style={{ padding: '15px 20px', cursor: 'pointer', borderBottom: `1px solid ${theme.border}`, borderLeft: isActive ? `4px solid ${theme.tresorAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : 'transparent', transition: 'all 0.2s ease', margin: 0, textAlign: 'left' }}
+                onClick={() => { ladeInFormularMandant(m); setExpandedId(isExpanded ? null : m.id); }}
+              >
+                {/* SINGLE LINE DEFAULT (Nutzt exakt dasselbe listGrid) */}
+                <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', alignItems: 'center', width: '100%' }}>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                    {/* Kontakt & Adresse */}
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Kontakt & Adresse</strong>
-                      <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="user" size={12} /> {cleanVal(m.ansprechpartner) || '-'}</span>
-                        <span style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px' }}/> <span>{cleanVal(m.adresse) || '-'}</span></span>
-                      </div>
-                    </div>
+                  {/* Spalte 1: Firma */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                    <strong style={{ color: theme.tresorAccent, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.firmenname}</strong>
+                    <span style={{ fontSize: '11px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="user" size={10} /> {cleanVal(m.ansprechpartner) || '-'}</span>
+                  </div>
+                  
+                  {/* Spalte 2: Kontakt */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={12}/> {cleanVal(m.telefon) || '-'}</span>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={12}/> {cleanVal(m.email) || '-'}</span>
+                  </div>
 
-                    {/* Steuern & Nummern */}
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Steuern & Nummern</strong>
-                      <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: theme.inputBg, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
-                        <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
-                        <div><span style={{color: theme.textMuted}}>USt-Id:</span> {cleanVal(m.ust_id) || '-'}</div>
-                        <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
-                        <div><span style={{color: theme.textMuted}}>Betr.-Nr:</span> {cleanVal(m.betriebsnummer) || '-'}</div>
-                        <div style={{ gridColumn: '1 / -1' }}><span style={{color: theme.textMuted}}>IBAN:</span> {cleanVal(m.iban) || '-'}</div>
-                      </div>
-                      <div style={{ marginTop: '8px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block' }}>
+                  {/* Spalte 3: Steuern & Bank */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>USt-Id: {cleanVal(m.ust_id) || '-'}</span>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>IBAN: {cleanVal(m.iban) || '-'}</span>
+                  </div>
+
+                  {/* Spalte 4: Dokumente */}
+                  <div style={{ fontSize: '12px', color: theme.textMuted }}>
+                    {numDocs > 0 ? `(${numDocs} ${numDocs === 1 ? 'Dokument' : 'Dokumente'})` : '-'}
+                  </div>
+
+                  {/* Spalte 5: Aktion */}
+                  <div style={{ color: isActive ? theme.tresorAccent : theme.textMuted, textAlign: 'center' }}>
+                    <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                  </div>
+                </div>
+
+                {/* EXPANDED CONTENT (Nutzt ebenfalls listGrid für strikte Fluchten!) */}
+                {isExpanded && (
+                  <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: listGrid, gap: '15px', cursor: 'default', alignItems: 'start' }} onClick={(e) => e.stopPropagation()}>
+                    
+                    {/* Spalte 1: Firma Details */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{cleanVal(m.adresse) || '-'}</span></span>
+                      <div style={{ marginTop: '4px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block', width: 'fit-content' }}>
                         USt-Radar: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}
                       </div>
                     </div>
 
-                    {/* Dokumente */}
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Dokumente</strong>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
-                          const fileName = extractFilename(url);
-                          return (
-                            <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${theme.border}`, width: 'fit-content', maxWidth: '100%' }}>
-                              <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fileName}>
-                                <Icon name="file" size={10} /> {fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName}
-                              </a>
-                              <button onClick={() => loescheDateiAusMandant(m.id, m.dokument_url, url)} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
-                                <Icon name="x" size={10} />
-                              </button>
-                            </div>
-                          )
-                        })}
-                        {uploadingMandantId === m.id ? (
-                          <span style={{ fontSize: '11px', color: theme.tresorAccent }}><Icon name="file" size={10}/> Upload...</span>
-                        ) : (
-                          <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, width: 'fit-content' }}>
-                            + Datei anhängen
-                            <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                    {/* Spalte 2: Kontakt Details (Leer, da oben schon abgehandelt) */}
+                    <div></div>
 
-                  {/* Löschen Button (Unten rechts im Accordion) */}
-                  <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '10px', textAlign: 'right' }}>
-                    <button onClick={() => loescheMandant(m.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Icon name="trash" size={14} /> Mandant aus Tresor löschen
-                    </button>
+                    {/* Spalte 3: Steuern & Bank Details */}
+                    <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: theme.inputBg, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                      <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
+                      <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
+                      <div><span style={{color: theme.textMuted}}>Betr.-Nr:</span> {cleanVal(m.betriebsnummer) || '-'}</div>
+                      <div><span style={{color: theme.textMuted}}>Bank:</span> {cleanVal(m.bank_name) || '-'}</div>
+                    </div>
+
+                    {/* Spalte 4: Dokumente Details */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
+                        const fileName = extractFilename(url);
+                        return (
+                          <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${theme.border}`, width: 'fit-content', maxWidth: '100%' }}>
+                            <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', fontSize: '10px', color: theme.textMain, background: 'rgba(0,0,0,0.1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fileName}>
+                              <Icon name="file" size={10} /> {fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName}
+                            </a>
+                            <button onClick={() => loescheDateiAusMandant(m.id, m.dokument_url, url)} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 4px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
+                              <Icon name="x" size={10} />
+                            </button>
+                          </div>
+                        )
+                      })}
+                      {uploadingMandantId === m.id ? (
+                        <span style={{ fontSize: '11px', color: theme.tresorAccent }}><Icon name="file" size={10}/> Upload...</span>
+                      ) : (
+                        <label style={{ cursor: 'pointer', fontSize: '10px', background: 'transparent', padding: '4px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, width: 'fit-content' }}>
+                          + Datei anhängen
+                          <input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadMandant(m.id, m.dokument_url, e)} />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Spalte 5: Aktion (Trash) */}
+                    <div style={{ textAlign: 'center' }}>
+                      <button onClick={() => loescheMandant(m.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Mandant löschen">
+                        <Icon name="trash" size={16} />
+                      </button>
+                    </div>
+
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
