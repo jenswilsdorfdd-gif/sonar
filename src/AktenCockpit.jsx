@@ -762,7 +762,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if(g) {
       setGegnerName(g.name || ''); setGegnerFax(formatRufnummer(g.fax || ''));
       let ansprechpartnerObj = null;
-      try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
+      try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed) && parsed[ansIdx]) { ansprechpartnerObj = parsed[ansIdx]; } } catch(e){}
       if (ansprechpartnerObj) { setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || ''); setFaxZhd(ansprechpartnerObj.name || g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(ansprechpartnerObj.telefon || g.telefon || '')); setGegnerEmail(ansprechpartnerObj.email || g.email || g.email_zentrale || ''); } else { setGegnerAnsprechpartner(g.ansprechpartner || ''); setFaxZhd(g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(g.telefon || '')); setGegnerEmail(g.email || g.email_zentrale || ''); }
     }
   };
@@ -893,6 +893,69 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
+      {/* RESPONSIVE CSS RULES FÜR VERSANDHISTORIE */}
+      <style>{`
+        .vh-desktop-header {
+          display: grid;
+          grid-template-columns: 80px 2.5fr 2.5fr 190px 190px 30px;
+          gap: 15px;
+          padding: 15px 20px;
+          font-weight: bold;
+          font-size: 11px;
+          text-transform: uppercase;
+          align-items: center;
+        }
+        .vh-row-grid {
+          display: grid;
+          grid-template-columns: 80px 2.5fr 2.5fr 190px 190px 30px;
+          gap: 15px;
+          padding: 15px 20px;
+          align-items: start;
+          cursor: pointer;
+        }
+        .vh-expanded-grid {
+          display: grid;
+          grid-template-columns: 80px 2.5fr 2.5fr 190px 190px 30px;
+          gap: 15px;
+          align-items: center;
+        }
+
+        @media (max-width: 768px) {
+          .vh-desktop-header {
+            display: none !important;
+          }
+          .vh-row-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 12px !important;
+            padding: 15px !important;
+          }
+          .vh-col-top {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            width: 100% !important;
+          }
+          .vh-col-full {
+            width: 100% !important;
+          }
+          .vh-actions-grid {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 8px !important;
+            width: 100% !important;
+          }
+          .vh-expanded-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+          }
+          .vh-expanded-grid > div {
+            width: 100% !important;
+          }
+        }
+      `}</style>
+
       {showUploadReminder && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.warningBorder}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
@@ -911,8 +974,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       )}
 
       {showVersandHistorie && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px' }}>
-          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1200px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px' }}>
+          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1200px', width: '100%', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
               <h3 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
@@ -924,12 +987,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', padding: '4px 8px' }}>✕</button>
             </div>
             
-            {/* MOBILER SCROLL-WRAPPER MIT TOUCH-UNTERSTÜTZUNG */}
-            <div style={{ overflowY: 'auto', overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '15px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0', textAlign: 'left', border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden', minWidth: '850px' }}>
+            {/* INHALT CONTAINER - RESPONSIV & OHNE OVERFLOW-BREAK */}
+            <div style={{ overflowY: 'auto', padding: '15px', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', width: '100%' }}>
                 
-                {/* STRICT GRID HEADER MIT FEST DEFINIERTER MINDESTBREITE GEGEN QUELLUNG */}
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 2.5fr 2.5fr 190px 190px 30px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '11px', textTransform: 'uppercase', alignItems: 'center' }}>
+                {/* DESKTOP HEADER */}
+                <div className="vh-desktop-header" style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '8px', color: theme.textMuted }}>
                   <div>Datum</div>
                   <div>Vorgang & Akte</div>
                   <div>Gegner & Kontakt</div>
@@ -939,7 +1002,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 </div>
 
                 {anzeigeAusgaenge.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben für diese Auswahl versendet.</div>
+                  <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted, background: theme.inputBg, borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                    Bislang wurden noch keine Schreiben für diese Auswahl versendet.
+                  </div>
                 ) : (
                   anzeigeAusgaenge.map((ausgang) => {
                     const isExpanded = expandedVersandId === ausgang.id;
@@ -947,25 +1012,30 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                     const zielKontakt = rawAction.includes('versendet an ') ? rawAction.split('versendet an ')[1] : '';
 
                     return (
-                      <div key={ausgang.id} style={{ borderBottom: `1px solid ${theme.border}`, background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.cardBg }}>
+                      <div key={ausgang.id} style={{ border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden', background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.inputBg }}>
                         <div 
+                          className="vh-row-grid"
                           onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
-                          style={{ display: 'grid', gridTemplateColumns: '80px 2.5fr 2.5fr 190px 190px 30px', gap: '15px', padding: '15px 20px', alignItems: 'start', cursor: 'pointer' }}
                         >
-                          {/* 1. Datum */}
-                          <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain, paddingTop: '6px' }}>
-                            {formatDatum(ausgang.datum)}
-                          </div>
-
-                          {/* 2. Vorgang & Akte */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {/* 1. Kopfzeile Mobil: Datum & Aktenzeichen & Chevron */}
+                          <div className="vh-col-top">
+                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain }}>
+                              {formatDatum(ausgang.datum)}
+                            </span>
                             <strong 
                               onClick={(e) => { e.stopPropagation(); springeZuAkteAusgang(ausgang.akte_id, ausgang.id); }} 
-                              style={{ color: theme.accent, fontSize: '13px', cursor: 'pointer', width: 'fit-content' }}
+                              style={{ color: theme.accent, fontSize: '13px', cursor: 'pointer' }}
                               title="Klicken, um diesen Vorgang direkt in der Akte anzuzeigen"
                             >
                               [{ausgang.unser_zeichen || '---'}]
                             </strong>
+                            <span style={{ color: theme.textMuted }}>
+                              <Icon name={isExpanded ? 'down' : 'right'} size={18} />
+                            </span>
+                          </div>
+
+                          {/* 2. Vorgang Details */}
+                          <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             {ausgang.aktenzeichen && (
                               <span style={{ fontSize: '12px', color: theme.textMain, fontWeight: 'bold' }}>
                                 {ausgang.aktenzeichen}
@@ -977,7 +1047,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           </div>
 
                           {/* 3. Gegner & Kontakt */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
                             <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Icon name="user" size={10} /> {ausgang.gegner_ansprechpartner || 'Zentrale / Allgemein'}
@@ -989,50 +1059,45 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             )}
                           </div>
 
-                          {/* 4. Versandart (Invertierter Button: blaue Outline, blaue Schrift, transparent) */}
-                          <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          {/* 4. Versandart */}
+                          <div className="vh-col-full">
                             <div style={{ background: 'transparent', border: `1px solid ${theme.accent}`, color: theme.accent, padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
                               <Icon name={ausgang.kanal?.toLowerCase().includes('mail') ? 'mail' : 'phone'} size={12} />
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{ausgang.kanal || 'Ausgang'}</span>
                             </div>
                           </div>
 
-                          {/* 5. Anhänge (Invertierte Buttons: blaue Outline, blaue Schrift, transparent) */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {/* 5. Anhänge */}
+                          <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
                               <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', fontSize: '11px', color: theme.accent, background: 'transparent', border: `1px solid ${theme.accent}`, borderRadius: '4px', textDecoration: 'none', width: '100%', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
                                 <Icon name="file" size={12} style={{ flexShrink: 0 }} />
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extractFilename(url)}</span>
                               </a>
-                            )) : <span style={{ fontSize: '12px', color: theme.textMuted, paddingTop: '6px' }}>Keine Anhänge</span>}
+                            )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
                           </div>
 
-                          {/* 6. Chevron */}
-                          <div style={{ color: theme.textMuted, textAlign: 'right', paddingTop: '6px' }}>
-                            <Icon name={isExpanded ? 'down' : 'right'} size={20} />
-                          </div>
+                          {/* 6. Desktop Chevron Platzhalter */}
+                          <div className="vh-desktop-header" style={{ display: 'none' }}></div>
                         </div>
 
-                        {/* EXPANDED CONTENT: Exakte vertikale Spaltenflucht im 6er Grid */}
+                        {/* EXPANDED CONTENT */}
                         {isExpanded && (
-                          <div style={{ padding: '0 20px 15px 20px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
-                            <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '15px', display: 'grid', gridTemplateColumns: '80px 2.5fr 2.5fr 190px 190px 30px', gap: '15px', alignItems: 'center' }}>
+                          <div style={{ padding: '0 15px 15px 15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                            <div className="vh-expanded-grid" style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '12px' }}>
                               <div style={{ gridColumn: '1 / 4', fontSize: '12px', color: theme.textMuted }}>
                                 Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen, oder springe direkt zum Vorgang in der Akte.
                               </div>
-                              {/* Liegt senkrecht exakt unter Spalte 4 (Versandart) */}
                               <div>
-                                <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 8px', minHeight: '34px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
+                                <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 10px', minHeight: '38px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box' }}>
                                   <Icon name="print" size={13} /> Sendebericht drucken
                                 </button>
                               </div>
-                              {/* Liegt senkrecht exakt unter Spalte 5 (Anhänge) */}
                               <div>
-                                <button onClick={() => springeZuAkteAusgang(ausgang.akte_id, ausgang.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 8px', minHeight: '34px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
+                                <button onClick={() => springeZuAkteAusgang(ausgang.akte_id, ausgang.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 10px', minHeight: '38px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box' }}>
                                   <Icon name="folder" size={13} /> Vorgang in Akte öffnen
                                 </button>
                               </div>
-                              <div></div>
                             </div>
                           </div>
                         )}
@@ -1354,7 +1419,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </button>
       </div>
 
-      {/* MOBILER HORIZONTALER SCROLL-CONTAINER FÜR DIE AKTEN-ÜBERSICHT (BILD 2 FIX) */}
+      {/* HORIZONTALER SCROLL-CONTAINER FÜR AKTEN-ÜBERSICHT */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', WebkitOverflowScrolling: 'touch', textAlign: 'left', background: theme.cardBg }}>
         <div style={{ minWidth: '820px' }}>
           
