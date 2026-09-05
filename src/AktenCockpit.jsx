@@ -52,7 +52,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
   const [showVersandHistorie, setShowVersandHistorie] = useState(false);
-  const [expandedVersandId, setExpandedVersandId] = useState(null);
   const [zeigeErledigte, setZeigeErledigte] = useState(false); 
   
   const [aufgeklappteAkten, setAufgeklappteAkten] = useState([]);
@@ -845,6 +844,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           unser_zeichen: a.unser_zeichen,
           aktenzeichen: a.aktenzeichen,
           gegner_name: a.gegner_name,
+          gegner_ansprechpartner: a.gegner_ansprechpartner,
           unsere_firma: a.unsere_firma,
           thema: a.thema
         });
@@ -852,6 +852,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   });
   alleAusgaenge.sort((a, b) => new Date(b.datum || b.created_at || 0) - new Date(a.datum || a.created_at || 0));
+
+  // FILTER: Zeige nur Ausgänge der aktiven Akte, wenn eine gewählt ist. Sonst alle.
+  const anzeigeAusgaenge = (modus === 'bestehend' && selectedAkteId) 
+    ? alleAusgaenge.filter(a => a.akte_id === selectedAkteId) 
+    : alleAusgaenge;
 
   const activeAkteObj = modus === 'bestehend' && selectedAkteId ? akten.find(a => a.id === selectedAkteId) : null;
 
@@ -877,93 +882,76 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       {showVersandHistorie && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1100px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1200px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+            
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
               <h3 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px' }}>
-                <Icon name="send" size={20} /> Globale Versandhistorie & Sendeberichte ({alleAusgaenge.length} Einträge)
+                <Icon name="send" size={20} />
+                {modus === 'bestehend' && selectedAkteId ? `Versandhistorie der Akte [${activeAkteObj?.unser_zeichen || 'Unbekannt'}]` : 'Globale Versandhistorie (Alle Akten)'} ({anzeigeAusgaenge.length} Einträge)
               </h3>
               <button onClick={() => setShowVersandHistorie(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}>✕</button>
             </div>
             
             <div style={{ overflowY: 'auto', padding: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
-                {alleAusgaenge.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben per E-Mail oder Fax versendet.</div>
-                ) : (
-                  alleAusgaenge.map((ausgang) => {
-                    const isExpanded = expandedVersandId === ausgang.id;
-                    const numAnhaenge = ausgang.dokument_url ? ausgang.dokument_url.split(',').length : 0;
-                    return (
-                      <div
-                        key={ausgang.id}
-                        style={{ background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.cardBg, borderRadius: '8px', border: `1px solid ${theme.border}`, padding: '12px 16px', cursor: 'pointer', transition: 'all 0.2s ease', margin: 0 }}
-                        onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
-                      >
-                        {/* ECHTE GRID-ZEILE FÜR ABSOLUTE FLUCHTEN */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '80px 140px 1fr 220px 100px 30px', gap: '15px', alignItems: 'center', width: '100%' }}>
-                          <strong style={{ color: theme.textMain, fontSize: '13px' }}>{formatDatum(ausgang.datum)}</strong>
-                          <span style={{ color: theme.accent, fontWeight: 'bold', fontSize: '13px' }}>[{ausgang.unser_zeichen || '---'}]</span>
-                          <strong style={{ color: theme.textMain, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ausgang.gegner_name || '-'}</strong>
-                          
-                          <div style={{ width: '100%' }}>
-                            <span style={{ display: 'inline-block', width: '100%', textAlign: 'center', background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '4px 0', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
-                              {ausgang.kanal || 'Ausgang'}
-                            </span>
-                          </div>
-                          
-                          <span style={{ fontSize: '12px', color: theme.textMuted, whiteSpace: 'nowrap' }}>
-                            {numAnhaenge > 0 ? `(${numAnhaenge} ${numAnhaenge === 1 ? 'Anhang' : 'Anhänge'})` : ''}
-                          </span>
-                          
-                          <div style={{ color: theme.textMuted, textAlign: 'right' }}>
-                            <Icon name={isExpanded ? 'down' : 'right'} size={20} />
-                          </div>
-                        </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0', textAlign: 'left', border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden' }}>
+                
+                {/* STRICT GRID HEADER */}
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 3fr 2.5fr 160px 220px', gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '11px', textTransform: 'uppercase' }}>
+                  <div>Datum</div>
+                  <div>Vorgang & Akte</div>
+                  <div>Gegner & Kontakt</div>
+                  <div style={{textAlign: 'center'}}>Versandart</div>
+                  <div>Anhänge</div>
+                </div>
 
-                        {/* EXPANDED CONTENT (angepasst an Grid) */}
-                        {isExpanded && (
-                          <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                              
-                              <div>
-                                <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Vorgang & Akte</strong>
-                                <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <div><strong>Gegenstand:</strong> {ausgang.thema || '-'}</div>
-                                  <div><strong>Aktenzeichen:</strong> {ausgang.aktenzeichen || '-'}</div>
-                                  <div><strong>Aktion:</strong> {ausgang.aktion || '-'}</div>
-                                </div>
-                              </div>
-                              
-                              <div>
-                                <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Mandant / Absender</strong>
-                                <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <Icon name="user" size={14} /> {ausgang.unsere_firma || '-'}
-                                </div>
-                              </div>
-                              
-                              <div>
-                                <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Dateianhänge</strong>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                  {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
-                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px', fontSize: '11px', color: theme.textMain, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', textDecoration: 'none', width: 'fit-content' }} title={extractFilename(url)}>
-                                      <Icon name="file" size={12} /> {extractFilename(url).length > 25 ? extractFilename(url).substring(0, 22) + '...' : extractFilename(url)}
-                                    </a>
-                                  )) : <span style={{ fontSize: '13px', color: theme.textMuted }}>Keine Anhänge</span>}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                               <div style={{ fontSize: '12px', color: theme.textMuted }}>Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen.</div>
-                               <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                 <Icon name="print" size={14} /> Sendebericht drucken
-                               </button>
-                            </div>
-                          </div>
-                        )}
+                {anzeigeAusgaenge.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted }}>Bislang wurden noch keine Schreiben für diese Auswahl versendet.</div>
+                ) : (
+                  anzeigeAusgaenge.map((ausgang) => (
+                    <div key={ausgang.id} style={{ display: 'grid', gridTemplateColumns: '80px 3fr 2.5fr 160px 220px', gap: '15px', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, alignItems: 'start', background: theme.cardBg }}>
+                      
+                      {/* 1. Datum */}
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain, paddingTop: '4px' }}>
+                        {formatDatum(ausgang.datum)}
                       </div>
-                    );
-                  })
+
+                      {/* 2. Vorgang & Akte */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <strong style={{ color: theme.accent, fontSize: '13px' }}>[{ausgang.unser_zeichen || '---'}] {ausgang.aktenzeichen ? `| AZ: ${ausgang.aktenzeichen}` : ''}</strong>
+                        <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500' }}>{ausgang.thema || '-'}</span>
+                        <span style={{ fontSize: '12px', color: theme.textMuted, lineHeight: '1.4' }}>{ausgang.aktion || '-'}</span>
+                      </div>
+
+                      {/* 3. Gegner */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
+                        <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Icon name="user" size={10} /> {ausgang.gegner_ansprechpartner || 'Zentrale / Allgemein'}
+                        </span>
+                      </div>
+
+                      {/* 4. Versandart & Sendebericht */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ background: theme.accent, color: '#000', padding: '6px 4px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
+                          {ausgang.kanal || 'Ausgang'}
+                        </div>
+                        <button onClick={() => druckeSendebericht(ausgang)} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 4px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                          <Icon name="print" size={12} /> Sendebericht
+                        </button>
+                      </div>
+
+                      {/* 5. Anhänge */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
+                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', fontSize: '11px', color: theme.textMain, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', textDecoration: 'none', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)}>
+                            <Icon name="file" size={10} style={{ flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extractFilename(url)}</span>
+                          </a>
+                        )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
+                      </div>
+
+                    </div>
+                  ))
                 )}
               </div>
             </div>
