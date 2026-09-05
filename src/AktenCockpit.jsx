@@ -893,7 +893,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* RESPONSIVE CSS RULES FÜR VERSANDHISTORIE & AKTEN-ÜBERSICHT */}
+      {/* RESPONSIVE CSS RULES FÜR VERSANDHISTORIE, AKTEN-ÜBERSICHT & HISTORIEN-VORGÄNGE */}
       <style>{`
         /* VERSANDHISTORIE */
         .vh-desktop-header {
@@ -953,6 +953,23 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           margin-bottom: 20px;
           flex-wrap: wrap;
           gap: 10px;
+        }
+
+        /* HISTORIEN-TABELLE DESKTOP */
+        .hist-desktop-table {
+          width: 100%;
+          min-width: 760px;
+          border-collapse: collapse;
+          font-size: 13px;
+        }
+        .hist-desktop-table thead {
+          display: table-header-group;
+        }
+        .hist-desktop-table tbody tr {
+          display: table-row;
+        }
+        .hist-desktop-table tbody td {
+          display: table-cell;
         }
 
         /* MOBILER CARD-MODUS (<= 768px) */
@@ -1023,6 +1040,44 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             width: 100% !important;
             justify-content: center !important;
             min-height: 40px !important;
+          }
+
+          /* HISTORIEN-VORGÄNGE MOBIL CARD-STACKING */
+          .hist-desktop-table {
+            min-width: 100% !important;
+            display: block !important;
+          }
+          .hist-desktop-table thead {
+            display: none !important;
+          }
+          .hist-desktop-table tbody {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 12px !important;
+            width: 100% !important;
+          }
+          .hist-desktop-table tbody tr {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            padding: 14px !important;
+            border: 1px solid ${theme.border} !important;
+            border-radius: 8px !important;
+            background: ${theme.cardBg} !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+          }
+          .hist-desktop-table tbody td {
+            display: block !important;
+            padding: 0 !important;
+            width: 100% !important;
+          }
+          .hist-mobile-header-row {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            gap: 10px !important;
+            width: 100% !important;
           }
         }
       `}</style>
@@ -1480,10 +1535,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </button>
       </div>
 
-      {/* AKTEN-ÜBERSICHT WRAPPER (MOBIL CARD-STACKING, KEIN OVERFLOW-BREAK) */}
+      {/* AKTEN-ÜBERSICHT WRAPPER */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
         
-        {/* DESKTOP HEADER (WIRD MOBIL VIA CSS AUSGEBLENDET) */}
+        {/* DESKTOP HEADER */}
         <div className="akten-desktop-header" style={{ background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted }}>
           <div style={{ width: '30px' }}></div>
           <div style={{ flex: '1 1 100%' }}>
@@ -1508,7 +1563,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               
               <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)}>
                 
-                {/* MOBILER KOPF (PFEIL, ZEICHEN & STATUS-DROPDOWN) */}
+                {/* MOBILER KOPF */}
                 <div className="akten-mobile-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '24px', color: istFokussiert ? theme.accent : theme.textMuted }}>
@@ -1530,11 +1585,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   </div>
                 </div>
                 
-                {/* FELDER CONTAINER (DESKTOP: GRID / MOBIL: STACK) */}
+                {/* FELDER CONTAINER */}
                 <div style={{ flex: '1 1 100%', width: '100%', boxSizing: 'border-box' }}>
                   <div className="akten-desktop-grid">
                     
-                    {/* 1. Unser Zeichen (Desktop Input / Mobil Input) */}
                     <div className="akten-field-box">
                       <input 
                         type="text" 
@@ -1546,7 +1600,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       />
                     </div>
 
-                    {/* 2. Gegner */}
                     <div className="akten-field-box">
                       <input 
                         type="text" 
@@ -1558,7 +1611,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       />
                     </div>
 
-                    {/* 3. Gegenstand (Thema) */}
                     <div className="akten-field-box">
                       <input 
                         type="text" 
@@ -1570,7 +1622,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       />
                     </div>
 
-                    {/* 4. Ansprechpartner */}
                     <div className="akten-field-box">
                       <input 
                         type="text" 
@@ -1582,7 +1633,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       />
                     </div>
 
-                    {/* 5. Aktenzeichen Behörde */}
                     <div className="akten-field-box">
                       <input 
                         type="text" 
@@ -1599,7 +1649,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
               </div>
 
-              {/* AUFGEKLAPPTER BEREICH (AKTIONSMENÜ & TABELLE) */}
+              {/* AUFGEKLAPPTER BEREICH (AKTIONSMENÜ & HISTORIEN-VORGÄNGE) */}
               {isExpanded && (
                 <div style={{ background: theme.inputBg, padding: '15px', borderTop: `1px solid ${theme.border}`, width: '100%', boxSizing: 'border-box' }}>
                   
@@ -1627,9 +1677,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                     </div>
                   </div>
 
-                  {/* HISTORIEN-TABELLE: INNERHALB DER KARTE ISOLIERT HORIZONTAL SCROLLBAR */}
-                  <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
-                    <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: '13px', background: theme.cardBg }}>
+                  {/* HISTORIEN-VORGÄNGE (DESKTOP: TABELLE / MOBIL: CARDS) */}
+                  <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                    <table className="hist-desktop-table" style={{ background: theme.cardBg }}>
                       <thead>
                         <tr style={{ background: theme.border, color: theme.textMain }}>
                           <th style={{ padding: '10px', textAlign: 'left', width: '110px' }}>Typ</th>
@@ -1646,34 +1696,53 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
                           return (
                             <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
-                              <td style={{ padding: '8px 10px' }}>
-                                 <select 
-                                   defaultValue={hist.typ || ''} 
-                                   onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
-                                   style={{...inlineInputStyle, fontWeight: 'bold'}}
-                                 >
+                              
+                              {/* MOBILER KOPF (TYP, DATUM & LÖSCHEN) / DESKTOP: ZELLEN 1 & 2 */}
+                              <td>
+                                <div className="hist-mobile-header-row">
+                                  <select 
+                                    defaultValue={hist.typ || ''} 
+                                    onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
+                                    style={{ ...inlineInputStyle, fontWeight: 'bold', width: 'auto', flex: '1 1 auto' }}
+                                  >
                                     <option value="Eingang">Eingang</option>
                                     <option value="Ausgang">Ausgang</option>
                                     <option value="Intern">Intern</option>
-                                 </select>
+                                  </select>
+                                  <input 
+                                    type="date" 
+                                    defaultValue={hist.datum || ''} 
+                                    onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
+                                    style={{ ...inlineInputStyle, width: 'auto', flex: '1 1 auto' }} 
+                                  />
+                                  <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }}>
+                                    <Icon name="trash" size={16} />
+                                  </button>
+                                </div>
                               </td>
+
+                              {/* DESKTOP DATUM (WIRD MOBIL IN KOPFZEILE GERENDERT) */}
+                              <td style={{ padding: '8px 10px' }} className="vh-desktop-header">
+                                <input 
+                                  type="date" 
+                                  defaultValue={hist.datum || ''} 
+                                  onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
+                                  style={inlineInputStyle} 
+                                />
+                              </td>
+
+                              {/* AKTION */}
                               <td style={{ padding: '8px 10px' }}>
-                                 <input 
-                                   type="date" 
-                                   defaultValue={hist.datum || ''} 
-                                   onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
-                                   style={inlineInputStyle} 
-                                 />
+                                <input 
+                                  type="text" 
+                                  defaultValue={hist.aktion || ''} 
+                                  onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
+                                  style={inlineInputStyle} 
+                                  placeholder="Ohne Aktion" 
+                                />
                               </td>
-                              <td style={{ padding: '8px 10px' }}>
-                                 <input 
-                                   type="text" 
-                                   defaultValue={hist.aktion || ''} 
-                                   onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
-                                   style={inlineInputStyle} 
-                                   placeholder="Ohne Aktion" 
-                                 />
-                              </td>
+
+                              {/* FRIST / WV */}
                               <td style={{ padding: '8px 10px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1700,21 +1769,28 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                   </div>
                                 </div>
                               </td>
+
+                              {/* DOKUMENTE */}
                               <td style={{ padding: '8px 10px' }}>
-                                {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
-                                  const fileName = extractFilename(url);
-                                  return (
-                                    <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', marginRight: '6px', marginBottom: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
-                                      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
-                                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen"><Icon name="x" size={12} /></button>
-                                    </div>
-                                  )
-                                })}
-                                {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '2px 6px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted, marginLeft: '4px' }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                  {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                    const fileName = extractFilename(url);
+                                    return (
+                                      <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                                        <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
+                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen"><Icon name="x" size={12} /></button>
+                                      </div>
+                                    )
+                                  })}
+                                  {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 8px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
+                                </div>
                               </td>
-                              <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+
+                              {/* DESKTOP LÖSCHEN */}
+                              <td style={{ padding: '8px 10px', textAlign: 'center' }} className="vh-desktop-header">
                                 <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button>
                               </td>
+
                             </tr>
                           );
                         })}
