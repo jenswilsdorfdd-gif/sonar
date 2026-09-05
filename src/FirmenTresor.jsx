@@ -246,10 +246,11 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         <Icon name="archive" size={20} /> Gespeicherte Mandanten & Firmen
       </h3>
       
-      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
+      {/* MOBILER HORIZONTALER SCROLL-CONTAINER (BILDER 4 & 5 FIX) */}
+      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: theme.cardBg }}>
         <div style={{ minWidth: '950px' }}>
           
-          <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left', alignItems: 'center' }}>
             <div>Firma / Mandant</div>
             <div>Kontakt</div>
             <div>Steuern & Bank</div>
