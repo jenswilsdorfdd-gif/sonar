@@ -19,7 +19,8 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
 
-  const listGrid = "2.5fr 2fr 3.5fr 50px"; // Das strikte CSS-Grid für exakte vertikale Fluchten
+  // Striktes Grid-Layout für geschlossenen und aufgeklappten Zustand
+  const listGrid = "2.5fr 2fr 3.5fr 50px"; 
 
   const gefilterteGegner = gegnerListe.filter((g) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
@@ -158,7 +159,6 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
         <Icon name="shield" size={20} /> Gespeicherte Behörden & Gegner
       </h3>
 
-      {/* ECHTE ACCORDION-LISTE MIT STRIKTEM CSS GRID */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
         <div style={{ minWidth: '850px' }}>
           
@@ -201,7 +201,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
 
                   {/* Spalte 3: Abteilungen Anzahl */}
                   <div style={{ fontSize: '12px', color: theme.textMuted }}>
-                    {ansList.length > 0 ? `${ansList.length} ${ansList.length === 1 ? 'Abteilung hinterlegt' : 'Abteilungen hinterlegt'}` : 'Keine spezifischen Abteilungen'}
+                    {ansList.length > 0 ? `${ansList.length} ${ansList.length === 1 ? 'Abteilung' : 'Abteilungen'}` : 'Keine spezifischen Abteilungen'}
                   </div>
 
                   {/* Spalte 4: Aktion */}
@@ -214,33 +214,33 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
                 {isExpanded && (
                   <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: listGrid, gap: '15px', cursor: 'default', alignItems: 'start' }} onClick={(e) => e.stopPropagation()}>
                     
-                    {/* Spalte 1: Zusätzliche Daten zur Behörde (Adresse) */}
+                    {/* Spalte 1: Exakt linksbündig unter dem Namen */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{g.adresse || 'Keine Adresse hinterlegt'}</span></span>
+                      <span style={{ fontSize: '12px', color: theme.textMain }}>{g.adresse || 'Keine Adresse hinterlegt'}</span>
                     </div>
 
-                    {/* Spalte 2: Zentrale Kontakte (Leer, da bereits im Header sichtbar) */}
+                    {/* Spalte 2: Leer, damit das Grid erhalten bleibt */}
                     <div></div>
 
-                    {/* Spalte 3: Details zu den Abteilungen */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {/* Spalte 3: Details zu den Abteilungen exakt unter der Anzahl */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {ansList.length > 0 ? (
                         ansList.map((ans, idx) => (
-                          <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '11px' }}>
-                            <div style={{ color: theme.gegnerAccent, fontWeight: 'bold', marginBottom: '4px' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
-                            <div style={{ color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {ans.name || '-'}</div>
-                            <div style={{ color: theme.textMuted, display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="phone" size={10}/> {ans.telefon || '-'}</span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="mail" size={10}/> {ans.email || '-'}</span>
+                          <div key={idx} style={{ background: theme.inputBg, padding: '10px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '12px' }}>
+                            <div style={{ color: theme.gegnerAccent, fontWeight: 'bold', marginBottom: '6px' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
+                            <div style={{ color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><Icon name="user" size={12}/> {ans.name || '-'}</div>
+                            <div style={{ color: theme.textMuted, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={10}/> {ans.telefon || '-'}</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={10}/> {ans.email || '-'}</span>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div style={{ fontSize: '11px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
+                        <div style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="user" size={12}/> {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
                       )}
                     </div>
 
-                    {/* Spalte 4: Löschen Button */}
+                    {/* Spalte 4: Löschen Button exakt unter Chevron */}
                     <div style={{ textAlign: 'center' }}>
                       <button onClick={() => loescheGegner(g.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Behörde löschen">
                         <Icon name="trash" size={16} />
