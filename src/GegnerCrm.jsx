@@ -122,6 +122,14 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
   return (
     <div>
       <style>{`
+        /* HELPER KLASSEN FÜR TRENNUNG */
+        .crm-desktop-only {
+          display: initial;
+        }
+        .crm-mobile-only {
+          display: none !important;
+        }
+
         .crm-desktop-header {
           display: grid;
           grid-template-columns: ${contactGrid};
@@ -153,6 +161,13 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
         }
 
         @media (max-width: 768px) {
+          .crm-desktop-only {
+            display: none !important;
+          }
+          .crm-mobile-only {
+            display: flex !important;
+          }
+
           .crm-desktop-header {
             display: none !important;
           }
@@ -244,7 +259,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
         <Icon name="shield" size={20} /> Gespeicherte Behörden & Gegner
       </h3>
 
-      {/* GESPEICHERTE BEHÖRDEN (MOBIL-OPTIMIERT OHNE OVERFLOW-BREAK) */}
+      {/* GESPEICHERTE BEHÖRDEN */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
         <div style={{ width: '100%' }}>
           
@@ -281,25 +296,40 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
                   boxSizing: 'border-box'
                 }}
               >
-                {/* HAUPTZEILE (MOBIL STACK) */}
+                {/* HAUPTZEILE */}
                 <div 
                   className="crm-main-row"
                   onClick={() => { ladeInFormularGegner(g); setExpandedId(isExpanded ? null : g.id); }}
                 >
-                  <div className="crm-mobile-top">
+                  {/* SPALTE 1 DESKTOP: REINER NAME */}
+                  <div className="crm-desktop-only" style={{ overflow: 'hidden' }}>
+                    <strong style={{ color: theme.gegnerAccent, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                      {g.name}
+                    </strong>
+                  </div>
+
+                  {/* MOBILER KOPF (NAME + PFEIL RECHTS) */}
+                  <div className="crm-mobile-only crm-mobile-top">
                     <strong style={{ color: theme.gegnerAccent, fontSize: '14px' }}>{g.name}</strong>
                     <div style={{ color: (isExpanded || isActive) ? theme.gegnerAccent : theme.textMuted, paddingLeft: '8px' }}>
                       <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                     </div>
                   </div>
 
-                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {/* SPALTE 2: TELEFON / FAX */}
+                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <Icon name="phone" size={14} /> {g.fax || g.telefon || '-'}
                   </span>
                   
-                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {/* SPALTE 3: E-MAIL */}
+                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <Icon name="mail" size={14} /> {g.email || g.email_zentrale || '-'}
                   </span>
+
+                  {/* SPALTE 4 DESKTOP: AKTION / CHEVRON GANZ RECHTS */}
+                  <div className="crm-desktop-only" style={{ color: (isExpanded || isActive) ? theme.gegnerAccent : theme.textMuted, textAlign: 'center' }}>
+                    <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                  </div>
                 </div>
 
                 {/* AUFGEKLAPPTE KONTAKTLISTE */}
@@ -323,16 +353,16 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
                               background: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
                             }}
                           >
-                            <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500' }}>
+                            <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {formatContactName(ans.abteilung, ans.name)}
                             </span>
-                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               <Icon name="phone" size={12} /> {ans.telefon || '-'}
                             </span>
-                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               <Icon name="mail" size={12} /> {ans.email || '-'}
                             </span>
-                            <div></div>
+                            <div className="crm-desktop-only"></div>
                           </div>
                         ))
                       ) : (
