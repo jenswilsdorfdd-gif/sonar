@@ -149,7 +149,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     } else {
       const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
-      const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f);
+      const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
       if (!uploadError) {
         const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
         const newUrl = linkData.publicUrl;
@@ -181,6 +181,14 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   return (
     <div>
       <style>{`
+        /* HELPER KLASSEN FÜR STRIKTE TRENNUNG */
+        .tresor-desktop-only {
+          display: initial;
+        }
+        .tresor-mobile-only {
+          display: none !important;
+        }
+
         .tresor-desktop-header {
           display: grid;
           grid-template-columns: ${listGrid};
@@ -206,6 +214,13 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         }
 
         @media (max-width: 768px) {
+          .tresor-desktop-only {
+            display: none !important;
+          }
+          .tresor-mobile-only {
+            display: flex !important;
+          }
+
           .tresor-desktop-header {
             display: none !important;
           }
@@ -303,7 +318,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         <Icon name="archive" size={20} /> Gespeicherte Mandanten & Firmen
       </h3>
       
-      {/* GESPEICHERTE MANDANTEN WRAPPER (MOBIL-OPTIMIERT OHNE OVERFLOW-BREAK) */}
+      {/* GESPEICHERTE MANDANTEN WRAPPER */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
         <div style={{ width: '100%' }}>
           
@@ -327,11 +342,19 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                 style={{ padding: '15px 20px', cursor: 'pointer', borderBottom: `1px solid ${theme.border}`, borderLeft: isActive ? `4px solid ${theme.tresorAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : 'transparent', transition: 'all 0.2s ease', margin: 0, textAlign: 'left', width: '100%', boxSizing: 'border-box' }}
                 onClick={() => { ladeInFormularMandant(m); setExpandedId(isExpanded ? null : m.id); }}
               >
-                {/* HAUPTZEILE (MOBIL STACK) */}
+                {/* HAUPTZEILE */}
                 <div className="tresor-main-row">
                   
-                  {/* Spalte 1: Firma & Mobil-Kopf */}
-                  <div className="tresor-mobile-top">
+                  {/* SPALTE 1 DESKTOP: REINE FIRMENDATEN */}
+                  <div className="tresor-desktop-only" style={{ overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <strong style={{ color: theme.tresorAccent, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.firmenname}</strong>
+                      <span style={{ fontSize: '11px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="user" size={10} /> {cleanVal(m.ansprechpartner) || '-'}</span>
+                    </div>
+                  </div>
+
+                  {/* SPALTE 1 MOBIL: FIRMENDATEN + PFEIL */}
+                  <div className="tresor-mobile-only tresor-mobile-top">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <strong style={{ color: theme.tresorAccent, fontSize: '14px' }}>{m.firmenname}</strong>
                       <span style={{ fontSize: '11px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="user" size={10} /> {cleanVal(m.ansprechpartner) || '-'}</span>
@@ -341,32 +364,34 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                     </div>
                   </div>
                   
-                  {/* Spalte 2: Kontakt */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={12}/> {cleanVal(m.telefon) || '-'}</span>
-                    <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={12}/> {cleanVal(m.email) || '-'}</span>
+                  {/* SPALTE 2: KONTAKT */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={12}/> {cleanVal(m.telefon) || '-'}</span>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={12}/> {cleanVal(m.email) || '-'}</span>
                   </div>
 
-                  {/* Spalte 3: Steuern & Bank */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '12px', color: theme.textMain }}>USt-Id: {cleanVal(m.ust_id) || '-'}</span>
-                    <span style={{ fontSize: '12px', color: theme.textMain }}>IBAN: {cleanVal(m.iban) || '-'}</span>
+                  {/* SPALTE 3: STEUERN & BANK */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>USt-Id: {cleanVal(m.ust_id) || '-'}</span>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>IBAN: {cleanVal(m.iban) || '-'}</span>
                   </div>
 
-                  {/* Spalte 4: Dokumente */}
+                  {/* SPALTE 4: DOKUMENTE */}
                   <div style={{ fontSize: '12px', color: theme.textMuted }}>
                     {numDocs > 0 ? `(${numDocs} ${numDocs === 1 ? 'Dokument' : 'Dokumente'})` : '-'}
                   </div>
 
-                  {/* Spalte 5: Desktop Aktion Platzhalter */}
-                  <div className="tresor-desktop-header" style={{ display: 'none' }}></div>
+                  {/* SPALTE 5 DESKTOP: PFEIL GANZ RECHTS */}
+                  <div className="tresor-desktop-only" style={{ color: isActive ? theme.tresorAccent : theme.textMuted, textAlign: 'center' }}>
+                    <Icon name={isExpanded ? 'down' : 'right'} size={20} />
+                  </div>
                 </div>
 
                 {/* AUFGEKLAPPTER BEREICH */}
                 {isExpanded && (
                   <div className="tresor-expanded-grid" style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                     
-                    {/* Spalte 1: Adresse & USt-Radar */}
+                    {/* SPALTE 1: ADRESSE & UST-RADAR */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <span style={{ fontSize: '12px', color: theme.textMain }}>{cleanVal(m.adresse) || '-'}</span>
                       <div style={{ marginTop: '4px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block', width: 'fit-content' }}>
@@ -374,10 +399,10 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       </div>
                     </div>
 
-                    {/* Spalte 2: Platzhalter */}
-                    <div className="tresor-desktop-header" style={{ display: 'none' }}></div>
+                    {/* SPALTE 2 DESKTOP: LEER-PLATZHALTER */}
+                    <div className="tresor-desktop-only"></div>
 
-                    {/* Spalte 3: Steuern Details */}
+                    {/* SPALTE 3: STEUERN DETAILS */}
                     <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: theme.inputBg, padding: '10px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
                       <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
                       <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
@@ -385,7 +410,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       <div><span style={{color: theme.textMuted}}>Bank:</span> {cleanVal(m.bank_name) || '-'}</div>
                     </div>
 
-                    {/* Spalte 4: Dokumente */}
+                    {/* SPALTE 4: DOKUMENTE */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
                         const fileName = extractFilename(url);
@@ -410,7 +435,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       )}
                     </div>
 
-                    {/* Spalte 5: Aktion (Löschen) */}
+                    {/* SPALTE 5: LÖSCHEN-BUTTON */}
                     <div>
                       <button className="tresor-delete-btn" onClick={() => loescheMandant(m.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Mandant löschen">
                         <Icon name="trash" size={14} /> Mandant aus Tresor löschen
