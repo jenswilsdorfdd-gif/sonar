@@ -5,7 +5,7 @@ import Icon from './Icon';
 export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, showToast, suchbegriff }) {
   const [laedt, setLaedt] = useState(false);
   const [editGegnerId, setEditGegnerId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null); // NEU: Steuert das Aufklappen (Accordion)
+  const [expandedId, setExpandedId] = useState(null); 
   
   const [g_name, setG_name] = useState('');
   const [g_adresse, setG_adresse] = useState('');
@@ -18,6 +18,8 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
+
+  const listGrid = "2.5fr 2fr 3.5fr 50px"; // Das strikte CSS-Grid für exakte vertikale Fluchten
 
   const gefilterteGegner = gegnerListe.filter((g) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
@@ -116,7 +118,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
 
           <div style={{ gridColumn: '1 / -1', marginTop: '15px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-              <h4 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="user" size={16} /> 2. Abteilungen & Ansprechpartner</h4>
+              <h4 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="users" size={16} /> 2. Abteilungen & Ansprechpartner</h4>
               <button type="button" onClick={addAnsprechpartnerRow} style={{ background: theme.gegnerAccent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
                 + Ansprechpartner / Abteilung hinzufügen
               </button>
@@ -156,85 +158,101 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
         <Icon name="shield" size={20} /> Gespeicherte Behörden & Gegner
       </h3>
 
-      {/* ECHTE ACCORDION-LISTE (Single-Line) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
-        {gefilterteGegner.map(g => {
-          const isExpanded = expandedId === g.id;
-          const isActive = editGegnerId === g.id;
-          let ansList = [];
+      {/* ECHTE ACCORDION-LISTE MIT STRIKTEM CSS GRID */}
+      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflowX: 'auto', background: theme.cardBg }}>
+        <div style={{ minWidth: '850px' }}>
           
-          try {
-            const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
-            if (Array.isArray(parsed)) ansList = parsed;
-          } catch(e){}
+          {/* HEADER ROW (Striktes Grid) */}
+          <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', padding: '15px 20px', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, fontWeight: 'bold', color: theme.textMuted, fontSize: '12px', textTransform: 'uppercase', textAlign: 'left' }}>
+            <div>Behörde / Gegner</div>
+            <div>Zentrale Kontaktdaten</div>
+            <div>Abteilungen & Ansprechpartner</div>
+            <div style={{ textAlign: 'center' }}>Aktion</div>
+          </div>
 
-          return (
-            <div 
-              key={g.id} 
-              style={{ ...panelStyle, padding: '15px 20px', cursor: 'pointer', borderLeft: isActive ? `4px solid ${theme.gegnerAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : theme.cardBg, transition: 'all 0.2s ease', margin: 0 }}
-              onClick={() => { ladeInFormularGegner(g); setExpandedId(isExpanded ? null : g.id); }}
-            >
-              {/* DEFAULT STATE: SINGLE LINE */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-                  <strong style={{ color: theme.gegnerAccent, fontSize: '15px', minWidth: '220px' }}>{g.name}</strong>
-                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px' }}><Icon name="phone" size={14} /> {g.fax || '-'}</span>
-                  <span style={{ fontSize: '13px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={14} /> {g.email || g.email_zentrale || '-'}</span>
-                </div>
-                <div style={{ color: isActive ? theme.gegnerAccent : theme.textMuted }}>
-                  <Icon name={isExpanded ? 'down' : 'right'} size={20} />
-                </div>
-              </div>
+          {/* ITEM ROWS */}
+          {gefilterteGegner.map(g => {
+            const isExpanded = expandedId === g.id;
+            const isActive = editGegnerId === g.id;
+            let ansList = [];
+            
+            try {
+              const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen;
+              if (Array.isArray(parsed)) ansList = parsed;
+            } catch(e){}
 
-              {/* EXPANDED STATE: FULL DATA SHEET */}
-              {isExpanded && (
-                <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '15px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+            return (
+              <div 
+                key={g.id} 
+                style={{ padding: '15px 20px', cursor: 'pointer', borderBottom: `1px solid ${theme.border}`, borderLeft: isActive ? `4px solid ${theme.gegnerAccent}` : `4px solid transparent`, background: isActive ? (isDarkMode ? 'rgba(0, 229, 255, 0.08)' : '#f0f9ff') : 'transparent', transition: 'all 0.2s ease', margin: 0, textAlign: 'left' }}
+                onClick={() => { ladeInFormularGegner(g); setExpandedId(isExpanded ? null : g.id); }}
+              >
+                {/* SINGLE LINE DEFAULT (Nutzt exakt dasselbe listGrid) */}
+                <div style={{ display: 'grid', gridTemplateColumns: listGrid, gap: '15px', alignItems: 'center', width: '100%' }}>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                    
-                    {/* Zentrale Daten */}
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Zentrale Kontaktdaten</strong>
-                      <div style={{ fontSize: '13px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <span style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{g.adresse || '-'}</span></span>
-                        <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="phone" size={12}/> Fax: {g.fax || '-'}</span>
-                        <span style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><Icon name="mail" size={12}/> {g.email || g.email_zentrale || '-'}</span>
-                      </div>
-                    </div>
-
-                    {/* Abteilungen */}
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '12px', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }}>Abteilungen & Ansprechpartner ({ansList.length})</strong>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {ansList.length > 0 ? (
-                          ansList.map((ans, idx) => (
-                            <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '11px' }}>
-                              <div style={{ color: theme.gegnerAccent, fontWeight: 'bold', marginBottom: '4px' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
-                              <div style={{ color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {ans.name || '-'}</div>
-                              <div style={{ color: theme.textMuted, display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="phone" size={10}/> {ans.telefon || '-'}</span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="mail" size={10}/> {ans.email || '-'}</span>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div style={{ fontSize: '11px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
-                        )}
-                      </div>
-                    </div>
+                  {/* Spalte 1: Behörde */}
+                  <strong style={{ color: theme.gegnerAccent, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</strong>
+                  
+                  {/* Spalte 2: Zentrale Kontakte */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={12}/> {g.fax || '-'}</span>
+                    <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={12}/> {g.email || g.email_zentrale || '-'}</span>
                   </div>
 
-                  {/* Löschen Button (Unten rechts im Accordion) */}
-                  <div style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '10px', textAlign: 'right' }}>
-                    <button onClick={() => loescheGegner(g.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Icon name="trash" size={14} /> Behörde aus CRM löschen
-                    </button>
+                  {/* Spalte 3: Abteilungen Anzahl */}
+                  <div style={{ fontSize: '12px', color: theme.textMuted }}>
+                    {ansList.length > 0 ? `${ansList.length} ${ansList.length === 1 ? 'Abteilung hinterlegt' : 'Abteilungen hinterlegt'}` : 'Keine spezifischen Abteilungen'}
+                  </div>
+
+                  {/* Spalte 4: Aktion */}
+                  <div style={{ color: isActive ? theme.gegnerAccent : theme.textMuted, textAlign: 'center' }}>
+                    <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                   </div>
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                {/* EXPANDED CONTENT (Nutzt ebenfalls listGrid für strikte Fluchten!) */}
+                {isExpanded && (
+                  <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: listGrid, gap: '15px', cursor: 'default', alignItems: 'start' }} onClick={(e) => e.stopPropagation()}>
+                    
+                    {/* Spalte 1: Zusätzliche Daten zur Behörde (Adresse) */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', gap: '6px', alignItems: 'flex-start' }}><Icon name="map" size={12} style={{ marginTop: '2px', flexShrink: 0 }}/> <span>{g.adresse || 'Keine Adresse hinterlegt'}</span></span>
+                    </div>
+
+                    {/* Spalte 2: Zentrale Kontakte (Leer, da bereits im Header sichtbar) */}
+                    <div></div>
+
+                    {/* Spalte 3: Details zu den Abteilungen */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {ansList.length > 0 ? (
+                        ansList.map((ans, idx) => (
+                          <div key={idx} style={{ background: theme.inputBg, padding: '8px 10px', borderRadius: '6px', border: `1px solid ${theme.border}`, fontSize: '11px' }}>
+                            <div style={{ color: theme.gegnerAccent, fontWeight: 'bold', marginBottom: '4px' }}>{ans.abteilung || 'Zentrale / Allgemein'}</div>
+                            <div style={{ color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {ans.name || '-'}</div>
+                            <div style={{ color: theme.textMuted, display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="phone" size={10}/> {ans.telefon || '-'}</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="mail" size={10}/> {ans.email || '-'}</span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ fontSize: '11px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="user" size={10}/> {g.ansprechpartner || '-'} (Tel: {g.telefon || '-'})</div>
+                      )}
+                    </div>
+
+                    {/* Spalte 4: Löschen Button */}
+                    <div style={{ textAlign: 'center' }}>
+                      <button onClick={() => loescheGegner(g.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px' }} title="Behörde löschen">
+                        <Icon name="trash" size={16} />
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
