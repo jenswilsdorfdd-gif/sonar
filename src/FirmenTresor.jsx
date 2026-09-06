@@ -26,6 +26,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const [m_dateien, setM_dateien] = useState([]);
 
   const isDarkMode = theme.bg === '#020617';
+  const btnTextColor = isDarkMode ? '#000' : '#ffffff';
 
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
@@ -305,7 +306,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '25px', flexWrap: 'wrap' }}>
-          <button type="submit" disabled={laedt} style={{ padding: '14px', background: theme.tresorAccent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: '1 1 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <button type="submit" disabled={laedt} style={{ padding: '14px', background: theme.tresorAccent, color: btnTextColor, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', flex: '1 1 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             {laedt ? 'Speichere...' : (editMandantId ? <><Icon name="check" size={16} /> Änderungen speichern</> : '+ Mandant im Tresor ablegen')}
           </button>
           {editMandantId && (
@@ -401,7 +402,10 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       </div>
                     </div>
 
-                    {/* SPALTE 2: STEUERN DETAILS */}
+                    {/* SPALTE 2 DESKTOP: LEER-PLATZHALTER */}
+                    <div className="tresor-desktop-only"></div>
+
+                    {/* SPALTE 3: STEUERN DETAILS */}
                     <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: theme.inputBg, padding: '10px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
                       <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
                       <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
@@ -409,7 +413,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       <div><span style={{color: theme.textMuted}}>Bank:</span> {cleanVal(m.bank_name) || '-'}</div>
                     </div>
 
-                    {/* SPALTE 3: DOKUMENTE */}
+                    {/* SPALTE 4: DOKUMENTE */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
                         const fileName = extractFilename(url);
@@ -434,8 +438,8 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       )}
                     </div>
 
-                    {/* SPALTE 4: LÖSCHEN-BUTTON */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    {/* SPALTE 5: LÖSCHEN-BUTTON */}
+                    <div>
                       <button className="tresor-delete-btn" onClick={() => loescheMandant(m.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Mandant löschen">
                         <Icon name="trash" size={14} /> Mandant aus Tresor löschen
                       </button>
