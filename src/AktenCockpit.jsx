@@ -74,6 +74,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const inlineInputStyle = { background: 'transparent', border: '1px dashed transparent', color: theme.textMain, width: '100%', fontSize: '13px', padding: '4px', outline: 'none', cursor: 'text', borderBottom: `1px dashed ${theme.border}`, boxSizing: 'border-box' };
 
   const isDarkMode = theme.bg === '#020617';
+  const btnTextColor = isDarkMode ? '#000' : '#ffffff';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
   const formatRufnummer = (nummer) => {
@@ -921,7 +922,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
         .hist-typ-select:hover, .hist-typ-select:focus {
           background: ${theme.accent} !important;
-          color: #000 !important;
+          color: ${btnTextColor} !important;
           border: 1px solid ${theme.accent} !important;
         }
         .hist-typ-select option {
@@ -1134,7 +1135,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               Möchtest du die Akte / den Eintrag wirklich <strong>ohne Dateien</strong> anlegen?
             </p>
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={() => setShowUploadReminder(false)} style={{ padding: '12px 18px', background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Abbrechen & Dateien auswählen</button>
+              <button onClick={() => setShowUploadReminder(false)} style={{ padding: '12px 18px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Abbrechen & Dateien auswählen</button>
               <button onClick={speichereEintragLogik} style={{ padding: '12px 18px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Trotzdem ohne Dateien speichern</button>
             </div>
           </div>
@@ -1271,12 +1272,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                 Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen, oder springe direkt zum Vorgang in der Akte.
                               </div>
                               <div>
-                                <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 10px', minHeight: '38px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box' }}>
+                                <button onClick={() => druckeSendebericht(ausgang)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '8px 10px', minHeight: '38px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box' }}>
                                   <Icon name="print" size={13} /> Sendebericht drucken
                                 </button>
                               </div>
                               <div>
-                                <button onClick={() => springeZuAkteAusgang(ausgang.akte_id, ausgang.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 10px', minHeight: '38px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box' }}>
+                                <button onClick={() => springeZuAkteAusgang(ausgang.akte_id, ausgang.id)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '8px 10px', minHeight: '38px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box' }}>
                                   <Icon name="folder" size={13} /> Vorgang in Akte öffnen
                                 </button>
                               </div>
@@ -1323,7 +1324,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 const zielDatum = new Date(w.aktivesDatum); const plusDreiDate = new Date(zielDatum); plusDreiDate.setDate(plusDreiDate.getDate() + 3);
                 let shiftDisabled = false; if (w.frist_extern) { const originalFristDate = new Date(w.frist_extern); if (plusDreiDate > originalFristDate) { shiftDisabled = true; } }
                 const plusDreiIso = plusDreiDate.toISOString().split('T')[0];
-                const isOverdue = w.tageUebrig < 0; const isDueToday = w.tageUebrig === 0; const actionBg = isOverdue ? theme.warningBorder : theme.accent; const actionColor = isOverdue ? '#ffffff' : '#000000';
+                const isOverdue = w.tageUebrig < 0; const isDueToday = w.tageUebrig === 0; const actionBg = isOverdue ? theme.warningBorder : theme.accent; const actionColor = isOverdue ? '#ffffff' : btnTextColor;
                 return (
                   <div key={`warn-${w.id}`} onClick={() => handleAlarmKlick(w.akte_id)} style={{ background: theme.cardItemBg, padding: '14px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.warningBorder}`, boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px' }} title="Klicken, um diese Akte unten zu fokussieren!">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
@@ -1536,9 +1537,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             <label style={{...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', width: '100%' }}>
-              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
-              <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
-              <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
+              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
+              <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
+              <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
             </div>
           </div>
 
@@ -1547,7 +1548,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <label style={{ ...labelStyle, margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Icon name="paperclip" size={14} /> Versand-Dateianhänge ({emailAnhaenge.length})
               </label>
-              <label style={{ background: theme.accent, color: '#000', border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Icon name="paperclip" size={14} /> Datei(en) anhängen
                 <input 
                   id="email-anhaenge-upload" 
@@ -1585,7 +1586,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           {versandPdfUrl && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', color: '#10b981', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Versand-PDF generiert & verschickt! Vergiss nicht, unten auf "+ In Akte abheften" zu klicken.</div>)}
         </div>
 
-        <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '25px' }}>
+        <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '25px' }}>
           {laedt ? 'Speichere...' : '+ In Akte abheften'}
         </button>
       </form>
@@ -1596,7 +1597,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </h2>
         <button 
           onClick={() => setZeigeErledigte(!zeigeErledigte)}
-          style={{ background: theme.accent, color: '#000', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
+          style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
           <Icon name="folder" size={14} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
         </button>
@@ -1650,7 +1651,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       <select 
                         value={akte.status || 'Offen'} 
                         onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                        style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : '#000', border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
+                        style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
                       >
                         <option value="Offen">Offen</option>
                         <option value="Erledigt">Erledigt</option>
@@ -1726,7 +1727,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   <select 
                     value={akte.status || 'Offen'} 
                     onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                    style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : '#000', border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
+                    style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
                   >
                     <option value="Offen">Offen</option>
                     <option value="Erledigt">Erledigt</option>
@@ -1754,7 +1755,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             <option value="">-- Ziel-Akte wählen --</option>
                             {sortedAktenForDropdown.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>))}
                           </select>
-                          <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: '#000', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
+                          <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
                           <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
                         </div>
                       ) : (
