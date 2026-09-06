@@ -337,7 +337,7 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
                   <div style={{ cursor: 'default', background: 'transparent', width: '100%', boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
                     
                     {g.adresse && (
-                      <div style={{ padding: '8px 20px', fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', borderTop: `1px dashed ${theme.border}`, background: 'rgba(0,0,0,0.05)' }}>
+                      <div style={{ padding: '8px 20px', fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', borderTop: `1px dashed ${theme.border}`, background: 'rgba(0,0,0,0.05)' }}>
                         <Icon name="map" size={12} /> {g.adresse}
                       </div>
                     )}
@@ -356,10 +356,10 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
                             <span style={{ fontSize: '13px', color: theme.textMain, fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {formatContactName(ans.abteilung, ans.name)}
                             </span>
-                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               <Icon name="phone" size={12} /> {ans.telefon || '-'}
                             </span>
-                            <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               <Icon name="mail" size={12} /> {ans.email || '-'}
                             </span>
                             <div className="crm-desktop-only"></div>
