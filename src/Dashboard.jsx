@@ -221,7 +221,7 @@ export default function Dashboard({ session }) {
               title="Tech-Handbuch"
               onClick={() => setActiveTab('handbuch')}
               style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-              <span style={{ fontSize: '16px', lineHeight: '16px' }}>📖</span> 
+              <Icon name="book" size={18} /> 
               {!isMobile && <span>Tech-Handbuch</span>}
             </button>
 
@@ -229,14 +229,14 @@ export default function Dashboard({ session }) {
               title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
               onClick={() => setIsDarkMode(!isDarkMode)}
               style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-              <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} /> 
+              <Icon name="sun" size={18} /> 
               {!isMobile && <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
             
             <button
               title="Abmelden"
               onClick={handleLogout}
-              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold', opacity: 0.8 }}>
+              style={{ background: 'transparent', color: theme.gegnerAccent, border: `1px solid ${theme.gegnerAccent}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
               <Icon name="x" size={18} /> 
               {!isMobile && <span>Abmelden</span>}
             </button>
