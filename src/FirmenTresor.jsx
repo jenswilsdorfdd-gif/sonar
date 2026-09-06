@@ -397,23 +397,20 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                     {/* SPALTE 1: ADRESSE & UST-RADAR */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <span style={{ fontSize: '12px', color: theme.textMain }}>{cleanVal(m.adresse) || '-'}</span>
-                      <div style={{ marginTop: '4px', padding: '4px 8px', background: theme.bg, borderRadius: '4px', fontSize: '11px', color: theme.tresorAccent, fontWeight: 'bold', display: 'inline-block', width: 'fit-content' }}>
-                        USt-Radar: {m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}
+                      <div style={{ marginTop: '4px', fontSize: '11px', color: theme.textMain, fontWeight: 'bold' }}>
+                        USt-Radar: <span style={{ color: theme.tresorAccent }}>{m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}</span>
                       </div>
                     </div>
 
-                    {/* SPALTE 2 DESKTOP: LEER-PLATZHALTER */}
-                    <div className="tresor-desktop-only"></div>
-
-                    {/* SPALTE 3: STEUERN DETAILS */}
-                    <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: theme.inputBg, padding: '10px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                    {/* SPALTE 2: STEUERN DETAILS */}
+                    <div style={{ fontSize: '11px', color: theme.textMain, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                       <div><span style={{color: theme.textMuted}}>St-Nr:</span> {cleanVal(m.steuernummer) || '-'}</div>
                       <div><span style={{color: theme.textMuted}}>VBG:</span> {cleanVal(m.vbg_nummer) || '-'}</div>
                       <div><span style={{color: theme.textMuted}}>Betr.-Nr:</span> {cleanVal(m.betriebsnummer) || '-'}</div>
                       <div><span style={{color: theme.textMuted}}>Bank:</span> {cleanVal(m.bank_name) || '-'}</div>
                     </div>
 
-                    {/* SPALTE 4: DOKUMENTE */}
+                    {/* SPALTE 3: DOKUMENTE */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
                         const fileName = extractFilename(url);
@@ -438,8 +435,8 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       )}
                     </div>
 
-                    {/* SPALTE 5: LÖSCHEN-BUTTON */}
-                    <div>
+                    {/* SPALTE 4: LÖSCHEN-BUTTON */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <button className="tresor-delete-btn" onClick={() => loescheMandant(m.id)} style={{ background: 'transparent', border: `1px solid ${theme.warningBorder}`, color: theme.warningBorder, padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Mandant löschen">
                         <Icon name="trash" size={14} /> Mandant aus Tresor löschen
                       </button>
