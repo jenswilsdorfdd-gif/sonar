@@ -1107,6 +1107,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             padding: 0 !important;
             width: 100% !important;
           }
+          /* NEU HINZUGEFÜGT FÜR HOHE SPEZIFITÄT */
+          .hist-desktop-table tbody td.desktop-only {
+            display: none !important;
+          }
+          .akten-field-box.desktop-only {
+            display: none !important;
+          }
           .hist-mobile-header-row {
             display: flex !important;
             justify-content: space-between !important;
@@ -1656,7 +1663,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 <div style={{ flex: '1 1 100%', width: '100%', boxSizing: 'border-box' }}>
                   <div className="akten-desktop-grid">
                     
-                    <div className="akten-field-box">
+                    <div className="akten-field-box desktop-only">
                       <input 
                         type="text" 
                         defaultValue={akte.unser_zeichen || ''} 
