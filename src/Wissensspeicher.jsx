@@ -255,8 +255,8 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
       </form>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-        <h3 style={{ margin: '0', color: theme.textMain, textAlign: 'left' }}>
-          📚 Indizierte Dokumente ({wissenAnzeigeModus === 'md' ? githubFiles.length : gefilterteWissenEintraege.length})
+        <h3 style={{ margin: '0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Icon name="book" size={20} /> Indizierte Dokumente ({wissenAnzeigeModus === 'md' ? githubFiles.length : gefilterteWissenEintraege.length})
         </h3>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
