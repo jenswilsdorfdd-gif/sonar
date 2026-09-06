@@ -903,6 +903,32 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           display: none !important;
         }
 
+        /* HISTORIEN TYP DROPDOWN (BUGFIX) */
+        .hist-typ-select {
+          background: transparent;
+          color: ${theme.accent};
+          border: 1px dashed transparent;
+          border-bottom: 1px dashed ${theme.border};
+          width: 100%;
+          font-size: 13px;
+          padding: 4px;
+          font-weight: bold;
+          outline: none;
+          cursor: pointer;
+          box-sizing: border-box;
+          transition: all 0.2s ease;
+          border-radius: 4px;
+        }
+        .hist-typ-select:hover, .hist-typ-select:focus {
+          background: ${theme.accent} !important;
+          color: #000 !important;
+          border: 1px solid ${theme.accent} !important;
+        }
+        .hist-typ-select option {
+          background: ${theme.cardBg};
+          color: ${theme.textMain};
+        }
+
         /* VERSANDHISTORIE DESKTOP */
         .vh-desktop-header {
           display: grid;
@@ -1756,7 +1782,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                   <select 
                                     defaultValue={hist.typ || ''} 
                                     onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
-                                    style={{ ...inlineInputStyle, fontWeight: 'bold', width: 'auto', flex: '1 1 auto' }}
+                                    className="hist-typ-select"
+                                    style={{ width: 'auto', flex: '1 1 auto' }}
                                   >
                                     <option value="Eingang">Eingang</option>
                                     <option value="Ausgang">Ausgang</option>
@@ -1779,7 +1806,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                  <select 
                                    defaultValue={hist.typ || ''} 
                                    onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
-                                   style={{...inlineInputStyle, fontWeight: 'bold'}}
+                                   className="hist-typ-select"
                                  >
                                     <option value="Eingang">Eingang</option>
                                     <option value="Ausgang">Ausgang</option>
