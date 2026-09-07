@@ -891,6 +891,51 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const activeAkteObj = modus === 'bestehend' && selectedAkteId ? akten.find(a => a.id === selectedAkteId) : null;
 
+  // --- HILFS-REF FÜR DEN REALTIME-LISTENER ---
+  const handleJsonImportRef = useRef(handleJsonImport);
+  useEffect(() => {
+    handleJsonImportRef.current = handleJsonImport;
+  }, [handleJsonImport]);
+
+  // --- SUPABASE REALTIME QUEUE LISTENER (AUTO-IMPORT) ---
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const channelName = `import_queue_${session.user.id}`;
+    const queueSubscription = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'import_queue',
+          filter: `user_id=eq.${session.user.id}`
+        },
+        async (payload) => {
+          const newRecord = payload.new;
+          if (newRecord && newRecord.payload) {
+            const jsonString = JSON.stringify(newRecord.payload);
+            
+            // Aufruf über die Referenz verhindert Stale-State Bugs
+            if (handleJsonImportRef.current) {
+              handleJsonImportRef.current({ target: { value: jsonString } });
+            }
+            
+            showToast("🚀 Auto-Import aus Gemini empfangen und eingefügt!", "success");
+
+            // Den verarbeiteten Eintrag restlos aus der DB-Queue löschen
+            await supabase.from('import_queue').delete().eq('id', newRecord.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(queueSubscription);
+    };
+  }, [session?.user?.id]); 
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
