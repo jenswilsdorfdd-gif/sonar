@@ -1,13 +1,102 @@
-Auto-Extraktion (PDF). Gegner: Bundesamt für Justiz | Gegenstand: Hinterlegung Bilanz
+Auftragsbestätigung
 
-Original-PDF: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/1788856843394_20260908-bundesanzeiger-verlag-sbs-260912003942.pdf
+Ihre Unterlagen sind bei uns zur weiteren Bearbeitung eingegangen.
 
---- Seite 1 ---
-Auftragsbestätigung  Ihre Unterlagen sind bei uns zur weiteren Bearbeitung eingegangen.  Datensicherheit  Der QR-Code dient der Sicherheit Ihrer Angaben. Er enthält die wesentlichen Eckdaten Ihres Auftrags sowie Datum und Uhrzeit der Auftragserteilung. Der QR-Code erscheint auch auf dem Ausdruck dieser Seite. Bitte beachten Sie: Dieser QR-Code ist verschlüsselt und kann nicht mit Standard-QR-Code-Lesegeräten/Apps decodiert werden.  Bearbeitungshinweis  Aktuell   Vorjahr Bilanzsumme:   keine Angabe   keine Angabe Umsatzerlöse:   keine Angabe   keine Angabe Anzahl der Mitarbeiter:   keine Angabe   keine Angabe Bemerkung:   taug-2020-sbs-ol  Ihre Angaben  Kundennummer:   2405474342 Auftragsnummer:   260912003942 Datum der Übermittlung:   08.09.2026 Uhrzeit:   10:23:16 Zahlungspflichtig:   ja Veröffentlicht für:   SmartBizz Services UG (haftungsbeschränkt) Registergericht:   Dresden Registerart:   Handelsregister Abteilung B (HRB) Registernummer:   35697 Sitz:   Dresden E-Mail-Benachrichtigung:   Sie werden per E-Mail an die unter „Meine Daten -> Stammdaten“ gespeicherte E-Mail-Adresse benachrichtigt, wenn die Veröffentlichung erfolgt ist. PDF-Auftragsbestätigung:   Sie erhalten per E-Mail eine PDF-Auftragsbestätigung an die 1 von 3   260912003942 Auftragsnummer:
+Datensicherheit
 
---- Seite 2 ---
-unter „Meine Daten -> Stammdaten“ gespeicherte E-Mail- Adresse.  Art des Auftrags  Sie hinterlegen Jahresabschlussunterlagen beim Bundesanzeiger:   Eine neue Hinterlegung  Veröffentlichungsbereich  Sie veröffentlichen in folgendem Bereich:   Rechnungslegung/Finanzberichte Hinterlegung  Art des Auftrags  Sie veröffentlichen im Bundesanzeiger:   Eine neue Hinterlegung  Weitere Informationen zu Ihrer Hinterlegung  Typ des Abschlusses:   Jahresabschluss Zeitspanne, den Ihr Abschluss umfasst:   von: 01.01.2020 bis: 31.12.2020 Bilanzierungsstandard Ihres Jahresabschlusses:   HGB  Informationen zu Ihrem Unternehmen  Weitere Angaben zu Ihrem Unternehmen:   Kleinstunternehmen mit Sitz in Deutschland  Ihre Gesellschaftsart:   keine spezielle Gesellschaftsart  Daten der Hinterlegung  Dateiname   Größe   Datum   Uhrzeit keine Datei geladen Die per Formular eingegebenen Daten der Hinterlegung wurden nach Auftragserteilung übermittelt. Termin der Hinterlegung   Den Fortschritt der Bearbeitung Ihrer eingereichten Unterlagen können Sie unter „Meine Daten“ im Bereich „Aufträge & Abrufe“ ersehen.  Termin Rechnungsdaten  Nach Hinterlegung Ihres Auftrages wird Ihnen für den Zeitraum von 2 Jahren ein PDF-Beleg unter „Meine Daten“ im Bereich „Aufträge & Abrufe“ zur Verfügung gestellt. 2 von 3   260912003942 Auftragsnummer:
+                                                                                      Der QR-Code dient der Sicherheit Ihrer Angaben. Er
+                                                                                      enthält die wesentlichen Eckdaten Ihres Auftrags sowie
+                                                                                      Datum und Uhrzeit der Auftragserteilung. Der QR-Code
+                                                                                      erscheint auch auf dem Ausdruck dieser Seite. Bitte
+                                                                                      beachten Sie: Dieser QR-Code ist verschlüsselt und
+                                                                                      kann nicht mit Standard-QR-Code-Lesegeräten/Apps
+                                                                                      decodiert werden.
 
---- Seite 3 ---
-Rechnung ausgestellt auf:   Abweichende Adresse zum Versand der Rechnung: Name der Firma/Institution:   SmartBizz Services UG (haftungsbeschränkt) Jens Wilsdorf Abteilung/Referat:   keine Angabe   keine Angabe Ihr Zeichen:   keine Angabe Anrede:   Herr   Herr Titel:   keine Angabe   keine Angabe Vorname:   JENS   Jens Nachname:   WILSDORF   Wilsdorf Straße + Hausnummer / Postfach:   Wittenberger Str. 78   Voglerstr. 28 PLZ:   01309   01277 Ort:   Dresden   Dresden Land:   Deutschland   Deutschland USt-IdNr.   DE308223282   keine Angabe Telefon:   +49 15560 562403   keine Angabe Mobilfunk:   keine Angabe   keine Angabe Faxnummer:   keine Angabe   keine Angabe E-Mail:   smartbizzgroup.office@gmail.com   smartbizzgroup.office@gmail.com 3 von 3   260912003942 Auftragsnummer:
+Bearbeitungshinweis       Aktuell           Vorjahr
+                          keine Angabe      keine Angabe
+Bilanzsumme:              keine Angabe      keine Angabe
+Umsatzerlöse:             keine Angabe      keine Angabe
+Anzahl der Mitarbeiter:   taug-2020-sbs-ol
+Bemerkung:
+                          2405474342
+Ihre Angaben              260912003942
+                          08.09.2026
+Kundennummer:             10:23:16
+Auftragsnummer:           ja
+Datum der Übermittlung:   SmartBizz Services UG (haftungsbeschränkt)
+Uhrzeit:                  Dresden
+Zahlungspflichtig:        Handelsregister Abteilung B (HRB)
+Veröffentlicht für:       35697
+Registergericht:          Dresden
+Registerart:              Sie werden per E-Mail an die unter „Meine Daten ->
+Registernummer:           Stammdaten“ gespeicherte E-Mail-Adresse benachrichtigt,
+Sitz:                     wenn die Veröffentlichung erfolgt ist.
+E-Mail-Benachrichtigung:  Sie erhalten per E-Mail eine PDF-Auftragsbestätigung an die
 
+PDF-Auftragsbestätigung:
+
+                          1 von 3           Auftragsnummer: 260912003942
+Art des Auftrags                                unter „Meine Daten -> Stammdaten“ gespeicherte E-Mail-
+                                                Adresse.
+Sie hinterlegen Jahresabschlussunterlagen beim  Eine neue Hinterlegung
+Bundesanzeiger:
+                                                Rechnungslegung/Finanzberichte
+Veröffentlichungsbereich                        Hinterlegung
+
+Sie veröffentlichen in folgendem Bereich:       Eine neue Hinterlegung
+
+Art des Auftrags
+
+Sie veröffentlichen im Bundesanzeiger:
+
+Weitere Informationen zu Ihrer Hinterlegung
+
+Typ des Abschlusses:                            Jahresabschluss
+Zeitspanne, den Ihr Abschluss umfasst:          von: 01.01.2020
+                                                bis: 31.12.2020
+Bilanzierungsstandard Ihres Jahresabschlusses:  HGB
+
+Informationen zu Ihrem Unternehmen              keine spezielle Gesellschaftsart
+
+Ihre Gesellschaftsart:
+
+Weitere Angaben zu Ihrem Unternehmen:           Kleinstunternehmen mit Sitz in Deutschland
+
+Daten der Hinterlegung
+
+Dateiname                Größe                  Datum            Uhrzeit
+keine Datei geladen
+
+Die per Formular eingegebenen Daten der Hinterlegung wurden nach Auftragserteilung übermittelt.
+
+Termin                                          Den Fortschritt der Bearbeitung Ihrer eingereichten
+                                                Unterlagen können Sie unter „Meine Daten“ im Bereich
+Termin der Hinterlegung                         „Aufträge & Abrufe“ ersehen.
+
+Rechnungsdaten
+
+Nach Hinterlegung Ihres Auftrages wird Ihnen für den Zeitraum von 2 Jahren ein PDF-Beleg unter „Meine Daten“ im Bereich
+„Aufträge & Abrufe“ zur Verfügung gestellt.
+
+                                                2 von 3          Auftragsnummer: 260912003942
+Name der Firma/Institution:      Rechnung ausgestellt auf:        Abweichende Adresse zum Versand der
+                                                                  Rechnung:
+Abteilung/Referat:               SmartBizz Services UG            Jens Wilsdorf
+Ihr Zeichen:                     (haftungsbeschränkt)
+Anrede:                          keine Angabe                     keine Angabe
+Titel:                           keine Angabe
+Vorname:                         Herr                             Herr
+Nachname:                        keine Angabe                     keine Angabe
+Land:                            JENS                             Jens
+PLZ:                             WILSDORF                         Wilsdorf
+Ort:                             Deutschland                      Deutschland
+Straße + Hausnummer / Postfach:  01309                            01277
+USt-IdNr.                        Dresden                          Dresden
+Telefon:                         Wittenberger Str. 78             Voglerstr. 28
+Mobilfunk:                       DE308223282                      keine Angabe
+Faxnummer:                       +49 15560 562403                 keine Angabe
+E-Mail:                          keine Angabe                     keine Angabe
+                                 keine Angabe                     keine Angabe
+                                 smartbizzgroup.office@gmail.com  smartbizzgroup.office@gmail.com
+
+                                 3 von 3                          Auftragsnummer: 260912003942
