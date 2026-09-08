@@ -1,0 +1,59 @@
+Versendetes Dokument
+Gegenstand: Fristwahrender Einspruch gegen Ablehnung Erlass Säumniszuschläge & Ruhen des Verfahrens (§ 363 Abs. 2 AO analog)
+Gegner: Finanzamt Dresden-Süd
+Link: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/ausgang_1788884180365_Telefax.pdf
+
+Dokumententext:
+SmartBizz Services UG (haftungsbeschränkt)
+c/o Jens Wilsdorf
+Voglerstraße 28
+01277 Dresden
+
+Finanzamt Dresden-Süd
+Herrn Moritz Johne (persönlich / zur Akte)
+Rabenerstraße 1
+01069 Dresden
+
+Per Telefax an: 0351 4691-9999
+
+Dresden, 08.09.2026
+
+Steuernummer: 203/118/11534 EH3
+Bezug:
+1. Ihr Schreiben vom 07.09.2026 (Frist bis 25.09.2026 – Vollstreckungsaufschub)
+2. Ihr Bescheid über den Erlass von Abgaben vom 10.09.2026 (zugegangen am 08.09.2026)
+
+1. FRISTWAHRENDER EINSPRUCH
+gemäß § 347 Abs. 1 Satz 1 Nr. 1 AO gegen den Ablehnungsbescheid vom 10.09.2026
+nebst
+2. ANTRAG AUF VERFAHRENSFRISTVERLÄNGERUNG / RUHEN DES VERFAHRENS (§ 363 ABS. 2 AO ANALOG)
+sowie
+3. STATUSMITTEILUNG ZUM EINSPRUCH VOM 13.08.2026 (VOLLSTRECKUNGSAUFSCHUB)
+
+Sehr geehrter Herr Johne,
+
+namens und im Auftrag der SmartBizz Services UG (haftungsbeschränkt) nehme ich Bezug auf Ihre vorgenannten Schreiben und teile mit:
+
+I. Einspruch gegen den Bescheid vom 10.09.2026
+Gegen Ihren Ablehnungsbescheid vom 10.09.2026 (betreffend Säumniszuschläge i. H. v. 7.452,50 EUR) lege ich hiermit zur Fristwahrung
+
+EINSPRUCH
+
+ein. Eine detaillierte materielle Begründung bleibt einem gesonderten Schriftsatz vorbehalten.
+
+II. Antrag auf Ruhen des Verfahrens bis zum Abschluss der Veranlagungsarbeiten
+Die Steuererklärungen und Jahresabschlüsse für die maßgeblichen Veranlagungszeiträume wurden durch die Gesellschaft vollständig zur Veranlagung eingereicht. Die materiellen Jahressteuerbescheide stehen seitens der zuständigen Veranlagungsstelle Ihres Hauses jedoch noch aus.
+
+Da die endgültige Festsetzung der Jahressteuern vorgreiflich für die Bemessungsgrundlage und die Zinskomponente der streitgegenständlichen Säumniszuschläge ist (vgl. BFH-Urteil vom 20.05.2010 – V R 42/08), wird beantragt:
+
+1. Das Einspruchsverfahren gemäß § 363 Abs. 2 Satz 1 AO analog bis zur Bekanntgabe der endgültigen Jahressteuerbescheide ruhen zu lassen.
+2. Die Begründungsfrist bis zu einem Monat nach Bekanntgabe der ausstehenden Steuerbescheide zu verlängern.
+
+III. Mitteilung zum Schreiben vom 07.09.2026 (Vollstreckungsaufschub)
+Der Einspruch vom 13.08.2026 gegen die Ablehnung des Vollstreckungsaufschubs wird aufrechterhalten. Zur Vermeidung unbilliger und nicht wiedergutzumachender Härten wird darum ersucht, von Vollstreckungsmaßnahmen bis zum Abschluss der Veranlagung und der Klärung im Hauptsacheverfahren abzusehen.
+
+Sollten Sie eine Aussetzung bzw. ein Ruhen ablehnen, wird vorsorglich um die Weiterleitung der Vorgänge an die Rechtsbehelfsstelle des Finanzamtes Dresden-Süd gebeten.
+
+Mit freundlichen Grüßen
+SmartBizz Services UG (haftungsbeschränkt)
+Jens Wilsdorf, Geschäftsführer
