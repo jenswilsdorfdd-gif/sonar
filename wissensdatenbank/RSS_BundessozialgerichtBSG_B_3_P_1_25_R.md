@@ -1,15 +1,12 @@
 [AUTO-SCRAPER] Bundessozialgericht (BSG)
 Quelle: https://www.bsg.bund.de/SharedDocs/Entscheidungen/DE/2026/2026_06_18_B_03_P_01_25_R.html
-Veröffentlicht: 2026-09-09T08:00:03.205Z
+Veröffentlicht: 2026-09-11T08:00:01.734Z
 
-**Kurz­analyse für die juristische Wissensdatenbank**  
+**Kurzanalyse – Juristische Wissensdatenbank**  
 
-| Feld                     | Information (falls vorhanden) |
-|--------------------------|--------------------------------|
-| **Aktenzeichen**         | **B 3 P 1/25 R**  (auch zu finden als *B 03 P 01/25 R*) |
-| **Datum**                | **18. Juni 2026** (Veröffentlichungs‑/Entscheidungsdatum, ersichtlich aus der URL) |
-| **Betroffene Rechtsnorm**| Keine Angabe im Dokument bzw. auf der verlinkten Seite. Die Rechtsnorm lässt sich aus dem veröffentlichten Text nicht eindeutig extrahieren. |
-| **Kurzzusammenfassung** | 1. Die Entscheidung mit dem Aktenzeichen **B 3 P 1/25 R** wurde am **18. Juni 2026** vom zuständigen Bundesorgan veröffentlicht. <br>2. Auf der verlinkten Seite wird weder ein inhaltlicher Sachverhalt noch die konkrete Rechtsnorm genannt – lediglich ein Hinweis auf das Vorhandensein einer Entscheidung ohne weitere Erläuterung. <br>3. Aufgrund des Fehlens von Textinhalt lässt sich der genaue Gegenstand (z. B. Verwaltungs‑, Sozial‑ oder Verfassungsrecht) sowie das Ergebnis der Entscheidung nicht bestimmen; weitere Recherchen in ergänzenden Akten oder Datenbanken sind erforderlich. |
-
-> **Hinweis:**  
-> Da die verlinkte HTML‑Seite keine weiterführenden Angaben (wie Tatbestand, Begründung oder zitierte Normen) enthält, kann die Analyse ausschließlich auf den Meta‑Daten basieren. Für eine inhaltlich fundierte Eintragung in die Wissensdatenbank sollte das Original‑PDF bzw. ein vollständiger Beschlusstext nachgereicht werden.
+| Feld                     | Inhalt |
+|--------------------------|--------|
+| **Aktenzeichen**         | B 3 P 1/25 R |
+| **Datum**                | 11.09.2026 (Veröffentlichung) |
+| **Betroffene Rechtsnorm**| § 150 Abs. 2 SGB XI (Erstattungsanspruch für Pflegeeinrichtungen im Rahmen des Corona‑Pflege‑Rettungsschirms) <br>§ 150 Abs. 3 SGB XI (Festlegung von Verfahrensfristen durch den GKV‑Spitzenverband) |
+| **Kurzzusammenfassung** | Das Sozialgericht Freiburg hatte die Pflegekasse verurteilt, einem Träger von vier Pflegeeinrichtungen Erstattungen in Höhe von 150 045,96 € zu zahlen, weil die vom Kläger am 06.05.2022 gestellte Forderung nicht verfristet war. Die Pflegekasse legte Revision ein und argumentierte, dass die in den Kostenerstattungs‑Festlegungen festgesetzte Frist bis 31.03.2022 eine wirksame Ausschlussfrist darstelle. Das Bundesverwaltungsgericht wies die Revision zurück und bestätigte, dass die genannte Frist lediglich eine Mitwirkungspflicht zur Verfahrensbeschleunigung sei und keine materiell‑rechtliche Ausschlusswirkung habe.
