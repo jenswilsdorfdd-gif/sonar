@@ -237,6 +237,47 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }, 3500);
   };
 
+  const ladeVorgangInMaske = (akte, hist) => {
+    setSelectedAkteId(akte.id);
+    setModus('bestehend');
+    setBezugId(hist.id);
+
+    setUnserZeichen(akte.unser_zeichen || '');
+    setGegnerName(akte.gegner_name || '');
+    setGegnerAnsprechpartner(akte.gegner_ansprechpartner || '');
+    setFaxZhd(akte.gegner_ansprechpartner || '');
+    setGegnerTelefon(formatRufnummer(akte.gegner_telefon || ''));
+    setGegnerEmail(akte.gegner_email || '');
+    setUnsereFirma(akte.unsere_firma || '');
+    setUnserAnsprechpartner(akte.unser_ansprechpartner || '');
+    setThema(akte.thema || '');
+    setAktenzeichen(akte.aktenzeichen || '');
+
+    if (akte.gegner_name) {
+      const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(akte.gegner_name));
+      if (crmGegner) {
+        setGegnerFax(formatRufnummer(crmGegner.fax || ''));
+        if (!akte.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
+      } else {
+        setGegnerFax('');
+      }
+    }
+
+    setTyp(hist.typ || 'Intern');
+    setDatum(hist.datum ? new Date(hist.datum).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    setAktion(hist.aktion || '');
+    setKanal(hist.kanal || '');
+    setFristExtern(hist.frist_extern || '');
+    setWiedervorlage(hist.wiedervorlage || '');
+    setBriefEntwurf(hist.brief_entwurf || '');
+    setDateien([]);
+    setEmailAnhaenge([]);
+
+    setOpenMenuId(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast(`Vorgang "${hist.aktion || hist.typ}" in Maske geladen! Bezug gesetzt.`, 'success');
+  };
+
   const handleNachhaken = (akteId) => {
     const akte = akten.find(a => a.id === akteId);
     if (!akte) return;
@@ -813,7 +854,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             alarmStufe, 
             isWiedervorlage: isWV, 
             aktivesDatum: zielDatum, 
-            unser_zeichen: akte.unser_zeichen 
+            unser_zeichen: akte.unser_zeichen,
+            ganze_akte: akte
           }); 
         }
       });
@@ -1416,6 +1458,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         <Icon name="folder" size={14} /> [{w.unser_zeichen || '---'}] {w.akte_gegner}
                       </strong>
                       <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => ladeVorgangInMaske(w.ganze_akte, w)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }} title="Diesen Vorgang oben in die Maske laden"><Icon name="folder" size={12} /> In Maske laden</button>
                         <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} style={{ background: actionBg, color: actionColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}><Icon name="settings" size={12} /> Aktionen {openMenuId === w.id ? '▲' : '▼'}</button>
                         {openMenuId === w.id && (
                           <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '160px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -1553,10 +1596,15 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             </>
           )}
 
-          <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>Dokument-Eintrag</h4></div>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>Dokument-Eintrag / Arbeitsanweisung</h4></div>
           <div><label style={labelStyle}>Typ*</label><select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}><option value="Eingang">Eingang</option><option value="Ausgang">Ausgang</option><option value="Intern">Intern</option></select></div>
           <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
           
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>Vorgang / Betreff / Aktion</label>
+            <input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} placeholder="z.B. Rechnung Landesjustizkasse / Überweisung fällig" style={inputStyle} />
+          </div>
+
           {activeAkteObj && activeAkteObj.akten_historie && activeAkteObj.akten_historie.length > 0 && (
             <div style={{ gridColumn: '1 / -1', padding: '10px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '6px' }}>
               <label style={{...labelStyle, color: theme.textMain}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
@@ -1618,7 +1666,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-            <label style={{...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen</label>
+            <label style={{...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen / Arbeitsanweisung & Notizen</label>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', width: '100%' }}>
               <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
@@ -1666,7 +1714,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             )}
           </div>
 
-          <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} placeholder="Trage hier deinen Brief- oder E-Mail-Text ein..." style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} />
+          <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} placeholder="Trage hier deinen Brief- oder E-Mail-Text, Arbeitsanweisungen oder Notizen ein..." style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} />
           {versandPdfUrl && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', color: '#10b981', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Versand-PDF generiert & verschickt! Vergiss nicht, unten auf "+ In Akte abheften" zu klicken.</div>)}
         </div>
 
@@ -1861,7 +1909,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           <th style={{ padding: '10px', textAlign: 'left', width: '230px' }}>Aktion</th>
                           <th style={{ padding: '10px', textAlign: 'left', width: '160px' }}>Frist / WV</th>
                           <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
-                          <th style={{ padding: '10px', textAlign: 'center', width: '40px' }}></th>
+                          <th style={{ padding: '10px', textAlign: 'center', width: '90px' }}>Aktionen</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1890,6 +1938,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                     onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
                                     style={{ ...inlineInputStyle, width: 'auto', flex: '1 1 auto' }} 
                                   />
+                                  <button onClick={() => ladeVorgangInMaske(akte, hist)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Laden</button>
                                   <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }}>
                                     <Icon name="trash" size={16} />
                                   </button>
@@ -1974,9 +2023,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                                 </div>
                               </td>
 
-                              {/* DESKTOP SPALTE 6: LÖSCHEN */}
+                              {/* DESKTOP SPALTE 6: AKTIONEN (LADEN & LÖSCHEN) */}
                               <td style={{ padding: '8px 10px', textAlign: 'center' }} className="desktop-only">
-                                <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer' }}><Icon name="trash" size={14} /></button>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                  <button onClick={() => ladeVorgangInMaske(akte, hist)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }} title="Diesen Vorgang oben in die Maske laden">Laden</button>
+                                  <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Vorgang löschen"><Icon name="trash" size={14} /></button>
+                                </div>
                               </td>
 
                             </tr>
@@ -1994,4 +2046,4 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       </div>
     </div>
   );
-} 
+}
