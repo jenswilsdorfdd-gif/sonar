@@ -578,6 +578,41 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
+  // Intelligente Verschiebung mit differenzierter Ermahnung für behördliche Fristen vs. interne Wiedervorlagen
+  const handleTerminVerschieben = async (item, tagePlus) => {
+    const basisDatumStr = item.aktivesDatum || item.wiedervorlage || item.frist_extern;
+    const basis = basisDatumStr ? new Date(basisDatumStr) : new Date();
+    const neuDate = new Date(basis);
+    neuDate.setDate(neuDate.getDate() + tagePlus);
+    const neuIso = neuDate.toISOString().split('T')[0];
+
+    // Fall 1: Echte behördliche Frist
+    if (!item.isWiedervorlage && (item.frist_extern || !item.wiedervorlage)) {
+      const fristDatum = item.frist_extern ? new Date(item.frist_extern).toLocaleDateString('de-DE') : formatDatum(item.aktivesDatum);
+      const text = `⚠️ ACHTUNG: Es handelt sich um eine behördliche Frist (Fälligkeit: ${fristDatum})!\n\n` +
+        `Lass diese Frist keinesfalls kommentarlos verstreichen. Nutze die Möglichkeit in SONAR MEGA-LEGAL, ` +
+        `die Behörde fristwahrend um eine Fristverlängerung zu bitten oder die Aussetzung der Vollziehung zu beantragen.\n\n` +
+        `Möchtest du die Frist dennoch eigenverantwortlich um +${tagePlus} Tage (auf den ${formatDatum(neuIso)}) verschieben?`;
+      
+      if (!window.confirm(text)) {
+        return;
+      }
+      await handleInlineEdit(item.id, 'frist_extern', neuIso);
+      showToast(`Behördliche Frist um +${tagePlus} Tage verschoben (${formatDatum(neuIso)})! Bitte rechtzeitig Schreiben senden.`, 'warning');
+    } else {
+      // Fall 2: Interne Wiedervorlage / Erinnerung
+      const wvDatum = item.wiedervorlage ? new Date(item.wiedervorlage).toLocaleDateString('de-DE') : formatDatum(item.aktivesDatum);
+      const text = `Interne Wiedervorlage (Fällig: ${wvDatum}) um +${tagePlus} Tage auf den ${formatDatum(neuIso)} verschieben?`;
+      if (!window.confirm(text)) {
+        return;
+      }
+      await handleInlineEdit(item.id, 'wiedervorlage', neuIso);
+      showToast(`Wiedervorlage um +${tagePlus} Tage verschoben (${formatDatum(neuIso)}).`, 'success');
+    }
+
+    setOpenMenuId(null);
+  };
+
   const handleAkteStammdatenEdit = async (akteId, feld, wert) => {
     const { error } = await supabase.from('akten').update({ [feld]: wert || null }).eq('id', akteId);
     if (!error) {
@@ -1494,9 +1529,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           {isAlarmsOpen && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
               {fristenWarnungen.map(w => {
-                const zielDatum = new Date(w.aktivesDatum); const plusDreiDate = new Date(zielDatum); plusDreiDate.setDate(plusDreiDate.getDate() + 3);
-                let shiftDisabled = false; if (w.frist_extern) { const originalFristDate = new Date(w.frist_extern); if (plusDreiDate > originalFristDate) { shiftDisabled = true; } }
-                const plusDreiIso = plusDreiDate.toISOString().split('T')[0];
                 const isOverdue = w.tageUebrig < 0; const isDueToday = w.tageUebrig === 0; const actionBg = isOverdue ? theme.warningBorder : theme.accent; const actionColor = isOverdue ? '#ffffff' : btnTextColor;
                 return (
                   <div key={`warn-${w.id}`} onClick={() => handleAlarmKlick(w.akte_id)} style={{ background: theme.cardItemBg, padding: '14px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.warningBorder}`, boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px' }} title="Klicken, um diese Akte unten zu fokussieren!">
@@ -1508,9 +1540,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         <button onClick={() => ladeVorgangInMaske(w.ganze_akte, w)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }} title="Diesen Vorgang oben in die Maske laden"><Icon name="folder" size={12} /> In Maske laden</button>
                         <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} style={{ background: actionBg, color: actionColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}><Icon name="settings" size={12} /> Aktionen {openMenuId === w.id ? '▲' : '▼'}</button>
                         {openMenuId === w.id && (
-                          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '160px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
+                          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '180px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
                             <button onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null); else handleInlineEdit(w.id, 'frist_extern', null); setOpenMenuId(null); }} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}>Erledigt</button>
-                            <button disabled={shiftDisabled} onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', plusDreiIso); else handleInlineEdit(w.id, 'frist_extern', plusDreiIso); setOpenMenuId(null); }} style={{ background: shiftDisabled ? (isDarkMode ? '#334155' : '#e2e8f0') : theme.border, color: shiftDisabled ? theme.textMuted : theme.textMain, border: 'none', padding: '8px', borderRadius: '4px', cursor: shiftDisabled ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', opacity: shiftDisabled ? 0.6 : 1, textAlign: 'left', width: '100%' }}>+3 Tage</button>
+                            <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+                              <button onClick={() => handleTerminVerschieben(w, 3)} style={{ flex: 1, background: theme.border, color: theme.textMain, border: 'none', padding: '6px 4px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>+3 Tage</button>
+                              <button onClick={() => handleTerminVerschieben(w, 7)} style={{ flex: 1, background: theme.border, color: theme.textMain, border: 'none', padding: '6px 4px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>+7 Tage</button>
+                              <button onClick={() => handleTerminVerschieben(w, 14)} style={{ flex: 1, background: theme.border, color: theme.textMain, border: 'none', padding: '6px 4px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', textAlign: 'center' }}>+14 Tage</button>
+                            </div>
                             <button onClick={() => handleNachhaken(w.akte_id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}><Icon name="send" size={12} /> Nachhaken</button>
                           </div>
                         )}
