@@ -849,14 +849,52 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const th = (akte.thema || '').toLowerCase();
     const histMatch = akte.akten_historie?.some(h => (h.aktion || '').toLowerCase().includes(s) || (h.brief_entwurf || '').toLowerCase().includes(s));
     return uZ.includes(s) || gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
+  }).sort((a, b) => {
+    const parseAktenNummer = (zeichen) => {
+      if (!zeichen) return null;
+      const match = String(zeichen).match(/-(\d+)$/);
+      if (match) {
+        const parsed = parseInt(match[1], 10);
+        return isNaN(parsed) ? null : parsed;
+      }
+      return null;
+    };
+
+    const numA = parseAktenNummer(a.unser_zeichen);
+    const numB = parseAktenNummer(b.unser_zeichen);
+
+    if (numA !== null && numB !== null) {
+      if (numA !== numB) return numA - numB;
+      return (a.unser_zeichen || '').localeCompare(b.unser_zeichen || '', 'de', { numeric: true, sensitivity: 'base' });
+    }
+    if (numA !== null && numB === null) return -1;
+    if (numA === null && numB !== null) return 1;
+
+    return (a.unser_zeichen || '').localeCompare(b.unser_zeichen || '', 'de', { numeric: true, sensitivity: 'base' });
   });
 
   const sortedAktenForDropdown = [...akten].sort((a, b) => {
-    const getLatestTime = (akte) => {
-      if (!akte.akten_historie || akte.akten_historie.length === 0) return new Date(akte.created_at || 0).getTime();
-      return new Date(akte.akten_historie[0].datum || akte.akten_historie[0].created_at || 0).getTime();
+    const parseAktenNummer = (zeichen) => {
+      if (!zeichen) return null;
+      const match = String(zeichen).match(/-(\d+)$/);
+      if (match) {
+        const parsed = parseInt(match[1], 10);
+        return isNaN(parsed) ? null : parsed;
+      }
+      return null;
     };
-    return getLatestTime(b) - getLatestTime(a);
+
+    const numA = parseAktenNummer(a.unser_zeichen);
+    const numB = parseAktenNummer(b.unser_zeichen);
+
+    if (numA !== null && numB !== null) {
+      if (numA !== numB) return numA - numB;
+      return (a.unser_zeichen || '').localeCompare(b.unser_zeichen || '', 'de', { numeric: true, sensitivity: 'base' });
+    }
+    if (numA !== null && numB === null) return -1;
+    if (numA === null && numB !== null) return 1;
+
+    return (a.unser_zeichen || '').localeCompare(b.unser_zeichen || '', 'de', { numeric: true, sensitivity: 'base' });
   });
 
   const getAkteDropdownText = (akte) => {
@@ -1153,7 +1191,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             padding: 0 !important;
             width: 100% !important;
           }
-          /* NEU HINZUGEFÜGT FÜR HOHE SPEZIFITÄT */
           .hist-desktop-table tbody td.desktop-only {
             display: none !important;
           }
