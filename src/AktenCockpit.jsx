@@ -451,7 +451,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         if (gegnerPrompt.obj.email && gegnerPrompt.obj.email !== existing.email && gegnerPrompt.obj.email !== existing.email_zentrale) gUpdates.email = gegnerPrompt.obj.email;
         
         let currentContacts = [];
-        try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e) {}
+        try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e){}
         if (!Array.isArray(currentContacts)) currentContacts = [];
 
         if (gegnerPrompt.obj.ansprechpartner) {
@@ -524,6 +524,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (neuerStatus === 'Erledigt') {
         const d = new Date(); d.setFullYear(d.getFullYear() + 10); const wvDatum = d.toISOString().split('T')[0];
         await supabase.from('akten_historie').insert([{ akte_id: akteId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: 'Akte geschlossen. Automatische Wiedervorlage zur Löschung (Ablauf Aufbewahrungsfrist).', wiedervorlage: wvDatum }]);
+      } else {
+        await supabase.from('akten_historie').insert([{ akte_id: akteId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: 'Akte wiedereröffnet.' }]);
       }
       ladeDaten(); showToast(`Akte wurde ${neuerStatus === 'Erledigt' ? 'geschlossen' : 'wieder geöffnet'}.`, 'success');
     } else { showToast("Fehler beim Ändern des Akten-Status: " + error.message, 'error'); }
@@ -1828,6 +1830,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                       Aktions-Menü
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', maxWidth: '600px' }}>
+                      {akte.status === 'Erledigt' && (
+                        <button onClick={() => toggleAkteStatus(akte.id, akte.status)} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="folder" size={14} /> Akte wiedereröffnen</button>
+                      )}
                       <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
                       <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
                       
