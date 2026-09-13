@@ -28,7 +28,7 @@ export default function Dashboard({ session }) {
   const [gegnerListe, setGegnerListe] = useState([]);
   const [wissenEintraege, setWissenEintraege] = useState([]);
 
-  // --- GLOBALES TOAST-SYSTEM ---
+  // --- GLOBALES TOAST-SYSTEM (Dauer auf 7 Sekunden verlängert) ---
   const [toasts, setToasts] = useState([]);
 
   const showToast = (message, type = 'success') => {
@@ -40,7 +40,7 @@ export default function Dashboard({ session }) {
       setTimeout(() => {
         setToasts(prev => prev.filter(t => t.id !== id));
       }, 300);
-    }, 4000);
+    }, 7000);
   };
 
   // --- NEU: GLOBALE SUCHE & URL FETCH LOGIK ---
@@ -354,4 +354,4 @@ export default function Dashboard({ session }) {
       </div>
     </div>
   );
-}
+} 
