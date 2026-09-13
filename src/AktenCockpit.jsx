@@ -579,8 +579,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const alleAnhangDateien = [...dateien, ...emailAnhaenge];
 
       let extraAttachments = [];
-      if (versandArt === 'email' && alleAnhangDateien.length > 0) {
-        showToast("Verarbeite Dateien für E-Mail-Anhang...", "success");
+      if (alleAnhangDateien.length > 0) {
+        showToast(versandArt === 'email' ? "Verarbeite Dateien für E-Mail-Anhang..." : "Verarbeite Dateien für Fax-Anhang...", "success");
         for (const f of alleAnhangDateien) {
           try {
             const b64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(f); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = e => reject(e); });
@@ -1994,4 +1994,4 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       </div>
     </div>
   );
-}
+} 
