@@ -396,6 +396,56 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
+  // Smart Context Matching: Findet den wahrscheinlichsten Vorläufer-Vorgang in einer Akte
+  const findSmartBezug = (targetAkte, incomingObj) => {
+    if (!targetAkte || !targetAkte.akten_historie || targetAkte.akten_historie.length === 0) return '';
+
+    const newAP = (incomingObj.ansprechpartner || (incomingObj.empfaenger ? incomingObj.empfaenger.abteilung : '') || '').toLowerCase().trim();
+    const newContext = `${incomingObj.thema || ''} ${incomingObj.betreff || ''} ${incomingObj.aktion || ''} ${incomingObj.brief_entwurf || ''}`.toLowerCase();
+
+    // Relevante Steuer-/Vorgangs-Schlagwörter
+    const keywords = ['vollstreckung', 'erhebung', 'mahnung', 'bescheid', 'haftung', 'umsatzsteuer', 'ust', 'gewerbesteuer', 'gewst', 'gst', 'körperschaftsteuer', 'kst', 'lohnsteuer', 'stundung', 'aussetzung', 'insolvenz'];
+
+    let bestId = '';
+    let highestScore = -1;
+
+    targetAkte.akten_historie.forEach(h => {
+      let score = 0;
+      const hText = `${h.aktion || ''} ${h.brief_entwurf || ''} ${h.typ || ''}`.toLowerCase();
+
+      // 1. Ansprechpartner-Match (+40)
+      if (newAP && newAP.length > 2 && hText.includes(newAP)) {
+        score += 40;
+      }
+
+      // 2. Keyword-Übereinstimmungen (+15 pro Treffer)
+      keywords.forEach(kw => {
+        if (newContext.includes(kw) && hText.includes(kw)) {
+          score += 15;
+        }
+      });
+
+      // 3. Offene Frist oder Wiedervorlage vorhanden (+25)
+      if (h.frist_extern || h.wiedervorlage) {
+        score += 25;
+      }
+
+      // 4. Aktualitäts-Bonus für jüngere Vorgänge (bis zu +10)
+      if (h.datum) {
+        const diffDays = (new Date() - new Date(h.datum)) / (1000 * 60 * 60 * 24);
+        if (diffDays >= 0 && diffDays < 30) score += 10;
+        else if (diffDays >= 0 && diffDays < 90) score += 5;
+      }
+
+      if (score > highestScore && score >= 25) {
+        highestScore = score;
+        bestId = h.id;
+      }
+    });
+
+    return bestId;
+  };
+
   const handleJsonImport = async (e) => {
     const val = e.target.value.trim();
     setJsonImport(val);
@@ -456,22 +506,28 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       checkGegnerDiff(fallbackGegnerName, fallbackGegnerFax, fallbackGegnerEmail, fallbackGegnerAnsprechpartner, fallbackGegnerTelefon);
 
+      let matchedAkte = null;
       if (fallbackUnserZeichen) {
-        let match = akten.find(a => a.unser_zeichen === fallbackUnserZeichen);
-        if (match) {
-          setModus('bestehend'); setSelectedAkteId(match.id);
-        } else {
-          setModus('neu');
-        }
+        matchedAkte = akten.find(a => a.unser_zeichen === fallbackUnserZeichen);
       } else if (fallbackAktenzeichen) {
-        let match = akten.find(a => a.aktenzeichen === fallbackAktenzeichen);
-        if (match) {
-          setModus('bestehend'); setSelectedAkteId(match.id);
+        matchedAkte = akten.find(a => a.aktenzeichen === fallbackAktenzeichen);
+      }
+
+      if (matchedAkte) {
+        setModus('bestehend');
+        setSelectedAkteId(matchedAkte.id);
+
+        // Intelligente Vorläufer-Erkennung (Smart Context Matching)
+        const autoBezugId = findSmartBezug(matchedAkte, obj);
+        if (autoBezugId) {
+          setBezugId(autoBezugId);
+          showToast("Vorläufer-Vorgang intelligent erkannt und automatisch verknüpft!", "success");
         } else {
-          setModus('neu');
+          setBezugId('');
         }
       } else {
         setModus('neu');
+        setBezugId('');
       }
 
       if (fallbackUnsereFirma) {
@@ -1103,7 +1159,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* RESPONSIVE CSS RULES FÜR VERSANDHISTORIE, AKTEN-ÜBERSICHT & HISTORIEN-VORGÄNGE */}
+      {/* RESPONSIVE CSS RULES FÜR ALARME, VERSANDHISTORIE, AKTEN-ÜBERSICHT & HISTORIEN-VORGÄNGE */}
       <style>{`
         /* HELPER KLASSEN FÜR STRIKTE TRENNUNG */
         .desktop-only {
@@ -1111,6 +1167,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
         .mobile-only {
           display: none !important;
+        }
+
+        /* ALARM HEADER & BUTTONS DESKTOP */
+        .alarm-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: nowrap;
+          gap: 15px;
+        }
+        .alarm-btn-group {
+          display: flex;
+          gap: 8px;
+          flex-shrink: 0;
+          position: relative;
         }
 
         /* HISTORIEN TYP DROPDOWN (BUGFIX) */
@@ -1223,6 +1294,24 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           }
           .mobile-only {
             display: flex !important;
+          }
+
+          /* ALARM-HEADER & BUTTON-GRUPPE MOBIL */
+          .alarm-card-header {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+          }
+          .alarm-btn-group {
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 8px !important;
+          }
+          .alarm-btn-group button {
+            flex: 1 1 50% !important;
+            justify-content: center !important;
+            padding: 8px 10px !important;
           }
 
           /* VERSANDHISTORIE MOBIL */
@@ -1532,11 +1621,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 const isOverdue = w.tageUebrig < 0; const isDueToday = w.tageUebrig === 0; const actionBg = isOverdue ? theme.warningBorder : theme.accent; const actionColor = isOverdue ? '#ffffff' : btnTextColor;
                 return (
                   <div key={`warn-${w.id}`} onClick={() => handleAlarmKlick(w.akte_id)} style={{ background: theme.cardItemBg, padding: '14px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.warningBorder}`, boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px' }} title="Klicken, um diese Akte unten zu fokussieren!">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: '15px' }}>
+                    
+                    {/* RESPONSIVE ALARM HEADER */}
+                    <div className="alarm-card-header">
                       <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Icon name="folder" size={14} /> [{w.unser_zeichen || '---'}] {w.akte_gegner}
                       </strong>
-                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                      <div className="alarm-btn-group" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => ladeVorgangInMaske(w.ganze_akte, w)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }} title="Diesen Vorgang oben in die Maske laden"><Icon name="folder" size={12} /> In Maske laden</button>
                         <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} style={{ background: actionBg, color: actionColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}><Icon name="settings" size={12} /> Aktionen {openMenuId === w.id ? '▲' : '▼'}</button>
                         {openMenuId === w.id && (
@@ -1552,6 +1643,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                         )}
                       </div>
                     </div>
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
                       <span style={{ color: theme.textMain, fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="file" size={12} /> {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -1697,16 +1789,24 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           </div>
 
           {activeAkteObj && activeAkteObj.akten_historie && activeAkteObj.akten_historie.length > 0 && (
-            <div style={{ gridColumn: '1 / -1', padding: '10px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '6px' }}>
-              <label style={{...labelStyle, color: theme.textMain}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
+            <div style={{ gridColumn: '1 / -1', padding: '12px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{...labelStyle, color: theme.textMain, margin: 0}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
+                {bezugId && (
+                  <span style={{ fontSize: '11px', background: '#0ea5e9', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                    ⭐ Bezug verknüpft
+                  </span>
+                )}
+              </div>
               <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{...inputStyle, borderColor: '#0ea5e9'}}>
                 <option value="">-- Kein direkter Bezug --</option>
                 {activeAkteObj.akten_historie.map(h => {
                   const briefSnippet = h.brief_entwurf ? ` | "${h.brief_entwurf.substring(0, 40).replace(/\n/g, ' ')}..."` : '';
                   const aktionSnippet = h.aktion ? ` | ${h.aktion}` : '';
+                  const isSuggested = (h.id === bezugId);
                   return (
                     <option key={h.id} value={h.id}>
-                      {formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
+                      {isSuggested ? '⭐ ' : ''}{formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
                     </option>
                   );
                 })}
