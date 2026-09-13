@@ -88,11 +88,23 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return clean;
   };
 
+  // Strikte Normalisierung für treffsicheren Behörden-/Firmenvergleich
+  const cleanOrgName = (str) => {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .replace(/[\.,\-\/\(\)]/g, ' ')
+      .replace(/\b(die|der|das|und|fuer|für|gmbh|ug|ag|haftungsbeschraenkt|haftungsbeschränkt|gesundheitskasse|sachsen|thueringen|thüringen)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const fuzzyMatch = (str1, str2) => {
-    if(!str1 || !str2) return false;
-    const n1 = normalizeName(str1) || '';
-    const n2 = normalizeName(str2) || '';
-    if(n1.length < 4 || n2.length < 4) return n1 === n2;
+    if (!str1 || !str2) return false;
+    const n1 = cleanOrgName(str1);
+    const n2 = cleanOrgName(str2);
+    if (!n1 || !n2) return false;
+    if (n1.length < 4 || n2.length < 4) return n1 === n2;
     return n1.includes(n2) || n2.includes(n1);
   };
 
@@ -193,7 +205,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           setAktenzeichen(a.aktenzeichen || '');
           
           if (a.gegner_name) {
-             const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(a.gegner_name));
+             const crmGegner = gegnerListe.find(g => fuzzyMatch(g.name, a.gegner_name));
              if (crmGegner) {
                 setGegnerFax(formatRufnummer(crmGegner.fax || ''));
                 if (!a.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
@@ -254,7 +266,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setAktenzeichen(akte.aktenzeichen || '');
 
     if (akte.gegner_name) {
-      const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(akte.gegner_name));
+      const crmGegner = gegnerListe.find(g => fuzzyMatch(g.name, akte.gegner_name));
       if (crmGegner) {
         setGegnerFax(formatRufnummer(crmGegner.fax || ''));
         if (!akte.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
@@ -298,7 +310,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setTyp('Ausgang');
 
     if (akte.gegner_name) {
-      const crmGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(akte.gegner_name));
+      const crmGegner = gegnerListe.find(g => fuzzyMatch(g.name, akte.gegner_name));
       if (crmGegner) {
         setGegnerFax(formatRufnummer(crmGegner.fax || ''));
         if (!akte.gegner_email) setGegnerEmail(crmGegner.email || crmGegner.email_zentrale || '');
@@ -315,35 +327,67 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     showToast("Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
+  // Intelligente Entstörung: Geräuschlos abgleichen, nur bei echter Neu-Erkennung prompten
   const checkGegnerDiff = (neuName, neuFax, neuEmail, neuAnsprechpartner, neuTelefon) => {
     if (!neuName) return false;
     
-    let exactMatch = gegnerListe.find(g => normalizeName(g.name) === normalizeName(neuName));
-    let simMatch = null;
-    
-    if (!exactMatch) {
-      simMatch = gegnerListe.find(g => fuzzyMatch(g.name, neuName));
+    // 1. Exakte oder robuste Fuzzy-Übereinstimmung des Gegners
+    let target = gegnerListe.find(g => normalizeName(g.name) === normalizeName(neuName));
+    if (!target) {
+      target = gegnerListe.find(g => fuzzyMatch(g.name, neuName));
     }
     
-    const target = exactMatch || simMatch;
-    
+    // 2. Gegner existiert bereits im CRM
     if (target) {
-      const diffs = [];
-      if (neuFax && formatRufnummer(neuFax) !== formatRufnummer(target.fax || '')) diffs.push(`Fax: ${target.fax || '-'} ➔ ${formatRufnummer(neuFax)}`);
-      if (neuEmail && neuEmail !== target.email && neuEmail !== target.email_zentrale) diffs.push(`E-Mail: ${target.email || '-'} ➔ ${neuEmail}`);
-      
-      if (diffs.length > 0 || simMatch) {
-        setGegnerPrompt({
-          typ: 'diff',
-          targetId: target.id,
-          targetName: target.name,
-          diffs: diffs,
-          obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail }
-        });
-        return true;
+      let contacts = [];
+      try {
+        contacts = typeof target.notizen === 'string' ? JSON.parse(target.notizen) : (target.notizen || []);
+      } catch (e) {
+        contacts = [];
       }
-      return false;
+      if (!Array.isArray(contacts)) contacts = [];
+
+      const cleanNeuAP = (neuAnsprechpartner || '').trim().toLowerCase();
+
+      // Prüfen, ob der Ansprechpartner im CRM schon existiert (Hauptkontakt oder notizen-Array)
+      let matchedContact = null;
+      if (cleanNeuAP) {
+        if ((target.ansprechpartner || '').trim().toLowerCase().includes(cleanNeuAP) || cleanNeuAP.includes((target.ansprechpartner || '').trim().toLowerCase())) {
+          matchedContact = { name: target.ansprechpartner, telefon: target.telefon, email: target.email };
+        } else {
+          matchedContact = contacts.find(c => {
+            const cName = (c.name || '').trim().toLowerCase();
+            return cName && (cName.includes(cleanNeuAP) || cleanNeuAP.includes(cName));
+          });
+        }
+      }
+
+      // Wenn AP bekannt ist: Vorhandene Daten lautlos im Formular nachziehen
+      if (matchedContact) {
+        if (!neuTelefon && matchedContact.telefon) setGegnerTelefon(formatRufnummer(matchedContact.telefon));
+        if (!neuEmail && matchedContact.email) setGegnerEmail(matchedContact.email);
+        if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
+        return false; // Absolut kein Prompt nötig!
+      }
+
+      // Wenn kein spezifischer AP genannt (z. B. "Zentrale") -> Lautlos Zentrale übernehmen
+      if (!cleanNeuAP || cleanNeuAP === 'zentrale' || cleanNeuAP === 'poststelle') {
+        if (!neuTelefon && target.telefon) setGegnerTelefon(formatRufnummer(target.telefon));
+        if (!neuEmail && (target.email || target.email_zentrale)) setGegnerEmail(target.email || target.email_zentrale);
+        if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
+        return false; // Kein Prompt
+      }
+
+      // Echter neuer Ansprechpartner bei bekannter Behörde
+      setGegnerPrompt({
+        typ: 'neuer_ap',
+        targetId: target.id,
+        targetName: target.name,
+        obj: { name: target.name, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax || target.fax), email: neuEmail }
+      });
+      return true;
     } else {
+      // Komplett unbekannte Behörde / Gegner
       setGegnerPrompt({
         typ: 'neu',
         obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail }
@@ -364,7 +408,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         let addedCount = 0; let updatedCount = 0;
         for (const item of obj.daten) {
            if (!item.gegner_name) continue;
-           const existingGegner = gegnerListe.find(g => normalizeName(g.name) === normalizeName(item.gegner_name));
+           const existingGegner = gegnerListe.find(g => fuzzyMatch(g.name, item.gegner_name));
            if (!existingGegner) {
               await supabase.from('gegner').insert([{ user_id: session.user.id, name: item.gegner_name, fax: formatRufnummer(item.fax), email: item.email || null, notizen: JSON.stringify([{ abteilung: item.abteilung || '', name: item.ansprechpartner || '', telefon: formatRufnummer(item.telefon), email: item.email || '' }]) }]);
               addedCount++;
@@ -431,7 +475,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
 
       if (fallbackUnsereFirma) {
-        const existingMandant = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(fallbackUnsereFirma));
+        const existingMandant = mandanten.find(m => fuzzyMatch(m.firmenname, fallbackUnsereFirma));
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
         const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '');
         const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
@@ -444,8 +488,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             obj: { ...obj, unsere_firma: fallbackUnsereFirma, unser_ansprechpartner: parsedAnsprechpartner, unser_telefon: parsedTelefon, unser_email: parsedEmail, unsere_adresse: parsedAdresse } 
           });
         } else {
-           setUnsereFirma(existingMandant.firmenname); setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(existingMandant.ansprechpartner) || '');
-           setUnserTelefon(parsedTelefon || cleanVal(existingMandant.telefon) || ''); setUnserEmail(parsedEmail || cleanVal(existingMandant.email) || '');
+           setUnsereFirma(existingMandant.firmenname); 
+           setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(existingMandant.ansprechpartner) || '');
+           setUnserTelefon(parsedTelefon || cleanVal(existingMandant.telefon) || ''); 
+           setUnserEmail(parsedEmail || cleanVal(existingMandant.email) || '');
            setTresorPrompt(null);
         }
       }
@@ -466,7 +512,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setTresorPrompt(null);
   };
 
-  const handleGegnerPromptAccept = async () => {
+  const handleGegnerPromptAccept = async (actionType = 'erweitern') => {
     if (!gegnerPrompt) return;
     
     if (gegnerPrompt.typ === 'neu') {
@@ -484,32 +530,33 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }]);
       showToast(`Behörde/Gegner "${gegnerPrompt.obj.name}" ins CRM aufgenommen!`, 'success');
       
-    } else if (gegnerPrompt.typ === 'diff') {
+    } else if (gegnerPrompt.typ === 'neuer_ap') {
       const existing = gegnerListe.find(g => g.id === gegnerPrompt.targetId);
       if (existing) {
         let gUpdates = {};
-        if (gegnerPrompt.obj.fax && formatRufnummer(gegnerPrompt.obj.fax) !== existing.fax) gUpdates.fax = formatRufnummer(gegnerPrompt.obj.fax);
-        if (gegnerPrompt.obj.email && gegnerPrompt.obj.email !== existing.email && gegnerPrompt.obj.email !== existing.email_zentrale) gUpdates.email = gegnerPrompt.obj.email;
         
-        let currentContacts = [];
-        try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e){}
-        if (!Array.isArray(currentContacts)) currentContacts = [];
+        if (actionType === 'hauptkontakt') {
+          // Hauptansprechpartner im CRM überschreiben
+          gUpdates.ansprechpartner = gegnerPrompt.obj.ansprechpartner;
+          if (gegnerPrompt.obj.telefon) gUpdates.telefon = gegnerPrompt.obj.telefon;
+          if (gegnerPrompt.obj.email) gUpdates.email = gegnerPrompt.obj.email;
+        } else {
+          // Als zusätzlichen Kontakt anhängen
+          let currentContacts = [];
+          try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e) {}
+          if (!Array.isArray(currentContacts)) currentContacts = [];
 
-        if (gegnerPrompt.obj.ansprechpartner) {
-           const contactExists = currentContacts.some(c => (c.name || '').toLowerCase() === gegnerPrompt.obj.ansprechpartner.toLowerCase());
-           if (!contactExists) {
-               currentContacts.push({
-                   abteilung: '',
-                   name: gegnerPrompt.obj.ansprechpartner,
-                   telefon: formatRufnummer(gegnerPrompt.obj.telefon) || existing.telefon || '',
-                   email: gegnerPrompt.obj.email || existing.email || existing.email_zentrale || ''
-               });
-               gUpdates.notizen = JSON.stringify(currentContacts);
-           }
+          currentContacts.push({
+            abteilung: '',
+            name: gegnerPrompt.obj.ansprechpartner,
+            telefon: formatRufnummer(gegnerPrompt.obj.telefon) || '',
+            email: gegnerPrompt.obj.email || ''
+          });
+          gUpdates.notizen = JSON.stringify(currentContacts);
         }
         
         await supabase.from('gegner').update(gUpdates).eq('id', existing.id);
-        showToast(`CRM-Daten für "${existing.name}" aktualisiert!`, 'success');
+        showToast(`Ansprechpartner "${gegnerPrompt.obj.ansprechpartner}" im CRM gesichert!`, 'success');
       }
     }
     
@@ -615,7 +662,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const rawFax = formattedFax ? formattedFax.replace(/[^0-9+]/g, '') : '';
       const targetAddress = versandArt === 'email' ? gegnerEmail : `${rawFax}@simple-fax.de`; 
       const betreff = `Unser Zeichen: ${unserZeichen || 'Neu'} / AZ: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
-      const mandantProfil = mandanten.find(m => normalizeName(m.firmenname) === normalizeName(unsereFirma)) || null;
+      const mandantProfil = mandanten.find(m => fuzzyMatch(m.firmenname, unsereFirma)) || null;
 
       const alleAnhangDateien = [...dateien, ...emailAnhaenge];
 
@@ -1493,26 +1540,34 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       <form onSubmit={handleSpeichernCheck} style={panelStyle}>
         
+        {/* Intelligenter Gegner-Prompt (nur bei wirklich neuem AP oder unbekannter Behörde) */}
         {gegnerPrompt && (
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Icon name="alert" size={16} /> 
-                {gegnerPrompt.typ === 'neu' ? `Unbekannte Behörde: "${gegnerPrompt.obj.name}" erkannt` : `Abweichende Daten bei Behörde "${gegnerPrompt.targetName}" erkannt`}
+                {gegnerPrompt.typ === 'neu' 
+                  ? `Unbekannte Behörde: "${gegnerPrompt.obj.name}" erkannt` 
+                  : `Neuer Ansprechpartner "${gegnerPrompt.obj.ansprechpartner}" bei "${gegnerPrompt.targetName}" erkannt`}
               </strong>
-              
-              {gegnerPrompt.typ === 'diff' && gegnerPrompt.diffs.length > 0 && (
-                <ul style={{ margin: '0 0 5px 25px', padding: 0, fontSize: '13px', opacity: 0.9 }}>
-                  {gegnerPrompt.diffs.map((d, i) => <li key={i}>{d}</li>)}
-                </ul>
-              )}
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
-                <button type="button" onClick={handleGegnerPromptAccept} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  {gegnerPrompt.typ === 'neu' ? 'Ja, neu im CRM anlegen' : 'CRM dauerhaft aktualisieren'}
-                </button>
+                {gegnerPrompt.typ === 'neu' ? (
+                  <button type="button" onClick={() => handleGegnerPromptAccept('neu')} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    Ja, Behörde neu im CRM anlegen
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => handleGegnerPromptAccept('erweitern')} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Als weiteren Kontakt hinzufügen
+                    </button>
+                    <button type="button" onClick={() => handleGegnerPromptAccept('hauptkontakt')} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid #fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      Als Hauptansprechpartner setzen
+                    </button>
+                  </>
+                )}
                 <button type="button" onClick={() => setGegnerPrompt(null)} style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Ignorieren & nur für diesen Vorgang verwenden
+                  Ignorieren (nur für diesen Vorgang)
                 </button>
               </div>
             </div>
