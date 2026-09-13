@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, normalizeName, cleanVal } from './utils';
+import MegaLegalModal from './MegaLegalModal';
 
 // --- PDF.js Import für die clientseitige Extraktion ---
 import * as pdfjsLib from 'pdfjs-dist';
@@ -63,6 +64,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   
   const [openMenuId, setOpenMenuId] = useState(null);
   const [isAlarmsOpen, setIsAlarmsOpen] = useState(true);
+
+  // --- SONAR MEGA LEGAL WAR-ROOM STATES ---
+  const [isWarRoomOpen, setIsWarRoomOpen] = useState(false);
+  const [activeWarRoomDossier, setActiveWarRoomDossier] = useState(null);
 
   const autoGenRef = useRef('');
 
@@ -504,6 +509,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setDatum(new Date().toISOString().split('T')[0]);
       setFaxZhd(fallbackGegnerAnsprechpartner);
 
+      // Falls das Eingangs-JSON einen PDF-Link aus der Pipeline mitbringt:
+      if (obj.pdf_url) {
+        setVersandPdfUrl(obj.pdf_url);
+      }
+
       checkGegnerDiff(fallbackGegnerName, fallbackGegnerFax, fallbackGegnerEmail, fallbackGegnerAnsprechpartner, fallbackGegnerTelefon);
 
       let matchedAkte = null;
@@ -801,7 +811,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const handleSpeichernCheck = (e) => {
     e.preventDefault();
-    if (dateien.length === 0 && emailAnhaenge.length === 0) { setShowUploadReminder(true); } else { speichereEintragLogik(); }
+    if (dateien.length === 0 && emailAnhaenge.length === 0 && !versandPdfUrl) { 
+      setShowUploadReminder(true); 
+    } else { 
+      speichereEintragLogik(); 
+    }
   };
 
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
@@ -891,6 +905,19 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
          await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('id', bezugId);
       }
 
+      // Dossier für den MegaLegal War-Room vorbereiten, falls es ein Eingang war
+      if (activeTyp === 'Eingang') {
+        setActiveWarRoomDossier({
+          aktenzeichen: aktenzeichen,
+          kontakt: gegnerName,
+          thema: thema,
+          frist_extern: fristExtern,
+          brief_entwurf: briefEntwurf,
+          raw_text: briefEntwurf
+        });
+        setIsWarRoomOpen(true);
+      }
+
       setUnserZeichen(''); setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
@@ -944,7 +971,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if(g) {
       setGegnerName(g.name || ''); setGegnerFax(formatRufnummer(g.fax || ''));
       let ansprechpartnerObj = null;
+      let ansList = [];
       try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
+      if (ansList.length > 0 && ansList[ansIdx]) ansprechpartnerObj = ansList[ansIdx];
+
       if (ansprechpartnerObj) { setGegnerAnsprechpartner(ansprechpartnerObj.name || g.ansprechpartner || ''); setFaxZhd(ansprechpartnerObj.name || g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(ansprechpartnerObj.telefon || g.telefon || '')); setGegnerEmail(ansprechpartnerObj.email || g.email || g.email_zentrale || ''); } else { setGegnerAnsprechpartner(g.ansprechpartner || ''); setFaxZhd(g.ansprechpartner || ''); setGegnerTelefon(formatRufnummer(g.telefon || '')); setGegnerEmail(g.email || g.email_zentrale || ''); }
     }
   };
@@ -1142,7 +1172,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               handleJsonImportRef.current({ target: { value: jsonString } });
             }
             
-            showToast("🚀 Auto-Import aus Gemini empfangen und eingefügt!", "success");
+            showToast("🚀 Auto-Import empfangen und eingefügt!", "success");
 
             // Den verarbeiteten Eintrag restlos aus der DB-Queue löschen
             await supabase.from('import_queue').delete().eq('id', newRecord.id);
@@ -2235,6 +2265,50 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           )
         })}
       </div>
+
+      {/* --- SONAR MEGA LEGAL WAR-ROOM MODAL --- */}
+      <MegaLegalModal
+        isOpen={isWarRoomOpen}
+        onClose={() => setIsWarRoomOpen(false)}
+        dossier={activeWarRoomDossier}
+        onApplySchriftsatz={(ausgangsJson) => {
+          if (ausgangsJson.brief_entwurf) {
+            setBriefEntwurf(ausgangsJson.brief_entwurf);
+          }
+          if (ausgangsJson.thema) {
+            setThema(ausgangsJson.thema);
+          }
+          if (ausgangsJson.aktenzeichen) {
+            setAktenzeichen(ausgangsJson.aktenzeichen);
+          }
+          if (ausgangsJson.kontakt) {
+            setGegnerName(ausgangsJson.kontakt);
+          }
+          if (ausgangsJson.ansprechpartner) {
+            setGegnerAnsprechpartner(ausgangsJson.ansprechpartner);
+            setFaxZhd(ausgangsJson.ansprechpartner);
+          }
+          if (ausgangsJson.gegner_fax) {
+            setGegnerFax(formatRufnummer(ausgangsJson.gegner_fax));
+          }
+          if (ausgangsJson.gegner_email) {
+            setGegnerEmail(ausgangsJson.gegner_email);
+          }
+          if (ausgangsJson.typ) {
+            setTyp(ausgangsJson.typ);
+          } else {
+            setTyp('Ausgang');
+          }
+          if (ausgangsJson.aktion) {
+            setAktion(ausgangsJson.aktion);
+          }
+          if (ausgangsJson.frist_extern) {
+            handleFristChange(ausgangsJson.frist_extern);
+          }
+          showToast("Ausgangs-Schriftsatz von MegaLegal übernommen! Bereit zum Versand.", "success");
+        }}
+      />
+
     </div>
   );
 }
