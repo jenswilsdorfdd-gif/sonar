@@ -142,7 +142,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       let maxGlobalNum = 0;
       akten.forEach(a => {
         if (a.unser_zeichen) {
-          // Prüfe neues Format (Zahl vorne, z.B. 0001-SBS-Finanzamt)
           const matchNew = a.unser_zeichen.match(/^(\d+)-/);
           if (matchNew) {
             const num = parseInt(matchNew[1], 10);
@@ -150,7 +149,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               maxGlobalNum = num;
             }
           } else {
-            // Prüfe altes Format (Zahl hinten, z.B. sbs-finanzamt-0001)
             const matchOld = a.unser_zeichen.match(/-(\d+)$/);
             if (matchOld) {
               const num = parseInt(matchOld[1], 10);
@@ -912,7 +910,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const preventWarRoom = autoSaveOverrides && autoSaveOverrides.preventWarRoom;
       
       if (activeTyp === 'Eingang' && !preventWarRoom) {
+        // --- AMNESIE-FIX VORBEREITUNG ---
+        // Wir packen die aktuelle akte_id und den Firmennamen ins Dossier
         setActiveWarRoomDossier({
+          akte_id: aktuelleAkteId,
+          unsere_firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : ''),
           aktenzeichen: aktenzeichen,
           kontakt: gegnerName,
           thema: thema,
@@ -2296,6 +2298,33 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         onClose={() => setIsWarRoomOpen(false)}
         dossier={activeWarRoomDossier}
         onApplySchriftsatz={(ausgangsJson) => {
+          // --- AMNESIE-FIX ---
+          // Wir stellen den Akten-Kontext wieder her!
+          if (activeWarRoomDossier && activeWarRoomDossier.akte_id) {
+             setModus('bestehend');
+             setSelectedAkteId(activeWarRoomDossier.akte_id);
+             
+             const zielAkte = akten.find(a => a.id === activeWarRoomDossier.akte_id);
+             if (zielAkte) {
+                setUnserZeichen(zielAkte.unser_zeichen || '');
+                setUnsereFirma(zielAkte.unsere_firma || '');
+                setUnserAnsprechpartner(zielAkte.unser_ansprechpartner || '');
+                setGegnerName(zielAkte.gegner_name || '');
+                
+                // Fallbacks, falls die KI etwas vergisst:
+                if (!ausgangsJson.thema) setThema(zielAkte.thema || '');
+                if (!ausgangsJson.aktenzeichen) setAktenzeichen(zielAkte.aktenzeichen || '');
+                if (!ausgangsJson.ansprechpartner || ausgangsJson.ansprechpartner.includes('erforderlich')) { 
+                  setGegnerAnsprechpartner(zielAkte.gegner_ansprechpartner || ''); 
+                  setFaxZhd(zielAkte.gegner_ansprechpartner || ''); 
+                }
+                
+                // Wir laden die Kontaktdaten für den Versand direkt aus dem CRM der Akte!
+                setGegnerTelefon(formatRufnummer(zielAkte.gegner_telefon || ''));
+                setGegnerEmail(zielAkte.gegner_email || '');
+             }
+          }
+
           if (ausgangsJson.brief_entwurf) {
             setBriefEntwurf(ausgangsJson.brief_entwurf);
           }
@@ -2308,16 +2337,19 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           if (ausgangsJson.kontakt) {
             setGegnerName(ausgangsJson.kontakt);
           }
-          if (ausgangsJson.ansprechpartner) {
+          
+          // Anti-Platzhalter-Schutz (blockiert "erforderlich_ab_bescheid")
+          if (ausgangsJson.ansprechpartner && !ausgangsJson.ansprechpartner.includes('erforderlich')) {
             setGegnerAnsprechpartner(ausgangsJson.ansprechpartner);
             setFaxZhd(ausgangsJson.ansprechpartner);
           }
-          if (ausgangsJson.gegner_fax) {
+          if (ausgangsJson.gegner_fax && !ausgangsJson.gegner_fax.includes('erforderlich') && !ausgangsJson.gegner_fax.includes('aus Bescheid')) {
             setGegnerFax(formatRufnummer(ausgangsJson.gegner_fax));
           }
-          if (ausgangsJson.gegner_email) {
+          if (ausgangsJson.gegner_email && !ausgangsJson.gegner_email.includes('erforderlich') && !ausgangsJson.gegner_email.includes('aus Bescheid')) {
             setGegnerEmail(ausgangsJson.gegner_email);
           }
+          
           if (ausgangsJson.typ) {
             setTyp(ausgangsJson.typ);
           } else {
@@ -2329,7 +2361,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           if (ausgangsJson.frist_extern) {
             handleFristChange(ausgangsJson.frist_extern);
           }
-          showToast("Ausgangs-Schriftsatz von MegaLegal übernommen! Bereit zum Versand.", "success");
+          showToast("Ausgangs-Schriftsatz übernommen! Akten-Kontext wiederhergestellt.", "success");
         }}
       />
 
