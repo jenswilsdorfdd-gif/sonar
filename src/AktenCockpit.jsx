@@ -514,7 +514,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setVersandPdfUrl(obj.pdf_url);
       }
 
-      checkGegnerDiff(fallbackGegnerName, fallbackGegnerFax, fallbackGegnerEmail, fallbackGegnerAnsprechpartner, fallbackGegnerTelefon);
+      const promptNeeded = checkGegnerDiff(fallbackGegnerName, fallbackGegnerFax, fallbackGegnerEmail, fallbackGegnerAnsprechpartner, fallbackGegnerTelefon);
+      // BUGFIX: Wenn kein Prompt nötig ist, resette den State aktiv, um veraltete Meldungen ("Unbekannt") zu löschen
+      if (!promptNeeded) {
+        setGegnerPrompt(null);
+      }
 
       let matchedAkte = null;
       if (fallbackUnserZeichen) {
@@ -541,7 +545,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
 
       if (fallbackUnsereFirma) {
-        const existingMandant = mandanten.find(m => fuzzyMatch(m.firmenname, fallbackUnsereFirma));
+        // BUGFIX: Exakter Match statt Fuzzy-Match, damit "Jens Wilsdorf" nicht "Alexander und Jens Wilsdorf" matcht
+        const existingMandant = mandanten.find(m => cleanOrgName(m.firmenname) === cleanOrgName(fallbackUnsereFirma));
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
         const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '');
         const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
@@ -1936,7 +1941,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           </div>
 
           <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} placeholder="Trage hier deinen Brief- oder E-Mail-Text, Arbeitsanweisungen oder Notizen ein..." style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} />
-          {versandPdfUrl && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', color: '#10b981', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Versand-PDF generiert & verschickt! Vergiss nicht, unten auf "+ In Akte abheften" zu klicken.</div>)}
+          {versandPdfUrl && typ === 'Ausgang' && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', color: '#10b981', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Versand-PDF generiert & verschickt! Vergiss nicht, unten auf "+ In Akte abheften" zu klicken.</div>)}
+          {versandPdfUrl && typ !== 'Ausgang' && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', color: '#0ea5e9', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Scan-PDF erfolgreich verknüpft! Bereit zum Abheften.</div>)}
         </div>
 
         <button disabled={laedt} type="submit" style={{ padding: '15px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '25px' }}>
