@@ -11,7 +11,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   // Initialer Start beim Öffnen des Modals
   useEffect(() => {
     if (isOpen && dossier) {
+      // Aktuelles Datum für den KI-Kontext generieren
+      const today = new Date().toLocaleDateString('de-DE');
+      
       const initialUserPrompt = `Hier ist das neu eingegangene Dokumentendossier zur sofortigen forensischen Tiefenprüfung:
+
 Behörde / Absender: ${dossier.kontakt || "Unbekannt"}
 Aktenzeichen: ${dossier.aktenzeichen || "Unbekannt"}
 Frist: ${dossier.frist_extern || "Keine Frist erkannt"}
@@ -19,6 +23,10 @@ Betreff / Thema: ${dossier.thema || "Ohne Betreff"}
 
 DOKUMENTENTEXT:
 ${dossier.brief_entwurf || dossier.raw_text || "Kein Volltext vorhanden."}
+
+WICHTIGE KONTEXT-DATEN FÜR DEINEN FINALEN SCHRIFTSATZ:
+- Heutiges Datum (für den Briefkopf): ${today}
+- Unser Mandant (Absender): ${dossier.unsere_firma || "Jens Wilsdorf / Wilsdorf & Sommer GmbH"}
 
 Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die Schwachstellen des Bescheids und wie schlagen wir zurück?`;
 
@@ -34,6 +42,67 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // --- JSON SANITIZER ---
+  const cleanJsonString = (str) => {
+    let inString = false;
+    let escaped = false;
+    let result = '';
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        if (char === '\\' && !escaped) {
+            escaped = true;
+            result += char;
+            continue;
+        }
+        if (char === '"' && !escaped) {
+            inString = !inString;
+        }
+        if (char === '\n' && inString) {
+            result += '\\n';
+        } else if (char === '\r' && inString) {
+            // ignore \r
+        } else {
+            result += char;
+        }
+        escaped = false;
+    }
+    return result;
+  };
+
+  // --- ROBUSTER EXTRACTOR ---
+  const extractAndParseJSON = (text) => {
+    let extractedJson = null;
+    
+    // 1. Suche nach Markdown JSON Block
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (codeBlockMatch) {
+      extractedJson = codeBlockMatch[1];
+    } else {
+      // 2. Fallback: Suche nach der ersten öffnenden und letzten schließenden Klammer
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        extractedJson = text.substring(firstBrace, lastBrace + 1);
+      }
+    }
+
+    // Wenn JSON gefunden wurde UND das Wort "brief_entwurf" enthält
+    if (extractedJson && extractedJson.includes('"brief_entwurf"')) {
+      try {
+        return JSON.parse(extractedJson);
+      } catch (err) {
+        try {
+          const fixedJson = cleanJsonString(extractedJson);
+          return JSON.parse(fixedJson);
+        } catch (err2) {
+          console.error("JSON Parse Error (Auch nach Sanitizer fehlgeschlagen):", err2);
+          return null;
+        }
+      }
+    }
+    return null;
+  };
 
   const callMegaLegal = async (history) => {
     setIsLoading(true);
@@ -52,20 +121,12 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
       const reply = data?.reply || "Keine Antwort vom Board erhalten.";
 
       // --- JSON INTERCEPTOR (ABFANGJÄGER) ---
-      // Prüft, ob die Antwort von Claude das finale JSON (anhand des Pflichtfelds 'brief_entwurf') enthält.
-      const jsonMatch = reply.match(/\{[\s\S]*?"brief_entwurf"[\s\S]*?\}/);
-      
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          onApplySchriftsatz(parsed);
-          onClose(); // Modal sofort schließen!
-          setIsLoading(false);
-          return; // Abbruch hier: Die Nachricht wird NICHT mehr in den Chatverlauf geschrieben.
-        } catch (err) {
-          console.error("Interceptor Parse Error:", err);
-          // Fällt durch und zeigt den fehlerhaften Text im Chat an, falls JSON kaputt ist.
-        }
+      const parsedJson = extractAndParseJSON(reply);
+      if (parsedJson) {
+        onApplySchriftsatz(parsedJson);
+        onClose(); // Modal sofort schließen!
+        setIsLoading(false);
+        return; 
       }
 
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
@@ -87,29 +148,19 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     callMegaLegal(updatedHistory);
   };
 
-  // Extrahiert das Ausgangs-JSON aus dem Antworttext oder fordert es neu an
+  // Klick auf den Button
   const handleExtractAndApplyJSON = () => {
     const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
     
-    // 1. Zuerst prüfen wir, ob im Chat schon ein JSON mit "brief_entwurf" herumliegt
     if (lastAssistantMsg) {
-      const text = lastAssistantMsg.content;
-      const jsonMatch = text.match(/\{[\s\S]*?"brief_entwurf"[\s\S]*?\}/);
-
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          onApplySchriftsatz(parsed);
-          onClose();
-          return; // Fertig, wenn schon da.
-        } catch (err) {
-          console.error("Parse Error beim manuellen Extrahieren:", err);
-        }
+      const parsedJson = extractAndParseJSON(lastAssistantMsg.content);
+      if (parsedJson) {
+        onApplySchriftsatz(parsedJson);
+        onClose();
+        return; 
       }
     }
 
-    // 2. Fallback: Kein JSON da. Wir feuern den Befehl ab. 
-    // Sobald die Antwort reinkommt, wird der Interceptor in callMegaLegal sie greifen und das Modal schließen.
     const triggerPrompt = "Ja, gib mir bitte jetzt das finale Ausgangs-JSON für mein SONAR Cockpit.";
     const updatedHistory = [...messages, { role: "user", content: triggerPrompt }];
     setMessages(updatedHistory);
@@ -143,23 +194,20 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
           </button>
         </div>
 
-        {/* Chat / Audit Verlauf */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-sm font-sans">
+        {/* Chat / Audit Verlauf -> STRIKT LINKSBÜNDIG & VOLLE BREITE */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 text-sm font-sans bg-slate-900">
           {messages.map((m, idx) => {
             const isUser = m.role === "user";
             return (
-              <div
-                key={idx}
-                className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
-              >
-                <div className="text-xs text-slate-400 mb-1 px-1">
-                  {isUser ? "Mandant (Du)" : "Sonar MegaLegal (30-Experten Board)"}
+              <div key={idx} className="flex flex-col w-full items-start">
+                <div className="text-xs font-bold text-slate-400 mb-2 px-1 uppercase tracking-wider">
+                  {isUser ? "Mandant / Instruktion" : "Sonar MegaLegal (30-Experten Board)"}
                 </div>
                 <div
-                  className={`max-w-[85%] rounded-2xl px-5 py-3.5 whitespace-pre-wrap leading-relaxed shadow-md ${
+                  className={`w-full rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed shadow-sm border ${
                     isUser
-                      ? "bg-blue-600 text-white rounded-tr-none"
-                      : "bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none font-mono text-xs"
+                      ? "bg-slate-800 border-slate-700 text-slate-200"
+                      : "bg-slate-950/50 border-emerald-900/50 text-slate-300 font-mono text-sm"
                   }`}
                 >
                   {m.content}
@@ -168,15 +216,15 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
             );
           })}
           {isLoading && (
-            <div className="flex items-center space-x-2 text-slate-400 text-xs py-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></div>
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:-.3s]"></div>
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:-.5s]"></div>
-              <span>Mr. Veto & das Experten-Board zerlegen den Bescheid...</span>
+            <div className="flex items-center space-x-3 text-emerald-500 text-sm py-4 px-2 font-mono">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"></div>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-.3s]"></div>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-.5s]"></div>
+              <span>Mr. Veto & das Experten-Board arbeiten...</span>
             </div>
           )}
           {errorMsg && (
-            <div className="p-3 bg-rose-950/50 border border-rose-800 text-rose-300 rounded-lg text-xs">
+            <div className="p-4 bg-rose-950/50 border border-rose-800 text-rose-300 rounded-lg text-sm w-full">
               ⚠️ {errorMsg}
             </div>
           )}
@@ -192,30 +240,30 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
               onChange={(e) => setInputPrompt(e.target.value)}
               placeholder="Instruktion an die Experten (z.B. 'Schärfer rügen', 'Fristverlängerung fordern')..."
               disabled={isLoading}
-              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={isLoading || !inputPrompt.trim()}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition disabled:opacity-50"
+              className="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl text-sm transition disabled:opacity-50"
             >
               Senden
             </button>
           </form>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center justify-between pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="text-xs text-slate-400 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-slate-800"
+              className="text-xs text-slate-400 hover:text-white transition px-4 py-2 rounded-lg hover:bg-slate-800"
             >
-              Schließen (Später bearbeiten)
+              Schließen (Abbrechen)
             </button>
             <button
               type="button"
               onClick={handleExtractAndApplyJSON}
               disabled={isLoading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2 rounded-xl text-sm shadow-lg shadow-emerald-900/30 transition flex items-center space-x-2"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-blue-900/30 transition flex items-center space-x-2"
             >
               <span>🚀 Ausgangs-Schriftsatz ins Cockpit übernehmen</span>
             </button>
@@ -224,4 +272,4 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
       </div>
     </div>
   );
-}
+} 
