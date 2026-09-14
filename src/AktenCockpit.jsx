@@ -910,11 +910,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const preventWarRoom = autoSaveOverrides && autoSaveOverrides.preventWarRoom;
       
       if (activeTyp === 'Eingang' && !preventWarRoom) {
-        // --- AMNESIE-FIX VORBEREITUNG ---
-        // Wir packen die aktuelle akte_id und den Firmennamen ins Dossier
         setActiveWarRoomDossier({
           akte_id: aktuelleAkteId,
           unsere_firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : ''),
+          unser_ansprechpartner: unserAnsprechpartner,
           aktenzeichen: aktenzeichen,
           kontakt: gegnerName,
           thema: thema,
@@ -1918,6 +1917,28 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
+              
+              {/* NEUER WAR-ROOM BUTTON */}
+              <button type="button" onClick={() => {
+                if (!briefEntwurf) {
+                  showToast("Kein Text zum Analysieren vorhanden! Bitte lade zuerst einen Vorgang oder tippe Text ein.", "warning");
+                  return;
+                }
+                setActiveWarRoomDossier({
+                  akte_id: selectedAkteId,
+                  unsere_firma: unsereFirma,
+                  unser_ansprechpartner: unserAnsprechpartner,
+                  aktenzeichen: aktenzeichen,
+                  kontakt: gegnerName,
+                  thema: thema,
+                  frist_extern: fristExtern,
+                  brief_entwurf: briefEntwurf,
+                  raw_text: briefEntwurf
+                });
+                setIsWarRoomOpen(true);
+              }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Text zur forensischen Analyse in den War-Room schicken">
+                <Icon name="alert" size={16} /> 🔴 In War-Room senden
+              </button>
             </div>
           </div>
 
@@ -2298,70 +2319,39 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         onClose={() => setIsWarRoomOpen(false)}
         dossier={activeWarRoomDossier}
         onApplySchriftsatz={(ausgangsJson) => {
+          
           // --- AMNESIE-FIX ---
-          // Wir stellen den Akten-Kontext wieder her!
           if (activeWarRoomDossier && activeWarRoomDossier.akte_id) {
              setModus('bestehend');
              setSelectedAkteId(activeWarRoomDossier.akte_id);
-             
-             const zielAkte = akten.find(a => a.id === activeWarRoomDossier.akte_id);
-             if (zielAkte) {
-                setUnserZeichen(zielAkte.unser_zeichen || '');
-                setUnsereFirma(zielAkte.unsere_firma || '');
-                setUnserAnsprechpartner(zielAkte.unser_ansprechpartner || '');
-                setGegnerName(zielAkte.gegner_name || '');
-                
-                // Fallbacks, falls die KI etwas vergisst:
-                if (!ausgangsJson.thema) setThema(zielAkte.thema || '');
-                if (!ausgangsJson.aktenzeichen) setAktenzeichen(zielAkte.aktenzeichen || '');
-                if (!ausgangsJson.ansprechpartner || ausgangsJson.ansprechpartner.includes('erforderlich')) { 
-                  setGegnerAnsprechpartner(zielAkte.gegner_ansprechpartner || ''); 
-                  setFaxZhd(zielAkte.gegner_ansprechpartner || ''); 
-                }
-                
-                // Wir laden die Kontaktdaten für den Versand direkt aus dem CRM der Akte!
-                setGegnerTelefon(formatRufnummer(zielAkte.gegner_telefon || ''));
-                setGegnerEmail(zielAkte.gegner_email || '');
-             }
           }
 
-          if (ausgangsJson.brief_entwurf) {
-            setBriefEntwurf(ausgangsJson.brief_entwurf);
-          }
-          if (ausgangsJson.thema) {
-            setThema(ausgangsJson.thema);
-          }
-          if (ausgangsJson.aktenzeichen) {
-            setAktenzeichen(ausgangsJson.aktenzeichen);
-          }
-          if (ausgangsJson.kontakt) {
-            setGegnerName(ausgangsJson.kontakt);
-          }
+          if (ausgangsJson.brief_entwurf) setBriefEntwurf(ausgangsJson.brief_entwurf);
           
-          // Anti-Platzhalter-Schutz (blockiert "erforderlich_ab_bescheid")
-          if (ausgangsJson.ansprechpartner && !ausgangsJson.ansprechpartner.includes('erforderlich')) {
+          // --- CRM SCHUTZSCHILD ---
+          const isInvalid = (val) => !val || val.toLowerCase().includes('erforderlich') || val.toLowerCase().includes('bescheid') || val.toLowerCase().includes('unbekannt');
+          
+          if (ausgangsJson.thema && !isInvalid(ausgangsJson.thema) && !thema) setThema(ausgangsJson.thema);
+          if (ausgangsJson.aktenzeichen && !isInvalid(ausgangsJson.aktenzeichen) && !aktenzeichen) setAktenzeichen(ausgangsJson.aktenzeichen);
+          
+          if (ausgangsJson.ansprechpartner && !isInvalid(ausgangsJson.ansprechpartner)) {
             setGegnerAnsprechpartner(ausgangsJson.ansprechpartner);
             setFaxZhd(ausgangsJson.ansprechpartner);
           }
-          if (ausgangsJson.gegner_fax && !ausgangsJson.gegner_fax.includes('erforderlich') && !ausgangsJson.gegner_fax.includes('aus Bescheid')) {
+          if (ausgangsJson.gegner_fax && !isInvalid(ausgangsJson.gegner_fax)) {
             setGegnerFax(formatRufnummer(ausgangsJson.gegner_fax));
           }
-          if (ausgangsJson.gegner_email && !ausgangsJson.gegner_email.includes('erforderlich') && !ausgangsJson.gegner_email.includes('aus Bescheid')) {
+          if (ausgangsJson.gegner_email && !isInvalid(ausgangsJson.gegner_email)) {
             setGegnerEmail(ausgangsJson.gegner_email);
           }
           
-          if (ausgangsJson.typ) {
-            setTyp(ausgangsJson.typ);
-          } else {
-            setTyp('Ausgang');
-          }
-          if (ausgangsJson.aktion) {
-            setAktion(ausgangsJson.aktion);
-          }
-          if (ausgangsJson.frist_extern) {
-            handleFristChange(ausgangsJson.frist_extern);
-          }
-          showToast("Ausgangs-Schriftsatz übernommen! Akten-Kontext wiederhergestellt.", "success");
+          // ZWANGS-ÜBERSCHREIBUNG AUF AUSGANG
+          setTyp('Ausgang');
+          
+          if (ausgangsJson.aktion) setAktion(ausgangsJson.aktion);
+          if (ausgangsJson.frist_extern) handleFristChange(ausgangsJson.frist_extern);
+          
+          showToast("Schriftsatz übernommen! Akten-Kontext geschützt.", "success");
         }}
       />
 
