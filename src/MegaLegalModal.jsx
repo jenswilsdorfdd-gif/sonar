@@ -132,7 +132,14 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
   };
 
   const handleDraftDocument = () => {
-    const draftPrompt = "Die forensische Analyse ist abgeschlossen. Verfasse jetzt bitte den finalen, versandfertigen Schriftsatz an die Behörde. Formuliere ihn juristisch präzise. STRIKTE REGEL: Unterschreibe am Ende zwingend nur mit dem Namen des Mandanten. Erfinde KEINE Kanzlei, du agierst direkt als Mandant!";
+    const draftPrompt = `Die forensische Analyse ist abgeschlossen. Verfasse jetzt bitte den finalen, versandfertigen Schriftsatz an die Behörde. Formuliere ihn juristisch präzise. 
+
+STRIKTE REGELN FÜR DEN TEXT: 
+1. Unterschreibe am Ende ZWINGEND NUR mit dem Namen des Mandanten. Erfinde KEINE Kanzlei, du agierst direkt als Mandant! 
+2. Füge KEINE Platzhalter für Adressen ein (lass sie komplett weg, wenn sie nicht im System sind). 
+3. Schreibe KEINE Versendungshinweise (wie 'Vorab per Fax' oder 'Einschreiben') in den Briefkopf. 
+4. Schreibe KEINE Anlagen-Vermerke (wie 'Anlage: Kopien') an das Ende des Briefes.`;
+    
     const updatedHistory = [...messages, { role: "user", content: draftPrompt }];
     setMessages(updatedHistory);
     callMegaLegal(updatedHistory);
@@ -143,7 +150,6 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     if (lastAssistantMsg) {
       const parsedJson = extractAndParseJSON(lastAssistantMsg.content);
       if (parsedJson) {
-        // Falls Claude das Feld vergisst, zwingen wir es hier schon auf Ausgang
         parsedJson.typ = "Ausgang";
         onApplySchriftsatz(parsedJson);
         onClose();
@@ -174,9 +180,9 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
   const bgFooter = isDark ? "bg-slate-950/80" : "bg-slate-100";
   const borderFooter = isDark ? "border-slate-800" : "border-slate-300";
   
-  // TIEFSCHWARZ IM HELLMODUS
-  const inputBg = isDark ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500" : "bg-white border-slate-400 text-black placeholder-slate-600 font-bold";
-  const closeBtnStyle = isDark ? "text-slate-400 hover:text-white hover:bg-black/5" : "text-black font-bold border-slate-400 hover:bg-slate-200";
+  // VERBESSERTER KONTRAST FÜR EINGABEFELD IM DUNKELMODUS
+  const inputBg = isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-200" : "bg-white border-slate-400 text-black placeholder-slate-600 font-bold";
+  const closeBtnStyle = isDark ? "text-slate-300 hover:text-white hover:bg-slate-800 font-bold" : "text-black font-bold border-slate-400 hover:bg-slate-200";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -210,23 +216,23 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
           </button>
         </div>
 
-        {/* Chat / Audit Verlauf */}
+        {/* Chat / Audit Verlauf -> STRIKT TEXT-LEFT! */}
         <div className={`flex-1 overflow-y-auto p-6 space-y-6 text-sm font-sans ${bgChatArea}`}>
           {messages.map((m, idx) => {
             const isUser = m.role === "user";
             return (
               <div key={idx} className="flex flex-col w-full items-start">
-                <div className={`text-xs font-bold ${textSub} mb-2 px-1 uppercase tracking-wider`}>
+                <div className={`text-xs font-bold ${textSub} mb-2 px-1 uppercase tracking-wider text-left`}>
                   {isUser ? "Mandant / Instruktion" : "Sonar MegaLegal (30-Experten Board)"}
                 </div>
-                <div className={`w-full rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed border ${isUser ? bgUserMsg : bgAiMsg}`}>
+                <div className={`w-full text-left rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed border ${isUser ? bgUserMsg : bgAiMsg}`}>
                   {m.content}
                 </div>
               </div>
             );
           })}
           {isLoading && (
-            <div className="flex items-center space-x-3 text-emerald-600 text-sm py-4 px-2 font-bold uppercase tracking-wider">
+            <div className="flex items-center space-x-3 text-emerald-600 text-sm py-4 px-2 font-bold uppercase tracking-wider text-left">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"></div>
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-.3s]"></div>
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-.5s]"></div>
@@ -234,7 +240,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
             </div>
           )}
           {errorMsg && (
-            <div className="p-4 bg-rose-100 border border-rose-400 text-rose-900 rounded-lg text-sm w-full font-bold">
+            <div className="p-4 bg-rose-100 border border-rose-400 text-rose-900 rounded-lg text-sm w-full font-bold text-left">
               ⚠️ {errorMsg}
             </div>
           )}
