@@ -180,9 +180,9 @@ STRIKTE REGELN FÜR DEN TEXT:
   const bgFooter = isDark ? "bg-slate-950/80" : "bg-slate-100";
   const borderFooter = isDark ? "border-slate-800" : "border-slate-300";
   
-  // VERBESSERTER KONTRAST FÜR EINGABEFELD IM DUNKELMODUS
-  const inputBg = isDark ? "bg-slate-800 border-slate-600 text-white placeholder-slate-200" : "bg-white border-slate-400 text-black placeholder-slate-600 font-bold";
-  const closeBtnStyle = isDark ? "text-slate-300 hover:text-white hover:bg-slate-800 font-bold" : "text-black font-bold border-slate-400 hover:bg-slate-200";
+  // VERBESSERTER KONTRAST FÜR EINGABEFELD UND BUTTONS IM DUNKELMODUS
+  const inputBg = isDark ? "bg-slate-700 border-slate-500 text-white placeholder-slate-300" : "bg-white border-slate-400 text-black placeholder-slate-600 font-bold";
+  const closeBtnStyle = isDark ? "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 font-bold" : "text-black font-bold border-slate-400 hover:bg-slate-200";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
