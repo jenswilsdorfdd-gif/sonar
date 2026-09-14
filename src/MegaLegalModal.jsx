@@ -6,13 +6,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const [inputPrompt, setInputPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [isDark, setIsDark] = useState(true); // Theme Toggle State
+  const [isDark, setIsDark] = useState(true);
   const chatBottomRef = useRef(null);
 
   // Initialer Start beim Öffnen des Modals
   useEffect(() => {
     if (isOpen && dossier) {
       const today = new Date().toLocaleDateString('de-DE');
+      const mandantFirma = dossier.unsere_firma || "Jens Wilsdorf";
+      const mandantAP = dossier.unser_ansprechpartner || "Jens Wilsdorf";
+
       const initialUserPrompt = `Hier ist das neu eingegangene Dokumentendossier zur sofortigen forensischen Tiefenprüfung:
 
 Behörde / Absender: ${dossier.kontakt || "Unbekannt"}
@@ -25,7 +28,10 @@ ${dossier.brief_entwurf || dossier.raw_text || "Kein Volltext vorhanden."}
 
 WICHTIGE KONTEXT-DATEN FÜR DEINEN FINALEN SCHRIFTSATZ:
 - Heutiges Datum (für den Briefkopf): ${today}
-- Unser Mandant (Absender): ${dossier.unsere_firma || "Jens Wilsdorf / Wilsdorf & Sommer GmbH"}
+- Unser Mandant (Absender): ${mandantFirma}
+- Ansprechpartner: ${mandantAP}
+
+STRIKTE REGEL: Du bist KEINE Rechtsanwaltskanzlei! Du schreibst den Entwurf exakt im Namen des Mandanten. Unterzeichne später am Ende AUSSCHLIESSLICH mit diesen Mandantendaten. Erfinde keine Kanzlei-Namen!
 
 Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die Schwachstellen des Bescheids und wie schlagen wir zurück?`;
 
@@ -37,12 +43,10 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     }
   }, [isOpen, dossier]);
 
-  // Auto-Scroll zum Ende des Chatverlaufs
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // --- JSON SANITIZER ---
   const cleanJsonString = (str) => {
     let inString = false;
     let escaped = false;
@@ -59,7 +63,6 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     return result;
   };
 
-  // --- ROBUSTER EXTRACTOR ---
   const extractAndParseJSON = (text) => {
     let extractedJson = null;
     const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -102,7 +105,6 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
 
       const reply = data?.reply || "Keine Antwort vom Board erhalten.";
 
-      // --- JSON INTERCEPTOR (ABFANGJÄGER) ---
       const parsedJson = extractAndParseJSON(reply);
       if (parsedJson) {
         onApplySchriftsatz(parsedJson);
@@ -120,7 +122,6 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     }
   };
 
-  // Standard Chat-Nachricht senden
   const handleSendMessage = (e) => {
     e?.preventDefault();
     if (!inputPrompt.trim() || isLoading) return;
@@ -130,28 +131,27 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     callMegaLegal(updatedHistory);
   };
 
-  // Button 1: Schriftsatz entwerfen lassen
   const handleDraftDocument = () => {
-    const draftPrompt = "Die forensische Analyse ist abgeschlossen. Verfasse jetzt bitte den finalen, versandfertigen Schriftsatz (Einspruch/Widerspruch) an die Behörde. Formuliere ihn juristisch präzise, druckreif und verwende KEINE Platzhalter für das heutige Datum oder den Absender.";
+    const draftPrompt = "Die forensische Analyse ist abgeschlossen. Verfasse jetzt bitte den finalen, versandfertigen Schriftsatz an die Behörde. Formuliere ihn juristisch präzise. STRIKTE REGEL: Unterschreibe am Ende zwingend nur mit dem Namen des Mandanten. Erfinde KEINE Kanzlei, du agierst direkt als Mandant!";
     const updatedHistory = [...messages, { role: "user", content: draftPrompt }];
     setMessages(updatedHistory);
     callMegaLegal(updatedHistory);
   };
 
-  // Button 2: JSON erzwingen und ins Cockpit übergeben
   const handleExtractAndApplyJSON = () => {
     const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
     if (lastAssistantMsg) {
       const parsedJson = extractAndParseJSON(lastAssistantMsg.content);
       if (parsedJson) {
+        // Falls Claude das Feld vergisst, zwingen wir es hier schon auf Ausgang
+        parsedJson.typ = "Ausgang";
         onApplySchriftsatz(parsedJson);
         onClose();
         return; 
       }
     }
     
-    // Knallharter Befehl an Claude, wirklich NUR das JSON auszuspucken
-    const triggerPrompt = "Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Das JSON MUSS zwingend das Feld 'brief_entwurf' enthalten. Liefere absolut keinen anderen Text davor oder danach, nur das reine JSON-Objekt, beginnend mit { und endend mit }.";
+    const triggerPrompt = "Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Setze das Feld 'typ' ZWINGEND auf 'Ausgang'. Das JSON MUSS das Feld 'brief_entwurf' enthalten. Liefere absolut keinen anderen Text davor oder danach, nur das reine JSON-Objekt beginnend mit { und endend mit }.";
     const updatedHistory = [...messages, { role: "user", content: triggerPrompt }];
     setMessages(updatedHistory);
     callMegaLegal(updatedHistory);
@@ -164,16 +164,19 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
   const borderModal = isDark ? "border-slate-700" : "border-slate-300";
   const bgHeader = isDark ? "bg-slate-950/60" : "bg-white/80";
   const borderHeader = isDark ? "border-slate-800" : "border-slate-200";
-  const textTitle = isDark ? "text-white" : "text-slate-900";
-  const textSub = isDark ? "text-slate-400" : "text-slate-500";
+  const textTitle = isDark ? "text-white" : "text-black";
+  const textSub = isDark ? "text-slate-400" : "text-black font-semibold";
   
-  const bgChatArea = isDark ? "bg-slate-900" : "bg-slate-100";
-  const bgUserMsg = isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-800 shadow-sm";
-  const bgAiMsg = isDark ? "bg-slate-950/50 border-emerald-900/50 text-slate-300" : "bg-emerald-50/50 border-emerald-200 text-slate-900";
+  const bgChatArea = isDark ? "bg-slate-900" : "bg-white";
+  const bgUserMsg = isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-slate-100 border-slate-300 text-black shadow-sm font-medium";
+  const bgAiMsg = isDark ? "bg-slate-950/50 border-emerald-900/50 text-slate-300" : "bg-emerald-50/50 border-emerald-300 text-black font-medium";
   
-  const bgFooter = isDark ? "bg-slate-950/80" : "bg-white/90";
-  const borderFooter = isDark ? "border-slate-800" : "border-slate-200";
-  const inputBg = isDark ? "bg-slate-900 border-slate-700 text-white" : "bg-white border-slate-300 text-slate-900";
+  const bgFooter = isDark ? "bg-slate-950/80" : "bg-slate-100";
+  const borderFooter = isDark ? "border-slate-800" : "border-slate-300";
+  
+  // TIEFSCHWARZ IM HELLMODUS
+  const inputBg = isDark ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500" : "bg-white border-slate-400 text-black placeholder-slate-600 font-bold";
+  const closeBtnStyle = isDark ? "text-slate-400 hover:text-white hover:bg-black/5" : "text-black font-bold border-slate-400 hover:bg-slate-200";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -202,12 +205,12 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
               </p>
             </div>
           </div>
-          <button onClick={onClose} className={`${textSub} hover:${textTitle} p-2 rounded-lg transition text-xl font-bold`}>
+          <button onClick={onClose} className={`${textSub} hover:opacity-70 p-2 rounded-lg transition text-xl font-bold`}>
             ✕
           </button>
         </div>
 
-        {/* Chat / Audit Verlauf -> STRIKT LINKSBÜNDIG & DOKUMENTEN-OPTIK */}
+        {/* Chat / Audit Verlauf */}
         <div className={`flex-1 overflow-y-auto p-6 space-y-6 text-sm font-sans ${bgChatArea}`}>
           {messages.map((m, idx) => {
             const isUser = m.role === "user";
@@ -231,7 +234,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
             </div>
           )}
           {errorMsg && (
-            <div className="p-4 bg-rose-100 border border-rose-400 text-rose-700 rounded-lg text-sm w-full font-bold">
+            <div className="p-4 bg-rose-100 border border-rose-400 text-rose-900 rounded-lg text-sm w-full font-bold">
               ⚠️ {errorMsg}
             </div>
           )}
@@ -241,7 +244,6 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
         {/* Footer & Actions */}
         <div className={`p-4 border-t ${borderFooter} ${bgFooter} space-y-3`}>
           
-          {/* Chat Input */}
           <form onSubmit={handleSendMessage} className="flex gap-2">
             <input
               type="text"
@@ -260,12 +262,11 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
             </button>
           </form>
 
-          {/* 3-Phasen Buttons */}
           <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
             <button
               type="button"
               onClick={onClose}
-              className={`text-xs ${textSub} hover:${textTitle} transition px-4 py-2 rounded-lg border ${borderModal} hover:bg-black/5`}
+              className={`text-xs transition px-4 py-2 rounded-lg border ${closeBtnStyle}`}
             >
               Schließen (Abbrechen)
             </button>
@@ -275,7 +276,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
                 type="button"
                 onClick={handleDraftDocument}
                 disabled={isLoading}
-                className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50"
+                className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50 border-none"
               >
                 <span>📝 1. Schriftsatz entwerfen</span>
               </button>
@@ -284,7 +285,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
                 type="button"
                 onClick={handleExtractAndApplyJSON}
                 disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50"
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50 border-none"
               >
                 <span>🚀 2. Ins Cockpit übergeben</span>
               </button>
@@ -295,4 +296,4 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
       </div>
     </div>
   );
-} 
+}
