@@ -50,6 +50,24 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
       if (data?.error) throw new Error(data.error);
 
       const reply = data?.reply || "Keine Antwort vom Board erhalten.";
+
+      // --- JSON INTERCEPTOR (ABFANGJÄGER) ---
+      // Prüft, ob die Antwort von Claude das finale JSON (anhand des Pflichtfelds 'brief_entwurf') enthält.
+      const jsonMatch = reply.match(/\{[\s\S]*?"brief_entwurf"[\s\S]*?\}/);
+      
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          onApplySchriftsatz(parsed);
+          onClose(); // Modal sofort schließen!
+          setIsLoading(false);
+          return; // Abbruch hier: Die Nachricht wird NICHT mehr in den Chatverlauf geschrieben.
+        } catch (err) {
+          console.error("Interceptor Parse Error:", err);
+          // Fällt durch und zeigt den fehlerhaften Text im Chat an, falls JSON kaputt ist.
+        }
+      }
+
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (err) {
       console.error("[MegaLegalModal Error]:", err);
@@ -69,32 +87,33 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     callMegaLegal(updatedHistory);
   };
 
-  // Extrahiert das Ausgangs-JSON aus dem Antworttext und übergibt es an den Cockpit-Editor
+  // Extrahiert das Ausgangs-JSON aus dem Antworttext oder fordert es neu an
   const handleExtractAndApplyJSON = () => {
     const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!lastAssistantMsg) {
-      alert("Es liegt noch keine Analyse von Sonar Mega Legal vor.");
-      return;
-    }
+    
+    // 1. Zuerst prüfen wir, ob im Chat schon ein JSON mit "brief_entwurf" herumliegt
+    if (lastAssistantMsg) {
+      const text = lastAssistantMsg.content;
+      const jsonMatch = text.match(/\{[\s\S]*?"brief_entwurf"[\s\S]*?\}/);
 
-    const text = lastAssistantMsg.content;
-    const jsonMatch = text.match(/\{[\s\S]*?"typ"\s*:\s*"(?:Ausgang|Eingang|Intern)"[\s\S]*?\}/);
-
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        onApplySchriftsatz(parsed);
-        onClose();
-      } catch (err) {
-        alert("Das gefundene JSON-Format ist syntaktisch ungültig: " + err.message);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          onApplySchriftsatz(parsed);
+          onClose();
+          return; // Fertig, wenn schon da.
+        } catch (err) {
+          console.error("Parse Error beim manuellen Extrahieren:", err);
+        }
       }
-    } else {
-      // Fallback: Fordere Claude im Chat aktiv auf, das JSON jetzt zu generieren
-      const triggerPrompt = "Ja, gib mir bitte jetzt das finale Ausgangs-JSON für mein SONAR Cockpit.";
-      const updatedHistory = [...messages, { role: "user", content: triggerPrompt }];
-      setMessages(updatedHistory);
-      callMegaLegal(updatedHistory);
     }
+
+    // 2. Fallback: Kein JSON da. Wir feuern den Befehl ab. 
+    // Sobald die Antwort reinkommt, wird der Interceptor in callMegaLegal sie greifen und das Modal schließen.
+    const triggerPrompt = "Ja, gib mir bitte jetzt das finale Ausgangs-JSON für mein SONAR Cockpit.";
+    const updatedHistory = [...messages, { role: "user", content: triggerPrompt }];
+    setMessages(updatedHistory);
+    callMegaLegal(updatedHistory);
   };
 
   if (!isOpen) return null;
