@@ -1918,12 +1918,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
               
-              {/* NEUER WAR-ROOM BUTTON (Rote Murmel entfernt) */}
+              {/* NEUER WAR-ROOM BUTTON (Rote Murmel entfernt, Text-Zwang entfernt) */}
               <button type="button" onClick={() => {
-                if (!briefEntwurf) {
-                  showToast("Kein Text zum Analysieren vorhanden! Bitte lade zuerst einen Vorgang oder tippe Text ein.", "warning");
-                  return;
-                }
                 setActiveWarRoomDossier({
                   akte_id: selectedAkteId,
                   unsere_firma: unsereFirma,
@@ -1932,11 +1928,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   kontakt: gegnerName,
                   thema: thema,
                   frist_extern: fristExtern,
-                  brief_entwurf: briefEntwurf,
-                  raw_text: briefEntwurf
+                  brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
+                  raw_text: briefEntwurf || "Kein Volltext hinterlegt."
                 });
                 setIsWarRoomOpen(true);
-              }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Text zur forensischen Analyse in den War-Room schicken">
+              }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur forensischen Analyse in den War-Room schicken">
                 <Icon name="alert" size={16} /> In War-Room senden
               </button>
             </div>
