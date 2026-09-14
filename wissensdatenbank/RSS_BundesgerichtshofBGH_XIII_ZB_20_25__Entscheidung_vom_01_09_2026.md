@@ -2,13 +2,18 @@
 Quelle: https://www.bundesgerichtshof.de/SharedDocs/Entscheidungen/DE/Zivilsenate/XIII_ZS/2025/XIII_ZB__20-25.html
 Veröffentlicht: Fri, 11 Sep 2026 00:00:00 GMT
 
-**Kurzanalyse – BGH‑Entscheidung XIII ZB 20/25**  
+**Kurz‑Analyse – Entscheidung des Bundesgerichtshofs**  
+*Eintrag für juristische Wissensdatenbank*  
 
-| Feld | Information |
-|------|--------------|
-| **Aktenzeichen** | XIII ZB 20/25 |
-| **Datum** | 01.09.2026 |
-| **Betroffene Rechtsnorm** | – keine Angabe im vorliegenden Auszug (vgl. BGH‑Webseite) – |
-| **Kurzzusammenfassung** | 1. Der zur Verfügung gestellte Inhalt besteht ausschließlich aus der Navigations‑ und Menüstruktur der BGH‑Webseite und enthält keinen Entscheidungstext. <br>2. Deshalb lässt sich aus den vorliegenden Daten weder der Streitgegenstand noch die rechtliche Würdigung ableiten. <br>3. Für eine inhaltliche Aufbereitung muss der eigentliche Entscheidungs‑PDF bzw. -Text nachträglich beschafft und analysiert werden. |
+| **Feld** | **Inhalt** |
+|----------|------------|
+| **Aktenzeichen** | **XIII ZB 20/25** |
+| **Entscheidungs‑Datum** | **01.09.2026** |
+| **Betroffene Rechtsnorm** | **Keine konkrete Norm im bereitgestellten Text ersichtlich** (Der Scrape enthält nur das Seiten‑Layout und Navigation des BGH‑Portals; die eigentliche Begründung bzw. die zitierte Rechtsvorschrift ist nicht enthalten.) |
+| **Kurzzusammenfassung** | 1. Der BGH hat am 01.09.2026 im Senat XIII (Zivilsachen) unter dem Aktenzeichen XIII ZB 20/25 eine Leitsatz‑Entscheidung veröffentlicht. <br>2. Die vorliegende Quelle liefert lediglich die strukturellen Elemente der BGH‑Webseite (Navigation, Menüpunkte, Metadaten), jedoch keinen Entscheidungstext, die Tatsachen‑ oder Rechtslage. <br>3. Für eine inhaltliche Bewertung der Entscheidung (z. B. Rechtsfolgen, betroffene Normen, Begründungsansätze) muss das eigentliche PDF/HTML‑Dokument der Entscheidung nachgeladen werden. |
 
-*Hinweis:* Die oben genannten Angaben basieren ausschließlich auf dem bereitgestellten HTML‑Schnipsel. Zur Vervollständigung der Datenbankeintragung ist das vollständige Urteil (z. B. als PDF‑Download) zu ergänzen.
+> **Hinweis für die Wissensdatenbank:**  
+> - Ergänzen Sie die Felder *Betroffene Rechtsnorm* und *Kurzzusammenfassung*, sobald der eigentliche Entscheidungs‑Text (PDF oder HTML) verfügbar ist.  
+> - Der Link zur Originalentscheidung lautet: <https://www.bundesgerichtshof.de/SharedDocs/Entscheidungen/DE/Zivilsenate/XIII_ZS/2025/XIII_ZB__20-25.html>.  
+
+*Erstellt am 14.09.2026.*  
