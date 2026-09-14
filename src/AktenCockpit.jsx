@@ -1848,7 +1848,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 <label style={{...labelStyle, color: theme.textMain, margin: 0}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
                 {bezugId && (
                   <span style={{ fontSize: '11px', background: '#0ea5e9', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                    ⭐ Bezug verknüpft
+                    ★ Bezug verknüpft
                   </span>
                 )}
               </div>
@@ -1860,7 +1860,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   const isSuggested = (h.id === bezugId);
                   return (
                     <option key={h.id} value={h.id}>
-                      {isSuggested ? '⭐ ' : ''}{formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
+                      {isSuggested ? '★ ' : ''}{formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
                     </option>
                   );
                 })}
@@ -1918,7 +1918,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
               
-              {/* NEUER WAR-ROOM BUTTON */}
+              {/* NEUER WAR-ROOM BUTTON (Rote Murmel entfernt) */}
               <button type="button" onClick={() => {
                 if (!briefEntwurf) {
                   showToast("Kein Text zum Analysieren vorhanden! Bitte lade zuerst einen Vorgang oder tippe Text ein.", "warning");
@@ -1937,7 +1937,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 });
                 setIsWarRoomOpen(true);
               }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Text zur forensischen Analyse in den War-Room schicken">
-                <Icon name="alert" size={16} /> 🔴 In War-Room senden
+                <Icon name="alert" size={16} /> In War-Room senden
               </button>
             </div>
           </div>
