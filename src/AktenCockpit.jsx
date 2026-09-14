@@ -51,6 +51,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [faxZhd, setFaxZhd] = useState('');
 
   const [showUploadReminder, setShowUploadReminder] = useState(false);
+  const [showTriageModal, setShowTriageModal] = useState(false);
+  const [triageWvDate, setTriageWvDate] = useState('');
+  
   const [showVersandHistorie, setShowVersandHistorie] = useState(false);
   const [expandedVersandId, setExpandedVersandId] = useState(null);
   const [zeigeErledigte, setZeigeErledigte] = useState(false); 
@@ -93,7 +96,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return clean;
   };
 
-  // Strikte Normalisierung für treffsicheren Behörden-/Firmenvergleich
   const cleanOrgName = (str) => {
     if (!str) return '';
     return str
@@ -332,17 +334,14 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     showToast("Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
-  // Intelligente Entstörung: Geräuschlos abgleichen, nur bei echter Neu-Erkennung prompten
   const checkGegnerDiff = (neuName, neuFax, neuEmail, neuAnsprechpartner, neuTelefon) => {
     if (!neuName) return false;
     
-    // 1. Exakte oder robuste Fuzzy-Übereinstimmung des Gegners
     let target = gegnerListe.find(g => normalizeName(g.name) === normalizeName(neuName));
     if (!target) {
       target = gegnerListe.find(g => fuzzyMatch(g.name, neuName));
     }
     
-    // 2. Gegner existiert bereits im CRM
     if (target) {
       let contacts = [];
       try {
@@ -354,7 +353,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       const cleanNeuAP = (neuAnsprechpartner || '').trim().toLowerCase();
 
-      // Prüfen, ob der Ansprechpartner im CRM schon existiert (Hauptkontakt oder notizen-Array)
       let matchedContact = null;
       if (cleanNeuAP) {
         if ((target.ansprechpartner || '').trim().toLowerCase().includes(cleanNeuAP) || cleanNeuAP.includes((target.ansprechpartner || '').trim().toLowerCase())) {
@@ -367,23 +365,20 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
       }
 
-      // Wenn AP bekannt ist: Vorhandene Daten lautlos im Formular nachziehen
       if (matchedContact) {
         if (!neuTelefon && matchedContact.telefon) setGegnerTelefon(formatRufnummer(matchedContact.telefon));
         if (!neuEmail && matchedContact.email) setGegnerEmail(matchedContact.email);
         if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
-        return false; // Absolut kein Prompt nötig!
+        return false; 
       }
 
-      // Wenn kein spezifischer AP genannt (z. B. "Zentrale") -> Lautlos Zentrale übernehmen
       if (!cleanNeuAP || cleanNeuAP === 'zentrale' || cleanNeuAP === 'poststelle') {
         if (!neuTelefon && target.telefon) setGegnerTelefon(formatRufnummer(target.telefon));
         if (!neuEmail && (target.email || target.email_zentrale)) setGegnerEmail(target.email || target.email_zentrale);
         if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
-        return false; // Kein Prompt
+        return false; 
       }
 
-      // Echter neuer Ansprechpartner bei bekannter Behörde
       setGegnerPrompt({
         typ: 'neuer_ap',
         targetId: target.id,
@@ -392,7 +387,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       });
       return true;
     } else {
-      // Komplett unbekannte Behörde / Gegner
       setGegnerPrompt({
         typ: 'neu',
         obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail }
@@ -401,14 +395,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
-  // Smart Context Matching: Findet den wahrscheinlichsten Vorläufer-Vorgang in einer Akte
   const findSmartBezug = (targetAkte, incomingObj) => {
     if (!targetAkte || !targetAkte.akten_historie || targetAkte.akten_historie.length === 0) return '';
 
     const newAP = (incomingObj.ansprechpartner || (incomingObj.empfaenger ? incomingObj.empfaenger.abteilung : '') || '').toLowerCase().trim();
     const newContext = `${incomingObj.thema || ''} ${incomingObj.betreff || ''} ${incomingObj.aktion || ''} ${incomingObj.brief_entwurf || ''}`.toLowerCase();
 
-    // Relevante Steuer-/Vorgangs-Schlagwörter
     const keywords = ['vollstreckung', 'erhebung', 'mahnung', 'bescheid', 'haftung', 'umsatzsteuer', 'ust', 'gewerbesteuer', 'gewst', 'gst', 'körperschaftsteuer', 'kst', 'lohnsteuer', 'stundung', 'aussetzung', 'insolvenz'];
 
     let bestId = '';
@@ -418,24 +410,20 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       let score = 0;
       const hText = `${h.aktion || ''} ${h.brief_entwurf || ''} ${h.typ || ''}`.toLowerCase();
 
-      // 1. Ansprechpartner-Match (+40)
       if (newAP && newAP.length > 2 && hText.includes(newAP)) {
         score += 40;
       }
 
-      // 2. Keyword-Übereinstimmungen (+15 pro Treffer)
       keywords.forEach(kw => {
         if (newContext.includes(kw) && hText.includes(kw)) {
           score += 15;
         }
       });
 
-      // 3. Offene Frist oder Wiedervorlage vorhanden (+25)
       if (h.frist_extern || h.wiedervorlage) {
         score += 25;
       }
 
-      // 4. Aktualitäts-Bonus für jüngere Vorgänge (bis zu +10)
       if (h.datum) {
         const diffDays = (new Date() - new Date(h.datum)) / (1000 * 60 * 60 * 24);
         if (diffDays >= 0 && diffDays < 30) score += 10;
@@ -509,13 +497,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setDatum(new Date().toISOString().split('T')[0]);
       setFaxZhd(fallbackGegnerAnsprechpartner);
 
-      // Falls das Eingangs-JSON einen PDF-Link aus der Pipeline mitbringt:
       if (obj.pdf_url) {
         setVersandPdfUrl(obj.pdf_url);
       }
 
       const promptNeeded = checkGegnerDiff(fallbackGegnerName, fallbackGegnerFax, fallbackGegnerEmail, fallbackGegnerAnsprechpartner, fallbackGegnerTelefon);
-      // BUGFIX: Wenn kein Prompt nötig ist, resette den State aktiv, um veraltete Meldungen ("Unbekannt") zu löschen
       if (!promptNeeded) {
         setGegnerPrompt(null);
       }
@@ -531,7 +517,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setModus('bestehend');
         setSelectedAkteId(matchedAkte.id);
 
-        // Intelligente Vorläufer-Erkennung (Smart Context Matching)
         const autoBezugId = findSmartBezug(matchedAkte, obj);
         if (autoBezugId) {
           setBezugId(autoBezugId);
@@ -545,7 +530,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
 
       if (fallbackUnsereFirma) {
-        // BUGFIX: Exakter Match statt Fuzzy-Match, damit "Jens Wilsdorf" nicht "Alexander und Jens Wilsdorf" matcht
         const existingMandant = mandanten.find(m => cleanOrgName(m.firmenname) === cleanOrgName(fallbackUnsereFirma));
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
         const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '');
@@ -607,12 +591,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         let gUpdates = {};
         
         if (actionType === 'hauptkontakt') {
-          // Hauptansprechpartner im CRM überschreiben
           gUpdates.ansprechpartner = gegnerPrompt.obj.ansprechpartner;
           if (gegnerPrompt.obj.telefon) gUpdates.telefon = gegnerPrompt.obj.telefon;
           if (gegnerPrompt.obj.email) gUpdates.email = gegnerPrompt.obj.email;
         } else {
-          // Als zusätzlichen Kontakt anhängen
           let currentContacts = [];
           try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e) {}
           if (!Array.isArray(currentContacts)) currentContacts = [];
@@ -649,7 +631,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
-  // Intelligente Verschiebung mit differenzierter Ermahnung für behördliche Fristen vs. interne Wiedervorlagen
   const handleTerminVerschieben = async (item, tagePlus) => {
     const basisDatumStr = item.aktivesDatum || item.wiedervorlage || item.frist_extern;
     const basis = basisDatumStr ? new Date(basisDatumStr) : new Date();
@@ -657,7 +638,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     neuDate.setDate(neuDate.getDate() + tagePlus);
     const neuIso = neuDate.toISOString().split('T')[0];
 
-    // Fall 1: Echte behördliche Frist
     if (!item.isWiedervorlage && (item.frist_extern || !item.wiedervorlage)) {
       const fristDatum = item.frist_extern ? new Date(item.frist_extern).toLocaleDateString('de-DE') : formatDatum(item.aktivesDatum);
       const text = `⚠️ ACHTUNG: Es handelt sich um eine behördliche Frist (Fälligkeit: ${fristDatum})!\n\n` +
@@ -671,7 +651,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       await handleInlineEdit(item.id, 'frist_extern', neuIso);
       showToast(`Behördliche Frist um +${tagePlus} Tage verschoben (${formatDatum(neuIso)})! Bitte rechtzeitig Schreiben senden.`, 'warning');
     } else {
-      // Fall 2: Interne Wiedervorlage / Erinnerung
       const wvDatum = item.wiedervorlage ? new Date(item.wiedervorlage).toLocaleDateString('de-DE') : formatDatum(item.aktivesDatum);
       const text = `Interne Wiedervorlage (Fällig: ${wvDatum}) um +${tagePlus} Tage auf den ${formatDatum(neuIso)} verschieben?`;
       if (!window.confirm(text)) {
@@ -814,12 +793,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     } catch (e) { console.error("Versandfehler:", e); showToast("Rückmeldung von Resend: " + e.message, 'error'); setLaedt(false); }
   };
 
+  const proceedToSaveOrTriage = () => {
+    setShowUploadReminder(false);
+    if (typ === 'Eingang') {
+      setShowTriageModal(true);
+    } else {
+      speichereEintragLogik();
+    }
+  };
+
   const handleSpeichernCheck = (e) => {
     e.preventDefault();
     if (dateien.length === 0 && emailAnhaenge.length === 0 && !versandPdfUrl) { 
       setShowUploadReminder(true); 
     } else { 
-      speichereEintragLogik(); 
+      proceedToSaveOrTriage(); 
     }
   };
 
@@ -890,6 +878,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const activeAktion = autoSaveOverrides && autoSaveOverrides.overrideAktion !== undefined ? autoSaveOverrides.overrideAktion : aktion;
     const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : kanal;
     const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
+    const activeWv = autoSaveOverrides && autoSaveOverrides.overrideWv !== undefined ? autoSaveOverrides.overrideWv : wiedervorlage;
 
     const { error: histError } = await supabase.from('akten_historie').insert([{ 
       akte_id: aktuelleAkteId, 
@@ -899,7 +888,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       aktion: activeAktion || null, 
       kanal: activeKanal || null, 
       frist_extern: fristExtern || null, 
-      wiedervorlage: wiedervorlage || null, 
+      wiedervorlage: activeWv || null, 
       dokument_url: dokumentUrl, 
       brief_entwurf: briefEntwurf || null,
       bezug_id: bezugId || null 
@@ -910,8 +899,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
          await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('id', bezugId);
       }
 
-      // Dossier für den MegaLegal War-Room vorbereiten, falls es ein Eingang war
-      if (activeTyp === 'Eingang') {
+      const preventWarRoom = autoSaveOverrides && autoSaveOverrides.preventWarRoom;
+      
+      if (activeTyp === 'Eingang' && !preventWarRoom) {
         setActiveWarRoomDossier({
           aktenzeichen: aktenzeichen,
           kontakt: gegnerName,
@@ -1146,13 +1136,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const activeAkteObj = modus === 'bestehend' && selectedAkteId ? akten.find(a => a.id === selectedAkteId) : null;
 
-  // --- HILFS-REF FÜR DEN REALTIME-LISTENER ---
   const handleJsonImportRef = useRef(handleJsonImport);
   useEffect(() => {
     handleJsonImportRef.current = handleJsonImport;
   }, [handleJsonImport]);
 
-  // --- SUPABASE REALTIME QUEUE LISTENER (AUTO-IMPORT) ---
   useEffect(() => {
     if (!session?.user?.id) return;
 
@@ -1172,14 +1160,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           if (newRecord && newRecord.payload) {
             const jsonString = JSON.stringify(newRecord.payload);
             
-            // Aufruf über die Referenz verhindert Stale-State Bugs
             if (handleJsonImportRef.current) {
               handleJsonImportRef.current({ target: { value: jsonString } });
             }
             
             showToast("🚀 Auto-Import empfangen und eingefügt!", "success");
 
-            // Den verarbeiteten Eintrag restlos aus der DB-Queue löschen
             await supabase.from('import_queue').delete().eq('id', newRecord.id);
           }
         }
@@ -1194,7 +1180,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* RESPONSIVE CSS RULES FÜR ALARME, VERSANDHISTORIE, AKTEN-ÜBERSICHT & HISTORIEN-VORGÄNGE */}
       <style>{`
         /* HELPER KLASSEN FÜR STRIKTE TRENNUNG */
         .desktop-only {
@@ -1219,7 +1204,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           position: relative;
         }
 
-        /* HISTORIEN TYP DROPDOWN (BUGFIX) */
+        /* HISTORIEN TYP DROPDOWN */
         .hist-typ-select {
           background: transparent;
           color: ${theme.accent};
@@ -1322,7 +1307,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           display: table-cell;
         }
 
-        /* MOBILER CARD-MODUS (<= 768px) */
+        /* MOBILER CARD-MODUS */
         @media (max-width: 768px) {
           .desktop-only {
             display: none !important;
@@ -1331,7 +1316,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             display: flex !important;
           }
 
-          /* ALARM-HEADER & BUTTON-GRUPPE MOBIL */
           .alarm-card-header {
             flex-direction: column !important;
             align-items: stretch !important;
@@ -1349,7 +1333,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             padding: 8px 10px !important;
           }
 
-          /* VERSANDHISTORIE MOBIL */
           .vh-desktop-header {
             display: none !important;
           }
@@ -1371,7 +1354,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             width: 100% !important;
           }
 
-          /* AKTEN-ÜBERSICHT MOBIL */
           .akten-desktop-header {
             display: none !important;
           }
@@ -1411,7 +1393,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             min-height: 40px !important;
           }
 
-          /* HISTORIEN-VORGÄNGE MOBIL */
           .hist-desktop-table {
             min-width: 100% !important;
             display: block !important;
@@ -1457,6 +1438,47 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
       `}</style>
 
+      {/* --- TRIAGE MODAL WEICHE --- */}
+      {showTriageModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h3 style={{ margin: 0, color: theme.textMain, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Icon name="folder" size={24} /> Posteingang abheften
+            </h3>
+            <p style={{ color: theme.textMuted, fontSize: '14px', margin: 0 }}>
+              Wie möchtest du mit diesem Eingangsdokument weiter verfahren?
+            </p>
+
+            {/* Option 1: Sofort antworten */}
+            <button onClick={() => { setShowTriageModal(false); speichereEintragLogik(); }} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>1. Sofort antworten (War-Room)</span> <Icon name="right" size={16} />
+            </button>
+
+            {/* Option 2: Später antworten (Wiedervorlage) */}
+            <div style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+               <strong style={{ color: theme.textMain, fontSize: '14px' }}>2. Später antworten (Wiedervorlage)</strong>
+               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input type="date" value={triageWvDate} onChange={e => setTriageWvDate(e.target.value)} style={{...inputStyle, flex: '1 1 auto', padding: '8px'}} />
+                  <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + 3); setTriageWvDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+3T</button>
+                  <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + 7); setTriageWvDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+1W</button>
+               </div>
+               <button onClick={() => { setShowTriageModal(false); speichereEintragLogik({ overrideAktion: 'Wiedervorlage zur Beantwortung', overrideWv: triageWvDate, preventWarRoom: true }); }} style={{ background: theme.border, color: theme.textMain, border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                 Speichern & Wiedervorlage setzen
+               </button>
+            </div>
+
+            {/* Option 3: Nur ablegen */}
+            <button onClick={() => { setShowTriageModal(false); speichereEintragLogik({ overrideAktion: aktion || 'Kenntnisnahme / Abgelegt', preventWarRoom: true }); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
+              3. Nur ablegen (Info/Kenntnisnahme)
+            </button>
+
+            <button onClick={() => setShowTriageModal(false)} style={{ background: 'transparent', color: theme.textMuted, border: 'none', padding: '10px', cursor: 'pointer', fontSize: '13px', marginTop: '10px' }}>
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
       {showUploadReminder && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.warningBorder}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
@@ -1468,7 +1490,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             </p>
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => setShowUploadReminder(false)} style={{ padding: '12px 18px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Abbrechen & Dateien auswählen</button>
-              <button onClick={speichereEintragLogik} style={{ padding: '12px 18px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Trotzdem ohne Dateien speichern</button>
+              <button onClick={proceedToSaveOrTriage} style={{ padding: '12px 18px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Trotzdem ohne Dateien speichern</button>
             </div>
           </div>
         </div>
@@ -1703,7 +1725,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       <form onSubmit={handleSpeichernCheck} style={panelStyle}>
         
-        {/* Intelligenter Gegner-Prompt (nur bei wirklich neuem AP oder unbekannter Behörde) */}
         {gegnerPrompt && (
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
