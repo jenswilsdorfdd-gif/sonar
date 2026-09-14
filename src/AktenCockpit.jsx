@@ -135,25 +135,35 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   useEffect(() => {
     if (modus === 'neu' && unsereFirma && gegnerName) {
-      const mPrefix = generatePrefix(unsereFirma);
-      const gPrefix = gegnerName.trim().toLowerCase();
-      const baseZeichen = `${mPrefix}-${gPrefix}-`;
+      const mPrefix = generatePrefix(unsereFirma).toUpperCase();
+      let gPrefix = gegnerName.trim().split(' ')[0].replace(/[^a-zA-ZäöüÄÖÜß0-9]/g, '');
+      if (!gPrefix) gPrefix = 'Gegner';
 
       let maxGlobalNum = 0;
       akten.forEach(a => {
         if (a.unser_zeichen) {
-          const match = a.unser_zeichen.match(/-(\d{4})$/);
-          if (match) {
-            const num = parseInt(match[1], 10);
+          // Prüfe neues Format (Zahl vorne, z.B. 0001-SBS-Finanzamt)
+          const matchNew = a.unser_zeichen.match(/^(\d+)-/);
+          if (matchNew) {
+            const num = parseInt(matchNew[1], 10);
             if (!isNaN(num) && num > maxGlobalNum) {
               maxGlobalNum = num;
+            }
+          } else {
+            // Prüfe altes Format (Zahl hinten, z.B. sbs-finanzamt-0001)
+            const matchOld = a.unser_zeichen.match(/-(\d+)$/);
+            if (matchOld) {
+              const num = parseInt(matchOld[1], 10);
+              if (!isNaN(num) && num > maxGlobalNum) {
+                maxGlobalNum = num;
+              }
             }
           }
         }
       });
 
       const nextNum = String(maxGlobalNum + 1).padStart(4, '0');
-      const newZeichen = `${baseZeichen}${nextNum}`;
+      const newZeichen = `${nextNum}-${mPrefix}-${gPrefix}`;
       
       setUnserZeichen(prev => {
         if (!prev || prev === autoGenRef.current) {
@@ -1044,6 +1054,16 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
+  const parseAktenNummer = (zeichen) => {
+    if (!zeichen) return null;
+    const strZ = String(zeichen);
+    const matchNew = strZ.match(/^(\d+)-/);
+    if (matchNew) return parseInt(matchNew[1], 10);
+    const matchOld = strZ.match(/-(\d+)$/);
+    if (matchOld) return parseInt(matchOld[1], 10);
+    return null;
+  };
+
   const gefilterteAkten = akten.filter((akte) => {
     if (!zeigeErledigte && akte.status === 'Erledigt') return false; 
     if (!suchbegriff.trim()) return true;
@@ -1057,21 +1077,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const histMatch = akte.akten_historie?.some(h => (h.aktion || '').toLowerCase().includes(s) || (h.brief_entwurf || '').toLowerCase().includes(s));
     return uZ.includes(s) || gName.includes(s) || gAns.includes(s) || az.includes(s) || uFirma.includes(s) || th.includes(s) || histMatch;
   }).sort((a, b) => {
-    const parseAktenNummer = (zeichen) => {
-      if (!zeichen) return null;
-      const match = String(zeichen).match(/-(\d+)$/);
-      if (match) {
-        const parsed = parseInt(match[1], 10);
-        return isNaN(parsed) ? null : parsed;
-      }
-      return null;
-    };
-
     const numA = parseAktenNummer(a.unser_zeichen);
     const numB = parseAktenNummer(b.unser_zeichen);
 
     if (numA !== null && numB !== null) {
-      if (numA !== numB) return numA - numB;
+      if (numA !== numB) return numB - numA;
       return (a.unser_zeichen || '').localeCompare(b.unser_zeichen || '', 'de', { numeric: true, sensitivity: 'base' });
     }
     if (numA !== null && numB === null) return -1;
@@ -1081,21 +1091,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   });
 
   const sortedAktenForDropdown = [...akten].sort((a, b) => {
-    const parseAktenNummer = (zeichen) => {
-      if (!zeichen) return null;
-      const match = String(zeichen).match(/-(\d+)$/);
-      if (match) {
-        const parsed = parseInt(match[1], 10);
-        return isNaN(parsed) ? null : parsed;
-      }
-      return null;
-    };
-
     const numA = parseAktenNummer(a.unser_zeichen);
     const numB = parseAktenNummer(b.unser_zeichen);
 
     if (numA !== null && numB !== null) {
-      if (numA !== numB) return numA - numB;
+      if (numA !== numB) return numB - numA;
       return (a.unser_zeichen || '').localeCompare(b.unser_zeichen || '', 'de', { numeric: true, sensitivity: 'base' });
     }
     if (numA !== null && numB === null) return -1;
@@ -1449,12 +1449,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               Wie möchtest du mit diesem Eingangsdokument weiter verfahren?
             </p>
 
-            {/* Option 1: Sofort antworten */}
             <button onClick={() => { setShowTriageModal(false); speichereEintragLogik(); }} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>1. Sofort antworten (War-Room)</span> <Icon name="right" size={16} />
             </button>
 
-            {/* Option 2: Später antworten (Wiedervorlage) */}
             <div style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                <strong style={{ color: theme.textMain, fontSize: '14px' }}>2. Später antworten (Wiedervorlage)</strong>
                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -1467,7 +1465,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                </button>
             </div>
 
-            {/* Option 3: Nur ablegen */}
             <button onClick={() => { setShowTriageModal(false); speichereEintragLogik({ overrideAktion: aktion || 'Kenntnisnahme / Abgelegt', preventWarRoom: true }); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
               3. Nur ablegen (Info/Kenntnisnahme)
             </button>
@@ -1656,7 +1653,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px', width: '100%' }}>
         <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.accent}`, transition: 'border-color 0.3s ease' }}>
           <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}><Icon name="folder" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)</label>
-          <textarea id="magic-import" value={jsonImport} onChange={handleJsonImport} placeholder='{"typ": "Eingang", "unser_zeichen": "sbs-fiamt-0001", "thema": "..."}' style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} />
+          <textarea id="magic-import" value={jsonImport} onChange={handleJsonImport} placeholder='{"typ": "Eingang", "unser_zeichen": "0001-SBS-Finanzamt", "thema": "..."}' style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} />
         </div>
 
         <div style={{ ...panelStyle, margin: 0, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
@@ -1791,7 +1788,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
                 </div>
               </div>
-              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. jw-fiamt-0012" style={inputStyle} /></div>
+              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} /></div>
               <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
               <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
 
