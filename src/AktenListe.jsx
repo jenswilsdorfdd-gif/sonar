@@ -63,8 +63,7 @@ export default function AktenListe({
               <div>Aktenzeichen</div>
             </div>
           </div>
-          {/* Spalte verbreitert auf 140px, um Platz für Dropdown + Icon zu schaffen */}
-          <div style={{ width: '140px', textAlign: 'right' }}>Status</div>
+          <div style={{ width: '80px', textAlign: 'right' }}>Status</div>
         </div>
 
         {/* AKTEN EINTRÄGE */}
@@ -93,8 +92,7 @@ export default function AktenListe({
                         [{akte.unser_zeichen || '---'}]
                       </strong>
                     </div>
-                    {/* Breite auf 140px synchronisiert, Flexbox für Dropdown + Schloss */}
-                    <div style={{ width: '140px', textAlign: 'right', display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ width: '85px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                       <select 
                         value={akte.status || 'Offen'} 
                         onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
@@ -103,13 +101,6 @@ export default function AktenListe({
                         <option value="Offen">Offen</option>
                         <option value="Erledigt">Erledigt</option>
                       </select>
-                      <button 
-                        onClick={() => handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked)} 
-                        style={{ background: 'transparent', border: 'none', color: akte.is_locked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title={akte.is_locked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)'}
-                      >
-                        <Icon name={akte.is_locked ? "lock" : "unlock"} size={16} />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -177,23 +168,15 @@ export default function AktenListe({
                 </div>
 
                 {/* 4. DESKTOP STATUS BUTTON (RECHTE SPALTE) */}
-                {/* Breite auf 140px synchronisiert, Flexbox für Dropdown + Schloss */}
-                <div className="desktop-only" style={{ width: '140px', textAlign: 'right', display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+                <div className="desktop-only" style={{ width: '80px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                   <select 
                     value={akte.status || 'Offen'} 
                     onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                    style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', flex: '1 1 auto', textAlign: 'center' }}
+                    style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
                   >
                     <option value="Offen">Offen</option>
                     <option value="Erledigt">Erledigt</option>
                   </select>
-                  <button 
-                    onClick={() => handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked)} 
-                    style={{ background: 'transparent', border: 'none', color: akte.is_locked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    title={akte.is_locked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)'}
-                  >
-                    <Icon name={akte.is_locked ? "lock" : "unlock"} size={18} />
-                  </button>
                 </div>
 
               </div>
