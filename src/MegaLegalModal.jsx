@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
 
+// --- PDF.js Import für die clientseitige Extraktion im Modal ---
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
 export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchriftsatz }) {
   const [messages, setMessages] = useState([]);
   const [inputPrompt, setInputPrompt] = useState("");
@@ -16,6 +20,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       const mandantFirma = dossier.unsere_firma || "Jens Wilsdorf";
       const mandantAP = dossier.unser_ansprechpartner || "Jens Wilsdorf";
 
+      // BUGFIX: Zuerst raw_text prüfen! Wenn der da ist, nehmen wir den. Sonst Fallback auf brief_entwurf.
+      const bestAvailableText = (dossier.raw_text && dossier.raw_text.trim() !== "") 
+        ? dossier.raw_text 
+        : (dossier.brief_entwurf || "Kein Volltext vorhanden.");
+
       const initialUserPrompt = `Hier ist das neu eingegangene Dokumentendossier zur sofortigen forensischen Tiefenprüfung:
 
 Behörde / Absender: ${dossier.kontakt || "Unbekannt"}
@@ -24,7 +33,7 @@ Frist: ${dossier.frist_extern || "Keine Frist erkannt"}
 Betreff / Thema: ${dossier.thema || "Ohne Betreff"}
 
 DOKUMENTENTEXT:
-${dossier.brief_entwurf || dossier.raw_text || "Kein Volltext vorhanden."}
+${bestAvailableText}
 
 WICHTIGE KONTEXT-DATEN FÜR DEINEN FINALEN SCHRIFTSATZ:
 - Heutiges Datum (für den Briefkopf): ${today}
@@ -131,6 +140,51 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     callMegaLegal(updatedHistory);
   };
 
+  // --- NEU: Datei-Upload im War-Room ---
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    setErrorMsg(null);
+    let extractedText = "";
+
+    try {
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          extractedText += textContent.items.map(item => item.str).join(' ') + "\n";
+        }
+      } else if (file.name.toLowerCase().endsWith('.md') || file.name.toLowerCase().endsWith('.txt')) {
+        extractedText = await file.text();
+      } else {
+        throw new Error("Bitte nur PDF, MD oder TXT Dateien hochladen.");
+      }
+
+      if (!extractedText || extractedText.trim() === "") {
+        throw new Error("Die Datei scheint leer zu sein oder konnte nicht gelesen werden.");
+      }
+
+      const prompt = `Hier ist der nachgereichte Volltext aus der Datei "${file.name}":\n\n${extractedText}\n\nBitte beziehe diese Informationen sofort in deine laufende Analyse ein und passe deine Strategie/Antwort entsprechend an.`;
+      
+      const updatedHistory = [...messages, { role: "user", content: prompt }];
+      setMessages(updatedHistory);
+      callMegaLegal(updatedHistory);
+
+    } catch (err) {
+      console.error("Upload Error:", err);
+      setErrorMsg(err.message || "Fehler beim Auslesen der Datei.");
+      setIsLoading(false);
+    }
+    
+    // Input zurücksetzen, damit gleiche Datei nochmal gewählt werden kann
+    e.target.value = ""; 
+  };
+  // ------------------------------------
+
   const handleDraftDocument = () => {
     const draftPrompt = `Die forensische Analyse ist abgeschlossen. Verfasse jetzt bitte den finalen, versandfertigen Schriftsatz an die Behörde. Formuliere ihn juristisch präzise. 
 
@@ -180,7 +234,6 @@ STRIKTE REGELN FÜR DEN TEXT:
   const bgFooter = isDark ? "bg-slate-950/80" : "bg-slate-100";
   const borderFooter = isDark ? "border-slate-800" : "border-slate-300";
   
-  // VERBESSERTER KONTRAST FÜR EINGABEFELD UND BUTTONS IM DUNKELMODUS
   const inputBg = isDark ? "bg-slate-700 border-slate-500 text-white placeholder-slate-300" : "bg-white border-slate-400 text-black placeholder-slate-600 font-bold";
   const closeBtnStyle = isDark ? "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 font-bold" : "text-black font-bold border-slate-400 hover:bg-slate-200";
 
@@ -216,7 +269,7 @@ STRIKTE REGELN FÜR DEN TEXT:
           </button>
         </div>
 
-        {/* Chat / Audit Verlauf -> STRIKT TEXT-LEFT! */}
+        {/* Chat / Audit Verlauf */}
         <div className={`flex-1 overflow-y-auto p-6 space-y-6 text-sm font-sans ${bgChatArea}`}>
           {messages.map((m, idx) => {
             const isUser = m.role === "user";
@@ -250,19 +303,35 @@ STRIKTE REGELN FÜR DEN TEXT:
         {/* Footer & Actions */}
         <div className={`p-4 border-t ${borderFooter} ${bgFooter} space-y-3`}>
           
-          <form onSubmit={handleSendMessage} className="flex gap-2">
+          <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
+            
+            {/* NEU: Dateiupload-Button direkt neben dem Input */}
+            <label 
+              className={`flex items-center justify-center h-[46px] w-[46px] rounded-xl cursor-pointer transition flex-shrink-0 ${isDark ? 'bg-slate-700 hover:bg-slate-600 border border-slate-500' : 'bg-white hover:bg-slate-200 border border-slate-400'}`}
+              title="Fehlendes Dokument (PDF/MD) in den War-Room hochladen"
+            >
+              <span className="text-xl">📎</span>
+              <input 
+                type="file" 
+                accept=".pdf,.md,.txt" 
+                className="hidden" 
+                onChange={handleFileUpload} 
+                disabled={isLoading}
+              />
+            </label>
+
             <input
               type="text"
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
               placeholder="Instruktion an die Experten (z.B. 'Schärfer rügen', 'Fristverlängerung fordern')..."
               disabled={isLoading}
-              className={`flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition disabled:opacity-50 ${inputBg}`}
+              className={`flex-1 rounded-xl px-4 h-[46px] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition disabled:opacity-50 ${inputBg}`}
             />
             <button
               type="submit"
               disabled={isLoading || !inputPrompt.trim()}
-              className="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-xl text-sm transition disabled:opacity-50"
+              className="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-6 h-[46px] rounded-xl text-sm transition disabled:opacity-50 flex-shrink-0"
             >
               Senden
             </button>
