@@ -36,6 +36,11 @@ export default function AktenListe({
 }) {
   return (
     <>
+      {/* CSS FÜR HOVER-KARTEN IN DER LISTE */}
+      <style>{`
+        .tooltip-container:hover .tooltip-content { display: block !important; }
+      `}</style>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '40px', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
           <Icon name="folder" size={24} /> Akten-Übersicht
@@ -167,19 +172,30 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.unser_zeichen || '')) handleAkteStammdatenEdit(akte.id, 'unser_zeichen', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Unser Zeichen" 
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.accent, fontSize: '14px', fontWeight: 'bold' }} 
+                        disabled={akte.is_locked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.accent, fontSize: '14px', fontWeight: 'bold', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
                       />
                     </div>
 
-                    <div className="akten-field-box">
+                    {/* GEGNER FELD + HOVER TOOLTIP */}
+                    <div className={`akten-field-box ${akte.is_locked ? "tooltip-container" : ""}`} style={{ position: 'relative' }}>
                       <input 
                         type="text" 
                         defaultValue={akte.gegner_name || ''} 
                         onBlur={(e) => { if (e.target.value !== (akte.gegner_name || '')) handleAkteStammdatenEdit(akte.id, 'gegner_name', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegner" 
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '15px', fontWeight: 'bold' }} 
+                        disabled={akte.is_locked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '15px', fontWeight: 'bold', cursor: akte.is_locked ? 'help' : 'text' }} 
                       />
+                      {akte.is_locked && (
+                        <div className="tooltip-content" style={{ display: 'none', position: 'absolute', top: '100%', left: 0, background: theme.cardBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', zIndex: 9999, width: '280px', boxShadow: '0 5px 15px rgba(0,0,0,0.5)', fontSize: '13px', color: theme.textMain, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                          <strong style={{ display: 'block', marginBottom: '10px', color: theme.accent, fontSize: '14px' }}>{akte.gegner_name || 'Unbekannt'}</strong>
+                          <div style={{ marginBottom: '6px' }}>👤 {akte.gegner_ansprechpartner || '-'}</div>
+                          <div style={{ marginBottom: '6px' }}>📞 {akte.gegner_telefon || '-'}</div>
+                          <div>✉️ {akte.gegner_email || '-'}</div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="akten-field-box">
@@ -189,7 +205,8 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.thema || '')) handleAkteStammdatenEdit(akte.id, 'thema', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegenstand" 
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '14px' }} 
+                        disabled={akte.is_locked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '14px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
                       />
                     </div>
 
@@ -200,7 +217,8 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.gegner_ansprechpartner || '')) handleAkteStammdatenEdit(akte.id, 'gegner_ansprechpartner', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Ansprechpartner" 
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px' }} 
+                        disabled={akte.is_locked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
                       />
                     </div>
 
@@ -211,7 +229,8 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.aktenzeichen || '')) handleAkteStammdatenEdit(akte.id, 'aktenzeichen', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Aktenzeichen" 
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px' }} 
+                        disabled={akte.is_locked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
                       />
                     </div>
 
