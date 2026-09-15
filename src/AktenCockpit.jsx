@@ -43,7 +43,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [dateien, setDateien] = useState([]);
   const [briefEntwurf, setBriefEntwurf] = useState('');
-  const [rawText, setRawText] = useState(''); // NEW: Rettet den originalen OCR-Text
+  const [rawText, setRawText] = useState(''); // Rettet den originalen OCR-Text
   const [emailAnhaenge, setEmailAnhaenge] = useState([]); 
   const [versandPdfUrl, setVersandPdfUrl] = useState('');
   const [tresorPrompt, setTresorPrompt] = useState(null); 
@@ -492,7 +492,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const fallbackGegnerEmail = obj.gegner_email || obj.versand_e_mail_gegner || (obj.empfaenger ? obj.empfaenger.email : '') || '';
       const fallbackFristExtern = obj.frist_extern || '';
       const fallbackBriefEntwurf = obj.brief_entwurf || obj.textentwurf || obj.nachricht || '';
-      const fallbackRawText = obj.raw_text || ''; // Rettet den Originaltext!
+      const fallbackRawText = obj.raw_text || ''; 
       const fallbackAktion = obj.aktion || obj.status || '';
       const fallbackKanal = obj.kanal || obj.versandweg || 'Post / Fax / E-Mail';
       const fallbackTyp = obj.typ || obj.dokumententyp || 'Eingang';
@@ -1153,9 +1153,44 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     handleJsonImportRef.current = handleJsonImport;
   }, [handleJsonImport]);
 
+  // --- PHASE 1: WEB-SOCKET & LIFECYCLE RECONNECT ---
   useEffect(() => {
     if (!session?.user?.id) return;
 
+    // Funktion, die verpasste Scans aktiv aus der Datenbank zieht
+    const fetchMissedImports = async () => {
+      const { data, error } = await supabase
+        .from('import_queue')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        for (const record of data) {
+          if (record.payload) {
+            const jsonString = JSON.stringify(record.payload);
+            if (handleJsonImportRef.current) {
+              handleJsonImportRef.current({ target: { value: jsonString } });
+            }
+            showToast("🚀 Verpassten Auto-Import nachgeladen!", "success");
+            await supabase.from('import_queue').delete().eq('id', record.id);
+          }
+        }
+      }
+    };
+
+    // 1. Initialer Check beim Komponenten-Start
+    fetchMissedImports();
+
+    // 2. Visibility Listener (Wenn du in den Tab zurückkehrst)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMissedImports();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // 3. Normaler Echtzeit-Kanal (läuft weiter, solange Tab aktiv)
     const channelName = `import_queue_${session.user.id}`;
     const queueSubscription = supabase
       .channel(channelName)
@@ -1177,7 +1212,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             }
             
             showToast("🚀 Auto-Import empfangen und eingefügt!", "success");
-
             await supabase.from('import_queue').delete().eq('id', newRecord.id);
           }
         }
@@ -1185,6 +1219,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       .subscribe();
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(queueSubscription);
     };
   }, [session?.user?.id]); 
