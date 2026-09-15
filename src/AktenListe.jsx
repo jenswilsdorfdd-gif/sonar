@@ -51,19 +51,19 @@ export default function AktenListe({
       {/* AKTEN-ÜBERSICHT WRAPPER */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
         
-        {/* DESKTOP HEADER */}
-        <div className="akten-desktop-header" style={{ background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted }}>
-          <div style={{ width: '30px' }}></div>
-          <div style={{ flex: '1 1 100%' }}>
-            <div className="akten-desktop-grid">
-              <div>Unser Zeichen</div>
-              <div>Gegner</div>
-              <div>Gegenstand</div>
-              <div>Ansprechpartner</div>
-              <div>Aktenzeichen</div>
+        {/* DESKTOP HEADER - Optik pixelperfekt gespiegelt zum Inhalt */}
+        <div className="akten-desktop-header" style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted, width: '100%', boxSizing: 'border-box' }}>
+          <div className="desktop-only" style={{ width: '30px' }}></div>
+          <div style={{ flex: '1 1 100%', width: '100%', boxSizing: 'border-box' }}>
+            <div className="akten-desktop-grid" style={{ alignItems: 'center' }}>
+              <div className="akten-field-box desktop-only" style={{ padding: '2px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unser Zeichen</div>
+              <div className="akten-field-box" style={{ padding: '2px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Gegner</div>
+              <div className="akten-field-box" style={{ padding: '2px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Gegenstand</div>
+              <div className="akten-field-box" style={{ padding: '2px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ansprechpartner</div>
+              <div className="akten-field-box" style={{ padding: '2px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Aktenzeichen</div>
             </div>
           </div>
-          <div style={{ width: '80px', textAlign: 'right' }}>Status</div>
+          <div className="desktop-only" style={{ width: '80px', textAlign: 'right', padding: '2px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
         </div>
 
         {/* AKTEN EINTRÄGE */}
@@ -74,7 +74,7 @@ export default function AktenListe({
           return (
             <div id={`akte-karte-${akte.id}`} key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istFokussiert ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent', borderLeft: istFokussiert ? `6px solid ${theme.accent}` : '6px solid transparent', transition: 'all 0.3s ease', width: '100%', boxSizing: 'border-box' }}>
               
-              <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)}>
+              <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)} style={{ display: 'flex', alignItems: 'center' }}>
                 
                 {/* 1. DESKTOP CHEVRON */}
                 <div className="desktop-only" style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}>
@@ -107,7 +107,7 @@ export default function AktenListe({
                 
                 {/* 3. FELDER CONTAINER */}
                 <div style={{ flex: '1 1 100%', width: '100%', boxSizing: 'border-box' }}>
-                  <div className="akten-desktop-grid">
+                  <div className="akten-desktop-grid" style={{ alignItems: 'center' }}>
                     
                     <div className="akten-field-box desktop-only">
                       <input 
@@ -116,7 +116,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.unser_zeichen || '')) handleAkteStammdatenEdit(akte.id, 'unser_zeichen', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Unser Zeichen" 
-                        style={{ ...inlineInputStyle, color: theme.accent, fontSize: '14px', fontWeight: 'bold', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, border: 'none', background: 'transparent', outline: 'none', color: theme.accent, fontSize: '14px', fontWeight: 'bold', padding: '2px' }} 
                       />
                     </div>
 
@@ -127,7 +127,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.gegner_name || '')) handleAkteStammdatenEdit(akte.id, 'gegner_name', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegner" 
-                        style={{ ...inlineInputStyle, color: theme.textMain, fontSize: '15px', fontWeight: 'bold', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '15px', fontWeight: 'bold', padding: '2px' }} 
                       />
                     </div>
 
@@ -138,7 +138,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.thema || '')) handleAkteStammdatenEdit(akte.id, 'thema', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegenstand" 
-                        style={{ ...inlineInputStyle, color: theme.textMain, fontSize: '14px', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '14px', padding: '2px' }} 
                       />
                     </div>
 
@@ -149,7 +149,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.gegner_ansprechpartner || '')) handleAkteStammdatenEdit(akte.id, 'gegner_ansprechpartner', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Ansprechpartner" 
-                        style={{ ...inlineInputStyle, color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
                       />
                     </div>
 
@@ -160,7 +160,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.aktenzeichen || '')) handleAkteStammdatenEdit(akte.id, 'aktenzeichen', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Aktenzeichen" 
-                        style={{ ...inlineInputStyle, color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
                       />
                     </div>
 
