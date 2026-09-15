@@ -43,6 +43,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [dateien, setDateien] = useState([]);
   const [briefEntwurf, setBriefEntwurf] = useState('');
+  const [rawText, setRawText] = useState(''); // NEW: Rettet den originalen OCR-Text
   const [emailAnhaenge, setEmailAnhaenge] = useState([]); 
   const [versandPdfUrl, setVersandPdfUrl] = useState('');
   const [tresorPrompt, setTresorPrompt] = useState(null); 
@@ -491,6 +492,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const fallbackGegnerEmail = obj.gegner_email || obj.versand_e_mail_gegner || (obj.empfaenger ? obj.empfaenger.email : '') || '';
       const fallbackFristExtern = obj.frist_extern || '';
       const fallbackBriefEntwurf = obj.brief_entwurf || obj.textentwurf || obj.nachricht || '';
+      const fallbackRawText = obj.raw_text || ''; // Rettet den Originaltext!
       const fallbackAktion = obj.aktion || obj.status || '';
       const fallbackKanal = obj.kanal || obj.versandweg || 'Post / Fax / E-Mail';
       const fallbackTyp = obj.typ || obj.dokumententyp || 'Eingang';
@@ -500,7 +502,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setAktenzeichen(fallbackAktenzeichen); setThema(fallbackThema); 
       setGegnerName(fallbackGegnerName); setGegnerAnsprechpartner(fallbackGegnerAnsprechpartner); 
       setGegnerTelefon(formatRufnummer(fallbackGegnerTelefon)); setGegnerFax(formatRufnummer(fallbackGegnerFax)); setGegnerEmail(fallbackGegnerEmail); 
-      handleFristChange(fallbackFristExtern); setBriefEntwurf(fallbackBriefEntwurf); setAktion(fallbackAktion); 
+      handleFristChange(fallbackFristExtern); setBriefEntwurf(fallbackBriefEntwurf); setRawText(fallbackRawText); setAktion(fallbackAktion); 
       setKanal(fallbackKanal); setTyp(fallbackTyp);
       setDatum(new Date().toISOString().split('T')[0]);
       setFaxZhd(fallbackGegnerAnsprechpartner);
@@ -866,8 +868,17 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
       await syncToGithub(ausgangName, `Versendetes Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, activeVersandPdfUrl, null, showToast);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      const entwurfName = `Entwurf_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
-      await syncToGithub(entwurfName, `Text-Entwurf\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nDokumententext:\n${briefEntwurf}`, null, null, showToast);
+      // --- VOLLTEXT RETTUNG FÜR GITHUB ---
+      const prefix = typ === 'Eingang' ? 'Eingang' : (typ === 'Ausgang' ? 'Ausgang' : 'Entwurf');
+      const fileName = `${prefix}_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
+      
+      let fileContent = `${prefix}-Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nZusammenfassung / Text:\n${briefEntwurf}`;
+      
+      if (rawText) {
+         fileContent += `\n\n--- ORIGINAL VOLLTEXT (OCR) ---\n${rawText}`;
+      }
+      
+      await syncToGithub(fileName, fileContent, null, null, showToast);
     }
 
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
@@ -919,7 +930,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           thema: thema,
           frist_extern: fristExtern,
           brief_entwurf: briefEntwurf,
-          raw_text: briefEntwurf
+          raw_text: rawText || briefEntwurf // Nutzt den Volltext für Claude!
         });
         setIsWarRoomOpen(true);
       }
@@ -927,7 +938,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setUnserZeichen(''); setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
-      setBriefEntwurf(''); setJsonImport(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); 
+      setBriefEntwurf(''); setJsonImport(''); setRawText(''); setTresorPrompt(null); setGegnerPrompt(null); setFaxZhd(''); 
       setBezugId(''); 
       setClearOldFristen(true);
       setVersandPdfUrl(null); 
@@ -1918,7 +1929,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
               
-              {/* NEUER WAR-ROOM BUTTON (Rote Murmel entfernt, Text-Zwang entfernt) */}
               <button type="button" onClick={() => {
                 setActiveWarRoomDossier({
                   akte_id: selectedAkteId,
@@ -1929,7 +1939,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   thema: thema,
                   frist_extern: fristExtern,
                   brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
-                  raw_text: briefEntwurf || "Kein Volltext hinterlegt."
+                  raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." // Übergibt gesicherten Volltext an Claude!
                 });
                 setIsWarRoomOpen(true);
               }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur forensischen Analyse in den War-Room schicken">
