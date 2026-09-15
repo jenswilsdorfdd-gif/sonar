@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, normalizeName, cleanVal } from './utils';
 import MegaLegalModal from './MegaLegalModal';
+import AktenAlarme from './AktenAlarme'; // <-- NEU: Unser erster isolierter Baustein
 
 // --- PDF.js Import für die clientseitige Extraktion ---
 import * as pdfjsLib from 'pdfjs-dist';
@@ -43,7 +44,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [dateien, setDateien] = useState([]);
   const [briefEntwurf, setBriefEntwurf] = useState('');
-  const [rawText, setRawText] = useState(''); // Rettet den originalen OCR-Text
+  const [rawText, setRawText] = useState(''); 
   const [emailAnhaenge, setEmailAnhaenge] = useState([]); 
   const [versandPdfUrl, setVersandPdfUrl] = useState('');
   const [tresorPrompt, setTresorPrompt] = useState(null); 
@@ -69,7 +70,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const [openMenuId, setOpenMenuId] = useState(null);
   const [isAlarmsOpen, setIsAlarmsOpen] = useState(true);
 
-  // --- SONAR MEGA LEGAL WAR-ROOM STATES ---
   const [isWarRoomOpen, setIsWarRoomOpen] = useState(false);
   const [activeWarRoomDossier, setActiveWarRoomDossier] = useState(null);
 
@@ -868,7 +868,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
       await syncToGithub(ausgangName, `Versendetes Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`, activeVersandPdfUrl, null, showToast);
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      // --- VOLLTEXT RETTUNG FÜR GITHUB ---
       const prefix = typ === 'Eingang' ? 'Eingang' : (typ === 'Ausgang' ? 'Ausgang' : 'Entwurf');
       const fileName = `${prefix}_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
       
@@ -930,7 +929,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           thema: thema,
           frist_extern: fristExtern,
           brief_entwurf: briefEntwurf,
-          raw_text: rawText || briefEntwurf // Nutzt den Volltext für Claude!
+          raw_text: rawText || briefEntwurf 
         });
         setIsWarRoomOpen(true);
       }
@@ -996,75 +995,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
   };
 
-  const berechneTageBis = (datumStr) => {
-    if (!datumStr) return null; let rawDate = String(datumStr).trim(); if (rawDate.length === 8 && rawDate.endsWith('206')) { rawDate = rawDate.replace('206', '2026'); }
-    const heute = new Date(); heute.setHours(0, 0, 0, 0); const frist = new Date(rawDate); if (frist.getFullYear() < 2000) { frist.setFullYear(2026); } frist.setHours(0, 0, 0, 0); return Math.ceil((frist - heute) / (1000 * 60 * 60 * 24));
-  };
-
   const handleAlarmKlick = (akteId) => {
     setFokussierteAkteId(akteId); if (!aufgeklappteAkten.includes(akteId)) { setAufgeklappteAkten(prev => [...prev, akteId]); }
     setTimeout(() => { const el = document.getElementById(`akte-karte-${akteId}`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 150);
   };
-
-  const fristenWarnungen = [];
-  akten.filter(a => a.status !== 'Erledigt').forEach(akte => {
-    if (akte.akten_historie && akte.akten_historie.length > 0) {
-      const relevanteEintraege = akte.akten_historie.filter(h => h.wiedervorlage || h.frist_extern);
-      
-      relevanteEintraege.forEach(dokument => {
-        let zielDatum = null; let isWV = false; let sollAlarmMachen = false;
-        
-        if (dokument.wiedervorlage) { 
-          const wvTage = berechneTageBis(dokument.wiedervorlage); 
-          if (wvTage !== null && wvTage <= 0) { zielDatum = dokument.wiedervorlage; isWV = true; sollAlarmMachen = true; } 
-        } 
-        
-        if (!sollAlarmMachen && dokument.frist_extern) { 
-          const fristTage = berechneTageBis(dokument.frist_extern); 
-          if (fristTage !== null && fristTage <= 7) { zielDatum = dokument.frist_extern; isWV = false; sollAlarmMachen = true; } 
-        } 
-        
-        if (sollAlarmMachen && zielDatum) { 
-          const tage = berechneTageBis(zielDatum); 
-          let alarmStufe = '1. ERINNERUNG'; 
-          if (tage <= 4 && tage > 2) alarmStufe = '2. ERINNERUNG'; 
-          if (tage <= 2) alarmStufe = 'ALARM'; 
-          
-          fristenWarnungen.push({ 
-            ...dokument, 
-            akte_id: akte.id, 
-            akte_thema: akte.thema, 
-            akte_gegner: akte.gegner_name, 
-            tageUebrig: tage, 
-            alarmStufe, 
-            isWiedervorlage: isWV, 
-            aktivesDatum: zielDatum, 
-            unser_zeichen: akte.unser_zeichen,
-            ganze_akte: akte
-          }); 
-        }
-      });
-    }
-  });
-  fristenWarnungen.sort((a, b) => a.tageUebrig - b.tageUebrig);
-
-  const ustRadar = [];
-  const heuteDate = new Date(); const actYear = heuteDate.getFullYear(); const actMonth = heuteDate.getMonth(); 
-  mandanten.forEach(m => {
-    if (m.ust_intervall === 'Jährlich' || !m.ust_intervall) return;
-    let nextFristDate = null; let bezeichnung = "";
-    if (m.ust_intervall === 'Monatlich') {
-      const shift = m.dauerfrist ? 2 : 1; let targetMonth = actMonth + shift; let targetYear = actYear;
-      if (targetMonth > 11) { targetMonth -= 12; targetYear++; } nextFristDate = new Date(targetYear, targetMonth, 10); bezeichnung = `USt (Monat ${targetMonth === 0 ? 12 : targetMonth})`;
-      if (heuteDate.getDate() <= 10) { let currentShift = m.dauerfrist ? 1 : 0; let checkM = actMonth + currentShift; let checkY = actYear; if (checkM > 11) { checkM -= 12; checkY++; } nextFristDate = new Date(checkY, checkM, 10); bezeichnung = `USt-Voranmeldung`; }
-    } else if (m.ust_intervall === 'Vierteljährlich') {
-      const fälligkeitsMonate = m.dauerfrist ? [4, 7, 10, 1] : [3, 6, 9, 0]; let foundFrist = null;
-      for (let i = 0; i < 4; i++) { let testMonth = fälligkeitsMonate[i]; let testYear = actYear; if (m.dauerfrist && testMonth === 1) testYear++; if (!m.dauerfrist && testMonth === 0) testYear++; let testDate = new Date(testYear, testMonth, 10); if (testDate >= heuteDate || (testDate.getMonth() === actMonth && heuteDate.getDate() <= 10)) { foundFrist = testDate; bezeichnung = `USt-Voranmeldung (Quartal ${i+1})`; break; } }
-      nextFristDate = foundFrist;
-    }
-    if (nextFristDate) { const tage = berechneTageBis(nextFristDate.toISOString().split('T')[0]); if (tage !== null && tage <= 7) { ustRadar.push({ firma: m.firmenname, bezeichnung: bezeichnung, datum: nextFristDate.toISOString().split('T')[0], tageUebrig: tage }); } }
-  });
-  ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
   const parseAktenNummer = (zeichen) => {
     if (!zeichen) return null;
@@ -1157,7 +1091,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   useEffect(() => {
     if (!session?.user?.id) return;
 
-    // Funktion, die verpasste Scans aktiv aus der Datenbank zieht
     const fetchMissedImports = async () => {
       const { data, error } = await supabase
         .from('import_queue')
@@ -1179,10 +1112,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
     };
 
-    // 1. Initialer Check beim Komponenten-Start
     fetchMissedImports();
 
-    // 2. Visibility Listener (Wenn du in den Tab zurückkehrst)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         fetchMissedImports();
@@ -1190,7 +1121,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    // 3. Normaler Echtzeit-Kanal (läuft weiter, solange Tab aktiv)
     const channelName = `import_queue_${session.user.id}`;
     const queueSubscription = supabase
       .channel(channelName)
@@ -1234,21 +1164,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
         .mobile-only {
           display: none !important;
-        }
-
-        /* ALARM HEADER & BUTTONS DESKTOP */
-        .alarm-card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: nowrap;
-          gap: 15px;
-        }
-        .alarm-btn-group {
-          display: flex;
-          gap: 8px;
-          flex-shrink: 0;
-          position: relative;
         }
 
         /* HISTORIEN TYP DROPDOWN */
@@ -1361,23 +1276,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           }
           .mobile-only {
             display: flex !important;
-          }
-
-          .alarm-card-header {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 10px !important;
-          }
-          .alarm-btn-group {
-            width: 100% !important;
-            display: flex !important;
-            flex-direction: row !important;
-            gap: 8px !important;
-          }
-          .alarm-btn-group button {
-            flex: 1 1 50% !important;
-            justify-content: center !important;
-            padding: 8px 10px !important;
           }
 
           .vh-desktop-header {
@@ -1710,62 +1608,24 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </div>
       </div>
 
-      {(fristenWarnungen.length > 0 || ustRadar.length > 0) && (
-        <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}` }}>
-          <h4 onClick={() => setIsAlarmsOpen(!isAlarmsOpen)} style={{ color: theme.warningText, margin: isAlarmsOpen ? '0 0 15px 0' : '0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Icon name="alert" size={20} /> Dringende Alarme & Fällige Wiedervorlagen ({fristenWarnungen.length + ustRadar.length})</div>
-            <div style={{ color: theme.warningBorder }}><Icon name={isAlarmsOpen ? 'down' : 'right'} size={20} /></div>
-          </h4>
-          {isAlarmsOpen && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
-              {fristenWarnungen.map(w => {
-                const isOverdue = w.tageUebrig < 0; const isDueToday = w.tageUebrig === 0; const actionBg = isOverdue ? theme.warningBorder : theme.accent; const actionColor = isOverdue ? '#ffffff' : btnTextColor;
-                return (
-                  <div key={`warn-${w.id}`} onClick={() => handleAlarmKlick(w.akte_id)} style={{ background: theme.cardItemBg, padding: '14px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.warningBorder}`, boxShadow: isDarkMode ? 'none' : '0 2px 4px rgba(0,0,0,0.05)', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', flexDirection: 'column', gap: '8px' }} title="Klicken, um diese Akte unten zu fokussieren!">
-                    
-                    {/* RESPONSIVE ALARM HEADER */}
-                    <div className="alarm-card-header">
-                      <strong style={{ color: theme.warningBorder, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Icon name="folder" size={14} /> [{w.unser_zeichen || '---'}] {w.akte_gegner}
-                      </strong>
-                      <div className="alarm-btn-group" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => ladeVorgangInMaske(w.ganze_akte, w)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }} title="Diesen Vorgang oben in die Maske laden"><Icon name="folder" size={12} /> In Maske laden</button>
-                        <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} style={{ background: actionBg, color: actionColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s ease' }}><Icon name="settings" size={12} /> Aktionen {openMenuId === w.id ? '▲' : '▼'}</button>
-                        {openMenuId === w.id && (
-                          <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '5px', background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 50, minWidth: '180px', boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.1)' }}>
-                            <button onClick={() => { if (w.isWiedervorlage) handleInlineEdit(w.id, 'wiedervorlage', null); else handleInlineEdit(w.id, 'frist_extern', null); setOpenMenuId(null); }} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}>Erledigt</button>
-                            <div style={{ display: 'flex', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
-                              <button title="+3 Tage verschieben" onClick={() => handleTerminVerschieben(w, 3)} style={{ flex: 1, background: theme.border, color: theme.textMain, border: 'none', padding: '6px 0', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', whiteSpace: 'nowrap' }}>+3</button>
-                              <button title="+7 Tage verschieben" onClick={() => handleTerminVerschieben(w, 7)} style={{ flex: 1, background: theme.border, color: theme.textMain, border: 'none', padding: '6px 0', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', whiteSpace: 'nowrap' }}>+7</button>
-                              <button title="+14 Tage verschieben" onClick={() => handleTerminVerschieben(w, 14)} style={{ flex: 1, background: theme.border, color: theme.textMain, border: 'none', padding: '6px 0', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', whiteSpace: 'nowrap' }}>+14</button>
-                            </div>
-                            <button onClick={() => handleNachhaken(w.akte_id)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', textAlign: 'left', width: '100%' }}><Icon name="send" size={12} /> Nachhaken</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: theme.textMuted, flexWrap: 'wrap', gap: '10px' }}>
-                      <span style={{ color: theme.textMain, fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="file" size={12} /> {w.akte_thema} <span style={{opacity: 0.7}}>➔ {w.aktion || 'Vorgang ohne Titel'}</span></span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span>{w.isWiedervorlage ? 'Wiedervorlage' : 'Frist'}: <strong style={{color: theme.textMain}}>{formatDatum(w.aktivesDatum)}</strong></span>
-                        {w.frist_extern && w.isWiedervorlage && <span style={{fontSize: '11px', opacity: 0.8}}>(Frist: {formatDatum(w.frist_extern)})</span>}
-                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: isOverdue || isDueToday ? theme.warningBorder : theme.textMain }}>{isOverdue ? `(Überfällig: ${Math.abs(w.tageUebrig)} Tage)` : isDueToday ? '(HEUTE FÄLLIG!)' : `(Noch ${w.tageUebrig} Tage)`}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {ustRadar.map((r, i) => (
-                <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><strong style={{ color: theme.tresorAccent }}><Icon name="folder" size={14} /> {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}><span style={{ fontSize: '13px', color: theme.textMuted }}>Fällig am {formatDatum(r.datum)}</span><span style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain }}>(Noch {r.tageUebrig} Tage)</span></div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* --- NEU: DER AUSGELAGERTE ALARM-BLOCK --- */}
+      <AktenAlarme 
+        theme={theme}
+        isDarkMode={isDarkMode}
+        btnTextColor={btnTextColor}
+        akten={akten}
+        mandanten={mandanten}
+        isAlarmsOpen={isAlarmsOpen}
+        setIsAlarmsOpen={setIsAlarmsOpen}
+        openMenuId={openMenuId}
+        setOpenMenuId={setOpenMenuId}
+        handleAlarmKlick={handleAlarmKlick}
+        ladeVorgangInMaske={ladeVorgangInMaske}
+        handleInlineEdit={handleInlineEdit}
+        handleTerminVerschieben={handleTerminVerschieben}
+        handleNachhaken={handleNachhaken}
+        formatDatum={formatDatum}
+      />
 
       <form onSubmit={handleSpeichernCheck} style={panelStyle}>
         
@@ -1974,7 +1834,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                   thema: thema,
                   frist_extern: fristExtern,
                   brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
-                  raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." // Übergibt gesicherten Volltext an Claude!
+                  raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." 
                 });
                 setIsWarRoomOpen(true);
               }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur forensischen Analyse in den War-Room schicken">
@@ -2354,14 +2214,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         })}
       </div>
 
-      {/* --- SONAR MEGA LEGAL WAR-ROOM MODAL --- */}
       <MegaLegalModal
         isOpen={isWarRoomOpen}
         onClose={() => setIsWarRoomOpen(false)}
         dossier={activeWarRoomDossier}
         onApplySchriftsatz={(ausgangsJson) => {
           
-          // --- AMNESIE-FIX ---
           if (activeWarRoomDossier && activeWarRoomDossier.akte_id) {
              setModus('bestehend');
              setSelectedAkteId(activeWarRoomDossier.akte_id);
@@ -2369,7 +2227,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
           if (ausgangsJson.brief_entwurf) setBriefEntwurf(ausgangsJson.brief_entwurf);
           
-          // --- CRM SCHUTZSCHILD ---
           const isInvalid = (val) => !val || val.toLowerCase().includes('erforderlich') || val.toLowerCase().includes('bescheid') || val.toLowerCase().includes('unbekannt');
           
           if (ausgangsJson.thema && !isInvalid(ausgangsJson.thema) && !thema) setThema(ausgangsJson.thema);
@@ -2386,7 +2243,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             setGegnerEmail(ausgangsJson.gegner_email);
           }
           
-          // ZWANGS-ÜBERSCHREIBUNG AUF AUSGANG
           setTyp('Ausgang');
           
           if (ausgangsJson.aktion) setAktion(ausgangsJson.aktion);
