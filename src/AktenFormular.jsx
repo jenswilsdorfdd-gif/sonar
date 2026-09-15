@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from './Icon';
+import { supabase } from './supabaseClient'; // <-- NEU: Für die Datenbankabfrage der Altlasten
 
 export default function AktenFormular({
   theme,
@@ -280,20 +281,63 @@ export default function AktenFormular({
             <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
             <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
             
-            <button type="button" onClick={() => {
-              setActiveWarRoomDossier({
-                akte_id: selectedAkteId,
-                unsere_firma: unsereFirma,
-                unser_ansprechpartner: unserAnsprechpartner,
-                aktenzeichen: aktenzeichen,
-                kontakt: gegnerName,
-                thema: thema,
-                frist_extern: fristExtern,
-                brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
-                raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." 
-              });
-              setIsWarRoomOpen(true);
-            }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur forensischen Analyse in den War-Room schicken">
+            <button type="button" onClick={async (e) => {
+              const btn = e.currentTarget;
+              const originalContent = btn.innerHTML;
+              
+              // Kurzer Lade-Indikator, falls die Datenbank gefragt wird
+              btn.innerHTML = `<span style="display:flex; align-items:center; gap:6px;"><Icon name="file" size={16}/> Lade Volltext...</span>`;
+              btn.style.opacity = '0.7';
+              btn.style.pointerEvents = 'none';
+
+              let finalRawText = rawText || briefEntwurf || "Kein Volltext hinterlegt.";
+              
+              try {
+                // --- PHASE 3: MD-INJEKTION FÜR ALTLASTEN ---
+                if (!rawText && modus === 'bestehend' && activeAkteObj && bezugId) {
+                  const hist = activeAkteObj.akten_historie.find(h => h.id === bezugId);
+                  if (hist && hist.dokument_url) {
+                    const urls = hist.dokument_url.split(',');
+                    const mdUrl = urls.find(u => u.toLowerCase().endsWith('.md'));
+                    const pdfUrl = urls.find(u => u.toLowerCase().endsWith('.pdf'));
+                    
+                    if (mdUrl) {
+                      const res = await fetch(mdUrl);
+                      if (res.ok) finalRawText = await res.text();
+                    } else if (pdfUrl) {
+                      const { data } = await supabase
+                        .from('wissensdatenbank')
+                        .select('inhalt_text')
+                        .eq('dokument_url', pdfUrl)
+                        .limit(1);
+                      if (data && data.length > 0 && data[0].inhalt_text) {
+                        finalRawText = data[0].inhalt_text;
+                      }
+                    }
+                  }
+                }
+                // ------------------------------------------
+              } catch (err) {
+                console.error("Fehler beim Laden des alten Volltexts:", err);
+              } finally {
+                btn.innerHTML = originalContent;
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+
+                setActiveWarRoomDossier({
+                  akte_id: selectedAkteId,
+                  unsere_firma: unsereFirma,
+                  unser_ansprechpartner: unserAnsprechpartner,
+                  aktenzeichen: aktenzeichen,
+                  kontakt: gegnerName,
+                  thema: thema,
+                  frist_extern: fristExtern,
+                  brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
+                  raw_text: finalRawText // <-- INJEKTION ERFOLGT!
+                });
+                setIsWarRoomOpen(true);
+              }
+            }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s ease' }} title="Diesen Vorgang zur forensischen Analyse in den War-Room schicken">
               <Icon name="alert" size={16} /> In War-Room senden
             </button>
           </div>
