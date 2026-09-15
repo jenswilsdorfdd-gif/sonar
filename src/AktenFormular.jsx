@@ -97,6 +97,13 @@ export default function AktenFormular({
   ladeDaten,
   showToast
 }) {
+  const [isLocked, setIsLocked] = React.useState(modus === 'bestehend');
+
+  // Auto-Sperren/Entsperren, wenn der Modus gewechselt wird
+  React.useEffect(() => {
+    setIsLocked(modus === 'bestehend');
+  }, [modus, selectedAkteId]);
+
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
   const extractTextFromPDF = async (file) => {
@@ -130,9 +137,11 @@ export default function AktenFormular({
     }
   };
 
+  // --- HAUPT-SPEICHER-LOGIK MIT ZWILLINGS-UPLOAD ---
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
     
+    // Kleiner Hack, falls setLaedt nicht per Prop reinkam
     if (typeof handleSpeichernCheck === 'function' && !laedt) {
       showToast("Speichere Akten-Eintrag...", "success");
     }
@@ -154,6 +163,7 @@ export default function AktenFormular({
            await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: null }]);
            await syncToGithub(f.name, fileInhalt, null, null, showToast);
            
+           // --- NEU: MD AUCH INS SUPABASE STORAGE ---
            const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
            const dateiName = `${Date.now()}_${sichererDateiname}`;
            const mdBlob = new Blob([fileInhalt], { type: 'text/markdown' });
@@ -187,6 +197,7 @@ export default function AktenFormular({
                       const mdInhalt = `${baseInfo}\n\nOriginal-PDF: ${linkData.publicUrl}\n\n${extrahierterText}`;
                       await syncToGithub(mdFileName, mdInhalt, linkData.publicUrl, null, showToast);
                       
+                      // --- NEU: ZWILLINGS-UPLOAD IN SUPABASE STORAGE ---
                       const twinFileName = dateiName.replace(/\.[^/.]+$/, "") + ".md";
                       const twinBlob = new Blob([mdInhalt], { type: 'text/markdown' });
                       await supabase.storage.from('dokumente').upload(twinFileName, twinBlob);
@@ -209,6 +220,7 @@ export default function AktenFormular({
       const mdInhalt = `Versendetes Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`;
       await syncToGithub(ausgangName, mdInhalt, activeVersandPdfUrl, null, showToast);
       
+      // --- NEU: ZWILLINGS-UPLOAD FÜR RESEND AUSGANGS-PDFS ---
       try {
          const urlParts = activeVersandPdfUrl.split('/');
          const pdfFileName = urlParts[urlParts.length - 1].split('?')[0]; 
@@ -231,6 +243,7 @@ export default function AktenFormular({
       
       await syncToGithub(fileName, fileContent, null, null, showToast);
       
+      // --- NEU: ENTWÜRFE BEKOMMEN EINE EIGENE STORAGE-URL ---
       const entBlob = new Blob([fileContent], { type: 'text/markdown' });
       const { error: entError } = await supabase.storage.from('dokumente').upload(fileName, entBlob);
       if (!entError) {
@@ -253,7 +266,8 @@ export default function AktenFormular({
     }
 
     const activeAktion = autoSaveOverrides && autoSaveOverrides.overrideAktion !== undefined ? autoSaveOverrides.overrideAktion : aktion;
-    const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : (typeof kanal !== 'undefined' ? kanal : '');
+    // kanal check removed/fallback as it is missing from props sometimes
+    const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : null;
     const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
     const activeWv = autoSaveOverrides && autoSaveOverrides.overrideWv !== undefined ? autoSaveOverrides.overrideWv : wiedervorlage;
 
@@ -295,7 +309,7 @@ export default function AktenFormular({
 
       setUnserZeichen(''); setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
-      setAktion(''); typeof setKanal === 'function' && setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
+      setAktion(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
       setBriefEntwurf(''); setBezugId(''); setClearOldFristen(true);
       
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
@@ -309,10 +323,6 @@ export default function AktenFormular({
 
   return (
     <>
-      <h1 style={{ backgroundColor: 'red', color: 'white', padding: '20px', textAlign: 'center', zIndex: 9999, position: 'relative', width: '100%' }}>
-        TEST-RENDERING - WENN DU DAS SIEHST, SIND WIR IN DER RICHTIGEN DATEI
-      </h1>
-      
       {showTriageModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -413,11 +423,19 @@ export default function AktenFormular({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap', alignItems: 'center' }}>
           <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} /><Icon name="folder" size={16} /> Neue Akte / Hülle anlegen</label>
           <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} /><Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen</label>
+          
+          <div style={{ marginLeft: 'auto' }}>
+            <button type="button" onClick={() => setIsLocked(!isLocked)} style={{ background: isLocked ? 'transparent' : theme.accent, color: isLocked ? theme.textMain : btnTextColor, border: `1px solid ${isLocked ? theme.border : theme.accent}`, padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '13px' }}>
+              <Icon name={isLocked ? "lock" : "unlock"} size={16} />
+              {isLocked ? "Akte gesperrt (Read-Only)" : "Akte bearbeiten"}
+            </button>
+          </div>
+
           {modus === 'bestehend' && (
-            <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
+            <div style={{ flex: '1 1 min(100%, 200px)', width: '100%', marginTop: '10px' }}>
               <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
                 <option value="">-- Ziel-Akte wählen --</option>
                 {sortedAktenForDropdown.map(a => <option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>)}
