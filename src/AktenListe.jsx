@@ -51,29 +51,61 @@ export default function AktenListe({
       {/* AKTEN-ÜBERSICHT WRAPPER */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
         
-        {/* DESKTOP HEADER - Exakt gespiegelt zur Zeilenstruktur */}
-        <div className="akten-desktop-header" style={{ background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted }}>
+        {/* DESKTOP HEADER - EXAKTE 1:1 KOPIE DER ZEILE FÜR PERFEKTE BÜNDIGKEIT */}
+        <div className="akten-row-wrapper desktop-only" style={{ background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted, cursor: 'default' }}>
           
-          {/* Linker Rahmen (Platzhalter für Pfeil) */}
-          <div style={{ width: '30px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="down" size={16} style={{ opacity: 0 }} />
+          {/* 1. LINKER RAHMEN: CHEVRON PLATZHALTER (Mit Zwangs-Breite) */}
+          <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', opacity: 0.4 }}>
+            <Icon name="right" size={20} />
           </div>
-          
-          {/* Mitte (Original unangetastetes Grid) */}
-          <div style={{ flex: '1 1 100%' }}>
+
+          {/* 2. FELDER CONTAINER GRID */}
+          <div style={{ flex: '1 1 100%', minWidth: 0, boxSizing: 'border-box' }}>
             <div className="akten-desktop-grid">
-              <div>Unser Zeichen</div>
-              <div>Gegner</div>
-              <div>Gegenstand</div>
-              <div>Ansprechpartner</div>
-              <div>Aktenzeichen</div>
+              
+              <div className="akten-field-box desktop-only">
+                <div style={{ ...inlineInputStyle, border: 'none', background: 'transparent', padding: '2px', margin: 0, fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: theme.textMuted, width: '100%', boxSizing: 'border-box' }}>
+                  Unser Zeichen
+                </div>
+              </div>
+
+              <div className="akten-field-box">
+                <div style={{ ...inlineInputStyle, border: 'none', background: 'transparent', padding: '2px', margin: 0, fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: theme.textMuted, width: '100%', boxSizing: 'border-box' }}>
+                  Gegner
+                </div>
+              </div>
+
+              <div className="akten-field-box">
+                <div style={{ ...inlineInputStyle, border: 'none', background: 'transparent', padding: '2px', margin: 0, fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: theme.textMuted, width: '100%', boxSizing: 'border-box' }}>
+                  Gegenstand
+                </div>
+              </div>
+
+              <div className="akten-field-box">
+                <div style={{ ...inlineInputStyle, border: 'none', background: 'transparent', padding: '2px', margin: 0, fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: theme.textMuted, width: '100%', boxSizing: 'border-box' }}>
+                  Ansprechpartner
+                </div>
+              </div>
+
+              <div className="akten-field-box">
+                <div style={{ ...inlineInputStyle, border: 'none', background: 'transparent', padding: '2px', margin: 0, fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: theme.textMuted, width: '100%', boxSizing: 'border-box' }}>
+                  Aktenzeichen
+                </div>
+              </div>
+
             </div>
           </div>
-          
-          {/* Rechte Rahmen: Status & Platzhalter für Schloss */}
-          <div style={{ width: '80px', textAlign: 'right' }}>Status</div>
-          <div style={{ width: '30px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="lock" size={16} style={{ opacity: 0.3 }} />
+
+          {/* 3. RECHTE SPALTE 1: STATUS PLATZHALTER (Mit Zwangs-Breite) */}
+          <div className="desktop-only" style={{ width: '80px', minWidth: '80px', flexShrink: 0, textAlign: 'center' }}>
+            <div style={{ padding: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+              Status
+            </div>
+          </div>
+
+          {/* 4. RECHTER RAHMEN: SCHLOSS PLATZHALTER (Mit Zwangs-Breite) */}
+          <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: 0.4 }}>
+            <Icon name="lock" size={18} />
           </div>
 
         </div>
@@ -88,8 +120,8 @@ export default function AktenListe({
               
               <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)}>
                 
-                {/* 1. LINKER RAHMEN: CHEVRON (30px) */}
-                <div className="desktop-only" style={{ width: '30px', color: istFokussiert ? theme.accent : theme.textMuted }}>
+                {/* 1. LINKER RAHMEN: DESKTOP CHEVRON (Mit Zwangs-Breite) */}
+                <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', color: istFokussiert ? theme.accent : theme.textMuted }}>
                   <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                 </div>
 
@@ -104,11 +136,11 @@ export default function AktenListe({
                         [{akte.unser_zeichen || '---'}]
                       </strong>
                     </div>
-                    <div style={{ width: '110px', textAlign: 'right', display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                       <select 
                         value={akte.status || 'Offen'} 
                         onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                        style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', flex: '1 1 auto', textAlign: 'center' }}
+                        style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', textAlign: 'center' }}
                       >
                         <option value="Offen">Offen</option>
                         <option value="Erledigt">Erledigt</option>
@@ -116,6 +148,7 @@ export default function AktenListe({
                       <button 
                         onClick={() => handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked)} 
                         style={{ background: 'transparent', border: 'none', color: akte.is_locked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title={akte.is_locked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)'}
                       >
                         <Icon name={akte.is_locked ? "lock" : "unlock"} size={18} />
                       </button>
@@ -123,8 +156,8 @@ export default function AktenListe({
                   </div>
                 </div>
                 
-                {/* 3. FELDER CONTAINER GRID (Original 100%) */}
-                <div style={{ flex: '1 1 100%', width: '100%', boxSizing: 'border-box' }}>
+                {/* 3. FELDER CONTAINER (Mitte - Identisch zum Header) */}
+                <div style={{ flex: '1 1 100%', minWidth: 0, boxSizing: 'border-box' }}>
                   <div className="akten-desktop-grid">
                     
                     <div className="akten-field-box desktop-only">
@@ -134,7 +167,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.unser_zeichen || '')) handleAkteStammdatenEdit(akte.id, 'unser_zeichen', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Unser Zeichen" 
-                        style={{ ...inlineInputStyle, color: theme.accent, fontSize: '14px', fontWeight: 'bold', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.accent, fontSize: '14px', fontWeight: 'bold' }} 
                       />
                     </div>
 
@@ -145,7 +178,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.gegner_name || '')) handleAkteStammdatenEdit(akte.id, 'gegner_name', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegner" 
-                        style={{ ...inlineInputStyle, color: theme.textMain, fontSize: '15px', fontWeight: 'bold', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '15px', fontWeight: 'bold' }} 
                       />
                     </div>
 
@@ -156,7 +189,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.thema || '')) handleAkteStammdatenEdit(akte.id, 'thema', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegenstand" 
-                        style={{ ...inlineInputStyle, color: theme.textMain, fontSize: '14px', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '14px' }} 
                       />
                     </div>
 
@@ -167,7 +200,7 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.gegner_ansprechpartner || '')) handleAkteStammdatenEdit(akte.id, 'gegner_ansprechpartner', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Ansprechpartner" 
-                        style={{ ...inlineInputStyle, color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px' }} 
                       />
                     </div>
 
@@ -178,15 +211,15 @@ export default function AktenListe({
                         onBlur={(e) => { if (e.target.value !== (akte.aktenzeichen || '')) handleAkteStammdatenEdit(akte.id, 'aktenzeichen', e.target.value); }} 
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Aktenzeichen" 
-                        style={{ ...inlineInputStyle, color: theme.textMuted, fontSize: '13px', padding: '2px' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px' }} 
                       />
                     </div>
 
                   </div>
                 </div>
 
-                {/* 4. RECHTE SPALTE 1: STATUS DROPDOWN (Original 80px) */}
-                <div className="desktop-only" style={{ width: '80px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                {/* 4. RECHTE SPALTE 1: STATUS DROPDOWN (Mit Zwangs-Breite) */}
+                <div className="desktop-only" style={{ width: '80px', minWidth: '80px', flexShrink: 0, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                   <select 
                     value={akte.status || 'Offen'} 
                     onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
@@ -197,11 +230,11 @@ export default function AktenListe({
                   </select>
                 </div>
 
-                {/* 5. RECHTER RAHMEN: SCHLOSS ICON (30px) */}
-                <div className="desktop-only" style={{ width: '30px', display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                {/* 5. RECHTER RAHMEN: SCHLOSS ICON (Mit Zwangs-Breite) */}
+                <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                   <button 
                     onClick={() => handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked)} 
-                    style={{ background: 'transparent', border: 'none', color: akte.is_locked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center' }}
+                    style={{ background: 'transparent', border: 'none', color: akte.is_locked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     title={akte.is_locked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)'}
                   >
                     <Icon name={akte.is_locked ? "lock" : "unlock"} size={18} />
