@@ -118,11 +118,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return n1.includes(n2) || n2.includes(n1);
   };
 
-  // --- ADMIN AUTH CHECK ---
+  // --- ADMIN AUTH CHECK MIT TRIM FIX ---
   const checkAdminAuth = () => {
     const pw = window.prompt("Admin-Sicherheit: Bitte Passwort eingeben, um die Sperre aufzuheben.");
     if (pw === null) return false; // Abgebrochen
-    if (pw === import.meta.env.VITE_ADMIN_PASSWORD) {
+    if (pw.trim() === import.meta.env.VITE_ADMIN_PASSWORD) {
       return true;
     } else {
       showToast("Passwort inkorrekt! Aktion blockiert.", "error");
@@ -724,7 +724,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     } else { showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error'); }
   };
 
-  // --- HIER: AUTO-LOCK FÜR ERLEDIGT & ADMIN AUTH FÜR WIEDERERÖFFNEN ---
+  // --- HIER NEU: AUTO-UNLOCK ALLER VORGÄNGE BEIM WIEDERERÖFFNEN DER AKTE ---
   const toggleAkteStatus = async (akteId, currentStatus) => {
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     
@@ -734,8 +734,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       
       const { error } = await supabase.from('akten').update({ status: neuerStatus, is_locked: false }).eq('id', akteId);
       if (!error) {
+        // HIER DER FIX: Alle Vorgänge ebenfalls entsperren
+        await supabase.from('akten_historie').update({ is_locked: false }).eq('akte_id', akteId);
+
         await supabase.from('akten_historie').insert([{ akte_id: akteId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: 'Akte durch Admin wiedereröffnet & entsperrt.' }]);
-        ladeDaten(); showToast(`Akte wurde wieder geöffnet.`, 'success');
+        ladeDaten(); showToast(`Akte wurde wieder geöffnet und alle Vorgänge entsperrt.`, 'success');
       } else { showToast("Fehler beim Ändern des Akten-Status: " + error.message, 'error'); }
       
     } else {
