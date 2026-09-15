@@ -13,19 +13,58 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const [isDark, setIsDark] = useState(true);
   const chatBottomRef = useRef(null);
 
-  // Initialer Start beim Öffnen des Modals
+  // Initialer Start beim Öffnen des Modals MIT ZWILLINGS-ABRUF
   useEffect(() => {
-    if (isOpen && dossier) {
-      const today = new Date().toLocaleDateString('de-DE');
-      const mandantFirma = dossier.unsere_firma || "Jens Wilsdorf";
-      const mandantAP = dossier.unser_ansprechpartner || "Jens Wilsdorf";
+    const initChatAndFetchTwin = async () => {
+      if (isOpen && dossier) {
+        setIsLoading(true);
+        const today = new Date().toLocaleDateString('de-DE');
+        const mandantFirma = dossier.unsere_firma || "Jens Wilsdorf";
+        const mandantAP = dossier.unser_ansprechpartner || "Jens Wilsdorf";
 
-      // BUGFIX: Zuerst raw_text prüfen! Wenn der da ist, nehmen wir den. Sonst Fallback auf brief_entwurf.
-      const bestAvailableText = (dossier.raw_text && dossier.raw_text.trim() !== "") 
-        ? dossier.raw_text 
-        : (dossier.brief_entwurf || "Kein Volltext vorhanden.");
+        let bestText = (dossier.raw_text && dossier.raw_text.trim() !== "") 
+          ? dossier.raw_text 
+          : (dossier.brief_entwurf || "Kein Volltext vorhanden.");
 
-      const initialUserPrompt = `Hier ist das neu eingegangene Dokumentendossier zur sofortigen forensischen Tiefenprüfung:
+        // --- ZWILLINGS-ABRUF LOGIK ---
+        if (bestText.includes("Kein Volltext") || bestText.includes("OCR läuft") || bestText.length < 150) {
+          try {
+            const { data, error } = await supabase
+              .from('akten_historie')
+              .select('dokument_url')
+              .eq('akte_id', dossier.akte_id)
+              .not('dokument_url', 'is', null)
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+            if (!error && data && data.length > 0 && data[0].dokument_url) {
+              const urls = data[0].dokument_url.split(',');
+              const pdfUrl = urls.find(u => u.toLowerCase().endsWith('.pdf'));
+              const mdUrl = urls.find(u => u.toLowerCase().endsWith('.md'));
+
+              let targetUrl = mdUrl;
+              // Wenn kein direkter MD-Link in der DB steht, Zwillings-Trick anwenden
+              if (!targetUrl && pdfUrl) {
+                targetUrl = pdfUrl.replace(/\.[^/.]+$/, "") + ".md"; 
+              }
+
+              if (targetUrl) {
+                const res = await fetch(targetUrl);
+                if (res.ok) {
+                  const fetchedText = await res.text();
+                  if (fetchedText && fetchedText.trim() !== "") {
+                    bestText = fetchedText; 
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Fehler beim Abruf des MD-Zwillings:", e);
+          }
+        }
+        // -----------------------------
+
+        const initialUserPrompt = `Hier ist das neu eingegangene Dokumentendossier zur sofortigen forensischen Tiefenprüfung:
 
 Behörde / Absender: ${dossier.kontakt || "Unbekannt"}
 Aktenzeichen: ${dossier.aktenzeichen || "Unbekannt"}
@@ -33,7 +72,7 @@ Frist: ${dossier.frist_extern || "Keine Frist erkannt"}
 Betreff / Thema: ${dossier.thema || "Ohne Betreff"}
 
 DOKUMENTENTEXT:
-${bestAvailableText}
+${bestText}
 
 WICHTIGE KONTEXT-DATEN FÜR DEINEN FINALEN SCHRIFTSATZ:
 - Heutiges Datum (für den Briefkopf): ${today}
@@ -44,13 +83,18 @@ STRIKTE REGEL: Du bist KEINE Rechtsanwaltskanzlei! Du schreibst den Entwurf exak
 
 Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die Schwachstellen des Bescheids und wie schlagen wir zurück?`;
 
-      setMessages([{ role: "user", content: initialUserPrompt }]);
-      callMegaLegal([{ role: "user", content: initialUserPrompt }]);
-    } else {
-      setMessages([]);
-      setErrorMsg(null);
-    }
-  }, [isOpen, dossier]);
+        setMessages([{ role: "user", content: initialUserPrompt }]);
+        setIsLoading(false);
+        callMegaLegal([{ role: "user", content: initialUserPrompt }]);
+      } else {
+        setMessages([]);
+        setErrorMsg(null);
+      }
+    };
+
+    initChatAndFetchTwin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -140,7 +184,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     callMegaLegal(updatedHistory);
   };
 
-  // --- NEU: Datei-Upload im War-Room ---
+  // --- Datei-Upload im War-Room ---
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -219,7 +263,6 @@ STRIKTE REGELN FÜR DEN TEXT:
 
   if (!isOpen) return null;
 
-  // --- THEME STYLING LOGIK ---
   const bgModal = isDark ? "bg-slate-900" : "bg-slate-50";
   const borderModal = isDark ? "border-slate-700" : "border-slate-300";
   const bgHeader = isDark ? "bg-slate-950/60" : "bg-white/80";
@@ -305,7 +348,7 @@ STRIKTE REGELN FÜR DEN TEXT:
           
           <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
             
-            {/* NEU: Dateiupload-Button direkt neben dem Input */}
+            {/* Dateiupload-Button direkt neben dem Input */}
             <label 
               className={`flex items-center justify-center h-[46px] w-[46px] rounded-xl cursor-pointer transition flex-shrink-0 ${isDark ? 'bg-slate-700 hover:bg-slate-600 border border-slate-500' : 'bg-white hover:bg-slate-200 border border-slate-400'}`}
               title="Fehlendes Dokument (PDF/MD) in den War-Room hochladen"
