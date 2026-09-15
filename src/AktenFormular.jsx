@@ -97,16 +97,6 @@ export default function AktenFormular({
   ladeDaten,
   showToast
 }) {
-  const [isLocked, setIsLocked] = React.useState(modus === 'bestehend');
-
-  // Auto-Sperren/Entsperren, wenn der Modus gewechselt wird
-  React.useEffect(() => {
-    setIsLocked(modus === 'bestehend');
-  }, [modus, selectedAkteId]);
-
-  const currentGegnerData = (gegnerListe || []).find(g => g.name === gegnerName);
-  const currentFirmaData = (mandanten || []).find(m => m.firmenname === unsereFirma);
-
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
   const extractTextFromPDF = async (file) => {
@@ -140,7 +130,6 @@ export default function AktenFormular({
     }
   };
 
-  // --- HAUPT-SPEICHER-LOGIK MIT ZWILLINGS-UPLOAD ---
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
     
@@ -258,29 +247,6 @@ export default function AktenFormular({
       if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); return; }
       aktuelleAkteId = neueAkte[0].id;
     } else {
-      // Update der Akten-Stammdaten, wenn das Schloss offen ist und der Modus 'bestehend'
-      if (!isLocked && aktuelleAkteId) {
-        const { error: updateError } = await supabase.from('akten').update({
-          unser_zeichen: unserZeichen || null,
-          aktenzeichen: aktenzeichen || null,
-          gegner_name: gegnerName || null,
-          gegner_ansprechpartner: gegnerAnsprechpartner || null,
-          gegner_telefon: gegnerTelefon || null,
-          gegner_email: gegnerEmail || null,
-          unsere_firma: unsereFirma || null,
-          unser_ansprechpartner: unserAnsprechpartner || null,
-          unser_telefon: unserTelefon || null,
-          unser_email: unserEmail || null,
-          thema: thema || null
-        }).eq('id', aktuelleAkteId);
-        
-        if (updateError) {
-          showToast("Fehler beim Update der Akte: " + updateError.message, 'error');
-        } else {
-          showToast("Akten-Stammdaten wurden aktualisiert.", 'success');
-        }
-      }
-
       if (clearOldFristen && aktuelleAkteId) {
          await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('akte_id', aktuelleAkteId);
       }
@@ -343,11 +309,10 @@ export default function AktenFormular({
 
   return (
     <>
-      {/* Globale Hover-Styles für die Kontakt-Karten */}
-      <style>{`
-        .tooltip-container:hover .tooltip-content { display: block !important; }
-      `}</style>
-
+      <h1 style={{ backgroundColor: 'red', color: 'white', padding: '20px', textAlign: 'center', zIndex: 9999, position: 'relative', width: '100%' }}>
+        TEST-RENDERING - WENN DU DAS SIEHST, SIND WIR IN DER RICHTIGEN DATEI
+      </h1>
+      
       {showTriageModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -448,19 +413,11 @@ export default function AktenFormular({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
           <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} /><Icon name="folder" size={16} /> Neue Akte / Hülle anlegen</label>
           <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} /><Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen</label>
-          
-          <div style={{ marginLeft: 'auto' }}>
-            <button type="button" onClick={() => setIsLocked(!isLocked)} style={{ background: isLocked ? 'transparent' : theme.accent, color: isLocked ? theme.textMain : btnTextColor, border: `1px solid ${isLocked ? theme.border : theme.accent}`, padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '13px' }}>
-              <Icon name={isLocked ? "lock" : "unlock"} size={16} />
-              {isLocked ? "Akte gesperrt (Read-Only)" : "Akte bearbeiten"}
-            </button>
-          </div>
-
           {modus === 'bestehend' && (
-            <div style={{ flex: '1 1 min(100%, 200px)', width: '100%', marginTop: '10px' }}>
+            <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
               <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
                 <option value="">-- Ziel-Akte wählen --</option>
                 {sortedAktenForDropdown.map(a => <option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>)}
@@ -469,116 +426,58 @@ export default function AktenFormular({
           )}
         </div>
 
-        {/* Die Felder werden jetzt immer angezeigt, aber sind im isLocked-Modus schreibgeschützt (Read-Only mit Hover) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}>
-            <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
+          {modus === 'neu' && (
+            <>
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                  <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
+                </div>
               </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Unser Zeichen</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{unserZeichen || '-'}</div> : <input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} />}
-            </div>
-            <div>
-              <label style={labelStyle}>Gegenstand (Thema)*</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain, fontWeight: 'bold' }}>{thema || '-'}</div> : <input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} />}
-            </div>
-            <div>
-              <label style={labelStyle}>Aktenzeichen (Behörde)</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{aktenzeichen || '-'}</div> : <input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} />}
-            </div>
+              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} /></div>
+              <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
 
-            <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                <h4 style={{margin: 0, color: theme.textMain}}>2. Gegenpartei / Behörde</h4>
-                {!isLocked && gegnerListe.length > 0 && (
-                  <select onChange={handleGegnerAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
-                    <option value="">+ Aus Gegner-CRM laden...</option>
-                    {gegnerListe.map(g => {
-                      let ansList = [];
-                      try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
-                      if (ansList.length > 0) { return ansList.map((ans, idx) => ( <option key={`${g.id}-${idx}`} value={`${g.id}|${idx}`}>{g.name} — {ans.abteilung ? `${ans.abteilung}: ` : ''}{ans.name || 'Zentrale'}</option> )); }
-                      return <option key={g.id} value={`${g.id}|0`}>{g.name}</option>;
-                    })}
-                  </select>
-                )}
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                  <h4 style={{margin: 0, color: theme.textMain}}>2. Gegenpartei / Behörde</h4>
+                  {gegnerListe.length > 0 && (
+                    <select onChange={handleGegnerAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                      <option value="">+ Aus Gegner-CRM laden...</option>
+                      {gegnerListe.map(g => {
+                        let ansList = [];
+                        try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
+                        if (ansList.length > 0) { return ansList.map((ans, idx) => ( <option key={`${g.id}-${idx}`} value={`${g.id}|${idx}`}>{g.name} — {ans.abteilung ? `${ans.abteilung}: ` : ''}{ans.name || 'Zentrale'}</option> )); }
+                        return <option key={g.id} value={`${g.id}|0`}>{g.name}</option>;
+                      })}
+                    </select>
+                  )}
+                </div>
               </div>
-            </div>
-
-            <div className={isLocked ? "tooltip-container" : ""} style={{ position: 'relative' }}>
-              <label style={labelStyle}>Behörde / Gegner*</label>
-              {isLocked ? (
-                <>
-                  <div style={{ padding: '8px 0', color: theme.accent, fontWeight: 'bold', borderBottom: `1px dashed ${theme.accent}`, cursor: 'help', display: 'inline-block' }}>{gegnerName || '-'}</div>
-                  <div className="tooltip-content" style={{ display: 'none', position: 'absolute', top: '100%', left: 0, background: theme.cardBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', zIndex: 100, width: '280px', boxShadow: '0 5px 15px rgba(0,0,0,0.3)', fontSize: '13px', color: theme.textMain }}>
-                    <strong style={{ display: 'block', marginBottom: '10px', color: theme.accent, fontSize: '14px' }}>{currentGegnerData?.name || gegnerName || 'Unbekannt'}</strong>
-                    <div style={{ marginBottom: '6px' }}>👤 {currentGegnerData?.ansprechpartner || gegnerAnsprechpartner || '-'}</div>
-                    <div style={{ marginBottom: '6px' }}>📞 {currentGegnerData?.telefon || gegnerTelefon || '-'}</div>
-                    <div>✉️ {currentGegnerData?.email || gegnerEmail || '-'}</div>
-                  </div>
-                </>
-              ) : <input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} />}
-            </div>
-
-            <div>
-              <label style={labelStyle}>Ansprechpartner</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{gegnerAnsprechpartner || '-'}</div> : <input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} />}
-            </div>
-            <div>
-              <label style={labelStyle}>Telefon</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{gegnerTelefon || '-'}</div> : <input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} onBlur={(e) => setGegnerTelefon(formatRufnummer(e.target.value))} style={inputStyle} />}
-            </div>
-            <div>
-              <label style={labelStyle}>Faxnummer</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{gegnerFax || '-'}</div> : <input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={inputStyle} />}
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>E-Mail</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{gegnerEmail || '-'}</div> : <input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} />}
-            </div>
-            
-            <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                <h4 style={{margin: 0, color: theme.textMain}}>3. Wir (Mandant)</h4>
-                {!isLocked && mandanten.length > 0 && (
-                  <select onChange={handleTresorAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
-                    <option value="">+ Aus Firmen-Tresor laden...</option>
-                    {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
-                  </select>
-                )}
+              <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} onBlur={(e) => setGegnerTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+              <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
+              
+              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                  <h4 style={{margin: 0, color: theme.textMain}}>3. Wir (Mandant)</h4>
+                  {mandanten.length > 0 && (
+                    <select onChange={handleTresorAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                      <option value="">+ Aus Firmen-Tresor laden...</option>
+                      {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
+                    </select>
+                  )}
+                </div>
               </div>
-            </div>
+              <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>E-Mail (Mandant)</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} onBlur={(e) => setUnserTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+            </>
+          )}
 
-            <div className={isLocked ? "tooltip-container" : ""} style={{ position: 'relative' }}>
-              <label style={labelStyle}>Firma / Person*</label>
-              {isLocked ? (
-                <>
-                  <div style={{ padding: '8px 0', color: theme.accent, fontWeight: 'bold', borderBottom: `1px dashed ${theme.accent}`, cursor: 'help', display: 'inline-block' }}>{unsereFirma || '-'}</div>
-                  <div className="tooltip-content" style={{ display: 'none', position: 'absolute', top: '100%', left: 0, background: theme.cardBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', zIndex: 100, width: '280px', boxShadow: '0 5px 15px rgba(0,0,0,0.3)', fontSize: '13px', color: theme.textMain }}>
-                    <strong style={{ display: 'block', marginBottom: '10px', color: theme.accent, fontSize: '14px' }}>{currentFirmaData?.firmenname || unsereFirma || 'Unbekannt'}</strong>
-                    <div style={{ marginBottom: '6px' }}>👤 {currentFirmaData?.ansprechpartner || unserAnsprechpartner || '-'}</div>
-                    <div style={{ marginBottom: '6px' }}>📞 {currentFirmaData?.telefon || unserTelefon || '-'}</div>
-                    <div>✉️ {currentFirmaData?.email || unserEmail || '-'}</div>
-                  </div>
-                </>
-              ) : <input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} />}
-            </div>
-
-            <div>
-              <label style={labelStyle}>Ansprechpartner</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{unserAnsprechpartner || '-'}</div> : <input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} />}
-            </div>
-            <div>
-              <label style={labelStyle}>E-Mail (Mandant)</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{unserEmail || '-'}</div> : <input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} />}
-            </div>
-            <div>
-              <label style={labelStyle}>Telefon (Mandant)</label>
-              {isLocked ? <div style={{ padding: '8px 0', color: theme.textMain }}>{unserTelefon || '-'}</div> : <input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} onBlur={(e) => setUnserTelefon(formatRufnummer(e.target.value))} style={inputStyle} />}
-            </div>
-
-          {/* Der Rest (Arbeitsanweisung/Eintrag) bleibt immer bearbeitbar, da hier der eigentliche History-Eintrag generiert wird */}
           <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>Dokument-Eintrag / Arbeitsanweisung</h4></div>
           <div><label style={labelStyle}>Typ*</label><select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}><option value="Eingang">Eingang</option><option value="Ausgang">Ausgang</option><option value="Intern">Intern</option></select></div>
           <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
