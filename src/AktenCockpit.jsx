@@ -641,11 +641,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setGegnerPrompt(null);
   };
 
+  // --- HIER BEREINIGT: MANUELLES SCHLIESSEN/ÖFFNEN WIEDER OHNE PASSWORT ---
   const handleInlineEdit = async (histId, feld, wert) => {
-    if (feld === 'is_locked' && wert === false) {
-      if (!checkAdminAuth()) return;
-    }
-
     const dbWert = (typeof wert === 'boolean') ? wert : (wert !== '' ? wert : null);
     let updates = { [feld]: dbWert };
     
@@ -692,11 +689,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setOpenMenuId(null);
   };
 
+  // --- HIER BEREINIGT: MANUELLES SCHLIESSEN/ÖFFNEN WIEDER OHNE PASSWORT ---
   const handleAkteStammdatenEdit = async (akteId, feld, wert) => {
-    if (feld === 'is_locked' && wert === false) {
-      if (!checkAdminAuth()) return;
-    }
-
     const dbWert = (typeof wert === 'boolean') ? wert : (wert !== '' ? wert : null);
     const { error } = await supabase.from('akten').update({ [feld]: dbWert }).eq('id', akteId);
     if (!error) {
@@ -724,7 +718,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     } else { showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error'); }
   };
 
-  // --- HIER NEU: AUTO-UNLOCK ALLER VORGÄNGE BEIM WIEDERERÖFFNEN DER AKTE ---
+  // --- HIER BLEIBT DER PASSWORTSCHUTZ FÜR DEN "ERLEDIGT"-STATUS EXAKT ERHALTEN ---
   const toggleAkteStatus = async (akteId, currentStatus) => {
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     
@@ -734,7 +728,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       
       const { error } = await supabase.from('akten').update({ status: neuerStatus, is_locked: false }).eq('id', akteId);
       if (!error) {
-        // HIER DER FIX: Alle Vorgänge ebenfalls entsperren
         await supabase.from('akten_historie').update({ is_locked: false }).eq('akte_id', akteId);
 
         await supabase.from('akten_historie').insert([{ akte_id: akteId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: 'Akte durch Admin wiedereröffnet & entsperrt.' }]);
