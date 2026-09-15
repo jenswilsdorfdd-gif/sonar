@@ -97,16 +97,6 @@ export default function AktenFormular({
   ladeDaten,
   showToast
 }) {
-  const [isLocked, setIsLocked] = React.useState(modus === 'bestehend');
-
-  // Auto-Sperren/Entsperren, wenn der Modus gewechselt wird
-  React.useEffect(() => {
-    setIsLocked(modus === 'bestehend');
-  }, [modus, selectedAkteId]);
-
-  const currentGegnerData = (gegnerListe || []).find(g => g.name === gegnerName);
-  const currentFirmaData = (mandanten || []).find(m => m.firmenname === unsereFirma);
-
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
   const extractTextFromPDF = async (file) => {
@@ -144,6 +134,7 @@ export default function AktenFormular({
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
     
+    // Kleiner Hack, falls setLaedt nicht per Prop reinkam
     if (typeof handleSpeichernCheck === 'function' && !laedt) {
       showToast("Speichere Akten-Eintrag...", "success");
     }
@@ -165,6 +156,7 @@ export default function AktenFormular({
            await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: null }]);
            await syncToGithub(f.name, fileInhalt, null, null, showToast);
            
+           // --- NEU: MD AUCH INS SUPABASE STORAGE ---
            const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
            const dateiName = `${Date.now()}_${sichererDateiname}`;
            const mdBlob = new Blob([fileInhalt], { type: 'text/markdown' });
@@ -198,6 +190,7 @@ export default function AktenFormular({
                       const mdInhalt = `${baseInfo}\n\nOriginal-PDF: ${linkData.publicUrl}\n\n${extrahierterText}`;
                       await syncToGithub(mdFileName, mdInhalt, linkData.publicUrl, null, showToast);
                       
+                      // --- NEU: ZWILLINGS-UPLOAD IN SUPABASE STORAGE ---
                       const twinFileName = dateiName.replace(/\.[^/.]+$/, "") + ".md";
                       const twinBlob = new Blob([mdInhalt], { type: 'text/markdown' });
                       await supabase.storage.from('dokumente').upload(twinFileName, twinBlob);
@@ -220,6 +213,7 @@ export default function AktenFormular({
       const mdInhalt = `Versendetes Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`;
       await syncToGithub(ausgangName, mdInhalt, activeVersandPdfUrl, null, showToast);
       
+      // --- NEU: ZWILLINGS-UPLOAD FÜR RESEND AUSGANGS-PDFS ---
       try {
          const urlParts = activeVersandPdfUrl.split('/');
          const pdfFileName = urlParts[urlParts.length - 1].split('?')[0]; 
@@ -242,6 +236,7 @@ export default function AktenFormular({
       
       await syncToGithub(fileName, fileContent, null, null, showToast);
       
+      // --- NEU: ENTWÜRFE BEKOMMEN EINE EIGENE STORAGE-URL ---
       const entBlob = new Blob([fileContent], { type: 'text/markdown' });
       const { error: entError } = await supabase.storage.from('dokumente').upload(fileName, entBlob);
       if (!entError) {
@@ -258,33 +253,13 @@ export default function AktenFormular({
       if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); return; }
       aktuelleAkteId = neueAkte[0].id;
     } else {
-      
-      // Update der Akten-Stammdaten, wenn das Schloss offen ist und der Modus 'bestehend'
-      if (!isLocked && aktuelleAkteId && modus === 'bestehend') {
-        const { error: updateError } = await supabase.from('akten').update({
-          unser_zeichen: unserZeichen || null,
-          aktenzeichen: aktenzeichen || null,
-          gegner_name: gegnerName || null,
-          gegner_ansprechpartner: gegnerAnsprechpartner || null,
-          gegner_telefon: gegnerTelefon || null,
-          gegner_email: gegnerEmail || null,
-          unsere_firma: unsereFirma || null,
-          unser_ansprechpartner: unserAnsprechpartner || null,
-          unser_telefon: unserTelefon || null,
-          unser_email: unserEmail || null,
-          thema: thema || null
-        }).eq('id', aktuelleAkteId);
-        if (updateError) console.error("Fehler beim Update der Akte:", updateError);
-      }
-
       if (clearOldFristen && aktuelleAkteId) {
          await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('akte_id', aktuelleAkteId);
       }
     }
 
     const activeAktion = autoSaveOverrides && autoSaveOverrides.overrideAktion !== undefined ? autoSaveOverrides.overrideAktion : aktion;
-    // kanal check removed/fallback as it is missing from props sometimes
-    const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : null;
+    const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : kanal;
     const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
     const activeWv = autoSaveOverrides && autoSaveOverrides.overrideWv !== undefined ? autoSaveOverrides.overrideWv : wiedervorlage;
 
@@ -326,7 +301,7 @@ export default function AktenFormular({
 
       setUnserZeichen(''); setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
-      setAktion(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
+      setAktion(''); setKanal(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
       setBriefEntwurf(''); setBezugId(''); setClearOldFristen(true);
       
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
@@ -340,11 +315,6 @@ export default function AktenFormular({
 
   return (
     <>
-      {/* CSS FÜR HOVER-KARTEN */}
-      <style>{`
-        .tooltip-container:hover .tooltip-content { display: block !important; }
-      `}</style>
-
       {showTriageModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -445,47 +415,36 @@ export default function AktenFormular({
           </div>
         )}
 
-        {/* MODUS-STEUERUNG (Ohne Lock-Button, sauber getrennt) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px', marginBottom: modus === 'bestehend' ? '15px' : '25px', borderBottom: modus === 'bestehend' ? 'none' : `1px solid ${theme.border}`, paddingBottom: modus === 'bestehend' ? '0' : '20px', textAlign: 'left' }}>
-          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', paddingTop: '8px' }}>
-            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} /><Icon name="folder" size={16} /> Neue Akte / Hülle anlegen</label>
-            <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} /><Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen</label>
-          </div>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
+          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} /><Icon name="folder" size={16} /> Neue Akte / Hülle anlegen</label>
+          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} /><Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen</label>
+          {modus === 'bestehend' && (
+            <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
+              <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
+                <option value="">-- Ziel-Akte wählen --</option>
+                {sortedAktenForDropdown.map(a => <option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>)}
+              </select>
+            </div>
+          )}
         </div>
-
-        {modus === 'bestehend' && (
-          <div style={{ marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px' }}>
-            <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px', width: '100%'}}>
-              <option value="">-- Ziel-Akte wählen --</option>
-              {sortedAktenForDropdown.map(a => <option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>)}
-            </select>
-          </div>
-        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}>
           {modus === 'neu' && (
             <>
               <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-                
-                {/* HIER SITZT JETZT DER SCHLOSS-BUTTON: Bombensicher neben der Überschrift */}
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
                   <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
-                  <button type="button" onClick={() => setIsLocked(!isLocked)} style={{ background: isLocked ? 'transparent' : theme.accent, color: isLocked ? theme.textMain : btnTextColor, border: `1px solid ${isLocked ? theme.border : theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '13px' }}>
-                    <Icon name={isLocked ? "lock" : "unlock"} size={16} />
-                    {isLocked ? "Akte gesperrt (Read-Only)" : "Akte bearbeiten"}
-                  </button>
                 </div>
               </div>
-              
-              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
-              <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
-              <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
+              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} /></div>
+              <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
 
               <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
                   <h4 style={{margin: 0, color: theme.textMain}}>2. Gegenpartei / Behörde</h4>
                   {gegnerListe.length > 0 && (
-                    <select onChange={handleGegnerAuswahl} disabled={isLocked} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                    <select onChange={handleGegnerAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
                       <option value="">+ Aus Gegner-CRM laden...</option>
                       {gegnerListe.map(g => {
                         let ansList = [];
@@ -497,55 +456,27 @@ export default function AktenFormular({
                   )}
                 </div>
               </div>
-
-              {/* TOOLTIP-CONTAINER GEGNER */}
-              <div className={isLocked ? "tooltip-container" : ""} style={{ position: 'relative' }}>
-                <label style={labelStyle}>Behörde / Gegner*</label>
-                <input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg, cursor: isLocked ? 'help' : 'text', color: isLocked ? theme.accent : theme.textMain, fontWeight: isLocked ? 'bold' : 'normal'}} disabled={isLocked} />
-                {isLocked && (
-                  <div className="tooltip-content" style={{ display: 'none', position: 'absolute', top: '100%', left: 0, background: theme.cardBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', zIndex: 100, width: '280px', boxShadow: '0 5px 15px rgba(0,0,0,0.3)', fontSize: '13px', color: theme.textMain }}>
-                    <strong style={{ display: 'block', marginBottom: '10px', color: theme.accent, fontSize: '14px' }}>{currentGegnerData?.name || gegnerName || 'Unbekannt'}</strong>
-                    <div style={{ marginBottom: '6px' }}>👤 {currentGegnerData?.ansprechpartner || gegnerAnsprechpartner || '-'}</div>
-                    <div style={{ marginBottom: '6px' }}>📞 {currentGegnerData?.telefon || gegnerTelefon || '-'}</div>
-                    <div>✉️ {currentGegnerData?.email || gegnerEmail || '-'}</div>
-                  </div>
-                )}
-              </div>
-
-              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
-              <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} onBlur={(e) => setGegnerTelefon(formatRufnummer(e.target.value))} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
-              <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
-              <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
+              <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} onBlur={(e) => setGegnerTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+              <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
               
               <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
                   <h4 style={{margin: 0, color: theme.textMain}}>3. Wir (Mandant)</h4>
                   {mandanten.length > 0 && (
-                    <select onChange={handleTresorAuswahl} disabled={isLocked} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                    <select onChange={handleTresorAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
                       <option value="">+ Aus Firmen-Tresor laden...</option>
                       {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
                     </select>
                   )}
                 </div>
               </div>
-
-              {/* TOOLTIP-CONTAINER FIRMA */}
-              <div className={isLocked ? "tooltip-container" : ""} style={{ position: 'relative' }}>
-                <label style={labelStyle}>Firma / Person*</label>
-                <input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg, cursor: isLocked ? 'help' : 'text', color: isLocked ? theme.accent : theme.textMain, fontWeight: isLocked ? 'bold' : 'normal'}} disabled={isLocked} />
-                {isLocked && (
-                  <div className="tooltip-content" style={{ display: 'none', position: 'absolute', top: '100%', left: 0, background: theme.cardBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', zIndex: 100, width: '280px', boxShadow: '0 5px 15px rgba(0,0,0,0.3)', fontSize: '13px', color: theme.textMain }}>
-                    <strong style={{ display: 'block', marginBottom: '10px', color: theme.accent, fontSize: '14px' }}>{currentFirmaData?.firmenname || unsereFirma || 'Unbekannt'}</strong>
-                    <div style={{ marginBottom: '6px' }}>👤 {currentFirmaData?.ansprechpartner || unserAnsprechpartner || '-'}</div>
-                    <div style={{ marginBottom: '6px' }}>📞 {currentFirmaData?.telefon || unserTelefon || '-'}</div>
-                    <div>✉️ {currentFirmaData?.email || unserEmail || '-'}</div>
-                  </div>
-                )}
-              </div>
-
-              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
-              <div><label style={labelStyle}>E-Mail (Mandant)</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
-              <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} onBlur={(e) => setUnserTelefon(formatRufnummer(e.target.value))} style={{...inputStyle, background: isLocked ? theme.cardBg : theme.inputBg}} disabled={isLocked} /></div>
+              <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
+              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>E-Mail (Mandant)</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} onBlur={(e) => setUnserTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
             </>
           )}
 
