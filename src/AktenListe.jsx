@@ -303,12 +303,13 @@ export default function AktenListe({
                           <th style={{ padding: '10px', textAlign: 'left', width: '230px' }}>Aktion</th>
                           <th style={{ padding: '10px', textAlign: 'left', width: '160px' }}>Frist / WV</th>
                           <th style={{ padding: '10px', textAlign: 'left' }}>Dokumente</th>
-                          <th style={{ padding: '10px', textAlign: 'center', width: '90px' }}>Aktionen</th>
+                          <th style={{ padding: '10px', textAlign: 'center', width: '110px' }}>Aktionen</th>
                         </tr>
                       </thead>
                       <tbody>
                         {akte.akten_historie.map((hist) => {
                           const istHervorgehoben = fokussierterHistId === hist.id;
+                          const isHistLocked = hist.is_locked;
 
                           return (
                             <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
@@ -320,7 +321,8 @@ export default function AktenListe({
                                     defaultValue={hist.typ || ''} 
                                     onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
                                     className="hist-typ-select"
-                                    style={{ width: 'auto', flex: '1 1 auto' }}
+                                    disabled={isHistLocked}
+                                    style={{ width: 'auto', flex: '1 1 auto', cursor: isHistLocked ? 'not-allowed' : 'pointer' }}
                                   >
                                     <option value="Eingang">Eingang</option>
                                     <option value="Ausgang">Ausgang</option>
@@ -330,12 +332,20 @@ export default function AktenListe({
                                     type="date" 
                                     defaultValue={hist.datum || ''} 
                                     onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
-                                    style={{ ...inlineInputStyle, width: 'auto', flex: '1 1 auto' }} 
+                                    disabled={isHistLocked}
+                                    style={{ ...inlineInputStyle, width: 'auto', flex: '1 1 auto', cursor: isHistLocked ? 'not-allowed' : 'text' }} 
                                   />
-                                  <button onClick={() => ladeVorgangInMaske(akte, hist)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Laden</button>
-                                  <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }}>
-                                    <Icon name="trash" size={16} />
-                                  </button>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <button onClick={() => ladeVorgangInMaske(akte, hist)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Laden</button>
+                                    <button onClick={() => handleInlineEdit(hist.id, 'is_locked', !isHistLocked)} style={{ background: 'transparent', border: 'none', color: isHistLocked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '4px' }}>
+                                      <Icon name={isHistLocked ? "lock" : "unlock"} size={16} />
+                                    </button>
+                                    {!isHistLocked && (
+                                      <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }}>
+                                        <Icon name="trash" size={16} />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
 
@@ -345,6 +355,8 @@ export default function AktenListe({
                                    defaultValue={hist.typ || ''} 
                                    onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
                                    className="hist-typ-select"
+                                   disabled={isHistLocked}
+                                   style={{ cursor: isHistLocked ? 'not-allowed' : 'pointer', opacity: isHistLocked ? 0.8 : 1 }}
                                  >
                                     <option value="Eingang">Eingang</option>
                                     <option value="Ausgang">Ausgang</option>
@@ -358,7 +370,8 @@ export default function AktenListe({
                                   type="date" 
                                   defaultValue={hist.datum || ''} 
                                   onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
-                                  style={inlineInputStyle} 
+                                  disabled={isHistLocked}
+                                  style={{ ...inlineInputStyle, cursor: isHistLocked ? 'not-allowed' : 'text' }} 
                                 />
                               </td>
 
@@ -368,7 +381,8 @@ export default function AktenListe({
                                   type="text" 
                                   defaultValue={hist.aktion || ''} 
                                   onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
-                                  style={inlineInputStyle} 
+                                  disabled={isHistLocked}
+                                  style={{ ...inlineInputStyle, cursor: isHistLocked ? 'not-allowed' : 'text' }} 
                                   placeholder="Ohne Aktion" 
                                 />
                               </td>
@@ -383,7 +397,8 @@ export default function AktenListe({
                                       key={`frist-${hist.frist_extern}`}
                                       defaultValue={hist.frist_extern || ''} 
                                       onBlur={(e) => { if (e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }} 
-                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                      disabled={isHistLocked}
+                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none', cursor: isHistLocked ? 'not-allowed' : 'text'}} 
                                       title="Frist setzen (löscht automatisch WV)" 
                                     />
                                   </div>
@@ -394,7 +409,8 @@ export default function AktenListe({
                                       key={`wv-${hist.wiedervorlage}`}
                                       defaultValue={hist.wiedervorlage || ''} 
                                       onBlur={(e) => { if (e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }} 
-                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none'}} 
+                                      disabled={isHistLocked}
+                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none', cursor: isHistLocked ? 'not-allowed' : 'text'}} 
                                       title="WV setzen (löscht automatisch Frist)" 
                                     />
                                   </div>
@@ -409,19 +425,51 @@ export default function AktenListe({
                                     return (
                                       <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
                                         <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
-                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen"><Icon name="x" size={12} /></button>
+                                        {!isHistLocked && (
+                                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
+                                            <Icon name="x" size={12} />
+                                          </button>
+                                        )}
                                       </div>
                                     )
                                   })}
-                                  {uploadingHistId === hist.id ? (<span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>) : (<label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 8px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted }} title="Datei nachträglich an diesen Vorgang anhängen">+ Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} /></label>)}
+                                  {!isHistLocked && (
+                                    uploadingHistId === hist.id ? (
+                                      <span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>
+                                    ) : (
+                                      <label style={{ cursor: 'pointer', fontSize: '11px', background: 'transparent', padding: '4px 8px', borderRadius: '4px', border: `1px dashed ${theme.textMuted}`, display: 'inline-block', color: theme.textMuted }} title="Datei nachträglich an diesen Vorgang anhängen">
+                                        + Datei<input type="file" style={{ display: 'none' }} onChange={(e) => handleNachtragUploadAkte(hist.id, hist.dokument_url, akte.unsere_firma, akte.gegner_name, e)} />
+                                      </label>
+                                    )
+                                  )}
                                 </div>
                               </td>
 
-                              {/* DESKTOP SPALTE 6: AKTIONEN (LADEN & LÖSCHEN) */}
+                              {/* DESKTOP SPALTE 6: AKTIONEN (LADEN & SCHLOSS & LÖSCHEN) */}
                               <td style={{ padding: '8px 10px', textAlign: 'center' }} className="desktop-only">
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                  
                                   <button onClick={() => ladeVorgangInMaske(akte, hist)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }} title="Diesen Vorgang oben in die Maske laden">Laden</button>
-                                  <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Vorgang löschen"><Icon name="trash" size={14} /></button>
+                                  
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <button 
+                                      onClick={() => handleInlineEdit(hist.id, 'is_locked', !isHistLocked)} 
+                                      style={{ background: 'transparent', border: 'none', color: isHistLocked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '2px', display: 'flex', justifyContent: 'center' }} 
+                                      title={isHistLocked ? "Vorgang entsperren" : "Vorgang verschließen (Read-Only)"}
+                                    >
+                                      <Icon name={isHistLocked ? "lock" : "unlock"} size={14} />
+                                    </button>
+                                    {!isHistLocked && (
+                                      <button 
+                                        onClick={() => loescheHistorieEintrag(hist.id)} 
+                                        style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '2px', display: 'flex', justifyContent: 'center' }} 
+                                        title="Vorgang löschen"
+                                      >
+                                        <Icon name="trash" size={14} />
+                                      </button>
+                                    )}
+                                  </div>
+
                                 </div>
                               </td>
 
