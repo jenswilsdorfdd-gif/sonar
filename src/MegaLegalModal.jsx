@@ -85,7 +85,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
 
         setMessages([{ role: "user", content: initialUserPrompt }]);
         setIsLoading(false);
-        callMegaLegal([{ role: "user", content: initialUserPrompt }]);
+        callMegaLegal([{ role: "user", content: initialUserPrompt }], false);
       } else {
         setMessages([]);
         setErrorMsg(null);
@@ -100,7 +100,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // --- NEU: GEHÄRTETER JSON-SANITIZER ---
+  // --- GEHÄRTETER JSON-SANITIZER ---
   const cleanJsonString = (str) => {
     if (!str) return str;
     
@@ -154,7 +154,8 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     return null;
   };
 
-  const callMegaLegal = async (history) => {
+  // --- NEU: ZUSÄTZLICHER isFinalExport PARAMETER ---
+  const callMegaLegal = async (history, isFinalExport = false) => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
@@ -167,12 +168,15 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
 
       const reply = data?.reply || "Keine Antwort vom Board erhalten.";
 
-      const parsedJson = extractAndParseJSON(reply);
-      if (parsedJson) {
-        onApplySchriftsatz(parsedJson);
-        onClose(); 
-        setIsLoading(false);
-        return; 
+      // --- HARTER RIEGEL: JSON NUR BEI EXPLIZITEM EXPORT PARSEN ---
+      if (isFinalExport) {
+        const parsedJson = extractAndParseJSON(reply);
+        if (parsedJson) {
+          onApplySchriftsatz(parsedJson);
+          onClose(); 
+          setIsLoading(false);
+          return; 
+        }
       }
 
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
@@ -190,7 +194,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     const updatedHistory = [...messages, { role: "user", content: inputPrompt }];
     setMessages(updatedHistory);
     setInputPrompt("");
-    callMegaLegal(updatedHistory);
+    callMegaLegal(updatedHistory, false);
   };
 
   // --- Datei-Upload im War-Room ---
@@ -225,7 +229,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
       
       const updatedHistory = [...messages, { role: "user", content: prompt }];
       setMessages(updatedHistory);
-      callMegaLegal(updatedHistory);
+      callMegaLegal(updatedHistory, false);
 
     } catch (err) {
       console.error("Upload Error:", err);
@@ -249,7 +253,7 @@ STRIKTE REGELN FÜR DEN TEXT:
     
     const updatedHistory = [...messages, { role: "user", content: draftPrompt }];
     setMessages(updatedHistory);
-    callMegaLegal(updatedHistory);
+    callMegaLegal(updatedHistory, false);
   };
 
   const handleExtractAndApplyJSON = () => {
@@ -264,7 +268,7 @@ STRIKTE REGELN FÜR DEN TEXT:
       }
     }
     
-    // --- NEU: GEHÄRTETER TRIGGER-PROMPT ZUR FEHLER-PRÄVENTION ---
+    // --- GEHÄRTETER TRIGGER-PROMPT ZUR FEHLER-PRÄVENTION ---
     const triggerPrompt = `Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Setze das Feld 'typ' ZWINGEND auf 'Ausgang'. Das JSON MUSS das Feld 'brief_entwurf' enthalten.
 
 STRIKTE JSON-FORMATIERUNGSREGELN:
@@ -275,7 +279,8 @@ STRIKTE JSON-FORMATIERUNGSREGELN:
 
     const updatedHistory = [...messages, { role: "user", content: triggerPrompt }];
     setMessages(updatedHistory);
-    callMegaLegal(updatedHistory);
+    // HIER WIRD isFinalExport AUF TRUE GESETZT
+    callMegaLegal(updatedHistory, true);
   };
 
   if (!isOpen) return null;
