@@ -468,4 +468,4 @@ STRIKTE JSON-FORMATIERUNGSREGELN:
       </div>
     </div>
   );
-}
+} 
