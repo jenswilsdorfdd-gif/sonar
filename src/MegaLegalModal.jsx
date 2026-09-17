@@ -154,7 +154,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     return null;
   };
 
-  // --- NEU: ZUSÄTZLICHER isFinalExport PARAMETER ---
+  // --- ZUSÄTZLICHER isFinalExport PARAMETER ---
   const callMegaLegal = async (history, isFinalExport = false) => {
     setIsLoading(true);
     setErrorMsg(null);
@@ -281,6 +281,19 @@ STRIKTE JSON-FORMATIERUNGSREGELN:
     setMessages(updatedHistory);
     // HIER WIRD isFinalExport AUF TRUE GESETZT
     callMegaLegal(updatedHistory, true);
+  };
+
+  // --- NEU: HÄNDISCH ANTWORTEN OHNE KI ---
+  const handleManualDraft = () => {
+    const manualJson = {
+      typ: "Ausgang",
+      thema: dossier?.thema || "Ohne Betreff",
+      aktenzeichen: dossier?.aktenzeichen || "",
+      aktion: "Händische Beantwortung",
+      brief_entwurf: "Hier händische Antwort formulieren..."
+    };
+    onApplySchriftsatz(manualJson);
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -411,7 +424,17 @@ STRIKTE JSON-FORMATIERUNGSREGELN:
               Schließen (Abbrechen)
             </button>
             
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap justify-end">
+              <button
+                type="button"
+                onClick={handleManualDraft}
+                disabled={isLoading}
+                className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50 border border-slate-600"
+                title="KI abbrechen und Vorgang händisch beantworten"
+              >
+                <span>✍️ Händisch antworten</span>
+              </button>
+              
               <button
                 type="button"
                 onClick={handleDraftDocument}
