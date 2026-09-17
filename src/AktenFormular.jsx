@@ -45,6 +45,7 @@ export default function AktenFormular({
   unserAnsprechpartner,
   setUnserAnsprechpartner,
   unserEmail,
+  setUnserEmail,
   setUnserTelefon,
   unserTelefon,
   typ,
@@ -634,4 +635,4 @@ export default function AktenFormular({
       </form>
     </>
   );
-}
+} 
