@@ -1750,6 +1750,19 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setTresorPrompt={setTresorPrompt}
         formatRufnummer={formatRufnummer}
         rawText={rawText}
+        // --- HIER WURDEN DIE FEHLENDEN PROPS EINGEFÜGT ---
+        dateien={dateien}
+        setDateien={setDateien}
+        showUploadReminder={showUploadReminder}
+        setShowUploadReminder={setShowUploadReminder}
+        showTriageModal={showTriageModal}
+        setShowTriageModal={setShowTriageModal}
+        triageWvDate={triageWvDate}
+        setTriageWvDate={setTriageWvDate}
+        session={session}
+        ladeDaten={ladeDaten}
+        showToast={showToast}
+        // --------------------------------------------------
       />
 
       <AktenListe
