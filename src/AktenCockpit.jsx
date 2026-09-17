@@ -641,7 +641,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setGegnerPrompt(null);
   };
 
-  // --- HIER BEREINIGT: MANUELLES SCHLIESSEN/ÖFFNEN WIEDER OHNE PASSWORT ---
   const handleInlineEdit = async (histId, feld, wert) => {
     const dbWert = (typeof wert === 'boolean') ? wert : (wert !== '' ? wert : null);
     let updates = { [feld]: dbWert };
@@ -689,7 +688,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setOpenMenuId(null);
   };
 
-  // --- HIER BEREINIGT: MANUELLES SCHLIESSEN/ÖFFNEN WIEDER OHNE PASSWORT ---
   const handleAkteStammdatenEdit = async (akteId, feld, wert) => {
     const dbWert = (typeof wert === 'boolean') ? wert : (wert !== '' ? wert : null);
     const { error } = await supabase.from('akten').update({ [feld]: dbWert }).eq('id', akteId);
@@ -718,7 +716,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     } else { showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error'); }
   };
 
-  // --- HIER BLEIBT DER PASSWORTSCHUTZ FÜR DEN "ERLEDIGT"-STATUS EXAKT ERHALTEN ---
   const toggleAkteStatus = async (akteId, currentStatus) => {
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     
@@ -1723,8 +1720,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setBezugId={setBezugId}
         formatDatum={formatDatum}
         fristExtern={fristExtern}
+        setFristExtern={setFristExtern}
         handleFristChange={handleFristChange}
         wiedervorlage={wiedervorlage}
+        setWiedervorlage={setWiedervorlage}
         handleWVChange={handleWVChange}
         setzeWV={setzeWV}
         clearOldFristen={clearOldFristen}
@@ -1750,7 +1749,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setTresorPrompt={setTresorPrompt}
         formatRufnummer={formatRufnummer}
         rawText={rawText}
-        // --- HIER WURDEN DIE FEHLENDEN PROPS EINGEFÜGT ---
         dateien={dateien}
         setDateien={setDateien}
         showUploadReminder={showUploadReminder}
@@ -1762,7 +1760,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         session={session}
         ladeDaten={ladeDaten}
         showToast={showToast}
-        // --------------------------------------------------
       />
 
       <AktenListe
