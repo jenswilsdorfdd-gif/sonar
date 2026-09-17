@@ -118,10 +118,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return n1.includes(n2) || n2.includes(n1);
   };
 
-  // --- ADMIN AUTH CHECK MIT TRIM FIX ---
   const checkAdminAuth = () => {
     const pw = window.prompt("Admin-Sicherheit: Bitte Passwort eingeben, um die Sperre aufzuheben.");
-    if (pw === null) return false; // Abgebrochen
+    if (pw === null) return false;
     if (pw.trim() === import.meta.env.VITE_ADMIN_PASSWORD) {
       return true;
     } else {
@@ -357,65 +356,42 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     showToast("Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
+  // --- NEU: INTELLIGENTE GEGNER-PRÜFUNG MIT MEHREREN VORSCHLÄGEN ---
   const checkGegnerDiff = (neuName, neuFax, neuEmail, neuAnsprechpartner, neuTelefon) => {
     if (!neuName) return false;
+
+    const cleanNeuAP = (neuAnsprechpartner || '').trim().toLowerCase();
+    const isZentrale = !cleanNeuAP || cleanNeuAP === 'zentrale' || cleanNeuAP === 'poststelle';
+
+    // Finde exakten Match
+    let exactTarget = gegnerListe.find(g => normalizeName(g.name) === normalizeName(neuName));
     
-    let target = gegnerListe.find(g => normalizeName(g.name) === normalizeName(neuName));
-    if (!target) {
-      target = gegnerListe.find(g => fuzzyMatch(g.name, neuName));
+    // Finde alle unscharfen Matches
+    let fuzzyTargets = gegnerListe.filter(g => fuzzyMatch(g.name, neuName));
+
+    let vorschlaege = [];
+    if (exactTarget) {
+      vorschlaege = [exactTarget];
+    } else if (fuzzyTargets.length > 0) {
+      vorschlaege = fuzzyTargets;
     }
-    
-    if (target) {
-      let contacts = [];
-      try {
-        contacts = typeof target.notizen === 'string' ? JSON.parse(target.notizen) : (target.notizen || []);
-      } catch (e) {
-        contacts = [];
-      }
-      if (!Array.isArray(contacts)) contacts = [];
 
-      const cleanNeuAP = (neuAnsprechpartner || '').trim().toLowerCase();
-
-      let matchedContact = null;
-      if (cleanNeuAP) {
-        if ((target.ansprechpartner || '').trim().toLowerCase().includes(cleanNeuAP) || cleanNeuAP.includes((target.ansprechpartner || '').trim().toLowerCase())) {
-          matchedContact = { name: target.ansprechpartner, telefon: target.telefon, email: target.email };
-        } else {
-          matchedContact = contacts.find(c => {
-            const cName = (c.name || '').trim().toLowerCase();
-            return cName && (cName.includes(cleanNeuAP) || cleanNeuAP.includes(cName));
-          });
-        }
-      }
-
-      if (matchedContact) {
-        if (!neuTelefon && matchedContact.telefon) setGegnerTelefon(formatRufnummer(matchedContact.telefon));
-        if (!neuEmail && matchedContact.email) setGegnerEmail(matchedContact.email);
-        if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
-        return false; 
-      }
-
-      if (!cleanNeuAP || cleanNeuAP === 'zentrale' || cleanNeuAP === 'poststelle') {
-        if (!neuTelefon && target.telefon) setGegnerTelefon(formatRufnummer(target.telefon));
-        if (!neuEmail && (target.email || target.email_zentrale)) setGegnerEmail(target.email || target.email_zentrale);
-        if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
-        return false; 
-      }
-
-      setGegnerPrompt({
-        typ: 'neuer_ap',
-        targetId: target.id,
-        targetName: target.name,
-        obj: { name: target.name, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax || target.fax), email: neuEmail }
-      });
-      return true;
-    } else {
-      setGegnerPrompt({
-        typ: 'neu',
-        obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail }
-      });
-      return true;
+    // Wenn es EXAKT einen Treffer gibt und kein neuer AP erkannt wurde -> Auto-Fill, kein Prompt
+    if (vorschlaege.length === 1 && isZentrale) {
+      const target = vorschlaege[0];
+      if (!neuTelefon && target.telefon) setGegnerTelefon(formatRufnummer(target.telefon));
+      if (!neuEmail && (target.email || target.email_zentrale)) setGegnerEmail(target.email || target.email_zentrale);
+      if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
+      return false; 
     }
+
+    // Zeige immer den Auswahl-Prompt, wenn der AP neu ist, oder wenn es mehrere/keine Behörden-Treffer gibt
+    setGegnerPrompt({
+      typ: 'auswahl',
+      obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail },
+      vorschlaege: vorschlaege
+    });
+    return true;
   };
 
   const findSmartBezug = (targetAkte, incomingObj) => {
@@ -553,33 +529,42 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setBezugId('');
       }
 
+      // --- NEU: INTELLIGENTE TRESOR-PRÜFUNG ---
       if (fallbackUnsereFirma) {
-        const existingMandant = mandanten.find(m => cleanOrgName(m.firmenname) === cleanOrgName(fallbackUnsereFirma));
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
         const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '');
         const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
         const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || (obj.absender ? `${obj.absender.strasse || ''}, ${obj.absender.plz_ort || ''}` : '') || '';
 
-        if (!existingMandant) {
-          setUnsereFirma(fallbackUnsereFirma); setUnserAnsprechpartner(parsedAnsprechpartner); setUnserTelefon(parsedTelefon); setUnserEmail(parsedEmail);
-          setTresorPrompt({ 
-            typ: 'neu', 
-            obj: { ...obj, unsere_firma: fallbackUnsereFirma, unser_ansprechpartner: parsedAnsprechpartner, unser_telefon: parsedTelefon, unser_email: parsedEmail, unsere_adresse: parsedAdresse } 
-          });
+        const fuzzyMandanten = mandanten.filter(m => fuzzyMatch(m.firmenname, fallbackUnsereFirma));
+
+        setUnsereFirma(fallbackUnsereFirma);
+        setUnserAnsprechpartner(parsedAnsprechpartner);
+        setUnserTelefon(parsedTelefon);
+        setUnserEmail(parsedEmail);
+
+        if (fuzzyMandanten.length === 1 && cleanOrgName(fuzzyMandanten[0].firmenname) === cleanOrgName(fallbackUnsereFirma)) {
+          setUnsereFirma(fuzzyMandanten[0].firmenname); 
+          setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(fuzzyMandanten[0].ansprechpartner) || '');
+          setUnserTelefon(parsedTelefon || cleanVal(fuzzyMandanten[0].telefon) || ''); 
+          setUnserEmail(parsedEmail || cleanVal(fuzzyMandanten[0].email) || '');
+          setTresorPrompt(null);
         } else {
-           setUnsereFirma(existingMandant.firmenname); 
-           setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(existingMandant.ansprechpartner) || '');
-           setUnserTelefon(parsedTelefon || cleanVal(existingMandant.telefon) || ''); 
-           setUnserEmail(parsedEmail || cleanVal(existingMandant.email) || '');
-           setTresorPrompt(null);
+          setTresorPrompt({ 
+            typ: 'auswahl', 
+            obj: { ...obj, unsere_firma: fallbackUnsereFirma, unser_ansprechpartner: parsedAnsprechpartner, unser_telefon: parsedTelefon, unser_email: parsedEmail, unsere_adresse: parsedAdresse },
+            vorschlaege: fuzzyMandanten
+          });
         }
       }
     } catch(err) { console.error("JSON Error:", err); }
   };
 
-  const handleTresorPromptAccept = async () => {
+  // --- NEU: INTELLIGENTER TRESOR ACCEPT-HANDLER ---
+  const handleTresorPromptAccept = async (actionType = 'neu', targetId = null) => {
     if (!tresorPrompt) return;
-    if (tresorPrompt.typ === 'neu') {
+    
+    if (actionType === 'neu') {
       const { data, error } = await supabase.from('mandanten').insert([{
         user_id: session.user.id, firmenname: tresorPrompt.obj.unsere_firma, ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
         telefon: formatRufnummer(cleanVal(tresorPrompt.obj.unser_telefon) || ''), email: cleanVal(tresorPrompt.obj.unser_email) || '', adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
@@ -587,14 +572,23 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '', handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '', iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
       }]).select();
       if (!error && data) { showToast(`Mandant "${tresorPrompt.obj.unsere_firma}" im Tresor angelegt!`, 'success'); ladeDaten(); }
+    
+    } else if (actionType === 'zuweisen' && targetId) {
+      const existing = mandanten.find(m => m.id === targetId);
+      if (existing) {
+        setUnsereFirma(existing.firmenname);
+        setUnserAnsprechpartner(cleanVal(existing.ansprechpartner) || cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '');
+        showToast(`Zuweisung zu Mandant "${existing.firmenname}" erfolgreich!`, 'success');
+      }
     }
     setTresorPrompt(null);
   };
 
-  const handleGegnerPromptAccept = async (actionType = 'erweitern') => {
+  // --- NEU: INTELLIGENTER GEGNER ACCEPT-HANDLER ---
+  const handleGegnerPromptAccept = async (actionType = 'neu', targetId = null) => {
     if (!gegnerPrompt) return;
     
-    if (gegnerPrompt.typ === 'neu') {
+    if (actionType === 'neu') {
       await supabase.from('gegner').insert([{
         user_id: session.user.id,
         name: gegnerPrompt.obj.name,
@@ -609,31 +603,35 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }]);
       showToast(`Behörde/Gegner "${gegnerPrompt.obj.name}" ins CRM aufgenommen!`, 'success');
       
-    } else if (gegnerPrompt.typ === 'neuer_ap') {
-      const existing = gegnerListe.find(g => g.id === gegnerPrompt.targetId);
+    } else if (actionType === 'zuweisen' && targetId) {
+      const existing = gegnerListe.find(g => g.id === targetId);
       if (existing) {
         let gUpdates = {};
-        
-        if (actionType === 'hauptkontakt') {
-          gUpdates.ansprechpartner = gegnerPrompt.obj.ansprechpartner;
-          if (gegnerPrompt.obj.telefon) gUpdates.telefon = gegnerPrompt.obj.telefon;
-          if (gegnerPrompt.obj.email) gUpdates.email = gegnerPrompt.obj.email;
-        } else {
-          let currentContacts = [];
-          try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e) {}
-          if (!Array.isArray(currentContacts)) currentContacts = [];
+        let currentContacts = [];
+        try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e) {}
+        if (!Array.isArray(currentContacts)) currentContacts = [];
 
-          currentContacts.push({
-            abteilung: '',
-            name: gegnerPrompt.obj.ansprechpartner,
-            telefon: formatRufnummer(gegnerPrompt.obj.telefon) || '',
-            email: gegnerPrompt.obj.email || ''
-          });
-          gUpdates.notizen = JSON.stringify(currentContacts);
+        const contactExists = currentContacts.some(c => (c.name || '').toLowerCase() === (gegnerPrompt.obj.ansprechpartner || '').toLowerCase());
+
+        if (!contactExists && gegnerPrompt.obj.ansprechpartner) {
+            currentContacts.push({
+              abteilung: '',
+              name: gegnerPrompt.obj.ansprechpartner,
+              telefon: formatRufnummer(gegnerPrompt.obj.telefon) || '',
+              email: gegnerPrompt.obj.email || ''
+            });
+            gUpdates.notizen = JSON.stringify(currentContacts);
         }
-        
-        await supabase.from('gegner').update(gUpdates).eq('id', existing.id);
-        showToast(`Ansprechpartner "${gegnerPrompt.obj.ansprechpartner}" im CRM gesichert!`, 'success');
+
+        if (!existing.fax && gegnerPrompt.obj.fax) gUpdates.fax = formatRufnummer(gegnerPrompt.obj.fax);
+        if (!existing.email && gegnerPrompt.obj.email) gUpdates.email = gegnerPrompt.obj.email;
+
+        if (Object.keys(gUpdates).length > 0) {
+            await supabase.from('gegner').update(gUpdates).eq('id', existing.id);
+            showToast(`Kontakt bei "${existing.name}" erfolgreich aktualisiert!`, 'success');
+        } else {
+            showToast(`Gegner "${existing.name}" zugewiesen.`, 'success');
+        }
       }
     }
     
@@ -720,7 +718,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     
     if (neuerStatus === 'Offen') {
-      // Entsperren & Wiedereröffnen
       if (!checkAdminAuth()) return;
       
       const { error } = await supabase.from('akten').update({ status: neuerStatus, is_locked: false }).eq('id', akteId);
@@ -732,13 +729,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       } else { showToast("Fehler beim Ändern des Akten-Status: " + error.message, 'error'); }
       
     } else {
-      // Erledigt & Auto-Lock (Akte + Vorgänge) + Warnhinweis
       const bestaetigung = window.confirm("Akte auf 'Erledigt' setzen? Die Akte und alle Vorgänge werden dadurch versiegelt. Einsicht und Downloads bleiben weiterhin möglich, aber eine Wiedereröffnung zur Bearbeitung erfordert zwingend Administrator-Rechte. Fortfahren?");
       if (!bestaetigung) return;
 
       const { error } = await supabase.from('akten').update({ status: neuerStatus, is_locked: true }).eq('id', akteId);
       if (!error) {
-        // Alle Vorgänge zwingend versiegeln
         await supabase.from('akten_historie').update({ is_locked: true }).eq('akte_id', akteId);
 
         const d = new Date(); d.setFullYear(d.getFullYear() + 10); const wvDatum = d.toISOString().split('T')[0];
@@ -1129,7 +1124,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     handleJsonImportRef.current = handleJsonImport;
   }, [handleJsonImport]);
 
-  // --- PHASE 1: WEB-SOCKET & LIFECYCLE RECONNECT ---
   useEffect(() => {
     if (!session?.user?.id) return;
 
@@ -1208,7 +1202,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           display: none !important;
         }
 
-        /* HISTORIEN TYP DROPDOWN */
         .hist-typ-select {
           background: transparent;
           color: ${theme.accent};
@@ -1234,7 +1227,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           color: ${theme.textMain};
         }
 
-        /* VERSANDHISTORIE DESKTOP */
         .vh-desktop-header {
           display: grid;
           grid-template-columns: 80px 2.5fr 2.5fr 190px 190px 30px;
@@ -1260,7 +1252,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           align-items: center;
         }
 
-        /* AKTEN-ÜBERSICHT DESKTOP */
         .akten-desktop-header {
           display: flex;
           align-items: center;
@@ -1294,7 +1285,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           gap: 10px;
         }
 
-        /* HISTORIEN-TABELLE DESKTOP */
         .hist-desktop-table {
           width: 100%;
           min-width: 760px;
@@ -1311,7 +1301,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           display: table-cell;
         }
 
-        /* MOBILER CARD-MODUS */
         @media (max-width: 768px) {
           .desktop-only {
             display: none !important;
@@ -1425,7 +1414,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
       `}</style>
 
-      {/* --- TRIAGE MODAL WEICHE --- */}
       {showTriageModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1497,7 +1485,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             <div style={{ overflowY: 'auto', padding: '15px', width: '100%', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', width: '100%' }}>
                 
-                {/* DESKTOP HEADER */}
                 <div className="vh-desktop-header" style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '8px', color: theme.textMuted }}>
                   <div>Datum</div>
                   <div>Vorgang & Akte</div>
@@ -1523,7 +1510,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           className="vh-row-grid"
                           onClick={() => setExpandedVersandId(isExpanded ? null : ausgang.id)}
                         >
-                          {/* MOBILER KOPF (DATUM, ZEICHEN & PFEIL) */}
                           <div className="mobile-only" style={{ justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                             <span style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain }}>
                               {formatDatum(ausgang.datum)}
@@ -1540,12 +1526,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </span>
                           </div>
 
-                          {/* SPALTE 1 DESKTOP: REINES DATUM */}
                           <div className="desktop-only" style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain, paddingTop: '6px' }}>
                             {formatDatum(ausgang.datum)}
                           </div>
 
-                          {/* SPALTE 2: VORGANG & AKTE (DESKTOP) / VORGANG DETAILS (MOBIL) */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             <strong 
                               className="desktop-only"
@@ -1565,7 +1549,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </span>
                           </div>
 
-                          {/* SPALTE 3: GEGNER & KONTAKT */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                             <strong style={{ color: theme.textMain, fontSize: '13px' }}>{ausgang.gegner_name || '-'}</strong>
                             <span style={{ fontSize: '12px', color: theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1578,7 +1561,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             )}
                           </div>
 
-                          {/* SPALTE 4: VERSANDART */}
                           <div className="vh-col-full">
                             <div style={{ background: 'transparent', border: `1px solid ${theme.accent}`, color: theme.accent, padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ausgang.kanal || 'Ausgang'}>
                               <Icon name={ausgang.kanal?.toLowerCase().includes('mail') ? 'mail' : 'phone'} size={12} />
@@ -1586,7 +1568,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             </div>
                           </div>
 
-                          {/* SPALTE 5: ANHÄNGE */}
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
                               <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', fontSize: '11px', color: theme.accent, background: 'transparent', border: `1px solid ${theme.accent}`, borderRadius: '4px', textDecoration: 'none', width: '100%', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
@@ -1596,13 +1577,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                             )) : <span style={{ fontSize: '12px', color: theme.textMuted }}>Keine Anhänge</span>}
                           </div>
 
-                          {/* SPALTE 6: DESKTOP CHEVRON */}
                           <div className="desktop-only" style={{ color: theme.textMuted, textAlign: 'right', paddingTop: '6px' }}>
                             <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                           </div>
                         </div>
 
-                        {/* EXPANDED CONTENT */}
                         {isExpanded && (
                           <div style={{ padding: '0 20px 15px 20px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                             <div className="vh-expanded-grid" style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '12px' }}>
