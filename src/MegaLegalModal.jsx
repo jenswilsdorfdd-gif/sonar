@@ -260,7 +260,8 @@ STRIKTE REGELN FÜR DEN TEXT:
     const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
     if (lastAssistantMsg) {
       const parsedJson = extractAndParseJSON(lastAssistantMsg.content);
-      if (parsedJson) {
+      // Failsafe: Nur wenn wir schon ein sauberes JSON haben, direkt übergeben
+      if (parsedJson && parsedJson.brief_entwurf) {
         parsedJson.typ = "Ausgang";
         onApplySchriftsatz(parsedJson);
         onClose();
@@ -268,8 +269,16 @@ STRIKTE REGELN FÜR DEN TEXT:
       }
     }
     
-    // --- GEHÄRTETER TRIGGER-PROMPT ZUR FEHLER-PRÄVENTION ---
-    const triggerPrompt = `Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Setze das Feld 'typ' ZWINGEND auf 'Ausgang'. Das JSON MUSS das Feld 'brief_entwurf' enthalten.
+    // --- GEHÄRTETER TRIGGER-PROMPT FÜR INTELLIGENTE EXTRAKTION ---
+    const triggerPrompt = `Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Setze das Feld 'typ' ZWINGEND auf 'Ausgang'.
+
+ZUSÄTZLICHE PFLICHTFELDER (Extrahiere diese zwingend aus dem ursprünglichen Volltext der Behörde, erfinde nichts!):
+- "ansprechpartner": Name der zuständigen Person (z.B. Frau Müller) oder Abteilung auf Seiten der Behörde. Setze hier NICHT unseren Mandanten ein!
+- "thema": Gegenstand / Betreff des Schreibens.
+- "aktenzeichen": Das Aktenzeichen der Behörde.
+- "gegner_fax": Die Faxnummer der Behörde/Gegenseite (falls im Text gefunden).
+- "gegner_email": Die E-Mail-Adresse der Behörde/Gegenseite (falls im Text gefunden).
+- "brief_entwurf": Dein generierter Antworttext.
 
 STRIKTE JSON-FORMATIERUNGSREGELN:
 1. Alle inneren Anführungszeichen im Textwert MÜSSEN zwingend als \\" maskiert (escaped) werden.
@@ -283,7 +292,7 @@ STRIKTE JSON-FORMATIERUNGSREGELN:
     callMegaLegal(updatedHistory, true);
   };
 
-  // --- NEU: HÄNDISCH ANTWORTEN OHNE KI ---
+  // --- HÄNDISCH ANTWORTEN OHNE KI ---
   const handleManualDraft = () => {
     const manualJson = {
       typ: "Ausgang",
