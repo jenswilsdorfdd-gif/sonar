@@ -133,11 +133,9 @@ export default function AktenFormular({
     }
   };
 
-  // --- HAUPT-SPEICHER-LOGIK MIT ZWILLINGS-UPLOAD ---
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
     
-    // Kleiner Hack, falls setLaedt nicht per Prop reinkam
     if (typeof handleSpeichernCheck === 'function' && !laedt) {
       showToast("Speichere Akten-Eintrag...", "success");
     }
@@ -159,7 +157,6 @@ export default function AktenFormular({
            await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: null }]);
            await syncToGithub(f.name, fileInhalt, null, null, showToast);
            
-           // --- NEU: MD AUCH INS SUPABASE STORAGE ---
            const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
            const dateiName = `${Date.now()}_${sichererDateiname}`;
            const mdBlob = new Blob([fileInhalt], { type: 'text/markdown' });
@@ -193,7 +190,6 @@ export default function AktenFormular({
                       const mdInhalt = `${baseInfo}\n\nOriginal-PDF: ${linkData.publicUrl}\n\n${extrahierterText}`;
                       await syncToGithub(mdFileName, mdInhalt, linkData.publicUrl, null, showToast);
                       
-                      // --- NEU: ZWILLINGS-UPLOAD IN SUPABASE STORAGE ---
                       const twinFileName = dateiName.replace(/\.[^/.]+$/, "") + ".md";
                       const twinBlob = new Blob([mdInhalt], { type: 'text/markdown' });
                       await supabase.storage.from('dokumente').upload(twinFileName, twinBlob);
@@ -216,7 +212,6 @@ export default function AktenFormular({
       const mdInhalt = `Versendetes Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`;
       await syncToGithub(ausgangName, mdInhalt, activeVersandPdfUrl, null, showToast);
       
-      // --- NEU: ZWILLINGS-UPLOAD FÜR RESEND AUSGANGS-PDFS ---
       try {
          const urlParts = activeVersandPdfUrl.split('/');
          const pdfFileName = urlParts[urlParts.length - 1].split('?')[0]; 
@@ -239,7 +234,6 @@ export default function AktenFormular({
       
       await syncToGithub(fileName, fileContent, null, null, showToast);
       
-      // --- NEU: ENTWÜRFE BEKOMMEN EINE EIGENE STORAGE-URL ---
       const entBlob = new Blob([fileContent], { type: 'text/markdown' });
       const { error: entError } = await supabase.storage.from('dokumente').upload(fileName, entBlob);
       if (!entError) {
@@ -373,46 +367,71 @@ export default function AktenFormular({
       )}
 
       <form onSubmit={localHandleSpeichernCheck} style={panelStyle}>
+        
+        {/* --- NEUES INTELLIGENTES GEGNER-ASSIGNMENT UI --- */}
         {gegnerPrompt && (
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Icon name="alert" size={16} /> 
-                {gegnerPrompt.typ === 'neu' 
-                  ? `Unbekannte Behörde: "${gegnerPrompt.obj.name}" erkannt` 
-                  : `Neuer Ansprechpartner "${gegnerPrompt.obj.ansprechpartner}" bei "${gegnerPrompt.targetName}" erkannt`}
+                {gegnerPrompt.typ === 'auswahl' 
+                  ? `Kontakt "${gegnerPrompt.obj.ansprechpartner || gegnerPrompt.obj.name}" erkannt. Bitte im CRM zuweisen:` 
+                  : (gegnerPrompt.typ === 'neu' ? `Unbekannte Behörde: "${gegnerPrompt.obj.name}" erkannt` : `Neuer Ansprechpartner "${gegnerPrompt.obj.ansprechpartner}" bei "${gegnerPrompt.targetName}" erkannt`)}
               </strong>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
-                {gegnerPrompt.typ === 'neu' ? (
+                {gegnerPrompt.typ === 'auswahl' ? (
+                  <>
+                    <select id="gegner-match-select" style={{ padding: '8px', borderRadius: '4px', border: 'none', color: '#000', flex: '1 1 200px' }} defaultValue={gegnerPrompt.vorschlaege[0]?.id}>
+                      {gegnerPrompt.vorschlaege.map(v => <option key={v.id} value={v.id}>{v.name} {v.adresse ? `(${v.adresse})` : ''}</option>)}
+                    </select>
+                    <button type="button" onClick={() => handleGegnerPromptAccept('zuweisen', document.getElementById('gegner-match-select').value)} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Zuweisen</button>
+                    <button type="button" onClick={() => handleGegnerPromptAccept('neu')} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid #fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>+ Neu anlegen</button>
+                  </>
+                ) : gegnerPrompt.typ === 'neu' ? (
                   <button type="button" onClick={() => handleGegnerPromptAccept('neu')} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                     Ja, Behörde neu im CRM anlegen
                   </button>
                 ) : (
                   <>
-                    <button type="button" onClick={() => handleGegnerPromptAccept('erweitern')} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    <button type="button" onClick={() => handleGegnerPromptAccept('erweitern', gegnerPrompt.targetId)} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                       Als weiteren Kontakt hinzufügen
                     </button>
-                    <button type="button" onClick={() => handleGegnerPromptAccept('hauptkontakt')} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid #fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    <button type="button" onClick={() => handleGegnerPromptAccept('hauptkontakt', gegnerPrompt.targetId)} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid #fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                       Als Hauptansprechpartner setzen
                     </button>
                   </>
                 )}
                 <button type="button" onClick={() => setGegnerPrompt(null)} style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Ignorieren (nur für diesen Vorgang)
+                  Ignorieren
                 </button>
               </div>
             </div>
           </div>
         )}
 
+        {/* --- NEUES INTELLIGENTES TRESOR-ASSIGNMENT UI --- */}
         {tresorPrompt && (
           <div style={{ background: theme.accent, color: '#000', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-              <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="alert" size={16} /> Unbekannter Mandant: "{tresorPrompt.obj.unsere_firma}" neu in den Tresor aufnehmen?</strong>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="button" onClick={handleTresorPromptAccept} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Ja, anlegen</button>
-                <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid #000', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Nein</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="alert" size={16} /> 
+                {tresorPrompt.typ === 'auswahl' ? `Mandant "${tresorPrompt.obj.unsere_firma}" erkannt. Bitte im Tresor zuweisen:` : `Unbekannter Mandant: "${tresorPrompt.obj.unsere_firma}" neu in den Tresor aufnehmen?`}
+              </strong>
+              
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
+                {tresorPrompt.typ === 'auswahl' ? (
+                  <>
+                    <select id="tresor-match-select" style={{ padding: '8px', borderRadius: '4px', border: '1px solid #000', color: '#000', flex: '1 1 200px' }} defaultValue={tresorPrompt.vorschlaege[0]?.id}>
+                      {tresorPrompt.vorschlaege.map(v => <option key={v.id} value={v.id}>{v.firmenname}</option>)}
+                    </select>
+                    <button type="button" onClick={() => handleTresorPromptAccept('zuweisen', document.getElementById('tresor-match-select').value)} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Zuweisen</button>
+                    <button type="button" onClick={() => handleTresorPromptAccept('neu')} style={{ background: 'transparent', color: '#000', border: '1px solid #000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>+ Neu anlegen</button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => handleTresorPromptAccept('neu')} style={{ background: '#000', color: theme.accent, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Ja, anlegen</button>
+                )}
+                <button type="button" onClick={() => setTresorPrompt(null)} style={{ background: 'transparent', border: '1px solid #000', color: '#000', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Ignorieren</button>
               </div>
             </div>
           </div>
@@ -637,4 +656,4 @@ export default function AktenFormular({
       </form>
     </>
   );
-} 
+}
