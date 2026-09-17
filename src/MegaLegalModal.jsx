@@ -100,20 +100,29 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // --- NEU: GEHÄRTETER JSON-SANITIZER ---
   const cleanJsonString = (str) => {
+    if (!str) return str;
+    
+    // 1. Trailing Commas entfernen (häufiger KI-Fehler)
+    let result = str.replace(/,\s*([}\]])/g, "$1");
+    // 2. Unsichtbare Steuerzeichen (außer Tab, Newline) entfernen
+    result = result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+
+    // 3. Zustandsmaschine: Echte Zeilenumbrüche nur INNERHALB von Strings zu \n konvertieren
     let inString = false;
     let escaped = false;
-    let result = '';
-    for (let i = 0; i < str.length; i++) {
-        const char = str[i];
-        if (char === '\\' && !escaped) { escaped = true; result += char; continue; }
+    let finalStr = '';
+    for (let i = 0; i < result.length; i++) {
+        const char = result[i];
+        if (char === '\\' && !escaped) { escaped = true; finalStr += char; continue; }
         if (char === '"' && !escaped) { inString = !inString; }
-        if (char === '\n' && inString) { result += '\\n'; } 
+        if (char === '\n' && inString) { finalStr += '\\n'; } 
         else if (char === '\r' && inString) { /* ignore */ } 
-        else { result += char; }
+        else { finalStr += char; }
         escaped = false;
     }
-    return result;
+    return finalStr;
   };
 
   const extractAndParseJSON = (text) => {
@@ -137,7 +146,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
           const fixedJson = cleanJsonString(extractedJson);
           return JSON.parse(fixedJson);
         } catch (err2) {
-          console.error("JSON Parse Error:", err2);
+          console.error("JSON Parse Error nach Sanitizing:", err2);
           return null;
         }
       }
@@ -255,7 +264,15 @@ STRIKTE REGELN FÜR DEN TEXT:
       }
     }
     
-    const triggerPrompt = "Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Setze das Feld 'typ' ZWINGEND auf 'Ausgang'. Das JSON MUSS das Feld 'brief_entwurf' enthalten. Liefere absolut keinen anderen Text davor oder danach, nur das reine JSON-Objekt beginnend mit { und endend mit }.";
+    // --- NEU: GEHÄRTETER TRIGGER-PROMPT ZUR FEHLER-PRÄVENTION ---
+    const triggerPrompt = `Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Setze das Feld 'typ' ZWINGEND auf 'Ausgang'. Das JSON MUSS das Feld 'brief_entwurf' enthalten.
+
+STRIKTE JSON-FORMATIERUNGSREGELN:
+1. Alle inneren Anführungszeichen im Textwert MÜSSEN zwingend als \\" maskiert (escaped) werden.
+2. Alle Zeilenumbrüche im Text MÜSSEN als \\n geschrieben werden. Mache absolut keine echten, physischen Zeilenumbrüche in den JSON-Werten!
+3. Keine Trailing Commas am Ende von Arrays oder Objekten.
+4. Liefere absolut keinen anderen Text davor oder danach, nur das reine JSON-Objekt beginnend mit { und endend mit }.`;
+
     const updatedHistory = [...messages, { role: "user", content: triggerPrompt }];
     setMessages(updatedHistory);
     callMegaLegal(updatedHistory);
