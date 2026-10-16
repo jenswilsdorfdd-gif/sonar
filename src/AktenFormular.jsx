@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from './Icon';
 import { supabase } from './supabaseClient';
 import { syncToGithub } from './utils';
@@ -101,6 +101,120 @@ export default function AktenFormular({
   showToast
 }) {
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
+
+  // --- STATES FÜR DIE ZWEISTUFIGE GEGNER- & ANSPRECHPARTNER-ZUWEISUNG ---
+  const [promptTargetGegnerId, setPromptTargetGegnerId] = useState('__NEU__');
+  const [promptSelectedApMode, setPromptSelectedApMode] = useState('new');
+  const [promptNewAbteilung, setPromptNewAbteilung] = useState('');
+  const [promptNewName, setPromptNewName] = useState('');
+  const [promptNewTel, setPromptNewTel] = useState('');
+  const [promptNewEmail, setPromptNewEmail] = useState('');
+
+  // Hilfsfunktion: Kontakte eines Gegners aus dem JSON-Feld "notizen" lesen
+  const getContactsForGegner = (gObj) => {
+    if (!gObj) return [];
+    try {
+      const parsed = typeof gObj.notizen === 'string' ? JSON.parse(gObj.notizen) : gObj.notizen;
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+    return [];
+  };
+
+  // Initialisierung, sobald ein neuer gegnerPrompt reinkommt
+  useEffect(() => {
+    if (gegnerPrompt) {
+      const firstId = gegnerPrompt.vorschlaege && gegnerPrompt.vorschlaege.length > 0 
+        ? String(gegnerPrompt.vorschlaege[0].id) 
+        : '__NEU__';
+      setPromptTargetGegnerId(firstId);
+
+      const detectedAP = (gegnerPrompt.obj?.ansprechpartner || '').trim();
+      setPromptNewAbteilung('');
+      setPromptNewName(detectedAP);
+      setPromptNewTel(gegnerPrompt.obj?.telefon || '');
+      setPromptNewEmail(gegnerPrompt.obj?.email || '');
+
+      if (firstId !== '__NEU__') {
+        const gObj = gegnerListe.find(g => String(g.id) === firstId);
+        const contacts = getContactsForGegner(gObj);
+        const cleanAP = detectedAP.toLowerCase();
+
+        if (!cleanAP || cleanAP === 'zentrale' || cleanAP === 'poststelle') {
+          setPromptSelectedApMode('existing_zentrale');
+        } else {
+          const foundIdx = contacts.findIndex(c => {
+            const cName = (c.name || '').trim().toLowerCase();
+            const cAbt = (c.abteilung || '').trim().toLowerCase();
+            return (cName && (cName.includes(cleanAP) || cleanAP.includes(cName))) ||
+                   (cAbt && (cAbt.includes(cleanAP) || cleanAP.includes(cAbt)));
+          });
+          if (foundIdx !== -1) {
+            setPromptSelectedApMode(`existing_${foundIdx}`);
+          } else {
+            setPromptSelectedApMode('new');
+          }
+        }
+      } else {
+        setPromptSelectedApMode('new');
+      }
+    }
+  }, [gegnerPrompt, gegnerListe]);
+
+  // Wenn der Nutzer im ersten Dropdown die Behörde wechselt, Kontakte neu abgleichen
+  const handlePromptGegnerChange = (newId) => {
+    setPromptTargetGegnerId(newId);
+    if (newId === '__NEU__') {
+      setPromptSelectedApMode('new');
+      return;
+    }
+    const gObj = gegnerListe.find(g => String(g.id) === String(newId));
+    const contacts = getContactsForGegner(gObj);
+    const cleanAP = (gegnerPrompt?.obj?.ansprechpartner || '').trim().toLowerCase();
+
+    if (!cleanAP || cleanAP === 'zentrale' || cleanAP === 'poststelle') {
+      setPromptSelectedApMode('existing_zentrale');
+    } else {
+      const foundIdx = contacts.findIndex(c => {
+        const cName = (c.name || '').trim().toLowerCase();
+        const cAbt = (c.abteilung || '').trim().toLowerCase();
+        return (cName && (cName.includes(cleanAP) || cleanAP.includes(cName))) ||
+               (cAbt && (cAbt.includes(cleanAP) || cleanAP.includes(cAbt)));
+      });
+      if (foundIdx !== -1) {
+        setPromptSelectedApMode(`existing_${foundIdx}`);
+      } else {
+        setPromptSelectedApMode('new');
+      }
+    }
+  };
+
+  const executeGegnerPromptSubmit = () => {
+    if (promptTargetGegnerId === '__NEU__') {
+      handleGegnerPromptAccept('neu', null, {
+        mode: 'new',
+        abteilung: promptNewAbteilung,
+        name: promptNewName,
+        telefon: promptNewTel,
+        email: promptNewEmail
+      });
+    } else {
+      if (promptSelectedApMode.startsWith('existing_')) {
+        const idxKey = promptSelectedApMode.replace('existing_', '');
+        handleGegnerPromptAccept('zuweisen', promptTargetGegnerId, {
+          mode: 'existing',
+          index: idxKey
+        });
+      } else {
+        handleGegnerPromptAccept('zuweisen', promptTargetGegnerId, {
+          mode: 'new',
+          abteilung: promptNewAbteilung,
+          name: promptNewName,
+          telefon: promptNewTel,
+          email: promptNewEmail
+        });
+      }
+    }
+  };
 
   const extractTextFromPDF = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
@@ -310,6 +424,12 @@ export default function AktenFormular({
     }
   };
 
+  // Aktuell im Gegner-Prompt ausgewählte Behörde + deren gespeicherte Kontakte
+  const currentSelectedGegnerObj = gegnerPrompt && promptTargetGegnerId !== '__NEU__'
+    ? gegnerListe.find(g => String(g.id) === String(promptTargetGegnerId))
+    : null;
+  const currentPromptContacts = getContactsForGegner(currentSelectedGegnerObj);
+
   return (
     <>
       {showTriageModal && (
@@ -368,41 +488,143 @@ export default function AktenFormular({
 
       <form onSubmit={localHandleSpeichernCheck} style={panelStyle}>
         
-        {/* --- NEUES INTELLIGENTES GEGNER-ASSIGNMENT UI --- */}
+        {/* --- NEUES ZWEISTUFIGES GEGNER- & ANSPRECHPARTNER-ASSIGNMENT UI --- */}
         {gegnerPrompt && (
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Icon name="alert" size={16} /> 
-                {gegnerPrompt.typ === 'auswahl' 
-                  ? `Kontakt "${gegnerPrompt.obj.ansprechpartner || gegnerPrompt.obj.name}" erkannt. Bitte im CRM zuweisen:` 
-                  : (gegnerPrompt.typ === 'neu' ? `Unbekannte Behörde: "${gegnerPrompt.obj.name}" erkannt` : `Neuer Ansprechpartner "${gegnerPrompt.obj.ansprechpartner}" bei "${gegnerPrompt.targetName}" erkannt`)}
+                Gegner / Kontakt erkannt: "{gegnerPrompt.obj.name}" {gegnerPrompt.obj.ansprechpartner ? `(Sachbearbeiter: ${gegnerPrompt.obj.ansprechpartner})` : ''}
               </strong>
 
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
-                {gegnerPrompt.typ === 'auswahl' ? (
-                  <>
-                    <select id="gegner-match-select" style={{ padding: '8px', borderRadius: '4px', border: 'none', color: '#000', flex: '1 1 200px' }} defaultValue={gegnerPrompt.vorschlaege[0]?.id}>
-                      {gegnerPrompt.vorschlaege.map(v => <option key={v.id} value={v.id}>{v.name} {v.adresse ? `(${v.adresse})` : ''}</option>)}
+              {/* STUFE 1: BEHÖRDE IM CRM WÄHLEN ODER NEU ANLEGEN */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '12px', background: 'rgba(0,0,0,0.18)', padding: '12px', borderRadius: '6px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px', color: 'rgba(255,255,255,0.85)' }}>
+                    1. Behörde / Gegner im CRM wählen:
+                  </label>
+                  <select 
+                    value={promptTargetGegnerId} 
+                    onChange={(e) => handlePromptGegnerChange(e.target.value)}
+                    style={{ width: '100%', padding: '9px', borderRadius: '4px', border: 'none', color: '#000', fontWeight: 'bold', fontSize: '13px' }}
+                  >
+                    {gegnerPrompt.vorschlaege && gegnerPrompt.vorschlaege.length > 0 && (
+                      <optgroup label="Gefundene Vorschläge im CRM">
+                        {gegnerPrompt.vorschlaege.map(v => (
+                          <option key={v.id} value={String(v.id)}>{v.name} {v.adresse ? `(${v.adresse})` : ''}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {gegnerListe.length > 0 && (
+                      <optgroup label="Alle gespeicherten Behörden im CRM">
+                        {gegnerListe
+                          .filter(g => !(gegnerPrompt.vorschlaege || []).some(v => String(v.id) === String(g.id)))
+                          .map(g => (
+                            <option key={g.id} value={String(g.id)}>{g.name}</option>
+                          ))}
+                      </optgroup>
+                    )}
+                    <option value="__NEU__">+ Komplett neue Behörde anlegen: "{gegnerPrompt.obj.name}"</option>
+                  </select>
+                </div>
+
+                {/* STUFE 2: ANSPRECHPARTNER WÄHLEN ODER NEU HINZUFÜGEN */}
+                {promptTargetGegnerId !== '__NEU__' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px', color: 'rgba(255,255,255,0.85)' }}>
+                      2. Hinterlegte Ansprechpartner / Abteilungen:
+                    </label>
+                    <select 
+                      value={promptSelectedApMode} 
+                      onChange={(e) => setPromptSelectedApMode(e.target.value)}
+                      style={{ width: '100%', padding: '9px', borderRadius: '4px', border: 'none', color: '#000', fontWeight: 'bold', fontSize: '13px' }}
+                    >
+                      <option value="existing_zentrale">🏢 Zentrale / Allgemein ({currentSelectedGegnerObj?.email || currentSelectedGegnerObj?.fax || 'Hauptkontakt'})</option>
+                      {currentPromptContacts.map((c, idx) => {
+                        const labelAbt = c.abteilung ? `${c.abteilung}: ` : '';
+                        const labelName = c.name || 'Ohne Namen';
+                        const labelExtra = c.telefon || c.email ? ` (${[c.telefon, c.email].filter(Boolean).join(', ')})` : '';
+                        return (
+                          <option key={idx} value={`existing_${idx}`}>
+                            👤 {labelAbt}{labelName}{labelExtra}
+                          </option>
+                        );
+                      })}
+                      <option value="new">
+                        ➕ Neuen Ansprechpartner hinzufügen {gegnerPrompt.obj.ansprechpartner ? `("${gegnerPrompt.obj.ansprechpartner}")` : ''}
+                      </option>
                     </select>
-                    <button type="button" onClick={() => handleGegnerPromptAccept('zuweisen', document.getElementById('gegner-match-select').value)} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Zuweisen</button>
-                    <button type="button" onClick={() => handleGegnerPromptAccept('neu')} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid #fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>+ Neu anlegen</button>
-                  </>
-                ) : gegnerPrompt.typ === 'neu' ? (
-                  <button type="button" onClick={() => handleGegnerPromptAccept('neu')} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    Ja, Behörde neu im CRM anlegen
-                  </button>
-                ) : (
-                  <>
-                    <button type="button" onClick={() => handleGegnerPromptAccept('erweitern', gegnerPrompt.targetId)} style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      Als weiteren Kontakt hinzufügen
-                    </button>
-                    <button type="button" onClick={() => handleGegnerPromptAccept('hauptkontakt', gegnerPrompt.targetId)} style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid #fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      Als Hauptansprechpartner setzen
-                    </button>
-                  </>
+                  </div>
                 )}
-                <button type="button" onClick={() => setGegnerPrompt(null)} style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+              </div>
+
+              {/* EINGABEFELDER FÜR NEUEN ANSPRECHPARTNER (WENN "NEU" GEWÄHLT ODER NEUE BEHÖRDE) */}
+              {(promptTargetGegnerId === '__NEU__' || promptSelectedApMode === 'new') && (
+                <div style={{ background: 'rgba(0,0,0,0.25)', padding: '12px', borderRadius: '6px', border: '1px dashed rgba(255,255,255,0.4)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: '#fff' }}>
+                     Kontaktdaten des neuen Ansprechpartners (wird dauerhaft bei dieser Behörde im CRM gespeichert):
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Abteilung</label>
+                      <input 
+                        type="text" 
+                        value={promptNewAbteilung} 
+                        onChange={(e) => setPromptNewAbteilung(e.target.value)} 
+                        placeholder="z.B. Gewerbesteuer" 
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Name Sachbearbeiter</label>
+                      <input 
+                        type="text" 
+                        value={promptNewName} 
+                        onChange={(e) => setPromptNewName(e.target.value)} 
+                        placeholder="z.B. Frau Stellmach" 
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Durchwahl / Telefon</label>
+                      <input 
+                        type="text" 
+                        value={promptNewTel} 
+                        onChange={(e) => setPromptNewTel(e.target.value)} 
+                        placeholder="z.B. 0351 488..." 
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>E-Mail</label>
+                      <input 
+                        type="email" 
+                        value={promptNewEmail} 
+                        onChange={(e) => setPromptNewEmail(e.target.value)} 
+                        placeholder="z.B. steueramt@..." 
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* AKTION-BUTTONS */}
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button 
+                  type="button" 
+                  onClick={executeGegnerPromptSubmit} 
+                  style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '9px 18px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  {promptTargetGegnerId === '__NEU__' 
+                    ? '+ Als neue Behörde im CRM anlegen & übernehmen' 
+                    : (promptSelectedApMode === 'new' ? '✓ Kontakt zu Behörde hinzufügen & übernehmen' : '✓ Ausgewählten Kontakt übernehmen')}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setGegnerPrompt(null)} 
+                  style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', padding: '9px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
                   Ignorieren
                 </button>
               </div>
