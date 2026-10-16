@@ -102,6 +102,16 @@ export default function AktenFormular({
 }) {
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
+  // Schlichtes Line-Icon für Kalender (exakt passend zur bestehenden Icon-Komponente)
+  const renderCalendarIcon = (size = 16) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+
   // --- STATES FÜR DIE ZWEISTUFIGE GEGNER- & ANSPRECHPARTNER-ZUWEISUNG ---
   const [promptTargetGegnerId, setPromptTargetGegnerId] = useState('__NEU__');
   const [promptSelectedApMode, setPromptSelectedApMode] = useState('new');
@@ -914,14 +924,14 @@ export default function AktenFormular({
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
               
-              {/* NEUER BUTTON: AUFGABEN-, ZAHLUNGS- & TERMIN-MODUL */}
+              {/* KONSISTENTER BUTTON: DURCHGEHEND BLAU MIT DUNKLER SCHRIFT & SCHLICHTEM LINE-ICON */}
               <button 
                 type="button" 
                 onClick={() => setShowTaskPanel(!showTaskPanel)} 
-                style={{ background: showTaskPanel ? '#10b981' : theme.cardBg, color: showTaskPanel ? '#ffffff' : theme.accent, border: `1px solid ${showTaskPanel ? '#10b981' : theme.accent}`, borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 title="Internen Termin, Zahlungsziel oder Aufgabe inkl. Google Kalender Push anlegen"
               >
-                📅 Termin / Zahlung
+                {renderCalendarIcon(16)} Termin / Zahlung
               </button>
 
               <button type="button" onClick={() => {
@@ -945,10 +955,10 @@ export default function AktenFormular({
 
           {/* --- AUFKLAPPBARES AUFGABEN-, ZAHLUNGS- & TERMIN-MODUL --- */}
           {showTaskPanel && (
-            <div style={{ marginBottom: '18px', padding: '16px', background: theme.cardBg, border: '1px solid #10b981', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ marginBottom: '18px', padding: '16px', background: theme.cardBg, border: `1px solid ${theme.accent}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px dashed ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                <strong style={{ color: '#10b981', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  📅 Interne Aufgabe / Zahlung / Termin planen (Wiedervorlage & Google Kalender)
+                <strong style={{ color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {renderCalendarIcon(16)} Interne Aufgabe / Zahlung / Termin planen (Wiedervorlage & Google Kalender)
                 </strong>
                 <button type="button" onClick={() => setShowTaskPanel(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>✕ Schließen</button>
               </div>
@@ -957,10 +967,10 @@ export default function AktenFormular({
                 <div>
                   <label style={labelStyle}>Aufgaben-Typ</label>
                   <select value={taskType} onChange={(e) => setTaskType(e.target.value)} style={{ ...inputStyle, padding: '8px' }}>
-                    <option value="Zahlung / Überweisung">💳 Zahlung / Überweisung</option>
-                    <option value="Wiedervorlage / Abwarten">⏳ Wiedervorlage / Schreiben abwarten</option>
-                    <option value="Telefonat / Rückruf">📞 Telefonat / Rückruf</option>
-                    <option value="Interne Prüfung / Aufgabe">📌 Interne Prüfung / Aufgabe</option>
+                    <option value="Zahlung / Überweisung">Zahlung / Überweisung</option>
+                    <option value="Wiedervorlage / Abwarten">Wiedervorlage / Schreiben abwarten</option>
+                    <option value="Telefonat / Rückruf">Telefonat / Rückruf</option>
+                    <option value="Interne Prüfung / Aufgabe">Interne Prüfung / Aufgabe</option>
                   </select>
                 </div>
 
@@ -1006,16 +1016,16 @@ export default function AktenFormular({
                 <button 
                   type="button" 
                   onClick={applyTaskToForm} 
-                  style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px' }}
+                  style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  ✓ In Maske & Wiedervorlage übernehmen (Typ: Intern)
+                  <Icon name="check" size={16} /> In Maske & Wiedervorlage übernehmen (Typ: Intern)
                 </button>
                 <button 
                   type="button" 
                   onClick={pushToGoogleCalendar} 
-                  style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px' }}
+                  style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  📅 Direkt im Google Kalender öffnen
+                  {renderCalendarIcon(16)} Direkt im Google Kalender öffnen
                 </button>
               </div>
             </div>
