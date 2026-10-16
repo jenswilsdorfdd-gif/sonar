@@ -110,6 +110,110 @@ export default function AktenFormular({
   const [promptNewTel, setPromptNewTel] = useState('');
   const [promptNewEmail, setPromptNewEmail] = useState('');
 
+  // --- STATES FÜR DAS AUFGABEN-, ZAHLUNGS- & TERMIN-MODUL ---
+  const [showTaskPanel, setShowTaskPanel] = useState(false);
+  const [taskType, setTaskType] = useState('Zahlung / Überweisung');
+  const [taskDate, setTaskDate] = useState('');
+  const [taskBetrag, setTaskBetrag] = useState('');
+  const [taskEmpfaenger, setTaskEmpfaenger] = useState('');
+  const [taskIban, setTaskIban] = useState('');
+  const [taskVwz, setTaskVwz] = useState('');
+  const [taskNotiz, setTaskNotiz] = useState('');
+
+  // Synchronisiere Standardwerte für das Termin-Panel, wenn es geöffnet wird
+  useEffect(() => {
+    if (showTaskPanel) {
+      if (!taskDate) {
+        setTaskDate(wiedervorlage || fristExtern || new Date().toISOString().split('T')[0]);
+      }
+      if (!taskEmpfaenger && gegnerName) {
+        setTaskEmpfaenger(gegnerName);
+      }
+      if (!taskVwz && aktenzeichen) {
+        setTaskVwz(aktenzeichen);
+      }
+    }
+  }, [showTaskPanel, wiedervorlage, fristExtern, gegnerName, aktenzeichen]);
+
+  // Hilfsfunktion: Baut den strukturierten Aufgabentext und übernimmt alles in die Akten-Maske
+  const applyTaskToForm = () => {
+    const zielDatum = taskDate || wiedervorlage || new Date().toISOString().split('T')[0];
+    setTyp('Intern');
+    handleWVChange(zielDatum);
+
+    const empf = taskEmpfaenger || gegnerName || 'Gegenseite';
+    let neuAktion = '';
+    let blockLines = [];
+
+    if (taskType === 'Zahlung / Überweisung') {
+      neuAktion = `TERMIN ZAHLUNG: ${taskBetrag ? taskBetrag + ' € ' : ''}an ${empf} (Fällig: ${formatDatum(zielDatum)})`;
+      blockLines = [
+        `=== INTERNE ZAHLUNGSANWEISUNG / TERMIN ===`,
+        `Aufgabe: ${taskType}`,
+        `Fälligkeitsdatum (WV): ${formatDatum(zielDatum)}`,
+        `Empfänger: ${empf}`,
+        `Betrag: ${taskBetrag ? taskBetrag + ' €' : 'siehe Dokument'}`,
+        `IBAN: ${taskIban || '-'}`,
+        `Verwendungszweck / Kassenzeichen: ${taskVwz || aktenzeichen || '-'}`,
+        `Mandant / Zahler: ${unsereFirma || '-'}`,
+        taskNotiz ? `Hinweis / Bedingung: ${taskNotiz}` : null,
+        `==========================================`
+      ].filter(Boolean);
+    } else {
+      neuAktion = `INTERNER TERMIN (${taskType}): ${taskNotiz || thema || empf} (WV: ${formatDatum(zielDatum)})`;
+      blockLines = [
+        `=== INTERNER TERMIN / AUFGABE ===`,
+        `Aufgabe: ${taskType}`,
+        `Termin / Wiedervorlage: ${formatDatum(zielDatum)}`,
+        `Bezug / Gegner: ${empf}`,
+        `Aktenzeichen: ${aktenzeichen || '-'}`,
+        taskNotiz ? `Arbeitsanweisung / Details: ${taskNotiz}` : null,
+        `=================================`
+      ].filter(Boolean);
+    }
+
+    setAktion(neuAktion);
+    const blockText = blockLines.join('\n');
+    setBriefEntwurf(prev => (prev && prev.trim() !== '' ? `${blockText}\n\n${prev}` : blockText));
+    showToast('Termin & Anweisung in Maske (Typ: Intern + WV) übernommen!', 'success');
+  };
+
+  // Hilfsfunktion: Öffnet Google Kalender mit vorbefülltem Ganztagestermin
+  const pushToGoogleCalendar = () => {
+    const zielDatum = taskDate || wiedervorlage || fristExtern || new Date().toISOString().split('T')[0];
+    const startObj = new Date(zielDatum);
+    if (isNaN(startObj.getTime())) {
+      showToast('Bitte wähle zuerst ein gültiges Termin-Datum!', 'warning');
+      return;
+    }
+    const endObj = new Date(startObj);
+    endObj.setDate(endObj.getDate() + 1);
+
+    const fmtDate = (d) => d.toISOString().split('T')[0].replace(/-/g, '');
+    const datesParam = `${fmtDate(startObj)}/${fmtDate(endObj)}`;
+
+    const zeichenPrefix = unserZeichen ? `[${unserZeichen}] ` : '';
+    const empf = taskEmpfaenger || gegnerName || 'Akte';
+    const titleStr = taskType === 'Zahlung / Überweisung'
+      ? `${zeichenPrefix}ZAHLUNG ${taskBetrag ? taskBetrag + ' € ' : ''}— ${empf}`
+      : `${zeichenPrefix}${taskType}: ${empf} (${thema || 'Vorgang'})`;
+
+    const detailsLines = [
+      `SONAR AKTEN-TERMIN (${taskType})`,
+      `Unser Zeichen: ${unserZeichen || '-'}`,
+      `Mandant: ${unsereFirma || '-'}`,
+      `Gegner / Behörde: ${empf}`,
+      `Gegenstand: ${thema || '-'}`,
+      `Aktenzeichen: ${aktenzeichen || '-'}`,
+      taskType === 'Zahlung / Überweisung' ? `\n--- ZAHLUNGSDATEN ---\nBetrag: ${taskBetrag ? taskBetrag + ' €' : '-'}\nIBAN: ${taskIban || '-'}\nVerwendungszweck: ${taskVwz || aktenzeichen || '-'}` : null,
+      taskNotiz ? `\nNotiz / Bedingung:\n${taskNotiz}` : null,
+      briefEntwurf ? `\n--- AKTEN-TEXT / ENTWURF ---\n${briefEntwurf}` : null
+    ].filter(Boolean).join('\n');
+
+    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titleStr)}&dates=${datesParam}&details=${encodeURIComponent(detailsLines)}`;
+    window.open(gcalUrl, '_blank', 'noopener,noreferrer');
+  };
+
   // Hilfsfunktion: Kontakte eines Gegners aus dem JSON-Feld "notizen" lesen
   const getContactsForGegner = (gObj) => {
     if (!gObj) return [];
@@ -414,6 +518,7 @@ export default function AktenFormular({
       setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
       setAktion(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
       setBriefEntwurf(''); setBezugId(''); setClearOldFristen(true);
+      setShowTaskPanel(false); setTaskBetrag(''); setTaskIban(''); setTaskVwz(''); setTaskNotiz('');
       
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
@@ -804,11 +909,21 @@ export default function AktenFormular({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
             <label style={{...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen / Arbeitsanweisung & Notizen</label>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', width: '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px', width: '100%' }}>
               <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
               <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
               <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
               
+              {/* NEUER BUTTON: AUFGABEN-, ZAHLUNGS- & TERMIN-MODUL */}
+              <button 
+                type="button" 
+                onClick={() => setShowTaskPanel(!showTaskPanel)} 
+                style={{ background: showTaskPanel ? '#10b981' : theme.cardBg, color: showTaskPanel ? '#ffffff' : theme.accent, border: `1px solid ${showTaskPanel ? '#10b981' : theme.accent}`, borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                title="Internen Termin, Zahlungsziel oder Aufgabe inkl. Google Kalender Push anlegen"
+              >
+                📅 Termin / Zahlung
+              </button>
+
               <button type="button" onClick={() => {
                 setActiveWarRoomDossier({
                   akte_id: selectedAkteId,
@@ -827,6 +942,84 @@ export default function AktenFormular({
               </button>
             </div>
           </div>
+
+          {/* --- AUFKLAPPBARES AUFGABEN-, ZAHLUNGS- & TERMIN-MODUL --- */}
+          {showTaskPanel && (
+            <div style={{ marginBottom: '18px', padding: '16px', background: theme.cardBg, border: '1px solid #10b981', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px dashed ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                <strong style={{ color: '#10b981', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📅 Interne Aufgabe / Zahlung / Termin planen (Wiedervorlage & Google Kalender)
+                </strong>
+                <button type="button" onClick={() => setShowTaskPanel(false)} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>✕ Schließen</button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Aufgaben-Typ</label>
+                  <select value={taskType} onChange={(e) => setTaskType(e.target.value)} style={{ ...inputStyle, padding: '8px' }}>
+                    <option value="Zahlung / Überweisung">💳 Zahlung / Überweisung</option>
+                    <option value="Wiedervorlage / Abwarten">⏳ Wiedervorlage / Schreiben abwarten</option>
+                    <option value="Telefonat / Rückruf">📞 Telefonat / Rückruf</option>
+                    <option value="Interne Prüfung / Aufgabe">📌 Interne Prüfung / Aufgabe</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Fälligkeit / Termin (WV)</label>
+                  <input type="date" value={taskDate} onChange={(e) => setTaskDate(e.target.value)} style={{ ...inputStyle, padding: '8px' }} />
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + 3); setTaskDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+3T</button>
+                    <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + 7); setTaskDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+1W</button>
+                    <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + 14); setTaskDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+2W</button>
+                    <button type="button" onClick={() => { const d = new Date(); d.setMonth(d.getMonth() + 1); setTaskDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+1M</button>
+                  </div>
+                </div>
+
+                {taskType === 'Zahlung / Überweisung' && (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Betrag (in €)</label>
+                      <input type="text" value={taskBetrag} onChange={(e) => setTaskBetrag(e.target.value)} placeholder="z.B. 142,50" style={{ ...inputStyle, padding: '8px' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Zahlungsempfänger</label>
+                      <input type="text" value={taskEmpfaenger} onChange={(e) => setTaskEmpfaenger(e.target.value)} placeholder="z.B. Landesjustizkasse" style={{ ...inputStyle, padding: '8px' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>IBAN Empfänger</label>
+                      <input type="text" value={taskIban} onChange={(e) => setTaskIban(e.target.value)} placeholder="DE..." style={{ ...inputStyle, padding: '8px', fontFamily: 'monospace' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Verwendungszweck / Kassenzeichen</label>
+                      <input type="text" value={taskVwz} onChange={(e) => setTaskVwz(e.target.value)} placeholder="Kassenzeichen / AZ" style={{ ...inputStyle, padding: '8px' }} />
+                    </div>
+                  </>
+                )}
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Hinweis / Bedingung (z.B. "Abwarten ob Bescheid kommt, sonst überweisen")</label>
+                  <input type="text" value={taskNotiz} onChange={(e) => setTaskNotiz(e.target.value)} placeholder="Optionale Arbeitsanweisung für diesen Termin..." style={{ ...inputStyle, padding: '8px' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
+                <button 
+                  type="button" 
+                  onClick={applyTaskToForm} 
+                  style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px' }}
+                >
+                  ✓ In Maske & Wiedervorlage übernehmen (Typ: Intern)
+                </button>
+                <button 
+                  type="button" 
+                  onClick={pushToGoogleCalendar} 
+                  style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px' }}
+                >
+                  📅 Direkt im Google Kalender öffnen
+                </button>
+              </div>
+            </div>
+          )}
 
           <div style={{ marginBottom: '15px', padding: '12px', background: theme.cardBg, border: `1px dashed ${theme.border}`, borderRadius: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
