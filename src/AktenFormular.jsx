@@ -1000,7 +1000,7 @@ export default function AktenFormular({
                       <input type="text" value={taskIban} onChange={(e) => setTaskIban(e.target.value)} placeholder="DE..." style={{ ...inputStyle, padding: '8px', fontFamily: 'monospace' }} />
                     </div>
                     <div>
-                      <label style={labelStyle}>Verwendungszweck / Kassenzeichen</label>
+                      <label style={labelStyle}>Zeichen Gegner</label>
                       <input type="text" value={taskVwz} onChange={(e) => setTaskVwz(e.target.value)} placeholder="Kassenzeichen / AZ" style={{ ...inputStyle, padding: '8px' }} />
                     </div>
                   </>
