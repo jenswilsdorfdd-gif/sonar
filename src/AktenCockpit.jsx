@@ -88,19 +88,17 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const btnTextColor = isDarkMode ? '#000' : '#ffffff';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
-  // --- NEU: DATUMS-KONVERTER FÜR DEUTSCHE & ISO FORMATE AUF YYYY-MM-DD ---
+  // --- DATUMS-KONVERTER FÜR DEUTSCHE & ISO FORMATE AUF YYYY-MM-DD ---
   const normalizeDateForInput = (val) => {
     if (!val) return '';
     const str = String(val).trim();
     if (!str) return '';
 
-    // Bereits im Format YYYY-MM-DD (ggf. mit Uhrzeit dahinter)
     const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (isoMatch) {
       return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
     }
 
-    // Deutsches Format DD.MM.YYYY oder DD.MM.YY (auch mit / oder -)
     const deMatch = str.match(/^(\d{1,2})[\.\/\-](\d{1,2})[\.\/\-](\d{2,4})/);
     if (deMatch) {
       const day = deMatch[1].padStart(2, '0');
@@ -143,6 +141,104 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (!n1 || !n2) return false;
     if (n1.length < 4 || n2.length < 4) return n1 === n2;
     return n1.includes(n2) || n2.includes(n1);
+  };
+
+  // --- NEU: HILFSFUNKTIONEN FÜR DIE MEHRSTUFIGE BESTANDSAKTEN-ERKENNUNG ---
+  const cleanZeichenString = (val) => {
+    if (!val) return '';
+    return String(val)
+      .toLowerCase()
+      .replace(/\b(az|aktenzeichen|steuernummer|st-nr|stnr|kassenzeichen|unser zeichen|ihr zeichen|geschäftszeichen|gz)\b/gi, '')
+      .replace(/[^a-z0-9]/g, '');
+  };
+
+  const findBestMatchingAkte = (inUnserZeichen, inAktenzeichen, inGegner, inFirma, inThema, inBrief) => {
+    const cleanUZ = cleanZeichenString(inUnserZeichen);
+    const cleanAZ = cleanZeichenString(inAktenzeichen);
+
+    // STUFE 1A: Abgleich über Unser Zeichen (exakt oder normalisiert oder identische 4-stellige laufende Nummer + Gegner)
+    if (cleanUZ.length >= 4) {
+      const exactUzAkte = akten.find(a => cleanZeichenString(a.unser_zeichen) === cleanUZ);
+      if (exactUzAkte) return { akte: exactUzAkte, reason: 'Unser Zeichen erkannt' };
+
+      const numMatch = String(inUnserZeichen).match(/^(\d{4})-/);
+      if (numMatch) {
+        const prefixNum = numMatch[1];
+        const prefixAkte = akten.find(a => a.unser_zeichen && a.unser_zeichen.startsWith(`${prefixNum}-`));
+        if (prefixAkte) return { akte: prefixAkte, reason: `Aktennummer ${prefixNum} erkannt` };
+      }
+    }
+
+    // STUFE 1B: Abgleich über behördliches Aktenzeichen / Steuernummer (normalisiert & Teil-Match ab 6 Zeichen)
+    if (cleanAZ.length >= 5) {
+      const exactAzAkte = akten.find(a => {
+        const aAz = cleanZeichenString(a.aktenzeichen);
+        if (!aAz || aAz.length < 5) return false;
+        return aAz === cleanAZ || (aAz.length >= 6 && cleanAZ.length >= 6 && (aAz.includes(cleanAZ) || cleanAZ.includes(aAz)));
+      });
+      if (exactAzAkte) return { akte: exactAzAkte, reason: 'Behördliches Aktenzeichen erkannt' };
+
+      // Suche auch in der bisherigen Historie (falls sich das AZ in einem Untervorgang versteckt)
+      const histAzAkte = akten.find(a =>
+        a.akten_historie && a.akten_historie.some(h => {
+          const hText = cleanZeichenString(`${h.aktion || ''} ${h.brief_entwurf || ''}`);
+          return cleanAZ.length >= 6 && hText.includes(cleanAZ);
+        })
+      );
+      if (histAzAkte) return { akte: histAzAkte, reason: 'Aktenzeichen im bisherigen Aktenverlauf gefunden' };
+    }
+
+    // STUFE 2 & 3: Kombinations-Abgleich über Gegner + Mandant + Thema/Inhalt (nur offene Akten bevorzugt)
+    if (inGegner) {
+      const kandidaten = akten.filter(a => {
+        if (a.status === 'Erledigt') return false;
+        const gegnerPasst = fuzzyMatch(a.gegner_name, inGegner);
+        if (!gegnerPasst) return false;
+        if (inFirma && a.unsere_firma) {
+          return fuzzyMatch(a.unsere_firma, inFirma);
+        }
+        return true;
+      });
+
+      if (kandidaten.length === 1 && inFirma) {
+        return { akte: kandidaten[0], reason: `Offene Bestandsakte für ${kandidaten[0].unsere_firma} & ${kandidaten[0].gegner_name} gefunden` };
+      }
+
+      if (kandidaten.length > 0) {
+        const suchKontext = `${inThema || ''} ${inBrief || ''}`.toLowerCase();
+        const fachWoerter = suchKontext
+          .replace(/[^a-zäöüß0-9\s]/gi, ' ')
+          .split(/\s+/)
+          .filter(w => w.length >= 5 && !['schreiben', 'bescheid', 'betreff', 'geehrte', 'damen', 'herren', 'anlage', 'unser', 'zeichen'].includes(w));
+
+        let bestKandidat = null;
+        let bestScore = 0;
+
+        kandidaten.forEach(k => {
+          let score = 0;
+          const akteText = `${k.thema || ''} ${k.aktenzeichen || ''} ${(k.akten_historie || []).map(h => `${h.aktion || ''} ${h.brief_entwurf || ''}`).join(' ')}`.toLowerCase();
+
+          fachWoerter.forEach(w => {
+            if (akteText.includes(w)) score += 10;
+          });
+
+          if (inThema && k.thema && fuzzyMatch(k.thema, inThema)) {
+            score += 35;
+          }
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestKandidat = k;
+          }
+        });
+
+        if (bestKandidat && bestScore >= 20) {
+          return { akte: bestKandidat, reason: `Bestandsakte über Gegner & Thema (${bestKandidat.unser_zeichen}) erkannt` };
+        }
+      }
+    }
+
+    return null;
   };
 
   const checkAdminAuth = () => {
@@ -390,10 +486,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const cleanNeuAP = (neuAnsprechpartner || '').trim().toLowerCase();
     const isZentrale = !cleanNeuAP || cleanNeuAP === 'zentrale' || cleanNeuAP === 'poststelle';
 
-    // Finde exakten Match
     let exactTarget = gegnerListe.find(g => normalizeName(g.name) === normalizeName(neuName));
-    
-    // Finde alle unscharfen Matches
     let fuzzyTargets = gegnerListe.filter(g => fuzzyMatch(g.name, neuName));
 
     let vorschlaege = [];
@@ -404,7 +497,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       vorschlaege = fuzzyTargets;
     }
 
-    // Wenn es EXAKT einen Treffer gibt, prüfen wir zusätzlich, ob der Ansprechpartner schon 1:1 hinterlegt ist
     if (vorschlaege.length === 1 && exactTarget) {
       const target = vorschlaege[0];
       let contacts = [];
@@ -537,7 +629,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const fallbackGegnerFax = obj.gegner_fax || obj.versand_faxnummer_gegner || (obj.empfaenger ? obj.empfaenger.fax : '') || '';
       const fallbackGegnerEmail = obj.gegner_email || obj.versand_e_mail_gegner || (obj.empfaenger ? obj.empfaenger.email : '') || '';
       
-      // --- NEU: DATUMS-NORMALISIERUNG & SCHARFE TRENNUNG FRIST (BEHÖRDE) VS. WV (INTERN) ---
       const rawFristExtern = normalizeDateForInput(obj.frist_extern || obj.frist || '');
       const rawWiedervorlage = normalizeDateForInput(obj.wiedervorlage || obj.wv_intern || obj.wv || '');
       const parsedDocDatum = normalizeDateForInput(obj.datum || '') || new Date().toISOString().split('T')[0];
@@ -554,7 +645,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setGegnerName(fallbackGegnerName); setGegnerAnsprechpartner(fallbackGegnerAnsprechpartner); 
       setGegnerTelefon(formatRufnummer(fallbackGegnerTelefon)); setGegnerFax(formatRufnummer(fallbackGegnerFax)); setGegnerEmail(fallbackGegnerEmail); 
 
-      // Prüfe, ob ein gesetztes Datum eine echte behördliche Frist oder eine interne Wiedervorlage ist
       const aktionLower = fallbackAktion.toLowerCase();
       const rawLower = fallbackRawText.toLowerCase();
       const hasExplicitAuthorityDeadlineInText = rawLower.includes('frist') || rawLower.includes('innerhalb von') || rawLower.includes('bis spätestens') || rawLower.includes('bis zum') || rawLower.includes('rechtsbehelf');
@@ -587,26 +677,56 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setGegnerPrompt(null);
       }
 
-      let matchedAkte = null;
-      if (fallbackUnserZeichen) {
-        matchedAkte = akten.find(a => a.unser_zeichen === fallbackUnserZeichen);
-      } else if (fallbackAktenzeichen) {
-        matchedAkte = akten.find(a => a.aktenzeichen === fallbackAktenzeichen);
-      }
+      // --- NEU: MEHRSTUFIGE BESTANDSAKTEN-ERKENNUNG ---
+      const matchResult = findBestMatchingAkte(
+        fallbackUnserZeichen,
+        fallbackAktenzeichen,
+        fallbackGegnerName,
+        fallbackUnsereFirma,
+        fallbackThema,
+        fallbackBriefEntwurf
+      );
 
-      if (matchedAkte) {
+      if (matchResult && matchResult.akte) {
+        const matchedAkte = matchResult.akte;
         setModus('bestehend');
         setSelectedAkteId(matchedAkte.id);
+
+        // Falls im JSON Felder leer waren, sanft aus der erkannten Bestandsakte ergänzen
+        if (!fallbackUnserZeichen && matchedAkte.unser_zeichen) setUnserZeichen(matchedAkte.unser_zeichen);
+        if (!fallbackAktenzeichen && matchedAkte.aktenzeichen) setAktenzeichen(matchedAkte.aktenzeichen);
+        if (!fallbackUnsereFirma && matchedAkte.unsere_firma) setUnsereFirma(matchedAkte.unsere_firma);
+        if (!fallbackGegnerEmail && matchedAkte.gegner_email) setGegnerEmail(matchedAkte.gegner_email);
+        if (!fallbackGegnerTelefon && matchedAkte.gegner_telefon) setGegnerTelefon(formatRufnummer(matchedAkte.gegner_telefon));
+
+        if (!fallbackGegnerFax && matchedAkte.gegner_name) {
+          const crmGegner = gegnerListe.find(g => fuzzyMatch(g.name, matchedAkte.gegner_name));
+          if (crmGegner && crmGegner.fax) setGegnerFax(formatRufnummer(crmGegner.fax));
+        }
 
         const autoBezugId = findSmartBezug(matchedAkte, obj);
         if (autoBezugId) {
           setBezugId(autoBezugId);
-          showToast("Vorläufer-Vorgang intelligent erkannt und automatisch verknüpft!", "success");
+          showToast(`Bestandsakte [${matchedAkte.unser_zeichen || '---'}] (${matchResult.reason}) & Vorläufer-Vorgang automatisch verknüpft!`, "success");
         } else {
-          setBezugId('');
+          // Wenn es ein Ausgang oder Interner Vorgang ist und die Akte Historie hat, neuesten Eingang als Bezug vorwählen
+          if (fallbackTyp !== 'Eingang' && matchedAkte.akten_historie && matchedAkte.akten_historie.length > 0) {
+            const sortedHist = [...matchedAkte.akten_historie].sort((a, b) => new Date(b.datum || 0) - new Date(a.datum || 0));
+            const latestEingang = sortedHist.find(h => h.typ === 'Eingang') || sortedHist[0];
+            if (latestEingang) {
+              setBezugId(latestEingang.id);
+              showToast(`Bestandsakte [${matchedAkte.unser_zeichen || '---'}] erkannt & auf letzten Vorgang bezogen!`, "success");
+            } else {
+              setBezugId('');
+            }
+          } else {
+            setBezugId('');
+            showToast(`Bestandsakte [${matchedAkte.unser_zeichen || '---'}] (${matchResult.reason}) automatisch ausgewählt!`, "success");
+          }
         }
       } else {
         setModus('neu');
+        setSelectedAkteId(null);
         setBezugId('');
       }
 
@@ -1950,7 +2070,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           
           if (ausgangsJson.aktion) setAktion(ausgangsJson.aktion);
 
-          // Bei einem Ausgangsschreiben / internem Vorgang aus dem War-Room ist das Datum immer unsere interne Wiedervorlage
           const parsedWv = normalizeDateForInput(ausgangsJson.wiedervorlage || ausgangsJson.wv_intern || ausgangsJson.frist_extern || '');
           if (parsedWv) {
             handleWVChange(parsedWv);
