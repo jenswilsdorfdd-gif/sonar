@@ -356,7 +356,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     showToast("Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
-  // --- NEU: INTELLIGENTE GEGNER-PRÜFUNG MIT MEHREREN VORSCHLÄGEN ---
+  // --- NEU: INTELLIGENTE GEGNER-PRÜFUNG MIT MEHREREN VORSCHLÄGEN & ANSPRECHPARTNER-TIEFE ---
   const checkGegnerDiff = (neuName, neuFax, neuEmail, neuAnsprechpartner, neuTelefon) => {
     if (!neuName) return false;
 
@@ -371,21 +371,52 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
     let vorschlaege = [];
     if (exactTarget) {
-      vorschlaege = [exactTarget];
+      // Exakter Treffer an erste Stelle, Rest aus Fuzzy dazu
+      const restFuzzy = fuzzyTargets.filter(f => f.id !== exactTarget.id);
+      vorschlaege = [exactTarget, ...restFuzzy];
     } else if (fuzzyTargets.length > 0) {
       vorschlaege = fuzzyTargets;
     }
 
-    // Wenn es EXAKT einen Treffer gibt und kein neuer AP erkannt wurde -> Auto-Fill, kein Prompt
-    if (vorschlaege.length === 1 && isZentrale) {
+    // Wenn es EXAKT einen Treffer gibt, prüfen wir zusätzlich, ob der Ansprechpartner schon 1:1 hinterlegt ist
+    if (vorschlaege.length === 1 && exactTarget) {
       const target = vorschlaege[0];
-      if (!neuTelefon && target.telefon) setGegnerTelefon(formatRufnummer(target.telefon));
-      if (!neuEmail && (target.email || target.email_zentrale)) setGegnerEmail(target.email || target.email_zentrale);
-      if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
-      return false; 
+      let contacts = [];
+      try {
+        contacts = typeof target.notizen === 'string' ? JSON.parse(target.notizen) : (target.notizen || []);
+        if (!Array.isArray(contacts)) contacts = [];
+      } catch (e) { contacts = []; }
+
+      if (isZentrale && contacts.length === 0) {
+        setGegnerName(target.name);
+        if (!neuTelefon && target.telefon) setGegnerTelefon(formatRufnummer(target.telefon));
+        if (!neuEmail && (target.email || target.email_zentrale)) setGegnerEmail(target.email || target.email_zentrale);
+        if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
+        return false; 
+      }
+
+      if (!isZentrale) {
+        const matchedContact = contacts.find(c => {
+          const cName = (c.name || '').trim().toLowerCase();
+          const cAbt = (c.abteilung || '').trim().toLowerCase();
+          return (cName && (cName.includes(cleanNeuAP) || cleanNeuAP.includes(cName))) ||
+                 (cAbt && (cAbt.includes(cleanNeuAP) || cleanNeuAP.includes(cAbt)));
+        });
+
+        if (matchedContact) {
+          setGegnerName(target.name);
+          const displayAP = matchedContact.name || matchedContact.abteilung || neuAnsprechpartner;
+          setGegnerAnsprechpartner(displayAP);
+          setFaxZhd(displayAP);
+          if (!neuTelefon && matchedContact.telefon) setGegnerTelefon(formatRufnummer(matchedContact.telefon));
+          if (!neuEmail && (matchedContact.email || target.email || target.email_zentrale)) setGegnerEmail(matchedContact.email || target.email || target.email_zentrale);
+          if (!neuFax && target.fax) setGegnerFax(formatRufnummer(target.fax));
+          return false;
+        }
+      }
     }
 
-    // Zeige immer den Auswahl-Prompt, wenn der AP neu ist, oder wenn es mehrere/keine Behörden-Treffer gibt
+    // Zeige den Auswahl-Prompt inkl. aller Vorschläge und Ansprechpartner-Daten
     setGegnerPrompt({
       typ: 'auswahl',
       obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail },
@@ -578,59 +609,122 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (existing) {
         setUnsereFirma(existing.firmenname);
         setUnserAnsprechpartner(cleanVal(existing.ansprechpartner) || cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '');
+        if (existing.telefon && !unserTelefon) setUnserTelefon(formatRufnummer(existing.telefon));
+        if (existing.email && !unserEmail) setUnserEmail(existing.email);
         showToast(`Zuweisung zu Mandant "${existing.firmenname}" erfolgreich!`, 'success');
       }
     }
     setTresorPrompt(null);
   };
 
-  // --- NEU: INTELLIGENTER GEGNER ACCEPT-HANDLER ---
-  const handleGegnerPromptAccept = async (actionType = 'neu', targetId = null) => {
+  // --- NEU: INTELLIGENTER GEGNER ACCEPT-HANDLER MIT ANSPRECHPARTNER-AUSWAHL & DIREKT-ANLAGE ---
+  const handleGegnerPromptAccept = async (actionType = 'neu', targetId = null, contactOption = null) => {
     if (!gegnerPrompt) return;
     
     if (actionType === 'neu') {
+      const apAbt = contactOption?.abteilung || '';
+      const apName = contactOption?.name !== undefined ? contactOption.name : (gegnerPrompt.obj.ansprechpartner || '');
+      const apTel = formatRufnummer(contactOption?.telefon !== undefined ? contactOption.telefon : (gegnerPrompt.obj.telefon || ''));
+      const apMail = contactOption?.email !== undefined ? contactOption.email : (gegnerPrompt.obj.email || '');
+
       await supabase.from('gegner').insert([{
         user_id: session.user.id,
         name: gegnerPrompt.obj.name,
         fax: formatRufnummer(gegnerPrompt.obj.fax),
-        email: gegnerPrompt.obj.email || null,
+        email: apMail || gegnerPrompt.obj.email || null,
         notizen: JSON.stringify([{
-            abteilung: '',
-            name: gegnerPrompt.obj.ansprechpartner || '',
-            telefon: formatRufnummer(gegnerPrompt.obj.telefon),
-            email: gegnerPrompt.obj.email || ''
+            abteilung: apAbt,
+            name: apName,
+            telefon: apTel,
+            email: apMail
         }])
       }]);
+
+      const displayAP = apName || apAbt || '';
+      setGegnerName(gegnerPrompt.obj.name);
+      setGegnerAnsprechpartner(displayAP);
+      setFaxZhd(displayAP);
+      if (apTel) setGegnerTelefon(apTel);
+      if (apMail) setGegnerEmail(apMail);
+
       showToast(`Behörde/Gegner "${gegnerPrompt.obj.name}" ins CRM aufgenommen!`, 'success');
       
     } else if (actionType === 'zuweisen' && targetId) {
-      const existing = gegnerListe.find(g => g.id === targetId);
+      const existing = gegnerListe.find(g => String(g.id) === String(targetId));
       if (existing) {
+        setGegnerName(existing.name);
+        if (existing.fax && !gegnerFax) setGegnerFax(formatRufnummer(existing.fax));
+
         let gUpdates = {};
         let currentContacts = [];
         try { currentContacts = typeof existing.notizen === 'string' ? JSON.parse(existing.notizen) : (existing.notizen || []); } catch(e) {}
         if (!Array.isArray(currentContacts)) currentContacts = [];
 
-        const contactExists = currentContacts.some(c => (c.name || '').toLowerCase() === (gegnerPrompt.obj.ansprechpartner || '').toLowerCase());
+        if (contactOption && contactOption.mode === 'existing') {
+          if (contactOption.index === 'zentrale') {
+            setGegnerAnsprechpartner('Zentrale');
+            setFaxZhd('Zentrale');
+            if (existing.telefon) setGegnerTelefon(formatRufnummer(existing.telefon));
+            if (existing.email || existing.email_zentrale) setGegnerEmail(existing.email || existing.email_zentrale);
+          } else {
+            const chosen = currentContacts[Number(contactOption.index)];
+            if (chosen) {
+              const displayAP = chosen.name || chosen.abteilung || '';
+              setGegnerAnsprechpartner(displayAP);
+              setFaxZhd(displayAP);
+              if (chosen.telefon) setGegnerTelefon(formatRufnummer(chosen.telefon));
+              if (chosen.email || existing.email || existing.email_zentrale) {
+                setGegnerEmail(chosen.email || existing.email || existing.email_zentrale);
+              }
+            }
+          }
+          showToast(`Gegner "${existing.name}" und Ansprechpartner übernommen!`, 'success');
 
-        if (!contactExists && gegnerPrompt.obj.ansprechpartner) {
-            currentContacts.push({
-              abteilung: '',
-              name: gegnerPrompt.obj.ansprechpartner,
-              telefon: formatRufnummer(gegnerPrompt.obj.telefon) || '',
-              email: gegnerPrompt.obj.email || ''
-            });
-            gUpdates.notizen = JSON.stringify(currentContacts);
-        }
-
-        if (!existing.fax && gegnerPrompt.obj.fax) gUpdates.fax = formatRufnummer(gegnerPrompt.obj.fax);
-        if (!existing.email && gegnerPrompt.obj.email) gUpdates.email = gegnerPrompt.obj.email;
-
-        if (Object.keys(gUpdates).length > 0) {
-            await supabase.from('gegner').update(gUpdates).eq('id', existing.id);
-            showToast(`Kontakt bei "${existing.name}" erfolgreich aktualisiert!`, 'success');
         } else {
+          // Neuen Ansprechpartner zur gewählten Behörde hinzufügen oder aktualisieren
+          const newAbt = (contactOption?.abteilung || '').trim();
+          const newName = (contactOption?.name !== undefined ? contactOption.name : (gegnerPrompt.obj.ansprechpartner || '')).trim();
+          const newTel = formatRufnummer(contactOption?.telefon !== undefined ? contactOption.telefon : (gegnerPrompt.obj.telefon || ''));
+          const newMail = (contactOption?.email !== undefined ? contactOption.email : (gegnerPrompt.obj.email || '')).trim();
+
+          if (newName || newAbt) {
+            const existingIdx = currentContacts.findIndex(c => 
+              (c.name || '').trim().toLowerCase() === newName.toLowerCase() && 
+              (c.abteilung || '').trim().toLowerCase() === newAbt.toLowerCase()
+            );
+
+            if (existingIdx === -1) {
+              currentContacts.push({
+                abteilung: newAbt,
+                name: newName,
+                telefon: newTel,
+                email: newMail
+              });
+              gUpdates.notizen = JSON.stringify(currentContacts);
+            } else {
+              if (newTel && !currentContacts[existingIdx].telefon) currentContacts[existingIdx].telefon = newTel;
+              if (newMail && !currentContacts[existingIdx].email) currentContacts[existingIdx].email = newMail;
+              gUpdates.notizen = JSON.stringify(currentContacts);
+            }
+
+            const displayAP = newName || newAbt;
+            setGegnerAnsprechpartner(displayAP);
+            setFaxZhd(displayAP);
+          }
+
+          if (newTel) setGegnerTelefon(newTel);
+          if (newMail) setGegnerEmail(newMail);
+          else if (existing.email || existing.email_zentrale) setGegnerEmail(existing.email || existing.email_zentrale);
+
+          if (!existing.fax && gegnerPrompt.obj.fax) gUpdates.fax = formatRufnummer(gegnerPrompt.obj.fax);
+          if (!existing.email && newMail) gUpdates.email = newMail;
+
+          if (Object.keys(gUpdates).length > 0) {
+            await supabase.from('gegner').update(gUpdates).eq('id', existing.id);
+            showToast(`Neuer Kontakt bei "${existing.name}" im CRM gespeichert & zugewiesen!`, 'success');
+          } else {
             showToast(`Gegner "${existing.name}" zugewiesen.`, 'success');
+          }
         }
       }
     }
