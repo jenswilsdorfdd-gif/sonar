@@ -88,6 +88,33 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const btnTextColor = isDarkMode ? '#000' : '#ffffff';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
+  // --- NEU: DATUMS-KONVERTER FÜR DEUTSCHE & ISO FORMATE AUF YYYY-MM-DD ---
+  const normalizeDateForInput = (val) => {
+    if (!val) return '';
+    const str = String(val).trim();
+    if (!str) return '';
+
+    // Bereits im Format YYYY-MM-DD (ggf. mit Uhrzeit dahinter)
+    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+    }
+
+    // Deutsches Format DD.MM.YYYY oder DD.MM.YY (auch mit / oder -)
+    const deMatch = str.match(/^(\d{1,2})[\.\/\-](\d{1,2})[\.\/\-](\d{2,4})/);
+    if (deMatch) {
+      const day = deMatch[1].padStart(2, '0');
+      const month = deMatch[2].padStart(2, '0');
+      let year = deMatch[3];
+      if (year.length === 2) {
+        year = '20' + year;
+      }
+      return `${year}-${month}-${day}`;
+    }
+
+    return '';
+  };
+
   const formatRufnummer = (nummer) => {
     if (!nummer) return '';
     let clean = String(nummer).replace(/[\s\-\/\(\)]/g, ''); 
@@ -356,7 +383,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     showToast("Akte geladen & Follow-Up Vorlage eingefügt!", "success");
   };
 
-  // --- NEU: INTELLIGENTE GEGNER-PRÜFUNG MIT MEHREREN VORSCHLÄGEN & ANSPRECHPARTNER-TIEFE ---
+  // --- INTELLIGENTE GEGNER-PRÜFUNG MIT MEHREREN VORSCHLÄGEN & ANSPRECHPARTNER-TIEFE ---
   const checkGegnerDiff = (neuName, neuFax, neuEmail, neuAnsprechpartner, neuTelefon) => {
     if (!neuName) return false;
 
@@ -371,7 +398,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
     let vorschlaege = [];
     if (exactTarget) {
-      // Exakter Treffer an erste Stelle, Rest aus Fuzzy dazu
       const restFuzzy = fuzzyTargets.filter(f => f.id !== exactTarget.id);
       vorschlaege = [exactTarget, ...restFuzzy];
     } else if (fuzzyTargets.length > 0) {
@@ -416,7 +442,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
     }
 
-    // Zeige den Auswahl-Prompt inkl. aller Vorschläge und Ansprechpartner-Daten
     setGegnerPrompt({
       typ: 'auswahl',
       obj: { name: neuName, ansprechpartner: neuAnsprechpartner, telefon: formatRufnummer(neuTelefon), fax: formatRufnummer(neuFax), email: neuEmail },
@@ -511,7 +536,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const fallbackGegnerTelefon = obj.gegner_telefon || '';
       const fallbackGegnerFax = obj.gegner_fax || obj.versand_faxnummer_gegner || (obj.empfaenger ? obj.empfaenger.fax : '') || '';
       const fallbackGegnerEmail = obj.gegner_email || obj.versand_e_mail_gegner || (obj.empfaenger ? obj.empfaenger.email : '') || '';
-      const fallbackFristExtern = obj.frist_extern || '';
+      
+      // --- NEU: DATUMS-NORMALISIERUNG & SCHARFE TRENNUNG FRIST (BEHÖRDE) VS. WV (INTERN) ---
+      const rawFristExtern = normalizeDateForInput(obj.frist_extern || obj.frist || '');
+      const rawWiedervorlage = normalizeDateForInput(obj.wiedervorlage || obj.wv_intern || obj.wv || '');
+      const parsedDocDatum = normalizeDateForInput(obj.datum || '') || new Date().toISOString().split('T')[0];
+
       const fallbackBriefEntwurf = obj.brief_entwurf || obj.textentwurf || obj.nachricht || '';
       const fallbackRawText = obj.raw_text || ''; 
       const fallbackAktion = obj.aktion || obj.status || '';
@@ -523,9 +553,29 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       setAktenzeichen(fallbackAktenzeichen); setThema(fallbackThema); 
       setGegnerName(fallbackGegnerName); setGegnerAnsprechpartner(fallbackGegnerAnsprechpartner); 
       setGegnerTelefon(formatRufnummer(fallbackGegnerTelefon)); setGegnerFax(formatRufnummer(fallbackGegnerFax)); setGegnerEmail(fallbackGegnerEmail); 
-      handleFristChange(fallbackFristExtern); setBriefEntwurf(fallbackBriefEntwurf); setRawText(fallbackRawText); setAktion(fallbackAktion); 
+
+      // Prüfe, ob ein gesetztes Datum eine echte behördliche Frist oder eine interne Wiedervorlage ist
+      const aktionLower = fallbackAktion.toLowerCase();
+      const rawLower = fallbackRawText.toLowerCase();
+      const hasExplicitAuthorityDeadlineInText = rawLower.includes('frist') || rawLower.includes('innerhalb von') || rawLower.includes('bis spätestens') || rawLower.includes('bis zum') || rawLower.includes('rechtsbehelf');
+      const looksLikeInternalWv = fallbackTyp !== 'Eingang' || aktionLower.includes('wiedervorlage') || aktionLower.includes('abwarten') || aktionLower.includes('interne prüfung') || (aktionLower.includes('überweisung') && !hasExplicitAuthorityDeadlineInText);
+
+      if (rawWiedervorlage) {
+        handleWVChange(rawWiedervorlage);
+      } else if (rawFristExtern) {
+        if (looksLikeInternalWv) {
+          handleWVChange(rawFristExtern);
+        } else {
+          handleFristChange(rawFristExtern);
+        }
+      } else {
+        setFristExtern('');
+        setWiedervorlage('');
+      }
+
+      setBriefEntwurf(fallbackBriefEntwurf); setRawText(fallbackRawText); setAktion(fallbackAktion); 
       setKanal(fallbackKanal); setTyp(fallbackTyp);
-      setDatum(new Date().toISOString().split('T')[0]);
+      setDatum(parsedDocDatum);
       setFaxZhd(fallbackGegnerAnsprechpartner);
 
       if (obj.pdf_url) {
@@ -560,7 +610,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setBezugId('');
       }
 
-      // --- NEU: INTELLIGENTE TRESOR-PRÜFUNG ---
+      // --- INTELLIGENTE TRESOR-PRÜFUNG ---
       if (fallbackUnsereFirma) {
         const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
         const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '');
@@ -591,7 +641,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     } catch(err) { console.error("JSON Error:", err); }
   };
 
-  // --- NEU: INTELLIGENTER TRESOR ACCEPT-HANDLER ---
+  // --- INTELLIGENTER TRESOR ACCEPT-HANDLER ---
   const handleTresorPromptAccept = async (actionType = 'neu', targetId = null) => {
     if (!tresorPrompt) return;
     
@@ -617,7 +667,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setTresorPrompt(null);
   };
 
-  // --- NEU: INTELLIGENTER GEGNER ACCEPT-HANDLER MIT ANSPRECHPARTNER-AUSWAHL & DIREKT-ANLAGE ---
+  // --- INTELLIGENTER GEGNER ACCEPT-HANDLER MIT ANSPRECHPARTNER-AUSWAHL & DIREKT-ANLAGE ---
   const handleGegnerPromptAccept = async (actionType = 'neu', targetId = null, contactOption = null) => {
     if (!gegnerPrompt) return;
     
@@ -681,7 +731,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           showToast(`Gegner "${existing.name}" und Ansprechpartner übernommen!`, 'success');
 
         } else {
-          // Neuen Ansprechpartner zur gewählten Behörde hinzufügen oder aktualisieren
           const newAbt = (contactOption?.abteilung || '').trim();
           const newName = (contactOption?.name !== undefined ? contactOption.name : (gegnerPrompt.obj.ansprechpartner || '')).trim();
           const newTel = formatRufnummer(contactOption?.telefon !== undefined ? contactOption.telefon : (gegnerPrompt.obj.telefon || ''));
@@ -1897,10 +1946,15 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             setGegnerEmail(ausgangsJson.gegner_email);
           }
           
-          setTyp('Ausgang');
+          setTyp(ausgangsJson.typ || 'Ausgang');
           
           if (ausgangsJson.aktion) setAktion(ausgangsJson.aktion);
-          if (ausgangsJson.frist_extern) handleFristChange(ausgangsJson.frist_extern);
+
+          // Bei einem Ausgangsschreiben / internem Vorgang aus dem War-Room ist das Datum immer unsere interne Wiedervorlage
+          const parsedWv = normalizeDateForInput(ausgangsJson.wiedervorlage || ausgangsJson.wv_intern || ausgangsJson.frist_extern || '');
+          if (parsedWv) {
+            handleWVChange(parsedWv);
+          }
           
           showToast("Schriftsatz übernommen! Akten-Kontext geschützt.", "success");
         }}
