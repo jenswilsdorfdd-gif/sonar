@@ -1,0 +1,6 @@
+Eingang-Dokument
+Gegenstand: Stellungnahme zum Einspruch vom 09.10.2026 gegen den Abrechnungsbescheid vom 22.09.2026 sowie Ablehnung des Antrags auf Aussetzung der Vollziehung
+Gegner: Finanzamt Dresden-Süd
+
+Zusammenfassung / Text:
+Schreiben des Finanzamtes Dresden-Süd (Sachgebietsleiterin Frau Zimmermann-Hübner / Bearbeiterin Frau Klemmer) vom Oktober 2026 (Poststempel 13.10.2026) zum Einspruch vom 09.10.2026 gegen den Abrechnungsbescheid gem. § 218 Abs. 2 AO vom 22.09.2026 (Steuernummer 203/118/11534 K03c). Das Finanzamt lehnt den Antrag auf Aussetzung der Vollziehung gem. § 361 Abs. 2 AO ab und verweist darauf, dass Einwendungen gegen Verspätungszuschläge (USt-VA 2025 und KSt 2024) nicht im Verfahren gegen den Abrechnungsbescheid erhoben werden können und für einen Erlass der Säumniszuschläge auf KSt-Vorauszahlungen 2023-2025 wegen rechtswidriger Steuerfestsetzung (BFH XI R 36/16) kein rechtzeitiger AdV-Antrag gestellt worden sei. Fristsetzung bis 20.11.2026 zur Mitteilung, ob der Einspruch aufrechterhalten bleibt.
