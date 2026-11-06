@@ -1,10 +1,10 @@
 Versendetes Dokument
 Gegenstand: Förmliche Aufsichtsbeschwerde gemäß §§ 93, 94 PostG i. V. m. Art. 87f Abs. 1 GG an die Bundesnetzagentur & Ankündigung des parallelen gerichtlichen Mahnverfahrens (§ 688 ZPO) über 88,38 €
 Gegner: Bundesnetzagentur – Verbraucherservice Post / Marktaufsicht (Referat 318)
-Link: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/ausgang_1793968772938_Schreiben.pdf
+Link: https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/ausgang_1793969402870_Schreiben.pdf
 
 Dokumententext:
-per Digitalversand (E-Mail an verbraucherservice-post@bnetza.de)
+per Digitalversand (E-Mail an poststelle@bnetza.de)
 Kopie (CC) zur Kenntnisnahme an den Vorstand / die Geschäftsführung der Beschwerdegegnerinnen (gf@dhl.de)
 
 An die
