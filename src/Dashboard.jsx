@@ -8,9 +8,14 @@ import GegnerCrm from './GegnerCrm';
 import Handbuch from './Handbuch';
 
 export default function Dashboard({ session }) {
+  // Haupt-Mandant (Owner) ID zum Schutz vor versehentlichem Demo-Reset
+  const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
+  const isDemoUser = session?.user?.id && session.user.id !== OWNER_USER_ID;
+
   // --- GLOBALES ROUTING & THEME ---
   const [activeTab, setActiveTab] = useState('akten');
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [resetLoading, setResetLoading] = useState(false);
 
   // --- NEU: RESPONSIVE STATE FÜR HEADER-BUTTONS ---
   const [isMobile, setIsMobile] = useState(false);
@@ -75,6 +80,69 @@ export default function Dashboard({ session }) {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.reload(); 
+  };
+
+  // --- DEMO-DATEN BEREINIGEN (NUR FÜR NICHT-OWNER / DEMO-ACCOUNTS) ---
+  const handleDemoReset = async () => {
+    if (!isDemoUser || !session?.user?.id) return;
+    const confirmReset = window.confirm(
+      "🧹 DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruflich löschen?"
+    );
+    if (!confirmReset) return;
+
+    setResetLoading(true);
+    try {
+      const uid = session.user.id;
+
+      // 1. Hochgeladene Dateien dieses Demo-Users aus akten_historie ermitteln und im Storage löschen
+      const { data: histRows } = await supabase
+        .from('akten_historie')
+        .select('dokument_url')
+        .eq('user_id', uid);
+
+      const filesToRemove = new Set();
+      if (histRows && histRows.length > 0) {
+        histRows.forEach(row => {
+          if (row.dokument_url) {
+            row.dokument_url.split(',').forEach(rawUrl => {
+              const cleanUrl = rawUrl.trim();
+              if (cleanUrl) {
+                try {
+                  const parts = decodeURIComponent(cleanUrl).split('/');
+                  const fName = parts[parts.length - 1];
+                  if (fName) {
+                    filesToRemove.add(fName);
+                    if (fName.toLowerCase().endsWith('.pdf')) {
+                      filesToRemove.add(fName.replace(/\.pdf$/i, '.md'));
+                    }
+                  }
+                } catch (err) {}
+              }
+            });
+          }
+        });
+      }
+
+      if (filesToRemove.size > 0) {
+        await supabase.storage.from('dokumente').remove(Array.from(filesToRemove));
+      }
+
+      // 2. Alle Tabellen-Einträge dieses Demo-Users löschen
+      await supabase.from('akten_historie').delete().eq('user_id', uid);
+      await supabase.from('akten').delete().eq('user_id', uid);
+      await supabase.from('mandanten').delete().eq('user_id', uid);
+      await supabase.from('gegner').delete().eq('user_id', uid);
+      await supabase.from('wissensdatenbank').delete().eq('user_id', uid);
+      await supabase.from('import_queue').delete().eq('user_id', uid);
+
+      await ladeDaten();
+      showToast("✅ Alle Test-Daten und Dokumente wurden rückstandslos gelöscht!", "success");
+    } catch (err) {
+      console.error("Fehler beim Demo-Reset:", err);
+      showToast("❌ Fehler beim Zurücksetzen der Demo-Daten: " + (err.message || err), "error");
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   // --- THEME-ENGINE ---
@@ -147,9 +215,13 @@ export default function Dashboard({ session }) {
   }, [isDarkMode, theme.bg]);
 
   const ladeDaten = async () => {
+    if (!session?.user?.id) return;
+    const uid = session.user.id;
+
     const { data: aktenData, error: aktenError } = await supabase
       .from('akten')
       .select('*, akten_historie (*)')
+      .eq('user_id', uid)
       .eq('status', 'Offen')
       .order('created_at', { ascending: false });
 
@@ -162,19 +234,31 @@ export default function Dashboard({ session }) {
       setAkten(aktenData);
     }
 
-    const { data: mandantenData } = await supabase.from('mandanten').select('*').order('firmenname', { ascending: true });
+    const { data: mandantenData } = await supabase
+      .from('mandanten')
+      .select('*')
+      .eq('user_id', uid)
+      .order('firmenname', { ascending: true });
     if (mandantenData) setMandanten(mandantenData);
 
-    const { data: gegnerData } = await supabase.from('gegner').select('*').order('name', { ascending: true });
+    const { data: gegnerData } = await supabase
+      .from('gegner')
+      .select('*')
+      .eq('user_id', uid)
+      .order('name', { ascending: true });
     if (gegnerData) setGegnerListe(gegnerData);
 
-    const { data: wissenData, error: wissenErr } = await supabase.from('wissensdatenbank').select('*').order('created_at', { ascending: false });
+    const { data: wissenData, error: wissenErr } = await supabase
+      .from('wissensdatenbank')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false });
     if (!wissenErr && wissenData) {
       setWissenEintraege(wissenData);
     }
   };
 
-  useEffect(() => { ladeDaten(); }, []);
+  useEffect(() => { ladeDaten(); }, [session?.user?.id]);
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh', position: 'relative' }}>
@@ -214,8 +298,32 @@ export default function Dashboard({ session }) {
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
           </h1>
           
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             
+            {/* --- DEMO-RESET BUTTON (NUR FÜR DEMO-/TEST-USER SICHTBAR) --- */}
+            {isDemoUser && (
+              <button
+                title="Alle Test-Daten und Dokumente dieses Demo-Zugangs löschen"
+                disabled={resetLoading}
+                onClick={handleDemoReset}
+                style={{
+                  background: theme.warningBg,
+                  color: theme.gegnerAccent,
+                  border: `1px solid ${theme.gegnerAccent}`,
+                  padding: isMobile ? '8px 12px' : '8px 16px',
+                  borderRadius: '30px',
+                  cursor: resetLoading ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: isMobile ? '0' : '8px',
+                  fontWeight: 'bold'
+                }}
+              >
+                <Icon name="trash" size={18} />
+                {!isMobile && <span>{resetLoading ? 'Bereinige...' : '🧹 Demo zurücksetzen'}</span>}
+              </button>
+            )}
+
             {/* --- RESPONSIVE BUTTONS (JS Gesteuert) --- */}
             <button
               title="Tech-Handbuch"
@@ -354,4 +462,4 @@ export default function Dashboard({ session }) {
       </div>
     </div>
   );
-} 
+}
