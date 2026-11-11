@@ -15,6 +15,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
 
   const [laedt, setLaedt] = useState(false);
+  const [webScanLaedt, setWebScanLaedt] = useState(false);
+  const [webScanStatus, setWebScanStatus] = useState('');
   const [selectedAkteId, setSelectedAkteId] = useState(null);
   
   const [modus, setModus] = useState('neu'); 
@@ -88,6 +90,21 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const btnTextColor = isDarkMode ? '#000' : '#ffffff';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
+  // --- SLUG-CLEANER ANALOG ZU AUTOCONVERT.PY ---
+  const cleanSlugForFilename = (text) => {
+    if (!text) return '';
+    return String(text)
+      .toLowerCase()
+      .replace(/ä/g, 'ae')
+      .replace(/ö/g, 'oe')
+      .replace(/ü/g, 'ue')
+      .replace(/ß/g, 'ss')
+      .replace(/-(gmbh|ag|ug|e-k|kg|ohg|ltd|co-kg|gmbh-co-kg|haftungsbeschraenkt)\b/g, '')
+      .replace(/[^a-z0-9\-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
   // --- DATUMS-KONVERTER FÜR DEUTSCHE & ISO FORMATE AUF YYYY-MM-DD ---
   const normalizeDateForInput = (val) => {
     if (!val) return '';
@@ -143,7 +160,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return n1.includes(n2) || n2.includes(n1);
   };
 
-  // --- NEU: HILFSFUNKTIONEN FÜR DIE MEHRSTUFIGE BESTANDSAKTEN-ERKENNUNG ---
+  // --- HILFSFUNKTIONEN FÜR DIE MEHRSTUFIGE BESTANDSAKTEN-ERKENNUNG ---
   const cleanZeichenString = (val) => {
     if (!val) return '';
     return String(val)
@@ -156,7 +173,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const cleanUZ = cleanZeichenString(inUnserZeichen);
     const cleanAZ = cleanZeichenString(inAktenzeichen);
 
-    // STUFE 1A: Abgleich über Unser Zeichen (exakt oder normalisiert oder identische 4-stellige laufende Nummer + Gegner)
+    // STUFE 1A: Abgleich über Unser Zeichen
     if (cleanUZ.length >= 4) {
       const exactUzAkte = akten.find(a => cleanZeichenString(a.unser_zeichen) === cleanUZ);
       if (exactUzAkte) return { akte: exactUzAkte, reason: 'Unser Zeichen erkannt' };
@@ -169,7 +186,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
     }
 
-    // STUFE 1B: Abgleich über behördliches Aktenzeichen / Steuernummer (normalisiert & Teil-Match ab 6 Zeichen)
+    // STUFE 1B: Abgleich über behördliches Aktenzeichen / Steuernummer
     if (cleanAZ.length >= 5) {
       const exactAzAkte = akten.find(a => {
         const aAz = cleanZeichenString(a.aktenzeichen);
@@ -178,7 +195,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       });
       if (exactAzAkte) return { akte: exactAzAkte, reason: 'Behördliches Aktenzeichen erkannt' };
 
-      // Suche auch in der bisherigen Historie (falls sich das AZ in einem Untervorgang versteckt)
       const histAzAkte = akten.find(a =>
         a.akten_historie && a.akten_historie.some(h => {
           const hText = cleanZeichenString(`${h.aktion || ''} ${h.brief_entwurf || ''}`);
@@ -188,7 +204,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (histAzAkte) return { akte: histAzAkte, reason: 'Aktenzeichen im bisherigen Aktenverlauf gefunden' };
     }
 
-    // STUFE 2 & 3: Kombinations-Abgleich über Gegner + Mandant + Thema/Inhalt (nur offene Akten bevorzugt)
+    // STUFE 2 & 3: Kombinations-Abgleich über Gegner + Mandant + Thema/Inhalt
     if (inGegner) {
       const kandidaten = akten.filter(a => {
         if (a.status === 'Erledigt') return false;
@@ -318,10 +334,170 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map(item => item.str).join(' ');
-      fullText += `--- Seite ${i} ---\n${pageText}\n\n`;
+      if (pageText.trim()) {
+        fullText += `--- Seite ${i} ---\n${pageText}\n\n`;
+      }
     }
     return fullText;
   };
+
+  // --- NEU: BROWSER-BASIERTE WEB-INGEST-PIPELINE (SCANNER-ERSATZ IM WEB-COCKPIT) ---
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const resultStr = String(reader.result || '');
+        const base64Part = resultStr.includes(',') ? resultStr.split(',')[1] : resultStr;
+        resolve(base64Part);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleWebScannerIngest = async (selectedFiles = null) => {
+    const targetList = selectedFiles || dateien;
+    if (!targetList || targetList.length === 0) {
+      showToast("Bitte wähle zuerst eine PDF- oder MD-Datei aus!", "warning");
+      return;
+    }
+
+    const primaryFile = targetList.find(f => f.name.toLowerCase().endsWith('.pdf')) || targetList[0];
+    const isPdf = primaryFile.name.toLowerCase().endsWith('.pdf');
+    const isMdOrTxt = primaryFile.name.toLowerCase().endsWith('.md') || primaryFile.name.toLowerCase().endsWith('.txt');
+
+    if (!isPdf && !isMdOrTxt) {
+      showToast("Für den KI-Web-Scan bitte eine PDF- oder MD-Datei wählen.", "warning");
+      return;
+    }
+
+    setWebScanLaedt(true);
+    setWebScanStatus(`1/3 Lese Dokument "${primaryFile.name}" aus...`);
+
+    try {
+      let extractedText = '';
+      let pdfBase64 = null;
+
+      if (isPdf) {
+        try {
+          extractedText = await extractTextFromPDF(primaryFile);
+        } catch (pdfErr) {
+          console.warn("PDF.js Extraktions-Warnung (nutze OCR-Fallback):", pdfErr);
+        }
+
+        // Wenn die PDF weniger als 50 Zeichen Textschicht hat -> Bild-Scan Base64-Fallback für Claude Vision
+        if (!extractedText || extractedText.replace(/--- Seite \d+ ---/g, '').trim().length < 50) {
+          setWebScanStatus(`1/3 Bild-Scan erkannt – aktiviere KI-Vision-OCR für "${primaryFile.name}"...`);
+          extractedText = '';
+          pdfBase64 = await fileToBase64(primaryFile);
+        }
+      } else {
+        extractedText = await primaryFile.text();
+      }
+
+      setWebScanStatus("2/3 Sende Dokument zur forensischen KI-Triage (Claude Sonnet)...");
+
+      const { data: triageRes, error: triageErr } = await supabase.functions.invoke('sonar-ai-triage', {
+        body: {
+          mode: 'ingestion',
+          text: extractedText ? extractedText.substring(0, 12000) : '',
+          pdf_base64: pdfBase64 || undefined
+        }
+      });
+
+      if (triageErr) {
+        throw new Error(triageErr.message || "Fehler beim Aufruf von sonar-ai-triage");
+      }
+
+      const rawReply = triageRes?.reply || triageRes;
+      let parsedData = null;
+
+      if (typeof rawReply === 'object' && rawReply !== null) {
+        parsedData = rawReply;
+      } else {
+        const strReply = String(rawReply || '').trim();
+        const jsonMatch = strReply.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedData = JSON.parse(jsonMatch[0]);
+        }
+      }
+
+      if (!parsedData || typeof parsedData !== 'object') {
+        throw new Error("KI-Triage hat kein gültiges JSON zurückgegeben.");
+      }
+
+      // Volltext bestimmen (entweder digital extrahiert oder via Claude OCR)
+      const ocrFallback = parsedData.extracted_ocr_text || parsedData.raw_text || '';
+      delete parsedData.extracted_ocr_text;
+      const finalFullText = (extractedText && extractedText.trim().length >= 50) ? extractedText : ocrFallback;
+      parsedData.raw_text = finalFullText;
+
+      // Sauberen Dateinamen nach dem Schema YYYYMMDD-gegnerslug-mandant-vorgang erzeugen
+      const rawBase = parsedData.clean_filename_base || parsedData.filename || parsedData.dateiname || '';
+      delete parsedData.clean_filename_base;
+      delete parsedData.filename;
+      delete parsedData.dateiname;
+
+      const todayCompact = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const cleanedSlug = cleanSlugForFilename(rawBase);
+      const baseName = cleanedSlug || `${todayCompact}-dokument-${Date.now().toString().slice(-4)}`;
+
+      const finalPdfName = `${baseName}.pdf`;
+      const finalMdName = `${baseName}.md`;
+
+      setWebScanStatus(`3/3 Speichere Twin-Storage (${finalPdfName} & .md) in Supabase...`);
+
+      let uploadedPublicPdfUrl = null;
+
+      if (isPdf) {
+        const { error: pdfUpErr } = await supabase.storage
+          .from('dokumente')
+          .upload(finalPdfName, primaryFile, { contentType: 'application/pdf', upsert: true });
+
+        if (pdfUpErr) {
+          throw new Error("Storage-Upload (PDF) fehlgeschlagen: " + pdfUpErr.message);
+        }
+
+        const { data: pubData } = supabase.storage.from('dokumente').getPublicUrl(finalPdfName);
+        uploadedPublicPdfUrl = pubData?.publicUrl || null;
+      }
+
+      // Synchronen .md-Zwilling in denselben Bucket 'dokumente' legen (Twin-Storage-Prinzip)
+      const mdContentToStore = finalFullText || parsedData.brief_entwurf || 'Kein Textinhalt erkannt.';
+      const mdBlob = new Blob([mdContentToStore], { type: 'text/markdown;charset=utf-8' });
+      await supabase.storage
+        .from('dokumente')
+        .upload(finalMdName, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+
+      if (uploadedPublicPdfUrl) {
+        parsedData.pdf_url = uploadedPublicPdfUrl;
+      }
+
+      // Maske über bestehenden handleJsonImport vollautomatisch befüllen
+      const finalJsonString = JSON.stringify(parsedData);
+      if (handleJsonImportRef.current) {
+        handleJsonImportRef.current({ target: { value: finalJsonString } });
+      } else {
+        handleJsonImport({ target: { value: finalJsonString } });
+      }
+
+      // Verhindern, dass die bereits als Twin gespeicherte PDF beim Klick auf Speichern doppelt hochgeladen wird
+      const remainingFiles = targetList.filter(f => f !== primaryFile);
+      setDateien(remainingFiles);
+      if (remainingFiles.length === 0 && document.getElementById('datei-upload-manuell')) {
+        document.getElementById('datei-upload-manuell').value = '';
+      }
+
+      showToast(`✅ Web-Scan abgeschlossen!\nTwin-Storage angelegt: ${finalPdfName}\nAlle Felder wurden automatisch befüllt.`, "success");
+    } catch (err) {
+      console.error("Web-Scanner Fehler:", err);
+      showToast("❌ Fehler beim KI-Web-Scan: " + (err.message || err), "error");
+    } finally {
+      setWebScanLaedt(false);
+      setWebScanStatus('');
+    }
+  };
+  // ---------------------------------------------------------------------------------
 
   const handleFristChange = (val) => {
     setFristExtern(val);
@@ -677,7 +853,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setGegnerPrompt(null);
       }
 
-      // --- NEU: MEHRSTUFIGE BESTANDSAKTEN-ERKENNUNG ---
+      // --- MEHRSTUFIGE BESTANDSAKTEN-ERKENNUNG ---
       const matchResult = findBestMatchingAkte(
         fallbackUnserZeichen,
         fallbackAktenzeichen,
@@ -692,7 +868,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setModus('bestehend');
         setSelectedAkteId(matchedAkte.id);
 
-        // Falls im JSON Felder leer waren, sanft aus der erkannten Bestandsakte ergänzen
         if (!fallbackUnserZeichen && matchedAkte.unser_zeichen) setUnserZeichen(matchedAkte.unser_zeichen);
         if (!fallbackAktenzeichen && matchedAkte.aktenzeichen) setAktenzeichen(matchedAkte.aktenzeichen);
         if (!fallbackUnsereFirma && matchedAkte.unsere_firma) setUnsereFirma(matchedAkte.unsere_firma);
@@ -709,7 +884,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           setBezugId(autoBezugId);
           showToast(`Bestandsakte [${matchedAkte.unser_zeichen || '---'}] (${matchResult.reason}) & Vorläufer-Vorgang automatisch verknüpft!`, "success");
         } else {
-          // Wenn es ein Ausgang oder Interner Vorgang ist und die Akte Historie hat, neuesten Eingang als Bezug vorwählen
           if (fallbackTyp !== 'Eingang' && matchedAkte.akten_historie && matchedAkte.akten_historie.length > 0) {
             const sortedHist = [...matchedAkte.akten_historie].sort((a, b) => new Date(b.datum || 0) - new Date(a.datum || 0));
             const latestEingang = sortedHist.find(h => h.typ === 'Eingang') || sortedHist[0];
@@ -1149,6 +1323,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                 try {
                    const extrahierterText = await extractTextFromPDF(f);
                    if (extrahierterText.trim().length > 50) {
+                      // Synchronen .md-Zwilling in Supabase Storage 'dokumente' legen
+                      const storageMdName = dateiName.replace(/\.[^/.]+$/, "") + ".md";
+                      const mdBlob = new Blob([extrahierterText], { type: 'text/markdown;charset=utf-8' });
+                      await supabase.storage.from('dokumente').upload(storageMdName, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+
                       const baseInfo = `Auto-Extraktion (PDF). Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}`; const finalDbText = `${baseInfo}\n\n${extrahierterText.substring(0, 3000)}...`; const mdFileName = f.name.replace(/\.[^/.]+$/, "") + ".md";
                       await supabase.from('wissensdatenbank').insert([{ datei_name: mdFileName, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: linkData.publicUrl }]);
                       await syncToGithub(mdFileName, `${baseInfo}\n\nOriginal-PDF: ${linkData.publicUrl}\n\n${extrahierterText}`, linkData.publicUrl, null, showToast);
@@ -1886,9 +2065,52 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </div>
 
         <div style={{ ...panelStyle, margin: 0, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
-          <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}><Icon name="file" size={16} /> MANUELLER UPLOAD (PDF/MD)</label>
-          <input id="datei-upload-manuell" type="file" multiple onChange={(e) => { setDateien(Array.from(e.target.files)); }} style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '10px', fontSize: '13px', transition: 'border-color 0.3s ease'}} />
-          {dateien.length > 0 && <span style={{fontSize: '13px', color: theme.accent, marginTop: '8px', fontWeight: 'bold'}}><Icon name="folder" size={12} /> {dateien.length} Datei(en) gewählt</span>}
+          <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}><Icon name="file" size={16} /> WEB-SCANNER & MANUELLER UPLOAD (PDF/MD)</label>
+          <input
+            id="datei-upload-manuell"
+            type="file"
+            multiple
+            disabled={webScanLaedt}
+            onChange={(e) => {
+              const chosen = Array.from(e.target.files || []);
+              setDateien(chosen);
+            }}
+            style={{...inputStyle, border: `1px dashed ${theme.accent}`, cursor: 'pointer', padding: '10px', fontSize: '13px', transition: 'border-color 0.3s ease'}}
+          />
+          {dateien.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+              <span style={{fontSize: '13px', color: theme.accent, fontWeight: 'bold'}}>
+                <Icon name="folder" size={12} /> {dateien.length} Datei(en) gewählt ({dateien.map(d => d.name).join(', ')})
+              </span>
+              <button
+                type="button"
+                disabled={webScanLaedt}
+                onClick={() => handleWebScannerIngest(dateien)}
+                style={{
+                  background: theme.accent,
+                  color: btnTextColor,
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: webScanLaedt ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Icon name="brain" size={16} />
+                <span>{webScanLaedt ? webScanStatus : '🚀 PDF per KI-Web-Scanner auslesen & Akte vorbefüllen'}</span>
+              </button>
+            </div>
+          )}
+          {webScanLaedt && dateien.length === 0 && (
+            <span style={{ fontSize: '12px', color: theme.accent, marginTop: '8px', fontWeight: 'bold' }}>
+              ⏳ {webScanStatus}
+            </span>
+          )}
         </div>
       </div>
 
