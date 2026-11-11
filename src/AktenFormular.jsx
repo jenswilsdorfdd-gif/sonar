@@ -382,47 +382,78 @@ export default function AktenFormular({
            const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}`; 
            const finalDbText = `${baseInfo}\n\n${fileInhalt.substring(0, 3000)}...`;
            
-           await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: null }]);
-           await syncToGithub(f.name, fileInhalt, null, null, showToast);
-           
            const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
            const dateiName = `${Date.now()}_${sichererDateiname}`;
-           const mdBlob = new Blob([fileInhalt], { type: 'text/markdown' });
-           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, mdBlob);
+           const mdBlob = new Blob([fileInhalt], { type: 'text/markdown;charset=utf-8' });
+           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+           
+           let mdPubUrl = null;
            if (!uploadError) {
              const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName); 
-             alleUrls.push(linkData.publicUrl);
+             mdPubUrl = linkData?.publicUrl || null;
+             if (mdPubUrl) alleUrls.push(mdPubUrl);
            }
+
+           await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: mdPubUrl }]);
+           await syncToGithub(f.name, fileInhalt, null, null, showToast);
         } else {
            const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
            const dateiName = `${Date.now()}_${sichererDateiname}`;
-           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f);
+           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f, { upsert: true });
            
            if (!uploadError) {
              const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName); 
-             alleUrls.push(linkData.publicUrl);
+             const pdfPubUrl = linkData.publicUrl;
+             alleUrls.push(pdfPubUrl);
              
              const hatMdGegenstueck = zuSpeicherndeDateien.some(d => d.name.toLowerCase() === f.name.toLowerCase().replace('.pdf', '.md'));
-             
+             let extrahierterText = '';
+             let finalDbText = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}`;
+
              if (isPdf && !hatMdGegenstueck) {
                 showToast(`Erzeuge MD-Zwilling für (${f.name})...`, 'success');
                 try {
-                   const extrahierterText = await extractTextFromPDF(f);
-                   if (extrahierterText.trim().length > 50) {
-                      const baseInfo = `Auto-Extraktion (PDF). Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}`; 
-                      const finalDbText = `${baseInfo}\n\n${extrahierterText.substring(0, 3000)}...`; 
-                      const mdFileName = f.name.replace(/\.[^/.]+$/, "") + ".md";
-                      
-                      await supabase.from('wissensdatenbank').insert([{ datei_name: mdFileName, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: linkData.publicUrl }]);
-                      
-                      const mdInhalt = `${baseInfo}\n\nOriginal-PDF: ${linkData.publicUrl}\n\n${extrahierterText}`;
-                      await syncToGithub(mdFileName, mdInhalt, linkData.publicUrl, null, showToast);
-                      
-                      const twinFileName = dateiName.replace(/\.[^/.]+$/, "") + ".md";
-                      const twinBlob = new Blob([mdInhalt], { type: 'text/markdown' });
-                      await supabase.storage.from('dokumente').upload(twinFileName, twinBlob);
-                   }
+                   extrahierterText = await extractTextFromPDF(f);
                 } catch (err) { console.error("Fehler bei PDF-Extraktion:", err); }
+             }
+
+             const textFuerWissen = (extrahierterText && extrahierterText.trim().length > 50)
+               ? extrahierterText
+               : (rawText || briefEntwurf || '');
+
+             if (textFuerWissen) {
+               finalDbText = `Auto-Extraktion (PDF). Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}\n\n${textFuerWissen.substring(0, 3000)}...`;
+             }
+
+             // 1. PDF-Eintrag in wissensdatenbank sichern
+             await supabase.from('wissensdatenbank').insert([{
+               datei_name: f.name,
+               firma: zugewieseneFirma,
+               inhalt_text: finalDbText,
+               dokument_url: pdfPubUrl
+             }]);
+
+             // 2. Synchronen MD-Zwilling im Storage und in wissensdatenbank sichern
+             if (isPdf && !hatMdGegenstueck && textFuerWissen.trim().length > 0) {
+                const mdFileName = f.name.replace(/\.[^/.]+$/, "") + ".md";
+                const mdInhalt = `${finalDbText}\n\nOriginal-PDF: ${pdfPubUrl}\n\n${textFuerWissen}`;
+                const twinFileName = dateiName.replace(/\.[^/.]+$/, "") + ".md";
+                const twinBlob = new Blob([mdInhalt], { type: 'text/markdown;charset=utf-8' });
+                const { error: twinUpErr } = await supabase.storage.from('dokumente').upload(twinFileName, twinBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+
+                let mdPubUrl = pdfPubUrl;
+                if (!twinUpErr) {
+                  const { data: twinLinkData } = supabase.storage.from('dokumente').getPublicUrl(twinFileName);
+                  if (twinLinkData?.publicUrl) mdPubUrl = twinLinkData.publicUrl;
+                }
+
+                await supabase.from('wissensdatenbank').insert([{
+                  datei_name: mdFileName,
+                  firma: zugewieseneFirma,
+                  inhalt_text: finalDbText,
+                  dokument_url: mdPubUrl
+                }]);
+                await syncToGithub(mdFileName, mdInhalt, pdfPubUrl, null, showToast);
              }
            }
         }
@@ -430,28 +461,57 @@ export default function AktenFormular({
     }
     
     const activeVersandPdfUrl = autoSaveOverrides && autoSaveOverrides.overridePdfUrl !== undefined ? autoSaveOverrides.overridePdfUrl : versandPdfUrl;
+    const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
 
     if (activeVersandPdfUrl) {
       alleUrls.push(activeVersandPdfUrl);
-      const briefTxt = `Automatisch versendetes Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}\n\n\n${briefEntwurf}`;
-      await supabase.from('wissensdatenbank').insert([{ datei_name: `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`, firma: unsereFirma || 'Allgemein', inhalt_text: briefTxt, dokument_url: activeVersandPdfUrl }]);
+      const urlParts = decodeURIComponent(activeVersandPdfUrl).split('/');
+      const rawStoragePdfName = urlParts[urlParts.length - 1].split('?')[0];
+      const fallbackPrefix = activeTyp === 'Ausgang' ? 'Ausgang' : (activeTyp === 'Eingang' ? 'Eingang' : 'Dokument');
+      const fallbackBase = `${fallbackPrefix}_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}`;
+
+      const finalPdfDbName = (rawStoragePdfName && rawStoragePdfName.toLowerCase().endsWith('.pdf'))
+        ? rawStoragePdfName
+        : `${fallbackBase}.pdf`;
+      const finalMdDbName = finalPdfDbName.replace(/\.[^/.]+$/, "") + ".md";
+
+      const volltextQuelle = (rawText && rawText.trim().length > 0) ? rawText : (briefEntwurf || '');
+      const briefTxt = `${activeTyp}-Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}\n\n${volltextQuelle}`.substring(0, 3000);
+
+      // 1. PDF-Datensatz in wissensdatenbank eintragen
+      await supabase.from('wissensdatenbank').insert([{
+        datei_name: finalPdfDbName,
+        firma: zugewieseneFirma,
+        inhalt_text: briefTxt,
+        dokument_url: activeVersandPdfUrl
+      }]);
       
-      const ausgangName = `Ausgang_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
-      const mdInhalt = `Versendetes Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${briefEntwurf}`;
-      await syncToGithub(ausgangName, mdInhalt, activeVersandPdfUrl, null, showToast);
+      // 2. MD-Zwilling im Storage sicherstellen & als MD-Datensatz in wissensdatenbank eintragen
+      const mdInhalt = `${activeTyp}-Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${volltextQuelle}`;
+      await syncToGithub(finalMdDbName, mdInhalt, activeVersandPdfUrl, null, showToast);
       
+      let twinMdPublicUrl = activeVersandPdfUrl.replace(/\.pdf(\?.*)?$/i, '.md');
       try {
-         const urlParts = activeVersandPdfUrl.split('/');
-         const pdfFileName = urlParts[urlParts.length - 1].split('?')[0]; 
-         if (pdfFileName) {
-           const twinFileName = pdfFileName.replace(/\.[^/.]+$/, "") + ".md";
-           const twinBlob = new Blob([mdInhalt], { type: 'text/markdown' });
-           await supabase.storage.from('dokumente').upload(twinFileName, twinBlob);
+         if (rawStoragePdfName) {
+           const twinFileName = rawStoragePdfName.replace(/\.[^/.]+$/, "") + ".md";
+           const twinBlob = new Blob([mdInhalt], { type: 'text/markdown;charset=utf-8' });
+           const { error: twinErr } = await supabase.storage.from('dokumente').upload(twinFileName, twinBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+           if (!twinErr) {
+             const { data: mdLinkData } = supabase.storage.from('dokumente').getPublicUrl(twinFileName);
+             if (mdLinkData?.publicUrl) twinMdPublicUrl = mdLinkData.publicUrl;
+           }
          }
-      } catch(e) { console.error("Twin Upload für Ausgang fehlgeschlagen", e); }
+      } catch(e) { console.error("Twin Upload für PDF fehlgeschlagen", e); }
+
+      await supabase.from('wissensdatenbank').insert([{
+        datei_name: finalMdDbName,
+        firma: zugewieseneFirma,
+        inhalt_text: briefTxt,
+        dokument_url: twinMdPublicUrl
+      }]);
       
     } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      const prefix = typ === 'Eingang' ? 'Eingang' : (typ === 'Ausgang' ? 'Ausgang' : 'Entwurf');
+      const prefix = activeTyp === 'Eingang' ? 'Eingang' : (activeTyp === 'Ausgang' ? 'Ausgang' : 'Entwurf');
       const fileName = `${prefix}_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
       
       let fileContent = `${prefix}-Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nZusammenfassung / Text:\n${briefEntwurf}`;
@@ -462,11 +522,22 @@ export default function AktenFormular({
       
       await syncToGithub(fileName, fileContent, null, null, showToast);
       
-      const entBlob = new Blob([fileContent], { type: 'text/markdown' });
-      const { error: entError } = await supabase.storage.from('dokumente').upload(fileName, entBlob);
+      const entBlob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
+      const { error: entError } = await supabase.storage.from('dokumente').upload(fileName, entBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+      let entPubUrl = null;
       if (!entError) {
          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(fileName);
-         alleUrls.push(linkData.publicUrl);
+         entPubUrl = linkData?.publicUrl || null;
+         if (entPubUrl) alleUrls.push(entPubUrl);
+      }
+
+      if (zuSpeicherndeDateien.length === 0) {
+        await supabase.from('wissensdatenbank').insert([{
+          datei_name: fileName,
+          firma: zugewieseneFirma,
+          inhalt_text: fileContent.substring(0, 3000),
+          dokument_url: entPubUrl
+        }]);
       }
     }
 
@@ -485,7 +556,6 @@ export default function AktenFormular({
 
     const activeAktion = autoSaveOverrides && autoSaveOverrides.overrideAktion !== undefined ? autoSaveOverrides.overrideAktion : aktion;
     const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : null;
-    const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
     const activeWv = autoSaveOverrides && autoSaveOverrides.overrideWv !== undefined ? autoSaveOverrides.overrideWv : wiedervorlage;
 
     const { error: histError } = await supabase.from('akten_historie').insert([{ 
