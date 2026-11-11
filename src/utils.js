@@ -1,33 +1,9 @@
 import { supabase } from './supabaseClient'
 
-// --- HILFSFUNKTION FÜR GITHUB SYNC (EDGE FUNCTION) ---
+// --- HILFSFUNKTION FÜR GITHUB SYNC (STILLGELEGT / NO-OP FÜR SUPABASE TWIN-STORAGE) ---
 export const syncToGithub = async (filename, contentText, pdfUrl = null, action = null, showToast = alert) => {
-  try {
-    console.log(`[GitHub Sync] Starte Sync für: ${filename} (Aktion: ${action || 'put'})...`);
-    
-    const payload = { filename };
-    if (action === 'delete') {
-      payload.action = 'delete';
-    } else {
-      payload.content = contentText;
-      payload.pdfUrl = pdfUrl;
-    }
-
-    const { data, error } = await supabase.functions.invoke('github-sync', {
-      body: payload,
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    if (error) {
-      console.error("[GitHub Sync] Supabase Invoke Fehler:", error);
-      showToast(`⚠️ GitHub Sync Fehler bei ${filename}: ${error.message}`, 'error');
-    } else {
-      console.log("[GitHub Sync] Erfolg:", data);
-    }
-  } catch (err) {
-    console.error("[GitHub Sync] Unerwarteter Ausnahme-Fehler:", err);
-    showToast(`❌ Sync-Ausnahme bei ${filename}: ${err.message}`, 'error');
-  }
+  // GitHub-Sync ist zugunsten des mandantenisolierten Supabase Twin-Storage deaktiviert.
+  return;
 };
 
 // --- HILFSFUNKTION FÜR DATEINAMEN ---
