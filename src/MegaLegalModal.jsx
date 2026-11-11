@@ -8,71 +8,168 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchriftsatz }) {
   const [messages, setMessages] = useState([]);
   const [inputPrompt, setInputPrompt] = useState("");
+  const [expressInput, setExpressInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingPhaseText, setLoadingPhaseText] = useState("Mr. Veto & das Experten-Board arbeiten...");
   const [errorMsg, setErrorMsg] = useState(null);
   const [isDark, setIsDark] = useState(true);
+
+  // --- NEU: 2-Wege-Steuerung (Engine-Wahl & Richter-Zweitmeinung) ---
+  const [selectedEngine, setSelectedEngine] = useState("gemini"); // "gemini" | "claude"
+  const [enableSecondOpinion, setEnableSecondOpinion] = useState(true);
+  const [loadedDocsCount, setLoadedDocsCount] = useState(0);
+
   const chatBottomRef = useRef(null);
 
-  // Initialer Start beim Öffnen des Modals MIT ZWILLINGS-ABRUF
-  useEffect(() => {
-    const initChatAndFetchTwin = async () => {
-      if (isOpen && dossier) {
-        setIsLoading(true);
-        const today = new Date().toLocaleDateString('de-DE');
-        const mandantFirma = dossier.unsere_firma || "Jens Wilsdorf";
-        const mandantAP = dossier.unser_ansprechpartner || "Jens Wilsdorf";
+  // Hilfsfunktion: Speichert den aktuellen Chatverlauf persistent in der Tabelle 'akten'
+  const saveChatToDatabase = async (akteId, updatedMessages) => {
+    if (!akteId || ! Array.isArray(updatedMessages)) return;
+    try {
+      await supabase
+        .from('akten')
+        .update({ war_room_chat: updatedMessages })
+        .eq('id', akteId);
+    } catch (e) {
+      console.error("Fehler beim Speichern des War-Room-Chats:", e);
+    }
+  };
 
-        let bestText = (dossier.raw_text && dossier.raw_text.trim() !== "") 
-          ? dossier.raw_text 
-          : (dossier.brief_entwurf || "Kein Volltext vorhanden.");
+  // Hilfsfunktion: Lädt ALLE bisherigen Vorgänge & .md-Zwillinge der Akte als Komplett-Dossier
+  const fetchFullAkteContext = async (akteId, fallbackBestText) => {
+    if (!akteId) return { fullContextText: fallbackBestText, docsCount: 1 };
 
-        // --- ZWILLINGS-ABRUF LOGIK ---
-        if (bestText.includes("Kein Volltext") || bestText.includes("OCR läuft") || bestText.length < 150) {
-          try {
-            const { data, error } = await supabase
-              .from('akten_historie')
-              .select('dokument_url')
-              .eq('akte_id', dossier.akte_id)
-              .not('dokument_url', 'is', null)
-              .order('created_at', { ascending: false })
-              .limit(1);
+    let docsCount = 0;
+    let combinedHistoryText = "";
 
-            if (!error && data && data.length > 0 && data[0].dokument_url) {
-              const urls = data[0].dokument_url.split(',');
-              const pdfUrl = urls.find(u => u.toLowerCase().endsWith('.pdf'));
-              const mdUrl = urls.find(u => u.toLowerCase().endsWith('.md'));
+    try {
+      const { data: histList, error } = await supabase
+        .from('akten_historie')
+        .select('*')
+        .eq('akte_id', akteId)
+        .order('datum', { ascending: true });
 
-              let targetUrl = mdUrl;
-              // Wenn kein direkter MD-Link in der DB steht, Zwillings-Trick anwenden
-              if (!targetUrl && pdfUrl) {
-                targetUrl = pdfUrl.replace(/\.[^/.]+$/, "") + ".md"; 
+      if (!error && histList && histList.length > 0) {
+        for (const h of histList) {
+          const hDatum = h.datum ? new Date(h.datum).toLocaleDateString('de-DE') : 'Unbekanntes Datum';
+          let docTwinText = "";
+
+          if (h.dokument_url) {
+            const urls = h.dokument_url.split(',');
+            for (const rawUrl of urls) {
+              const cleanUrl = rawUrl.trim();
+              if (!cleanUrl) continue;
+
+              let targetMdUrl = null;
+              if (cleanUrl.toLowerCase().endsWith('.md')) {
+                targetMdUrl = cleanUrl;
+              } else if (cleanUrl.toLowerCase().endsWith('.pdf')) {
+                targetMdUrl = cleanUrl.replace(/\.[^/.]+$/, "") + ".md";
               }
 
-              if (targetUrl) {
-                const res = await fetch(targetUrl);
-                if (res.ok) {
-                  const fetchedText = await res.text();
-                  if (fetchedText && fetchedText.trim() !== "") {
-                    bestText = fetchedText; 
+              if (targetMdUrl) {
+                try {
+                  const res = await fetch(targetMdUrl);
+                  if (res.ok) {
+                    const txt = await res.text();
+                    if (txt && txt.trim() !== "") {
+                      docTwinText += `\n[VOLLTEXT AUS ZWILLINGS-DATEI (${targetMdUrl.split('/').pop()})]:\n${txt.trim()}\n`;
+                      docsCount++;
+                    }
                   }
+                } catch (fetchErr) {
+                  // Stilles Ignorieren, falls für eine ältere PDF noch keine .md existiert
                 }
               }
             }
-          } catch (e) {
-            console.error("Fehler beim Abruf des MD-Zwillings:", e);
+          }
+
+          combinedHistoryText += `\n========================================\n`;
+          combinedHistoryText += `VORGANG VOM ${hDatum} | TYP: ${h.typ || 'Vorgang'} | AKTION: ${h.aktion || '-'}\n`;
+          if (h.frist_extern) combinedHistoryText += `BEHÖRDLICHE FRIST: ${h.frist_extern}\n`;
+          if (h.brief_entwurf) combinedHistoryText += `ZUSAMMENFASSUNG / SCHREIBENTEXT:\n${h.brief_entwurf}\n`;
+          if (docTwinText) combinedHistoryText += docTwinText;
+        }
+      }
+    } catch (err) {
+      console.error("Fehler beim Laden des vollständigen Akten-Dossiers:", err);
+    }
+
+    if (combinedHistoryText.trim() !== "") {
+      // Falls das ganz aktuelle Dokument im Dossier-Objekt noch brandneu ist, stellen wir sicher, dass sein Text ebenfalls enthalten ist
+      if (fallbackBestText && !combinedHistoryText.includes(fallbackBestText.substring(0, 100))) {
+        combinedHistoryText += `\n========================================\nAKTUELLES DOKUMENT (NEU):\n${fallbackBestText}\n`;
+        docsCount++;
+      }
+      return { fullContextText: combinedHistoryText, docsCount: Math.max(docsCount, 1) };
+    }
+
+    return { fullContextText: fallbackBestText, docsCount: 1 };
+  };
+
+  // Startet eine frische Analyse (wird beim Erststart oder bei Klick auf "Neu starten" gerufen)
+  const startFreshAnalysis = async () => {
+    if (!dossier) return;
+    setIsLoading(true);
+    setLoadingPhaseText("Lade komplettes Akten-Dossier & .md-Zwillinge...");
+    setErrorMsg(null);
+
+    const today = new Date().toLocaleDateString('de-DE');
+    const mandantFirma = dossier.unsere_firma || "Jens Wilsdorf";
+    const mandantAP = dossier.unser_ansprechpartner || "Jens Wilsdorf";
+
+    let bestText = (dossier.raw_text && dossier.raw_text.trim() !== "") 
+      ? dossier.raw_text 
+      : (dossier.brief_entwurf || "Kein Volltext vorhanden.");
+
+    // --- ZWILLINGS-ABRUF LOGIK (EINZEL-FALLBACK) ---
+    if (bestText.includes("Kein Volltext") || bestText.includes("OCR läuft") || bestText.length < 150) {
+      try {
+        const { data, error } = await supabase
+          .from('akten_historie')
+          .select('dokument_url')
+          .eq('akte_id', dossier.akte_id)
+          .not('dokument_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!error && data && data.length > 0 && data[0].dokument_url) {
+          const urls = data[0].dokument_url.split(',');
+          const pdfUrl = urls.find(u => u.toLowerCase().endsWith('.pdf'));
+          const mdUrl = urls.find(u => u.toLowerCase().endsWith('.md'));
+
+          let targetUrl = mdUrl;
+          if (!targetUrl && pdfUrl) {
+            targetUrl = pdfUrl.replace(/\.[^/.]+$/, "") + ".md"; 
+          }
+
+          if (targetUrl) {
+            const res = await fetch(targetUrl);
+            if (res.ok) {
+              const fetchedText = await res.text();
+              if (fetchedText && fetchedText.trim() !== "") {
+                bestText = fetchedText; 
+              }
+            }
           }
         }
-        // -----------------------------
+      } catch (e) {
+        console.error("Fehler beim Abruf des MD-Zwillings:", e);
+      }
+    }
 
-        const initialUserPrompt = `Hier ist das neu eingegangene Dokumentendossier zur sofortigen forensischen Tiefenprüfung:
+    // --- KOMPLETTES AKTEN-GEDÄCHTNIS (ALLE VORGÄNGE & .MD-DATEIEN DER AKTE) LADEN ---
+    const { fullContextText, docsCount } = await fetchFullAkteContext(dossier.akte_id, bestText);
+    setLoadedDocsCount(docsCount);
+
+    const initialUserPrompt = `Hier ist das vollständige Dokumentendossier der Akte zur sofortigen forensischen Tiefenprüfung:
 
 Behörde / Absender: ${dossier.kontakt || "Unbekannt"}
 Aktenzeichen: ${dossier.aktenzeichen || "Unbekannt"}
 Frist: ${dossier.frist_extern || "Keine Frist erkannt"}
 Betreff / Thema: ${dossier.thema || "Ohne Betreff"}
 
-DOKUMENTENTEXT:
-${bestText}
+VOLLSTÄNDIGE AKTEN-HISTORIE & DOKUMENTENTEXTE (.MD-ZWILLINGE):
+${fullContextText}
 
 WICHTIGE KONTEXT-DATEN FÜR DEINEN FINALEN SCHRIFTSATZ:
 - Heutiges Datum (für den Briefkopf): ${today}
@@ -83,16 +180,48 @@ STRIKTE REGEL: Du bist KEINE Rechtsanwaltskanzlei! Du schreibst den Entwurf exak
 
 Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die Schwachstellen des Bescheids und wie schlagen wir zurück?`;
 
-        setMessages([{ role: "user", content: initialUserPrompt }]);
-        setIsLoading(false);
-        callMegaLegal([{ role: "user", content: initialUserPrompt }], false);
+    const initialHistory = [{ role: "user", content: initialUserPrompt }];
+    setMessages(initialHistory);
+    if (dossier.akte_id) {
+      await saveChatToDatabase(dossier.akte_id, initialHistory);
+    }
+    await callMegaLegal(initialHistory, false, false);
+  };
+
+  // Initialer Start beim Öffnen des Modals: Prüft zuerst, ob ein gespeicherter Chatverlauf in 'akten.war_room_chat' existiert
+  useEffect(() => {
+    const initChatOrRestoreMemory = async () => {
+      if (isOpen && dossier) {
+        setErrorMsg(null);
+        setExpressInput("");
+
+        if (dossier.akte_id) {
+          try {
+            const { data: akteRow, error } = await supabase
+              .from('akten')
+              .select('war_room_chat')
+              .eq('id', dossier.akte_id)
+              .single();
+
+            if (!error && akteRow && Array.isArray(akteRow.war_room_chat) && akteRow.war_room_chat.length > 0) {
+              setMessages(akteRow.war_room_chat);
+              setLoadedDocsCount(1);
+              return;
+            }
+          } catch (err) {
+            console.error("Fehler beim Prüfen des gespeicherten War-Room-Chats:", err);
+          }
+        }
+
+        // Falls noch kein Verlauf an der Akte gespeichert ist -> Frische Analyse starten
+        await startFreshAnalysis();
       } else {
         setMessages([]);
         setErrorMsg(null);
       }
     };
 
-    initChatAndFetchTwin();
+    initChatOrRestoreMemory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -154,13 +283,31 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     return null;
   };
 
-  // --- ZUSÄTZLICHER isFinalExport PARAMETER ---
-  const callMegaLegal = async (history, isFinalExport = false) => {
+  // --- ZUSÄTZLICHER isFinalExport & useSecondOpinion PARAMETER ---
+  const callMegaLegal = async (history, isFinalExport = false, useSecondOpinion = false) => {
     setIsLoading(true);
     setErrorMsg(null);
+
+    if (isFinalExport) {
+      setLoadingPhaseText("Erzeuge versandfertiges Ausgangs-JSON für das Cockpit...");
+    } else if (useSecondOpinion) {
+      setLoadingPhaseText(
+        `Stufe 1 (${selectedEngine === "gemini" ? "Gemini Pro" : "Claude Sonnet"}) entwirft • Stufe 2 (Richterliches Red-Team) prüft automatisch gegen...`
+      );
+    } else {
+      setLoadingPhaseText(
+        `${selectedEngine === "gemini" ? "Gemini Pro" : "Claude Sonnet"} & das 30-Experten-Board arbeiten...`
+      );
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("sonar-ai-triage", {
-        body: { mode: "megalegal_chat", messages: history },
+        body: {
+          mode: "megalegal_chat",
+          messages: history,
+          engine: selectedEngine,
+          enable_second_opinion: useSecondOpinion && !isFinalExport,
+        },
       });
 
       if (error) throw new Error(error.message || "Fehler beim Aufruf der Edge Function.");
@@ -179,7 +326,11 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
         }
       }
 
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const newMessages = [...history, { role: "assistant", content: reply }];
+      setMessages(newMessages);
+      if (dossier?.akte_id) {
+        await saveChatToDatabase(dossier.akte_id, newMessages);
+      }
     } catch (err) {
       console.error("[MegaLegalModal Error]:", err);
       setErrorMsg(err.message || "Verbindungsfehler zu Sonar Mega Legal.");
@@ -188,13 +339,49 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     }
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e?.preventDefault();
     if (!inputPrompt.trim() || isLoading) return;
     const updatedHistory = [...messages, { role: "user", content: inputPrompt }];
     setMessages(updatedHistory);
     setInputPrompt("");
-    callMegaLegal(updatedHistory, false);
+    if (dossier?.akte_id) {
+      await saveChatToDatabase(dossier.akte_id, updatedHistory);
+    }
+    await callMegaLegal(updatedHistory, false, false);
+  };
+
+  // --- NEU: EXPRESS-ANTWORT (AUTO-PILOT FÜR STANDARDFÄLLE WIE IHK-BEITRAG) ---
+  const handleExpressAutopilot = async (e) => {
+    e?.preventDefault();
+    if (!expressInput.trim() || isLoading) return;
+
+    const stichpunkt = expressInput.trim();
+    setExpressInput("");
+
+    const expressPrompt = `EXPRESS-AUTOPILOT ANWEISUNG DES MANDANTEN: "${stichpunkt}"
+
+Führe keinen langen Vorab-Dialog! Verfasse auf Basis dieser Anweisung und der Aktenlage SOFORT das finale, juristisch wasserdichte Antwortschreiben im Namen des Mandanten (${dossier?.unsere_firma || "Jens Wilsdorf"}) und gib es direkt als reines Ausgangs-JSON für das SONAR Cockpit zurück!
+
+PFLICHTFELDER IM JSON:
+- "typ": "Ausgang"
+- "aktion": Kurze Beschreibung (z.B. "Zurückweisung Forderung / Zahlungsnachweis")
+- "thema": Gegenstand / Betreff des Schreibens
+- "aktenzeichen": "${dossier?.aktenzeichen || ""}"
+- "kontakt": "${dossier?.kontakt || ""}"
+- "ansprechpartner": Zuständige Person/Abteilung der Gegenseite
+- "gegner_fax": Faxnummer der Gegenseite (falls bekannt)
+- "gegner_email": E-Mail der Gegenseite (falls bekannt)
+- "brief_entwurf": Der komplette, versandfertige Schriftsatz-Text (Zeilenumbrüche zwingend als \\n maskiert, keine Platzhalter, unterschrieben nur mit dem Namen des Mandanten).
+
+Gib AUSSCHLIESSLICH das reine JSON-Objekt beginnend mit { und endend mit } zurück!`;
+
+    const updatedHistory = [...messages, { role: "user", content: expressPrompt }];
+    setMessages(updatedHistory);
+    if (dossier?.akte_id) {
+      await saveChatToDatabase(dossier.akte_id, updatedHistory);
+    }
+    await callMegaLegal(updatedHistory, true, false);
   };
 
   // --- Datei-Upload im War-Room ---
@@ -203,6 +390,7 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
     if (!file) return;
 
     setIsLoading(true);
+    setLoadingPhaseText(`Lese Datei "${file.name}" aus...`);
     setErrorMsg(null);
     let extractedText = "";
 
@@ -229,7 +417,10 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
       
       const updatedHistory = [...messages, { role: "user", content: prompt }];
       setMessages(updatedHistory);
-      callMegaLegal(updatedHistory, false);
+      if (dossier?.akte_id) {
+        await saveChatToDatabase(dossier.akte_id, updatedHistory);
+      }
+      await callMegaLegal(updatedHistory, false, false);
 
     } catch (err) {
       console.error("Upload Error:", err);
@@ -242,8 +433,8 @@ Starte Phase 1 (SCQA-Analyse) und die Mr. Veto War-Room Schleife. Was sind die S
   };
   // ------------------------------------
 
-  const handleDraftDocument = () => {
-    const draftPrompt = `Die forensische Analyse ist abgeschlossen. Verfasse jetzt bitte den finalen, versandfertigen Schriftsatz an die Behörde. Formuliere ihn juristisch präzise. 
+  const handleDraftDocument = async () => {
+    const draftPrompt = `Die forensische Analyse ist abgeschlossen. Verfasse jetzt bitte den finalen, versandfertigen Schriftsatz an die Behörde / Gegenseite. Formuliere ihn juristisch präzise. 
 
 STRIKTE REGELN FÜR DEN TEXT: 
 1. Unterschreibe am Ende ZWINGEND NUR mit dem Namen des Mandanten. Erfinde KEINE Kanzlei, du agierst direkt als Mandant! 
@@ -253,219 +444,5 @@ STRIKTE REGELN FÜR DEN TEXT:
     
     const updatedHistory = [...messages, { role: "user", content: draftPrompt }];
     setMessages(updatedHistory);
-    callMegaLegal(updatedHistory, false);
-  };
-
-  const handleExtractAndApplyJSON = () => {
-    const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
-    if (lastAssistantMsg) {
-      const parsedJson = extractAndParseJSON(lastAssistantMsg.content);
-      // Failsafe: Nur wenn wir schon ein sauberes JSON haben, direkt übergeben
-      if (parsedJson && parsedJson.brief_entwurf) {
-        parsedJson.typ = "Ausgang";
-        onApplySchriftsatz(parsedJson);
-        onClose();
-        return; 
-      }
-    }
-    
-    // --- GEHÄRTETER TRIGGER-PROMPT FÜR INTELLIGENTE EXTRAKTION ---
-    const triggerPrompt = `Erzeuge jetzt AUSSCHLIESSLICH das finale Ausgangs-JSON für das SONAR Cockpit. WICHTIG: Setze das Feld 'typ' ZWINGEND auf 'Ausgang'.
-
-ZUSÄTZLICHE PFLICHTFELDER (Extrahiere diese zwingend aus dem ursprünglichen Volltext der Behörde, erfinde nichts!):
-- "ansprechpartner": Name der zuständigen Person (z.B. Frau Müller) oder Abteilung auf Seiten der Behörde. Setze hier NICHT unseren Mandanten ein!
-- "thema": Gegenstand / Betreff des Schreibens.
-- "aktenzeichen": Das Aktenzeichen der Behörde.
-- "gegner_fax": Die Faxnummer der Behörde/Gegenseite (falls im Text gefunden).
-- "gegner_email": Die E-Mail-Adresse der Behörde/Gegenseite (falls im Text gefunden).
-- "brief_entwurf": Dein generierter Antworttext.
-
-STRIKTE JSON-FORMATIERUNGSREGELN:
-1. Alle inneren Anführungszeichen im Textwert MÜSSEN zwingend als \\" maskiert (escaped) werden.
-2. Alle Zeilenumbrüche im Text MÜSSEN als \\n geschrieben werden. Mache absolut keine echten, physischen Zeilenumbrüche in den JSON-Werten!
-3. Keine Trailing Commas am Ende von Arrays oder Objekten.
-4. Liefere absolut keinen anderen Text davor oder danach, nur das reine JSON-Objekt beginnend mit { und endend mit }.`;
-
-    const updatedHistory = [...messages, { role: "user", content: triggerPrompt }];
-    setMessages(updatedHistory);
-    // HIER WIRD isFinalExport AUF TRUE GESETZT
-    callMegaLegal(updatedHistory, true);
-  };
-
-  // --- HÄNDISCH ANTWORTEN OHNE KI ---
-  const handleManualDraft = () => {
-    const manualJson = {
-      typ: "Ausgang",
-      thema: dossier?.thema || "Ohne Betreff",
-      aktenzeichen: dossier?.aktenzeichen || "",
-      aktion: "Händische Beantwortung",
-      brief_entwurf: "Hier händische Antwort formulieren..."
-    };
-    onApplySchriftsatz(manualJson);
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  const bgModal = isDark ? "bg-slate-900" : "bg-slate-50";
-  const borderModal = isDark ? "border-slate-700" : "border-slate-300";
-  const bgHeader = isDark ? "bg-slate-950/60" : "bg-white/80";
-  const borderHeader = isDark ? "border-slate-800" : "border-slate-200";
-  const textTitle = isDark ? "text-white" : "text-black";
-  const textSub = isDark ? "text-slate-400" : "text-black font-semibold";
-  
-  const bgChatArea = isDark ? "bg-slate-900" : "bg-white";
-  const bgUserMsg = isDark ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-slate-100 border-slate-300 text-black shadow-sm font-medium";
-  const bgAiMsg = isDark ? "bg-slate-950/50 border-emerald-900/50 text-slate-300" : "bg-emerald-50/50 border-emerald-300 text-black font-medium";
-  
-  const bgFooter = isDark ? "bg-slate-950/80" : "bg-slate-100";
-  const borderFooter = isDark ? "border-slate-800" : "border-slate-300";
-  
-  const inputBg = isDark ? "bg-slate-700 border-slate-500 text-white placeholder-slate-300" : "bg-white border-slate-400 text-black placeholder-slate-600 font-bold";
-  const closeBtnStyle = isDark ? "bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700 font-bold" : "text-black font-bold border-slate-400 hover:bg-slate-200";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className={`flex flex-col w-full max-w-5xl h-[90vh] ${bgModal} border ${borderModal} rounded-2xl shadow-2xl overflow-hidden transition-colors duration-300`}>
-        
-        {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b ${borderHeader} ${bgHeader}`}>
-          <div className="flex items-center space-x-3">
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <div>
-              <div className="flex items-center gap-4">
-                <h2 className={`text-lg font-bold ${textTitle} tracking-wide`}>SONAR MEGA LEGAL – WAR-ROOM</h2>
-                <button 
-                  onClick={() => setIsDark(!isDark)} 
-                  className={`p-1.5 rounded-md border ${borderModal} hover:opacity-80 transition flex items-center justify-center bg-transparent`} 
-                  title={isDark ? "In den Hell-Modus wechseln" : "In den Dunkel-Modus wechseln"}
-                >
-                  {isDark ? "☀️" : "🌙"}
-                </button>
-              </div>
-              <p className={`text-xs ${textSub} mt-0.5`}>
-                Akte: {dossier?.aktenzeichen || "Neu"} | Gegner: {dossier?.kontakt || "Behörde"}
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className={`${textSub} hover:opacity-70 p-2 rounded-lg transition text-xl font-bold`}>
-            ✕
-          </button>
-        </div>
-
-        {/* Chat / Audit Verlauf */}
-        <div className={`flex-1 overflow-y-auto p-6 space-y-6 text-sm font-sans ${bgChatArea}`}>
-          {messages.map((m, idx) => {
-            const isUser = m.role === "user";
-            return (
-              <div key={idx} className="flex flex-col w-full items-start">
-                <div className={`text-xs font-bold ${textSub} mb-2 px-1 uppercase tracking-wider text-left`}>
-                  {isUser ? "Mandant / Instruktion" : "Sonar MegaLegal (30-Experten Board)"}
-                </div>
-                <div className={`w-full text-left rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed border ${isUser ? bgUserMsg : bgAiMsg}`}>
-                  {m.content}
-                </div>
-              </div>
-            );
-          })}
-          {isLoading && (
-            <div className="flex items-center space-x-3 text-emerald-600 text-sm py-4 px-2 font-bold uppercase tracking-wider text-left">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"></div>
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-.3s]"></div>
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-.5s]"></div>
-              <span>Mr. Veto & das Experten-Board arbeiten...</span>
-            </div>
-          )}
-          {errorMsg && (
-            <div className="p-4 bg-rose-100 border border-rose-400 text-rose-900 rounded-lg text-sm w-full font-bold text-left">
-              ⚠️ {errorMsg}
-            </div>
-          )}
-          <div ref={chatBottomRef} />
-        </div>
-
-        {/* Footer & Actions */}
-        <div className={`p-4 border-t ${borderFooter} ${bgFooter} space-y-3`}>
-          
-          <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
-            
-            {/* Dateiupload-Button direkt neben dem Input */}
-            <label 
-              className={`flex items-center justify-center h-[46px] w-[46px] rounded-xl cursor-pointer transition flex-shrink-0 ${isDark ? 'bg-slate-700 hover:bg-slate-600 border border-slate-500' : 'bg-white hover:bg-slate-200 border border-slate-400'}`}
-              title="Fehlendes Dokument (PDF/MD) in den War-Room hochladen"
-            >
-              <span className="text-xl">📎</span>
-              <input 
-                type="file" 
-                accept=".pdf,.md,.txt" 
-                className="hidden" 
-                onChange={handleFileUpload} 
-                disabled={isLoading}
-              />
-            </label>
-
-            <input
-              type="text"
-              value={inputPrompt}
-              onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder="Instruktion an die Experten (z.B. 'Schärfer rügen', 'Fristverlängerung fordern')..."
-              disabled={isLoading}
-              className={`flex-1 rounded-xl px-4 h-[46px] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition disabled:opacity-50 ${inputBg}`}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !inputPrompt.trim()}
-              className="bg-emerald-700 hover:bg-emerald-600 text-white font-semibold px-6 h-[46px] rounded-xl text-sm transition disabled:opacity-50 flex-shrink-0"
-            >
-              Senden
-            </button>
-          </form>
-
-          <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`text-xs transition px-4 py-2 rounded-lg border ${closeBtnStyle}`}
-            >
-              Schließen (Abbrechen)
-            </button>
-            
-            <div className="flex gap-3 flex-wrap justify-end">
-              <button
-                type="button"
-                onClick={handleManualDraft}
-                disabled={isLoading}
-                className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50 border border-slate-600"
-                title="KI abbrechen und Vorgang händisch beantworten"
-              >
-                <span>✍️ Händisch antworten</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={handleDraftDocument}
-                disabled={isLoading}
-                className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50 border-none"
-              >
-                <span>📝 1. Schriftsatz entwerfen</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={handleExtractAndApplyJSON}
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50 border-none"
-              >
-                <span>🚀 2. Ins Cockpit übergeben</span>
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  );
-} 
+    if (dossier?.akte_id) {
+      await saveChatToDatabase(dossier.akte_id, updated
