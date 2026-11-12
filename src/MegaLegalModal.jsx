@@ -1416,4 +1416,4 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       </div>
     </div>
   );
-}
+} 
