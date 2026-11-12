@@ -1114,7 +1114,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     if (!item.isWiedervorlage && (item.frist_extern || !item.wiedervorlage)) {
       const fristDatum = item.frist_extern ? new Date(item.frist_extern).toLocaleDateString('de-DE') : formatDatum(item.aktivesDatum);
       const text = `⚠️ ACHTUNG: Es handelt sich um eine behördliche Frist (Fälligkeit: ${fristDatum})!\n\n` +
-        `Lass diese Frist keinesfalls kommentarlos verstreichen. Nutze die Möglichkeit in SONAR MEGA-LEGAL, ` +
+        `Lass diese Frist keinesfalls kommentarlos verstreichen. Nutze die Möglichkeit im War-Room, ` +
         `die Behörde fristwahrend um eine Fristverlängerung zu bitten oder die Aussetzung der Vollziehung zu beantragen.\n\n` +
         `Möchtest du die Frist dennoch eigenverantwortlich um +${tagePlus} Tage (auf den ${formatDatum(neuIso)}) verschieben?`;
       
@@ -1313,7 +1313,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             ? { firmenname: unsereFirma || null, email: unserEmail || null, ansprechpartner: unserAnsprechpartner || null }
             : null);
 
-      const alleAnhangDateien = [...dateien, ...emailAnhaenge];
+      // WICHTIG: Niemals interne .md-Zwillingsdateien als E-Mail- oder Fax-Anhang nach außen schicken!
+      const alleAnhangDateien = [...emailAnhaenge, ...dateien].filter(
+        f => f && f.name && !f.name.toLowerCase().endsWith('.md')
+      );
 
       let extraAttachments = [];
       if (alleAnhangDateien.length > 0) {
@@ -1326,6 +1329,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
       }
 
+      // Bereinige Markdown-Sterne (**) und Emojis vor dem PDF-Generator, damit jsPDF kein "Ø=Y4" druckt
+      const cleanTextForPdf = String(briefEntwurf || '')
+        .replace(/🔴/g, '***')
+        .replace(/\*\*(.*?)\*\*/g, '$1');
+
       const defaultFirmaName = isOwnerAccount ? 'Jens Wilsdorf' : (unserAnsprechpartner || 'Mandant');
 
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
@@ -1334,7 +1342,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         body: JSON.stringify({
           to: targetAddress,
           subject: betreff,
-          text: briefEntwurf,
+          text: cleanTextForPdf,
           signatureUrl: SIGNATUR_URL,
           unsereFirma: unsereFirma || matchedMandant?.firmenname || defaultFirmaName,
           mandantProfil: mandantProfil,
@@ -2245,7 +2253,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px', width: '100%' }}>
         <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.accent}`, transition: 'border-color 0.3s ease' }}>
-          <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}><Icon name="folder" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)</label>
+          <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}><Icon name="folder" size={18} /> MAGIC IMPORT (JSON AUS SONAR WAR-ROOM)</label>
           <textarea id="magic-import" value={jsonImport} onChange={handleJsonImport} placeholder={isOwnerAccount ? '{"typ": "Eingang", "unser_zeichen": "0001-SBS-Finanzamt", "thema": "..."}' : '{"typ": "Eingang", "unser_zeichen": "0001-MANDANT-Finanzamt", "thema": "..."}'} style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} />
         </div>
 
@@ -2448,6 +2456,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         isOpen={isWarRoomOpen}
         onClose={() => setIsWarRoomOpen(false)}
         dossier={activeWarRoomDossier}
+        theme={theme}
         onApplySchriftsatz={(ausgangsJson) => {
           
           if (activeWarRoomDossier && activeWarRoomDossier.akte_id) {
