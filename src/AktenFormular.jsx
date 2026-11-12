@@ -7,6 +7,9 @@ import { syncToGithub } from './utils';
 import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
+const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
+const MAX_DEMO_AKTEN_LIMIT = 10;
+
 export default function AktenFormular({
   theme,
   btnTextColor,
@@ -101,6 +104,48 @@ export default function AktenFormular({
   showToast
 }) {
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
+
+  // --- OWNER- & DEMO-SCHUTZ-ERKENNUNG ---
+  const isOwnerSession = session?.user?.id === OWNER_USER_ID;
+  const isOwnerMandant = (() => {
+    const combined = `${unsereFirma || ''} ${unserAnsprechpartner || ''} ${aktenzeichen || ''}`.toLowerCase();
+    return (
+      combined.includes('wilsdorf & sommer') ||
+      combined.includes('smartbizz services') ||
+      combined.includes('jens wilsdorf') ||
+      combined.includes('203/122/07169')
+    );
+  })();
+  const isFullAccessUser = isOwnerSession || isOwnerMandant;
+
+  // Blockiert Kopieren / Ausschneiden / Rechtsklick im Entwurfsfeld für Demo-Tester
+  const handleDemoCopyBlock = (e) => {
+    if (!isFullAccessUser) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof showToast === 'function') {
+        showToast('🔒 Kopieren und Ausschneiden ist in der kostenfreien Demo-Version gesperrt.', 'warning');
+      }
+    }
+  };
+
+  // Stellt für Demo-Tester beim Versand (E-Mail / Fax) sicher, dass das rote MUSTER-Wasserzeichen fest im Text steckt
+  const handleProtectedVersand = (kanalTyp) => {
+    if (!isFullAccessUser && briefEntwurf && !briefEntwurf.includes('MUSTER / UNVERBINDLICHE DEMO-ANSICHT')) {
+      const stampedText = [
+        '==========================================================================',
+        '🔴 MUSTER / UNVERBINDLICHE DEMO-ANSICHT – NICHT ZUM VERSAND GEEIGNET 🔴',
+        'HINWEIS (RDG / StBG): KI-generiertes Textmuster zu Demonstrationszwecken. Keine Rechts- oder Steuerberatung.',
+        '==========================================================================\n',
+        briefEntwurf.trim(),
+        '\n==========================================================================',
+        '🔴 MUSTER / DEMO-VERSION SMARTSONAR – KOPIEREN & VERSENDEN UNTERSAGT 🔴',
+        '=========================================================================='
+      ].join('\n');
+      setBriefEntwurf(stampedText);
+    }
+    handleResendVersand(kanalTyp);
+  };
 
   // Schlichtes Line-Icon für Kalender (exakt passend zur bestehenden Icon-Komponente)
   const renderCalendarIcon = (size = 16) => (
@@ -363,6 +408,26 @@ export default function AktenFormular({
 
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
+
+    // --- HARTES 10-AKTEN-KONTINGENT FÜR DEMO-TESTER PRÜFEN ---
+    if (!isFullAccessUser && modus === 'neu') {
+      try {
+        const { count, error: countErr } = await supabase
+          .from('akten')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', session.user.id);
+
+        if (!countErr && typeof count === 'number' && count >= MAX_DEMO_AKTEN_LIMIT) {
+          showToast(
+            `🔒 Demo-Limit erreicht: In der kostenfreien Testversion können maximal ${MAX_DEMO_AKTEN_LIMIT} Akten angelegt werden.`,
+            'error'
+          );
+          return;
+        }
+      } catch (quotaErr) {
+        console.warn('Fehler beim Prüfen des Demo-Aktenlimits:', quotaErr);
+      }
+    }
     
     if (typeof handleSpeichernCheck === 'function' && !laedt) {
       showToast("Speichere Akten-Eintrag...", "success");
@@ -991,8 +1056,8 @@ export default function AktenFormular({
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px', width: '100%' }}>
               <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
-              <button type="button" onClick={() => handleResendVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
-              <button type="button" onClick={() => handleResendVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
+              <button type="button" onClick={() => handleProtectedVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
+              <button type="button" onClick={() => handleProtectedVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
               
               {/* KONSISTENTER BUTTON: DURCHGEHEND BLAU MIT DUNKLER SCHRIFT & SCHLICHTEM LINE-ICON */}
               <button 
@@ -1017,7 +1082,7 @@ export default function AktenFormular({
                   raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." 
                 });
                 setIsWarRoomOpen(true);
-              }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur forensischen Analyse in den War-Room schicken">
+              }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur strategischen Analyse in den War-Room schicken">
                 <Icon name="alert" size={16} /> In War-Room senden
               </button>
             </div>
@@ -1140,7 +1205,76 @@ export default function AktenFormular({
             )}
           </div>
 
-          <textarea value={briefEntwurf} onChange={(e) => setBriefEntwurf(e.target.value)} placeholder="Trage hier deinen Brief- oder E-Mail-Text, Arbeitsanweisungen oder Notizen ein..." style={{ ...inputStyle, minHeight: '180px', fontFamily: 'monospace', background: 'transparent' }} />
+          {/* RDG- & DEMO-SCHUTZHINWEIS ÜBER DEM TEXTENTWURF-FELD */}
+          <div style={{ marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', fontSize: '11px', color: theme.textMain, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <span>
+              <strong>⚠️ Hinweis (RDG / StBG):</strong> KI-generierte Entwürfe sind technische Textmuster zur internen Vorbereitung und stellen <strong>keine Rechts- oder Steuerberatung</strong> dar. Vor Versand eigenverantwortlich prüfen!
+            </span>
+            {!isFullAccessUser && (
+              <span style={{ background: '#e11d48', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '10px' }}>
+                🔒 DEMO-KOPIERSCHUTZ & MUSTER-BRANDING AKTIV
+              </span>
+            )}
+          </div>
+
+          {/* TEXTAREA MIT DIAGONALEM MUSTER-WASSERZEICHEN & KOPIERSCHUTZ FÜR DEMO-TESTER */}
+          <div style={{ position: 'relative', width: '100%' }}>
+            {!isFullAccessUser && (
+              <div
+                style={{
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  zIndex: 2,
+                  opacity: 0.16
+                }}
+              >
+                <div
+                  style={{
+                    transform: 'rotate(-12deg)',
+                    border: '4px solid #f43f5e',
+                    color: '#f43f5e',
+                    fontWeight: 900,
+                    fontSize: '26px',
+                    padding: '10px 24px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
+                    textAlign: 'center'
+                  }}
+                >
+                  MUSTER • DEMO-ANSICHT • KEINE RECHTSBERATUNG
+                </div>
+              </div>
+            )}
+            <textarea
+              value={briefEntwurf}
+              onChange={(e) => setBriefEntwurf(e.target.value)}
+              onCopy={handleDemoCopyBlock}
+              onCut={handleDemoCopyBlock}
+              onContextMenu={handleDemoCopyBlock}
+              onDragStart={handleDemoCopyBlock}
+              placeholder="Trage hier deinen Brief- oder E-Mail-Text, Arbeitsanweisungen oder Notizen ein..."
+              style={{
+                ...inputStyle,
+                minHeight: '180px',
+                fontFamily: 'monospace',
+                background: 'transparent',
+                position: 'relative',
+                zIndex: 1,
+                userSelect: isFullAccessUser ? 'text' : 'none',
+                WebkitUserSelect: isFullAccessUser ? 'text' : 'none'
+              }}
+            />
+          </div>
+
           {versandPdfUrl && typ === 'Ausgang' && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', color: '#10b981', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Versand-PDF generiert & verschickt! Vergiss nicht, unten auf "+ In Akte abheften" zu klicken.</div>)}
           {versandPdfUrl && typ !== 'Ausgang' && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', color: '#0ea5e9', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Scan-PDF erfolgreich verknüpft! Bereit zum Abheften.</div>)}
         </div>
