@@ -80,27 +80,20 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return s.trim();
   };
 
-  // Automatischer Retry-Wrapper gegen kurzzeitige Gateway-Timeouts (non-2xx) mit frischem 150s-Zeitfenster
+  // Automatischer Retry-Wrapper ohne Engine-Swap (bleibt strikt auf der gewählten Engine)
   const invokeTriageWithRetry = async (payload, maxAttempts = 2) => {
     let lastError = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const currentPayload = attempt === 1
-          ? payload
-          : {
-              ...payload,
-              engine: payload.engine === "gemini" ? "claude" : "gemini"
-            };
-
         if (attempt > 1) {
           setLoadingPhaseText(
-            `Großes Dokument wird verarbeitet – automatischer 2. Durchlauf mit frischem 150s-Zeitfenster läuft...`
+            `Verbindung wird stabilisiert – automatischer 2. Durchlauf mit frischem 150s-Zeitfenster läuft...`
           );
           await sleep(800);
         }
 
         const { data, error } = await supabase.functions.invoke("sonar-ai-triage", {
-          body: currentPayload
+          body: payload
         });
 
         if (error) {
@@ -249,7 +242,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return { fullContextText: fallbackBestText, docsCount: 1 };
   };
 
-  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline: Kanzlei Sokrates <-> SONAR NEMESIS (jetzt mit 250.000 Zeichen Volltext-Kapazität für 30+ Seiten!)
+  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline: Kanzlei Sokrates <-> SONAR NEMESIS (mit 250.000 Zeichen Volltext-Kapazität)
   const runAutomatedRedTeamLoop = async (
     initialDraft,
     historyContext,
@@ -262,7 +255,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     let currentDraft = extractCleanLetterBody(initialDraft);
     let auditProtocolLines = [];
 
-    // Aufhebung der alten 14.000-Zeichen-Grenze auf 250.000 Zeichen (für 16- bis 30-seitige Klageschriften!)
     const contextSummary = historyContext
       .map(m => `(${m.role.toUpperCase()}):\n${typeof m.content === "string" ? m.content.substring(0, 120000) : ""}`)
       .join("\n\n---\n\n")
@@ -302,6 +294,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         await sleep(300);
         setLiveStage(4);
         setLoadingPhaseText("Station 4/4: Revisions-Endabnahme erteilt!");
+        auditProtocolLines.push(`Runde ${round} – Revisions-Endabnahme abgeschlossen.`);
         await sleep(300);
         break;
       }
@@ -1416,4 +1409,4 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       </div>
     </div>
   );
-} 
+}
