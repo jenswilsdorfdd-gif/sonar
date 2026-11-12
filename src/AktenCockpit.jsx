@@ -12,7 +12,11 @@ import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export default function AktenCockpit({ session, theme, akten, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff, globalUrlText, setGlobalUrlText }) {
-  const SIGNATUR_URL = "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png";
+  const OWNER_USER_ID = "ea175141-2c03-4f93-ba1b-392570229cb2";
+  const isOwnerAccount = session?.user?.id === OWNER_USER_ID;
+  const SIGNATUR_URL = isOwnerAccount
+    ? "https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png"
+    : null;
 
   const [laedt, setLaedt] = useState(false);
   const [webScanLaedt, setWebScanLaedt] = useState(false);
@@ -193,7 +197,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         if (!aAz || aAz.length < 5) return false;
         return aAz === cleanAZ || (aAz.length >= 6 && cleanAZ.length >= 6 && (aAz.includes(cleanAZ) || cleanAZ.includes(aAz)));
       });
-      if (exactAzAkte) return { akte: prefixAkte || exactAzAkte, reason: 'Behördliches Aktenzeichen erkannt' };
+      if (exactAzAkte) return { akte: exactAzAkte, reason: 'Behördliches Aktenzeichen erkannt' };
 
       const histAzAkte = akten.find(a =>
         a.akten_historie && a.akten_historie.some(h => {
@@ -278,11 +282,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const generatePrefix = (name) => {
     if (!name) return '';
     const n = name.toLowerCase();
-    if (n.includes('jens wilsdorf')) return 'jw';
-    if (n.includes('smartbizz') || n.includes('sbs')) return 'sbs';
-    if (n.includes('brand & market') || n.includes('bam')) return 'bam';
-    if (n.includes('wilsdorf & sommer') || n.includes('wus')) return 'wus';
-    if (n.includes('wir')) return 'wir';
+    if (isOwnerAccount) {
+      if (n.includes('jens wilsdorf')) return 'jw';
+      if (n.includes('smartbizz') || n.includes('sbs')) return 'sbs';
+      if (n.includes('brand & market') || n.includes('bam')) return 'bam';
+      if (n.includes('wilsdorf & sommer') || n.includes('wus')) return 'wus';
+      if (n.includes('wir')) return 'wir';
+    }
     return name.split(/[\s-]+/).filter(w => w.length > 0).slice(0, 3).map(w => w[0]).join('').toLowerCase();
   };
 
@@ -529,6 +535,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           setGegnerEmail(a.gegner_email || '');
           setUnsereFirma(a.unsere_firma || '');
           setUnserAnsprechpartner(a.unser_ansprechpartner || '');
+          setUnserTelefon(formatRufnummer(a.unser_telefon || ''));
+          setUnserEmail(a.unser_email || '');
           setThema(a.thema || '');
           setAktenzeichen(a.aktenzeichen || '');
           
@@ -590,6 +598,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setGegnerEmail(akte.gegner_email || '');
     setUnsereFirma(akte.unsere_firma || '');
     setUnserAnsprechpartner(akte.unser_ansprechpartner || '');
+    setUnserTelefon(formatRufnummer(akte.unser_telefon || ''));
+    setUnserEmail(akte.unser_email || '');
     setThema(akte.thema || '');
     setAktenzeichen(akte.aktenzeichen || '');
 
@@ -633,6 +643,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setGegnerEmail(akte.gegner_email || '');
     setUnsereFirma(akte.unsere_firma || '');
     setUnserAnsprechpartner(akte.unser_ansprechpartner || '');
+    setUnserTelefon(formatRufnummer(akte.unser_telefon || ''));
+    setUnserEmail(akte.unser_email || '');
     setThema(akte.thema || '');
     setAktenzeichen(akte.aktenzeichen || '');
     setTyp('Ausgang');
@@ -647,7 +659,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
     }
 
-    const template = `Sehr geehrte Damen und Herren,\n\nbezugnehmend auf unsere bisherige Korrespondenz in der obigen Angelegenheit bitten wir höflich um einen kurzen Sachstandsbericht, da wir bislang noch keine Rückmeldung erhalten haben.\n\nSollten Ihnen noch Unterlagen zur Bearbeitung fehlen, lassen Sie es uns bitte wissen.\n\nMit freundlichen Grüßen\n\n${akte.unser_ansprechpartner || 'Jens Wilsdorf'}`;
+    const defaultSenderName = isOwnerAccount ? 'Jens Wilsdorf' : (akte.unsere_firma || 'Geschäftsführung');
+    const template = `Sehr geehrte Damen und Herren,\n\nbezugnehmend auf unsere bisherige Korrespondenz in der obigen Angelegenheit bitten wir höflich um einen kurzen Sachstandsbericht, da wir bislang noch keine Rückmeldung erhalten haben.\n\nSollten Ihnen noch Unterlagen zur Bearbeitung fehlen, lassen Sie es uns bitte wissen.\n\nMit freundlichen Grüßen\n\n${akte.unser_ansprechpartner || defaultSenderName}`;
     setBriefEntwurf(template);
 
     setOpenMenuId(null);
@@ -1276,7 +1289,29 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const rawFax = formattedFax ? formattedFax.replace(/[^0-9+]/g, '') : '';
       const targetAddress = versandArt === 'email' ? gegnerEmail : `${rawFax}@simple-fax.de`; 
       const betreff = `Unser Zeichen: ${unserZeichen || 'Neu'} / AZ: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
-      const mandantProfil = mandanten.find(m => fuzzyMatch(m.firmenname, unsereFirma)) || null;
+
+      const firmaSearch = (unsereFirma || '').toLowerCase().trim();
+      const matchedMandant = mandanten.find(m => {
+        if (fuzzyMatch(m.firmenname, unsereFirma)) return true;
+        if (isOwnerAccount && m.firmenname) {
+          const mLow = m.firmenname.toLowerCase();
+          if ((firmaSearch === 'wus' || firmaSearch === 'w&s' || firmaSearch === 'wosfi') && mLow.includes('wilsdorf') && mLow.includes('sommer')) return true;
+          if (firmaSearch === 'sbs' && mLow.includes('smartbizz')) return true;
+          if (firmaSearch === 'bam' && mLow.includes('brand')) return true;
+          if (firmaSearch === 'jw' && mLow.includes('jens wilsdorf')) return true;
+        }
+        return false;
+      }) || null;
+
+      const mandantProfil = matchedMandant
+        ? {
+            ...matchedMandant,
+            email: matchedMandant.email || unserEmail || null,
+            ansprechpartner: matchedMandant.ansprechpartner || unserAnsprechpartner || null
+          }
+        : (unserEmail || unserAnsprechpartner
+            ? { firmenname: unsereFirma || null, email: unserEmail || null, ansprechpartner: unserAnsprechpartner || null }
+            : null);
 
       const alleAnhangDateien = [...dateien, ...emailAnhaenge];
 
@@ -1291,6 +1326,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         }
       }
 
+      const defaultFirmaName = isOwnerAccount ? 'Jens Wilsdorf' : (unserAnsprechpartner || 'Mandant');
+
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabase.supabaseKey}` },
@@ -1299,7 +1336,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           subject: betreff,
           text: briefEntwurf,
           signatureUrl: SIGNATUR_URL,
-          unsereFirma: unsereFirma || 'Jens Wilsdorf',
+          unsereFirma: unsereFirma || matchedMandant?.firmenname || defaultFirmaName,
           mandantProfil: mandantProfil,
           gegnerName: gegnerName,
           gegnerAnsprechpartner: faxZhd || gegnerAnsprechpartner,
@@ -2209,7 +2246,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px', width: '100%' }}>
         <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.accent}`, transition: 'border-color 0.3s ease' }}>
           <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}><Icon name="folder" size={18} /> MAGIC IMPORT (JSON AUS SONAR MEGA-LEGAL)</label>
-          <textarea id="magic-import" value={jsonImport} onChange={handleJsonImport} placeholder='{"typ": "Eingang", "unser_zeichen": "0001-SBS-Finanzamt", "thema": "..."}' style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} />
+          <textarea id="magic-import" value={jsonImport} onChange={handleJsonImport} placeholder={isOwnerAccount ? '{"typ": "Eingang", "unser_zeichen": "0001-SBS-Finanzamt", "thema": "..."}' : '{"typ": "Eingang", "unser_zeichen": "0001-MANDANT-Finanzamt", "thema": "..."}'} style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} />
         </div>
 
         <div style={{ ...panelStyle, margin: 0, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
