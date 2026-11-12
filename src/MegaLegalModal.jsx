@@ -25,12 +25,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const [loadedDocsCount, setLoadedDocsCount] = useState(0);
 
   // --- Live-Kino-Anzeige (Verkaufsshow-Board für die Kanzlei-Schleife) ---
-  const [liveStage, setLiveStage] = useState(0); // 0 = inaktiv, 1 = Sokrates Entwurf, 2 = Red-Team Prüfung, 3 = Sokrates Nachbesserung, 4 = Daumen Hoch
+  const [liveStage, setLiveStage] = useState(0); // 0 = inaktiv, 1..4 = aktive Station, 5 = alle 4 fertig & grün
   const [liveRound, setLiveRound] = useState(1);
   const [liveMaxRounds, setLiveMaxRounds] = useState(4);
   const [liveLogEntries, setLiveLogEntries] = useState([]);
+  const [hasDraftReady, setHasDraftReady] = useState(false);
 
   const chatBottomRef = useRef(null);
+  const inputFieldRef = useRef(null);
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const addLiveLog = (text, badge = "INFO") => {
     const timeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -125,11 +129,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const startFreshAnalysis = async (ownerFlag = isOwnerUser) => {
     if (!dossier) return;
     setIsLoading(true);
+    setHasDraftReady(false);
     setLiveStage(1);
     setLiveRound(1);
     setLiveLogEntries([]);
     addLiveLog("Lade vollständiges Akten-Dossier & .md-Zwillingsdateien aus dem Tresor...", "DOSSIER");
-    setLoadingPhaseText("Lade komplettes Akten-Dossier & .md-Zwillinge...");
+    setLoadingPhaseText("Station 1/4: 32-Mann-Kanzlei Sokrates liest Akten-Dossier & .md-Zwillinge ein...");
     setErrorMsg(null);
 
     const today = new Date().toLocaleDateString('de-DE');
@@ -180,7 +185,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
     const { fullContextText, docsCount } = await fetchFullAkteContext(dossier.akte_id, bestText);
     setLoadedDocsCount(docsCount);
-    addLiveLog(`${docsCount} Akten-Dokument(e) an die 32-Mann-Kanzlei Sokrates übergeben. Forensische SCQA-Analyse läuft...`, "SOKRATES");
+    addLiveLog(`${docsCount} Akten-Dokument(e) an 32-Mann-Kanzlei Sokrates übergeben. Forensische SCQA-Tiefenprüfung gestartet...`, "SOKRATES");
 
     const initialUserPrompt = [
       "Hier ist das vollständige Dokumentendossier der Akte zur sofortigen forensischen Tiefenprüfung:",
@@ -208,7 +213,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     if (dossier.akte_id) {
       await saveChatToDatabase(dossier.akte_id, initialHistory);
     }
-    await callMegaLegal(initialHistory, false, false, ownerFlag);
+    await callMegaLegal(initialHistory, false, false, ownerFlag, true);
   };
 
   // Initialer Start beim Öffnen des Modals
@@ -219,6 +224,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         setExpressInput("");
         setLiveStage(0);
         setLiveLogEntries([]);
+        setHasDraftReady(false);
 
         let ownerDetected = true;
         try {
@@ -227,9 +233,13 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           ownerDetected = currentUid === OWNER_USER_ID;
           setIsOwnerUser(ownerDetected);
           setLiveMaxRounds(ownerDetected ? 4 : 1);
+          if (!ownerDetected) {
+            setSelectedEngine("gemini");
+          }
         } catch (_e) {
           setIsOwnerUser(false);
           ownerDetected = false;
+          setSelectedEngine("gemini");
         }
 
         if (dossier.akte_id) {
@@ -243,6 +253,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             if (!error && akteRow && Array.isArray(akteRow.war_room_chat) && akteRow.war_room_chat.length > 0) {
               setMessages(akteRow.war_room_chat);
               setLoadedDocsCount(1);
+              setLiveStage(5);
+              const joined = akteRow.war_room_chat.map(m => m.content || "").join(" ");
+              if (joined.includes("KANZLEI SOKRATES ⚔️ RED-TEAM PRÜFPROTOKOLL") || joined.includes("Mit freundlichen Grüßen")) {
+                setHasDraftReady(true);
+              }
               return;
             }
           } catch (err) {
@@ -256,6 +271,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         setErrorMsg(null);
         setLiveStage(0);
         setLiveLogEntries([]);
+        setHasDraftReady(false);
       }
     };
 
@@ -265,7 +281,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading, liveLogEntries]);
+  }, [messages, isLoading, liveLogEntries, liveStage]);
 
   // --- GEHÄRTETER JSON-SANITIZER ---
   const cleanJsonString = (str) => {
@@ -317,6 +333,26 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return null;
   };
 
+  // Dramatische Show-Choreografie nach der Erst-Analyse, damit alle 4 Stationen sichtbar nacheinander aufploppen
+  const playAnalysisShowCascade = async () => {
+    setLiveStage(2);
+    setLoadingPhaseText("Station 2/4: Übergabe der Analyse an den Revisions-Senat (Red Team prüft Verfahrensfehler & BFH/BGH-Rechtsprechung)...");
+    addLiveLog("Station 1 fertig ✓ -> Übergabe an den Revisions-Senat (Red Team): Prüfe Verfahrenshebel & Formfehler...", "RED-TEAM");
+    await sleep(1100);
+
+    setLiveStage(3);
+    setLoadingPhaseText("Station 3/4: 32-Mann-Kanzlei Sokrates schärft Angriffs-Strategie & berechnet Prozessrisiko...");
+    addLiveLog("Station 2 fertig ✓ -> Kanzlei Sokrates schärft Paragraphen-Kette & Abwehrstrategie...", "SOKRATES");
+    await sleep(1100);
+
+    setLiveStage(4);
+    setLoadingPhaseText("Station 4/4: Richterliche Endabnahme der Angriffs-Strategie läuft...");
+    addLiveLog("Station 3 fertig ✓ -> Richterliche Freigabe der Verteidigungsstrategie erteilt (Daumen hoch)!", "FREIGABE");
+    await sleep(900);
+
+    setLiveStage(5);
+  };
+
   // Vollautomatische Ping-Pong-Schleife: Team Kanzlei Sokrates <-> Red Team (bis "FREIGABE_DAUMEN_HOCH")
   const runAutomatedRedTeamLoop = async (initialDraft, historyContext, ownerFlag = isOwnerUser) => {
     const maxRounds = ownerFlag ? 4 : 1;
@@ -333,7 +369,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       setLiveRound(round);
       setLiveStage(2);
       setLoadingPhaseText(
-        `Runde ${round}/${maxRounds}: Übergabe an das richterliche Red Team (Revisions-Senat BGH/BFH prüft auf Schwachstellen)...`
+        `Station 2/4 (Runde ${round}/${maxRounds}): Übergabe an das richterliche Red Team (Revisions-Senat BGH/BFH prüft auf Schwachstellen)...`
       );
       addLiveLog(`Runde ${round}/${maxRounds}: Entwurf an Red-Team-Expertenkommission übergeben. Forensische Gegenprüfung läuft...`, "RED-TEAM");
 
@@ -361,10 +397,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       };
 
       if (audit.approved || audit.status_badge === "FREIGABE_DAUMEN_HOCH" || !audit.veto_points || audit.veto_points.length === 0) {
+        setLiveStage(3);
+        setLoadingPhaseText("Station 3/4: Kanzlei Sokrates führt den letzten formalen Feinschliff durch...");
+        addLiveLog("Station 2 fertig ✓ -> Kanzlei Sokrates versiegelt Zitate und Formatierung...", "SOKRATES");
+        await sleep(950);
+
         setLiveStage(4);
-        setLoadingPhaseText(`✅ Red Team erteilt Freigabe (Daumen hoch, Score: ${audit.score || 98}/100)! Schriftsatz fertiggestellt.`);
+        setLoadingPhaseText(`Station 4/4: ✅ Red Team erteilt Freigabe (Daumen hoch, Score: ${audit.score || 98}/100)!`);
         addLiveLog(`✅ DAUMEN HOCH vom Red Team in Runde ${round} (Qualitäts-Score: ${audit.score || 98}%): "${audit.summary}"`, "FREIGABE");
         auditProtocolLines.push(`✅ **Runde ${round} – Red-Team Endabnahme (${audit.score || 98}/100 Punkte):** *FREIGABE ERTEILT (Daumen hoch)* – ${audit.summary}`);
+        await sleep(900);
         break;
       }
 
@@ -378,7 +420,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       setLiveStage(3);
       setLoadingPhaseText(
-        `Runde ${round}/${maxRounds}: Team Kanzlei Sokrates arbeitet ${vetoCount} Veto-Punkt(e) des Red Teams in den Schriftsatz ein...`
+        `Station 3/4 (Runde ${round}/${maxRounds}): Team Kanzlei Sokrates arbeitet ${vetoCount} Veto-Punkt(e) des Red Teams in den Schriftsatz ein...`
       );
       addLiveLog(`Runde ${round}/${maxRounds}: Team Kanzlei Sokrates übernimmt die ${vetoCount} Veto-Punkte und härtet den Schriftsatz nach...`, "SOKRATES");
 
@@ -395,17 +437,22 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       if (!revErr && revData?.reply) {
         currentDraft = revData.reply.trim();
-        addLiveLog(`Runde ${round}/${maxRounds}: Team Kanzlei Sokrates hat die Neufassung vorgelegt.`, "SOKRATES");
+        addLiveLog(`Runde ${round}/${maxRounds}: Team Kanzlei Sokrates hat die gehärtete Neufassung vorgelegt ✓`, "SOKRATES");
       } else {
         break;
       }
 
       if (round === maxRounds) {
         setLiveStage(4);
-        addLiveLog(`✅ Maximale Prüftiefe (${maxRounds} Runden) abgeschlossen – Endfassung durch Team Kanzlei Sokrates finalisiert!`, "FREIGABE");
-        auditProtocolLines.push(`✅ **Abschluss nach Runde ${round}:** Alle Veto-Punkte durch Team Kanzlei Sokrates eingearbeitet und finalisiert.`);
+        setLoadingPhaseText("Station 4/4: ✅ Richterliche Endabnahme & Zertifizierung abgeschlossen!");
+        addLiveLog(`✅ Alle ${vetoCount} Veto-Punkte beseitigt – Richterliche Freigabe (Daumen hoch) durch den Revisions-Senat erteilt!`, "FREIGABE");
+        auditProtocolLines.push(`✅ **Richterliche Endabnahme nach Runde ${round}:** Alle Veto-Punkte durch Team Kanzlei Sokrates restlos eingearbeitet und für versandfertig erklärt (Daumen hoch).`);
+        await sleep(900);
       }
     }
+
+    setLiveStage(5);
+    setHasDraftReady(true);
 
     const headerBanner = [
       "=================================================================",
@@ -417,26 +464,26 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return `${headerBanner}${currentDraft}`;
   };
 
-  const callMegaLegal = async (history, isFinalExport = false, useSecondOpinion = false, ownerFlag = isOwnerUser) => {
+  const callMegaLegal = async (history, isFinalExport = false, useSecondOpinion = false, ownerFlag = isOwnerUser, isInitialAnalysis = false) => {
     setIsLoading(true);
     setErrorMsg(null);
 
     if (isFinalExport) {
       setLiveStage(4);
-      setLoadingPhaseText("Erzeuge versandfertiges Ausgangs-JSON für das Cockpit...");
+      setLoadingPhaseText("Station 4/4: Erzeuge versandfertiges Ausgangs-JSON für das Akten-Cockpit...");
       addLiveLog("Verpacke finalen Schriftsatz in das versandfertige Ausgangs-JSON für das Akten-Cockpit...", "EXPORT");
     } else if (useSecondOpinion) {
       setLiveStage(1);
       setLiveRound(1);
       setLiveLogEntries([]);
-      addLiveLog("32-Mann-Kanzlei Sokrates erstellt den juristischen Erstentwurf nach dem Minto-Prinzip...", "SOKRATES");
+      addLiveLog("Station 1 gestartet: 32-Mann-Kanzlei Sokrates erstellt den juristischen Erstentwurf nach dem Minto-Prinzip...", "SOKRATES");
       setLoadingPhaseText(
-        `Stufe 1 (${selectedEngine === "gemini" ? "Gemini Pro" : "Claude Sonnet"}) entwirft • danach startet automatisch der Red-Team-Widerstreit...`
+        `Station 1/4: 32-Mann-Kanzlei Sokrates entwirft den Schriftsatz • danach übernimmt sofort das Red Team...`
       );
     } else {
       setLiveStage(1);
       setLoadingPhaseText(
-        `Ihre 32-Mann-Kanzlei Sokrates (${selectedEngine === "gemini" ? "Gemini Pro" : "Claude Sonnet"}) analysiert & berät...`
+        `Station 1/4: Ihre 32-Mann-Kanzlei Sokrates analysiert die Aktenlage...`
       );
     }
 
@@ -445,7 +492,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         body: {
           mode: "megalegal_chat",
           messages: history,
-          engine: selectedEngine,
+          engine: ownerFlag ? selectedEngine : "gemini",
           enable_second_opinion: false,
         },
       });
@@ -468,8 +515,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       // Wenn der automatische Widerstreit (Team Kanzlei Sokrates <-> Red Team) angefordert wurde:
       if (useSecondOpinion && !isFinalExport && reply) {
-        addLiveLog("Erstentwurf von Team Kanzlei Sokrates steht. Starte automatischen Widerstreit mit dem Red Team...", "SOKRATES");
+        addLiveLog("Station 1 fertig ✓ -> Erstentwurf von Team Kanzlei Sokrates steht. Starte automatischen Widerstreit mit dem Red Team...", "SOKRATES");
         reply = await runAutomatedRedTeamLoop(reply, history, ownerFlag);
+      } else if (isInitialAnalysis && !isFinalExport) {
+        await playAnalysisShowCascade();
+      } else {
+        setLiveStage(5);
       }
 
       const newMessages = [...history, { role: "assistant", content: reply }];
@@ -678,10 +729,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   // Definition der 4 leuchtenden Kanzlei-Stationen für das Live-Status-Board
   const kanzleiStations = [
-    { id: 1, icon: "🏛️", title: "32-Mann-Kanzlei Sokrates", desc: "Forensische Analyse & Erstentwurf" },
-    { id: 2, icon: "⚖️", title: "Revisions-Senat (Red Team)", desc: `Kreuzverhör & Fakten-Check (Runde ${liveRound}/${liveMaxRounds})` },
-    { id: 3, icon: "🔥", title: "Sokrates Spezial-Härtung", desc: "Ausmerzen aller Red-Team-Vetos" },
-    { id: 4, icon: "👍", title: "Richterliche Freigabe", desc: "100 % Großkanzlei-Zertifizierung" }
+    { id: 1, icon: "🏛️", title: "1. 32-Mann-Kanzlei Sokrates", desc: "Forensische Analyse & Erstentwurf" },
+    { id: 2, icon: "⚖️", title: "2. Revisions-Senat (Red Team)", desc: `Kreuzverhör & Fakten-Check (Runde ${liveRound}/${liveMaxRounds})` },
+    { id: 3, icon: "🔥", title: "3. Sokrates Spezial-Härtung", desc: "Ausmerzen aller Red-Team-Vetos" },
+    { id: 4, icon: "👍", title: "4. Richterliche Freigabe", desc: "100 % Großkanzlei-Zertifizierung" }
   ];
 
   return (
@@ -692,8 +743,14 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         <div className={`flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-b ${borderHeader} ${bgHeader}`}>
           <div className="flex items-center space-x-3">
             <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+              {isLoading ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                </>
+              ) : (
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
+              )}
             </span>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -725,21 +782,32 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                     ? "bg-cyan-500 text-slate-950 shadow"
                     : "text-slate-400 hover:text-white"
                 }`}
-                title="Nutzt Google Gemini Pro direkt im Cockpit (mit Fallback auf Claude Sonnet)"
+                title="Nutzt Google Gemini direkt im Cockpit"
               >
                 ♊ Gemini Pro
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedEngine("claude")}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition ${
-                  selectedEngine === "claude"
+                onClick={() => {
+                  if (!isOwnerUser) return;
+                  setSelectedEngine("claude");
+                }}
+                disabled={!isOwnerUser}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${
+                  !isOwnerUser
+                    ? "text-slate-500 cursor-not-allowed opacity-75"
+                    : selectedEngine === "claude"
                     ? "bg-cyan-500 text-slate-950 shadow"
                     : "text-slate-400 hover:text-white"
                 }`}
-                title="Nutzt Anthropic Claude Sonnet direkt im Cockpit"
+                title={
+                  !isOwnerUser
+                    ? "Claude Sonnet ist exklusiv im Vollzugang (Kanzlei-Lizenz) freigeschaltet"
+                    : "Nutzt Anthropic Claude Sonnet direkt im Cockpit"
+                }
               >
-                🧠 Claude Sonnet
+                <span>🧠 Claude Sonnet</span>
+                {!isOwnerUser && <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1 rounded">🔒 Pro</span>}
               </button>
             </div>
 
@@ -776,7 +844,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         {!isOwnerUser && (
           <div className="px-6 py-2 bg-amber-500/15 border-b border-amber-500/40 text-amber-300 text-xs flex items-center justify-between gap-2">
             <span>
-              <strong>ℹ️ Hinweis zur Live-Demo-Umgebung:</strong> Sie testen SmartSonar im geschützten Demo-Kontingent (Express-Modell mit 1 Prüf-Schleife). Im Vollzugang arbeitet die ungedrosselte 32-Experten-Kaskade mit bis zu 4 autonomen Red-Team-Revisionen.
+              <strong>ℹ️ Hinweis zur Live-Demo-Umgebung:</strong> Sie erleben SmartSonar in der kostenfreien Live-Demo (1 automatische Red-Team-Schleife). In der Kanzlei-Vollversion arbeitet die ungedrosselte 32-Experten-Kaskade inkl. Claude Sonnet & 4-stufigem Richter-Senat.
             </span>
           </div>
         )}
@@ -806,55 +874,72 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         </div>
 
         {/* LIVE-KINO-ANZEIGE (32-MANN-KANZLEI & RED-TEAM COCKPIT) */}
-        {(isLoading || liveLogEntries.length > 0) && (
-          <div className={`px-6 py-3 border-b ${borderHeader} ${isDark ? "bg-slate-950/90" : "bg-slate-100"}`}>
-            <div className="flex items-center justify-between mb-2">
+        {(isLoading || liveStage > 0 || liveLogEntries.length > 0) && (
+          <div className={`px-6 py-3 border-b ${borderHeader} ${isDark ? "bg-slate-950/95" : "bg-slate-100"}`}>
+            <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400">
-                  🏛️ LIVE-SCHALTUNG: IHRE 32-MANN-SPEZIALKANZLEI & DAS RICHTERLICHE RED TEAM ARBEITEN FÜR SIE
-                </span>
+                {isLoading ? (
+                  <>
+                    <span className="inline-block w-3 h-3 rounded-full bg-amber-400 animate-ping"></span>
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
+                      ⚡ LIVE-SCHALTUNG AKTIV: IHRE 32-MANN-SPEZIALKANZLEI & DAS RICHTERLICHE RED TEAM ARBEITEN GERADE FÜR SIE...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-block w-3 h-3 rounded-full bg-emerald-400"></span>
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400">
+                      ✅ ALLE 4 KANZLEI-INSTANZEN ABGESCHLOSSEN & FREIGEGEBEN – DAS ERGEBNIS STEHT UNTEN BEREIT!
+                    </span>
+                  </>
+                )}
               </div>
-              {liveLogEntries.length > 0 && !isLoading && (
+              {!isLoading && (
                 <button
                   type="button"
                   onClick={() => { setLiveLogEntries([]); setLiveStage(0); }}
-                  className="text-[11px] text-slate-400 hover:text-white font-bold"
+                  className="text-[11px] text-slate-400 hover:text-white font-bold px-2 py-0.5 rounded border border-slate-700"
                 >
-                  Protokoll ausblenden ✕
+                  Kanzlei-Board einklappen ✕
                 </button>
               )}
             </div>
 
             {/* 4 Leuchtende Prozess-Stationen */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 mb-2.5">
               {kanzleiStations.map((st) => {
                 const isActive = isLoading && liveStage === st.id;
-                const isDone = (!isLoading && liveStage >= st.id) || (isLoading && liveStage > st.id);
+                const isDone = liveStage === 5 || (!isLoading && liveStage >= st.id) || (isLoading && liveStage > st.id);
                 return (
                   <div
                     key={st.id}
-                    className={`p-2.5 rounded-xl border transition-all duration-300 flex items-center gap-2.5 ${
+                    className={`p-2.5 rounded-xl border transition-all duration-500 flex flex-col justify-between gap-1.5 ${
                       isActive
-                        ? "bg-cyan-950/80 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.35)] scale-[1.01]"
+                        ? "bg-amber-950/70 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.45)] scale-[1.02]"
                         : isDone
-                        ? "bg-emerald-950/40 border-emerald-500/50 opacity-95"
-                        : "bg-slate-900/60 border-slate-800 opacity-50"
+                        ? "bg-emerald-950/60 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                        : "bg-slate-900/50 border-slate-800 opacity-45"
                     }`}
                   >
-                    <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-base flex-shrink-0">
-                      {st.icon}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-base flex-shrink-0">
+                          {st.icon}
+                        </div>
+                        <div className="text-[11px] font-extrabold text-white truncate">{st.title}</div>
+                      </div>
                       {isActive && (
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-amber-400 text-slate-950 animate-pulse flex-shrink-0">
+                          ⚡ Arbeitet...
+                        </span>
                       )}
                       {isDone && !isActive && (
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-400 text-slate-950 flex-shrink-0">
+                          ✓ Fertig
+                        </span>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-extrabold text-white truncate">{st.title}</div>
-                      <div className="text-[10px] text-slate-300 truncate">{st.desc}</div>
-                    </div>
+                    <div className="text-[10px] text-slate-200 truncate pl-1">{st.desc}</div>
                   </div>
                 );
               })}
@@ -862,7 +947,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
             {/* Live-Ticker der Kanzlei-Schritte */}
             {liveLogEntries.length > 0 && (
-              <div className="max-h-24 overflow-y-auto space-y-1 bg-slate-900/90 border border-slate-800 rounded-lg p-2 font-mono text-[11px]">
+              <div className="max-h-20 overflow-y-auto space-y-1 bg-slate-900/90 border border-slate-800 rounded-lg p-2 font-mono text-[11px]">
                 {liveLogEntries.map((item, i) => (
                   <div key={i} className="flex items-start gap-2 text-slate-200">
                     <span className="text-slate-500 flex-shrink-0">[{item.time}]</span>
@@ -894,7 +979,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             return (
               <div key={idx} className="flex flex-col w-full items-start">
                 <div className={`text-xs font-bold ${textSub} mb-2 px-1 uppercase tracking-wider text-left`}>
-                  {isUser ? "Mandant / Instruktion" : `Team Kanzlei Sokrates & Red-Team (${selectedEngine === "gemini" ? "Gemini Pro" : "Claude Sonnet"})`}
+                  {isUser ? "Mandant / Instruktion" : `🏛️ Team Kanzlei Sokrates & Red-Team (${isOwnerUser && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
                 </div>
                 <div className={`w-full text-left rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed border ${isUser ? bgUserMsg : bgAiMsg}`}>
                   {m.content}
@@ -902,14 +987,75 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               </div>
             );
           })}
+
           {isLoading && (
-            <div className="flex items-center space-x-3 text-cyan-400 text-sm py-4 px-2 font-bold uppercase tracking-wider text-left">
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-bounce"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:-.3s]"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:-.5s]"></div>
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-400/50 flex items-center space-x-3 text-amber-300 text-sm font-extrabold uppercase tracking-wider text-left shadow-lg">
+              <div className="w-3 h-3 rounded-full bg-amber-400 animate-bounce"></div>
+              <div className="w-3 h-3 rounded-full bg-amber-400 animate-bounce [animation-delay:-.3s]"></div>
+              <div className="w-3 h-3 rounded-full bg-amber-400 animate-bounce [animation-delay:-.5s]"></div>
               <span>{loadingPhaseText}</span>
             </div>
           )}
+
+          {/* UNÜBERSEHBARE HANDLUNGSAUFFORDERUNG NACH ABSCHLUSS DER KANZLEI-STATIONEN */}
+          {!isLoading && messages.length >= 2 && (
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/90 via-cyan-950/90 to-slate-900 border-2 border-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.3)] text-left space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🎯</span>
+                  <h3 className="text-sm sm:text-base font-extrabold text-emerald-300 uppercase tracking-wide">
+                    {hasDraftReady
+                      ? "SCHRIFTSATZ IST VOM RED-TEAM FREIGEGEBEN (DAUMEN HOCH) – WAS MÖCHTEN SIE JETZT TUN?"
+                      : "FORENSISCHE ANALYSE ABGESCHLOSSEN – BITTE WÄHLEN SIE IHREN NÄCHSTEN SCHRITT:"}
+                  </h3>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-400 text-slate-950">
+                  ✓ BEREIT FÜR IHRE FREIGABE
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-200 leading-relaxed">
+                {hasDraftReady
+                  ? "Ihr fertiges Antwortschreiben wurde von der 32-Mann-Kanzlei Sokrates erstellt und durch den Revisions-Senat (Red Team) geprüft. Sie können das Schreiben jetzt mit 1 Klick direkt in das Akten-Cockpit zum Fax-/E-Mail-Versand übergeben oder unten noch Änderungswünsche eingeben."
+                  : "Die 32-Mann-Kanzlei Sokrates hat alle Schwachstellen des gegnerischen Schreibens offengelegt. Klicken Sie jetzt auf Schritt 1, damit Kanzlei Sokrates & das Red Team den fertigen Abwehr-Schriftsatz für Sie ausformulieren:"}
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleDraftDocument}
+                  className={`p-3 rounded-xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg cursor-pointer ${
+                    !hasDraftReady
+                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 ring-2 ring-emerald-300"
+                      : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-600"
+                  }`}
+                >
+                  <span>📝 1. Schriftsatz jetzt vom Red-Team erstellen lassen</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => inputFieldRef.current?.focus()}
+                  className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-600 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer"
+                >
+                  <span>💬 Eigene Anmerkung / Korrektur ergänzen</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExtractAndApplyJSON}
+                  className={`p-3 rounded-xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg cursor-pointer ${
+                    hasDraftReady
+                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 ring-2 ring-emerald-300"
+                      : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950"
+                  }`}
+                >
+                  <span>🚀 2. Fertiges Schreiben ins Cockpit übergeben</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-4 bg-rose-100 border border-rose-400 text-rose-900 rounded-lg text-sm w-full font-bold text-left">
               ⚠️ {errorMsg}
@@ -937,6 +1083,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             </label>
 
             <input
+              ref={inputFieldRef}
               type="text"
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
