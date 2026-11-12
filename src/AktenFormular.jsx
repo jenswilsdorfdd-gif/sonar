@@ -105,18 +105,8 @@ export default function AktenFormular({
 }) {
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
-  // --- OWNER- & DEMO-SCHUTZ-ERKENNUNG ---
-  const isOwnerSession = session?.user?.id === OWNER_USER_ID;
-  const isOwnerMandant = (() => {
-    const combined = `${unsereFirma || ''} ${unserAnsprechpartner || ''} ${aktenzeichen || ''}`.toLowerCase();
-    return (
-      combined.includes('wilsdorf & sommer') ||
-      combined.includes('smartbizz services') ||
-      combined.includes('jens wilsdorf') ||
-      combined.includes('203/122/07169')
-    );
-  })();
-  const isFullAccessUser = isOwnerSession || isOwnerMandant;
+  // --- STRIKTE OWNER-ERKENNUNG AUSSCHLIESSLICH ÜBER LOGIN-USER-ID ---
+  const isFullAccessUser = session?.user?.id === OWNER_USER_ID;
 
   // Blockiert Kopieren / Ausschneiden / Rechtsklick im Entwurfsfeld für Demo-Tester
   const handleDemoCopyBlock = (e) => {
@@ -124,22 +114,47 @@ export default function AktenFormular({
       e.preventDefault();
       e.stopPropagation();
       if (typeof showToast === 'function') {
-        showToast('🔒 Kopieren und Ausschneiden ist in der kostenfreien Demo-Version gesperrt.', 'warning');
+        showToast('Kopieren, Markieren und Ausschneiden ist in der kostenfreien Demo-Version gesperrt.', 'warning');
       }
     }
   };
 
-  // Stellt für Demo-Tester beim Versand (E-Mail / Fax) sicher, dass das rote MUSTER-Wasserzeichen fest im Text steckt
+  // Verhindert im Demo-Modus das blaue Markieren von Text im Textarea-Feld sofort
+  const handleDemoSelectBlock = (e) => {
+    if (!isFullAccessUser && e?.target) {
+      try {
+        if (e.target.selectionStart !== e.target.selectionEnd) {
+          e.target.selectionEnd = e.target.selectionStart;
+        }
+      } catch (_err) {}
+    }
+  };
+
+  // Blockiert Tastaturkürzel Strg+C, Strg+X und Strg+A im Textarea für Demo-Tester
+  const handleDemoKeyDownBlock = (e) => {
+    if (!isFullAccessUser && (e.ctrlKey || e.metaKey)) {
+      const k = (e.key || '').toLowerCase();
+      if (k === 'c' || k === 'x' || k === 'a') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof showToast === 'function') {
+          showToast('Tastatur-Kopieren ist in der kostenfreien Demo-Version gesperrt.', 'warning');
+        }
+      }
+    }
+  };
+
+  // Stellt für Demo-Tester beim Versand (E-Mail / Fax) sicher, dass das ASCII-MUSTER-Wasserzeichen (ohne Emojis für sauberen PDF-Druck) fest im Text steckt
   const handleProtectedVersand = (kanalTyp) => {
     if (!isFullAccessUser && briefEntwurf && !briefEntwurf.includes('MUSTER / UNVERBINDLICHE DEMO-ANSICHT')) {
       const stampedText = [
         '==========================================================================',
-        '🔴 MUSTER / UNVERBINDLICHE DEMO-ANSICHT – NICHT ZUM VERSAND GEEIGNET 🔴',
+        '*** MUSTER / UNVERBINDLICHE DEMO-ANSICHT - NICHT ZUM VERSAND GEEIGNET ***',
         'HINWEIS (RDG / StBG): KI-generiertes Textmuster zu Demonstrationszwecken. Keine Rechts- oder Steuerberatung.',
         '==========================================================================\n',
         briefEntwurf.trim(),
         '\n==========================================================================',
-        '🔴 MUSTER / DEMO-VERSION SMARTSONAR – KOPIEREN & VERSENDEN UNTERSAGT 🔴',
+        '*** MUSTER / DEMO-VERSION SMARTSONAR - KOPIEREN & VERSENDEN UNTERSAGT ***',
         '=========================================================================='
       ].join('\n');
       setBriefEntwurf(stampedText);
@@ -409,21 +424,31 @@ export default function AktenFormular({
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
 
-    // --- HARTES 10-AKTEN-KONTINGENT FÜR DEMO-TESTER PRÜFEN ---
+    // --- LÖSCHSICHERES 10-VORGÄNGE-KONTINGENT FÜR DEMO-TESTER PRÜFEN & LOGGEN ---
     if (!isFullAccessUser && modus === 'neu') {
       try {
-        const { count, error: countErr } = await supabase
+        const { count: aktenCount } = await supabase
           .from('akten')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', session.user.id);
 
-        if (!countErr && typeof count === 'number' && count >= MAX_DEMO_AKTEN_LIMIT) {
+        const { count: logCount } = await supabase
+          .from('demo_usage_log')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', session.user.id);
+
+        const usedTotal = Math.max(aktenCount || 0, logCount || 0);
+        if (usedTotal >= MAX_DEMO_AKTEN_LIMIT) {
           showToast(
-            `🔒 Demo-Limit erreicht: In der kostenfreien Testversion können maximal ${MAX_DEMO_AKTEN_LIMIT} Akten angelegt werden.`,
+            `Demo-Limit erreicht: In der kostenfreien Testversion können maximal ${MAX_DEMO_AKTEN_LIMIT} Vorgänge angelegt werden (auch das Löschen von Akten setzt den Zähler nicht zurück).`,
             'error'
           );
           return;
         }
+
+        await supabase.from('demo_usage_log').insert([
+          { user_id: session.user.id, action_mode: 'akte_create' }
+        ]);
       } catch (quotaErr) {
         console.warn('Fehler beim Prüfen des Demo-Aktenlimits:', quotaErr);
       }
@@ -1205,20 +1230,25 @@ export default function AktenFormular({
             )}
           </div>
 
-          {/* RDG- & DEMO-SCHUTZHINWEIS ÜBER DEM TEXTENTWURF-FELD */}
-          <div style={{ marginBottom: '10px', padding: '8px 12px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', fontSize: '11px', color: theme.textMain, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          {/* KNALLROTER RDG- & StBG-WARNHINWEIS ÜBER DEM TEXTENTWURF-FELD (Weiße Schrift auf Rot – für Hell & Dunkel identisch) */}
+          <div style={{ marginBottom: '10px', padding: '10px 14px', borderRadius: '6px', backgroundColor: '#dc2626', border: '1px solid #991b1b', fontSize: '12px', color: '#ffffff', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <span>
-              <strong>⚠️ Hinweis (RDG / StBG):</strong> KI-generierte Entwürfe sind technische Textmuster zur internen Vorbereitung und stellen <strong>keine Rechts- oder Steuerberatung</strong> dar. Vor Versand eigenverantwortlich prüfen!
+              WICHTIGER HINWEIS (RDG / StBG): KI-generierte Entwürfe sind technische Textmuster zur internen Vorbereitung und stellen KEINE Rechts- oder Steuerberatung dar. Vor Versand eigenverantwortlich prüfen!
             </span>
             {!isFullAccessUser && (
-              <span style={{ background: '#e11d48', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '10px' }}>
-                🔒 DEMO-KOPIERSCHUTZ & MUSTER-BRANDING AKTIV
+              <span style={{ background: '#0f172a', color: '#fbbf24', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                DEMO-KOPIERSCHUTZ & MUSTER-BRANDING AKTIV
               </span>
             )}
           </div>
 
-          {/* TEXTAREA MIT DIAGONALEM MUSTER-WASSERZEICHEN & KOPIERSCHUTZ FÜR DEMO-TESTER */}
-          <div style={{ position: 'relative', width: '100%' }}>
+          {/* TEXTAREA MIT DIAGONALEM MUSTER-WASSERZEICHEN & HARTEM KOPIER-/MARKIER-SCHUTZ FÜR DEMO-TESTER */}
+          <div
+            onCopy={handleDemoCopyBlock}
+            onCut={handleDemoCopyBlock}
+            onContextMenu={handleDemoCopyBlock}
+            style={{ position: 'relative', width: '100%', userSelect: isFullAccessUser ? 'text' : 'none', WebkitUserSelect: isFullAccessUser ? 'text' : 'none' }}
+          >
             {!isFullAccessUser && (
               <div
                 style={{
@@ -1240,8 +1270,8 @@ export default function AktenFormular({
                 <div
                   style={{
                     transform: 'rotate(-12deg)',
-                    border: '4px solid #f43f5e',
-                    color: '#f43f5e',
+                    border: '4px solid #dc2626',
+                    color: '#dc2626',
                     fontWeight: 900,
                     fontSize: '26px',
                     padding: '10px 24px',
@@ -1261,6 +1291,8 @@ export default function AktenFormular({
               onCut={handleDemoCopyBlock}
               onContextMenu={handleDemoCopyBlock}
               onDragStart={handleDemoCopyBlock}
+              onSelect={handleDemoSelectBlock}
+              onKeyDown={handleDemoKeyDownBlock}
               placeholder="Trage hier deinen Brief- oder E-Mail-Text, Arbeitsanweisungen oder Notizen ein..."
               style={{
                 ...inputStyle,
