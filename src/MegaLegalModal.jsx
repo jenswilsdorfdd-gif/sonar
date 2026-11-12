@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 
 // --- PDF.js Import für die clientseitige Extraktion im Modal ---
 import * as pdfjsLib from 'pdfjs-dist';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `[https://cdnjs.cloudflare.com/ajax/libs/pdf.js/$](https://cdnjs.cloudflare.com/ajax/libs/pdf.js/$){pdfjsLib.version}/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const OWNER_USER_ID = "ea175141-2c03-4f93-ba1b-392570229cb2";
 
@@ -78,6 +78,51 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     s = s.replace(/"\s*\}?$/, "");
     s = s.replace(/\\"/g, '"').replace(/\\n/g, " ");
     return s.trim();
+  };
+
+  // Automatischer Retry-Wrapper gegen kurzzeitige Gateway-Timeouts (non-2xx) mit frischem 150s-Zeitfenster
+  const invokeTriageWithRetry = async (payload, maxAttempts = 2) => {
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const currentPayload = attempt === 1
+          ? payload
+          : {
+              ...payload,
+              engine: payload.engine === "gemini" ? "claude" : "gemini"
+            };
+
+        if (attempt > 1) {
+          setLoadingPhaseText(
+            `Großes Dokument wird verarbeitet – automatischer 2. Durchlauf mit frischem 150s-Zeitfenster läuft...`
+          );
+          await sleep(800);
+        }
+
+        const { data, error } = await supabase.functions.invoke("sonar-ai-triage", {
+          body: currentPayload
+        });
+
+        if (error) {
+          lastError = error;
+          continue;
+        }
+
+        if (data?.error) {
+          // Falls das Demo-Kontingent erschöpft ist, sofort zurückgeben und nicht wiederholen
+          if (String(data.error).includes("Demo-Testkontingent")) {
+            return { data, error: null };
+          }
+          lastError = new Error(data.error);
+          continue;
+        }
+
+        return { data, error: null };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    return { data: null, error: lastError || new Error("Verbindungsfehler zur KI-Engine.") };
   };
 
   // Blockiert Kopieren / Ausschneiden / Rechtsklick für Demo-Nutzer
@@ -204,7 +249,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return { fullContextText: fallbackBestText, docsCount: 1 };
   };
 
-  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline: Kanzlei Sokrates <-> SONAR NEMESIS
+  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline: Kanzlei Sokrates <-> SONAR NEMESIS (jetzt mit 250.000 Zeichen Volltext-Kapazität für 30+ Seiten!)
   const runAutomatedRedTeamLoop = async (
     initialDraft,
     historyContext,
@@ -217,10 +262,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     let currentDraft = extractCleanLetterBody(initialDraft);
     let auditProtocolLines = [];
 
+    // Aufhebung der alten 14.000-Zeichen-Grenze auf 250.000 Zeichen (für 16- bis 30-seitige Klageschriften!)
     const contextSummary = historyContext
-      .map(m => `(${m.role.toUpperCase()}):\n${typeof m.content === "string" ? m.content.substring(0, 6000) : ""}`)
+      .map(m => `(${m.role.toUpperCase()}):\n${typeof m.content === "string" ? m.content.substring(0, 120000) : ""}`)
       .join("\n\n---\n\n")
-      .substring(0, 14000);
+      .substring(0, 250000);
 
     for (let round = 1; round <= maxRounds; round++) {
       if (runId !== abortRunRef.current) return null;
@@ -232,15 +278,13 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       );
       addLiveLog(`Station 2 (Runde ${round}/${maxRounds}): Forensische Prüfung & In-Memory-Patching durch SONAR NEMESIS läuft...`, "NEMESIS");
 
-      const { data: checkData, error: checkErr } = await supabase.functions.invoke("sonar-ai-triage", {
-        body: {
-          mode: "red_team_check",
-          engine: ownerFlag ? selectedEngine : "gemini",
-          draft_text: currentDraft,
-          context_summary: contextSummary,
-          raw_text: rawFullText || dossier?.raw_text || dossier?.brief_entwurf || "",
-          round_number: round
-        }
+      const { data: checkData, error: checkErr } = await invokeTriageWithRetry({
+        mode: "red_team_check",
+        engine: ownerFlag ? selectedEngine : "gemini",
+        draft_text: currentDraft,
+        context_summary: contextSummary,
+        raw_text: (rawFullText || dossier?.raw_text || dossier?.brief_entwurf || "").substring(0, 250000),
+        round_number: round
       });
 
       if (runId !== abortRunRef.current) return null;
@@ -298,16 +342,14 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         `Station 3/4 (Runde ${round}/${maxRounds}): Kanzlei Sokrates führt Delta-Patching für ${vetoCount} Punkt(e) aus...`
       );
 
-      const { data: revData, error: revErr } = await supabase.functions.invoke("sonar-ai-triage", {
-        body: {
-          mode: "sokrates_revision",
-          engine: ownerFlag ? selectedEngine : "gemini",
-          draft_text: currentDraft,
-          context_summary: contextSummary,
-          raw_text: rawFullText || dossier?.raw_text || dossier?.brief_entwurf || "",
-          veto_points: audit.veto_points,
-          round_number: round
-        }
+      const { data: revData, error: revErr } = await invokeTriageWithRetry({
+        mode: "sokrates_revision",
+        engine: ownerFlag ? selectedEngine : "gemini",
+        draft_text: currentDraft,
+        context_summary: contextSummary,
+        raw_text: (rawFullText || dossier?.raw_text || dossier?.brief_entwurf || "").substring(0, 250000),
+        veto_points: audit.veto_points,
+        round_number: round
       });
 
       if (runId !== abortRunRef.current) return null;
@@ -418,7 +460,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       `Heutiges Datum: ${today}`,
       "",
       "VOLLSTÄNDIGE AKTEN-HISTORIE & DOKUMENTENTEXTE (.MD-ZWILLINGE):",
-      fullContextText,
+      fullContextText.substring(0, 250000),
       "",
       "Erstelle jetzt die strukturierte Lagebesprechung des Leitenden Kanzlei-Partners mit 4 glasklaren Handlungsoptionen (inkl. Kosten, Dauer, Erfolgschance, allen zuständigen Sachbearbeitern/Jahren, Widerspruchs-Check und Wirtschaftlichkeits-Abwägung) als reines JSON ohne Markdown-Backticks!"
     ].join("\n");
@@ -427,13 +469,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       setLiveStage(2);
       setLoadingPhaseText("SONAR NEMESIS & Kanzlei Sokrates kalkulieren Verfahrensrisiko, Fristen & Erfolgschancen für Ihre Lagebesprechung...");
 
-      const { data, error } = await supabase.functions.invoke("sonar-ai-triage", {
-        body: {
-          mode: "strategy_briefing",
-          messages: [{ role: "user", content: briefingPrompt }],
-          raw_text: fullContextText,
-          engine: ownerFlag ? selectedEngine : "gemini"
-        }
+      const { data, error } = await invokeTriageWithRetry({
+        mode: "strategy_briefing",
+        messages: [{ role: "user", content: briefingPrompt }],
+        raw_text: fullContextText.substring(0, 250000),
+        engine: ownerFlag ? selectedEngine : "gemini"
       });
 
       if (currentRunId !== abortRunRef.current) return;
@@ -501,7 +541,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       briefingCustomNote.trim() ? `\nZusatz-Vorgabe des Mandanten: "${briefingCustomNote.trim()}"` : ""
     ].filter(Boolean).join("\n");
 
-    const rawContextToUse = fullDossierContextCache || dossier?.raw_text || dossier?.brief_entwurf || "";
+    const rawContextToUse = (fullDossierContextCache || dossier?.raw_text || dossier?.brief_entwurf || "").substring(0, 250000);
 
     const fullDraftCommand = [
       "Der Mandant hat in der Lagebesprechung folgende strategische Marschroute (bzw. Kombination) verbindlich ausgewählt:",
@@ -523,7 +563,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       rawContextToUse,
       "",
       "DEIN AUFTRAG (DIE 17 UNIVERSELLEN WAR-ROOM-GESETZE ZWINGEND BEACHTEN):",
-      "Verfasse jetzt SOFORT den vollständigen, wasserdichten und druckfertigen Schriftsatz exakt gemäß der obigen Auswahl nach dem Minto-/MECE-Prinzip (ca. 3 bis 3,5 Seiten, vollständig bis zur Unterschrift)!",
+      "Verfasse jetzt SOFORT den vollständigen, wasserdichten und druckfertigen Schriftsatz exakt gemäß der obigen Auswahl nach dem Minto-/MECE-Prinzip (vollständig bis zur Unterschrift)!",
       "STRIKTE PFLICHT-CHECKLISTE:",
       "1. Adressiere das Schreiben im Rubrum an ALLE im Dokument genannten zuständigen Sachbearbeiter/Stellen (inkl. Weiterleitungen) und arbeite ALLE Teilverfahren/Zeiträume (im jeweils korrekten Verfahrensstadium nach Gesetz 13 & 16: keine unzulässige 'Abhilfe' gegen eine bereits erlassene Einspruchsentscheidung, sondern Rücknahme nach § 130 Abs. 1 AO + Billigkeitserlass nach § 227 AO, und für weitergeleitete offene Einsprüche wie 2024 direkte offensive Begründung nach § 367 Abs. 2 Satz 3 AO i. V. m. § 149 Abs. 2 Satz 1 AO Stichtag 31.07.2025, § 152 Abs. 1 Satz 2 AO und Kumulationsverbot § 5 AO ohne Rückfragen zum Bescheiddatum!) lückenlos aus.",
       "2. FRISTEN-ANKER (GESETZ 6): Berechne die Frist im gesamten Schreiben (auch im Schlussabschnitt V!) ausschließlich ab dem URSPRUNGSBESCHEID (z. B. 02.11.2026 -> Bekanntgabe 06.11.2026 -> Klagefristablauf Montag, 07.12.2026 nach § 108 Abs. 3 AO; NIEMALS ab dem Berichtigungsdatum nach § 129 AO vom 09.11.2026!) und setze die Behördenfrist im gesamten Dokument einheitlich auf mindestens 7 Kalendertage vor Ablauf der Ursprungs-Notfrist (27.11.2026 bzw. 30.11.2026, niemals 04.12.2026!).",
@@ -638,21 +678,19 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setLiveStage(1);
     setLiveRound(1);
 
-    const effectiveRawText = rawTextOverride || fullDossierContextCache || dossier?.raw_text || dossier?.brief_entwurf || "";
+    const effectiveRawText = (rawTextOverride || fullDossierContextCache || dossier?.raw_text || dossier?.brief_entwurf || "").substring(0, 250000);
 
     setLoadingPhaseText(
       `Station 1/4: 32-Experten-Kanzlei Sokrates formuliert Ihren Schriftsatz • danach prüft & patcht automatisch SONAR NEMESIS...`
     );
 
     try {
-      const { data, error } = await supabase.functions.invoke("sonar-ai-triage", {
-        body: {
-          mode: "megalegal_chat",
-          messages: historyForApi,
-          raw_text: effectiveRawText,
-          engine: ownerFlag ? selectedEngine : "gemini",
-          enable_second_opinion: false,
-        },
+      const { data, error } = await invokeTriageWithRetry({
+        mode: "megalegal_chat",
+        messages: historyForApi,
+        raw_text: effectiveRawText,
+        engine: ownerFlag ? selectedEngine : "gemini",
+        enable_second_opinion: false,
       });
 
       if (runId !== abortRunRef.current) return;
@@ -744,10 +782,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         throw new Error("Die Datei scheint leer zu sein oder konnte nicht gelesen werden.");
       }
 
-      const combinedRaw = `${fullDossierContextCache}\n\n=== NACHGEREICHTE DATEI (${file.name}) ===\n${extractedText}`;
+      const combinedRaw = `${fullDossierContextCache}\n\n=== NACHGEREICHTE DATEI (${file.name}) ===\n${extractedText}`.substring(0, 250000);
       setFullDossierContextCache(combinedRaw);
 
-      const prompt = `Hier ist der nachgereichte Volltext aus der Datei "${file.name}":\n\n${extractedText}\n\nBitte arbeite diese neuen Fakten sofort unter Beachtung der 17 War-Room-Gesetze in den versandfertigen Schriftsatz ein und gib den kompletten, aktualisierten Schriftsatz-Text (ohne Markdown-Sternchen **) zur erneuten Prüfung durch SONAR NEMESIS aus.`;
+      const prompt = `Hier ist der nachgereichte Volltext aus der Datei "${file.name}":\n\n${extractedText.substring(0, 200000)}\n\nBitte arbeite diese neuen Fakten sofort unter Beachtung der 17 War-Room-Gesetze in den versandfertigen Schriftsatz ein und gib den kompletten, aktualisierten Schriftsatz-Text (ohne Markdown-Sternchen **) zur erneuten Prüfung durch SONAR NEMESIS aus.`;
       
       const updatedHistory = [...messages, { role: "user", content: prompt }];
       setMessages(updatedHistory);
