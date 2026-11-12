@@ -25,12 +25,18 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const [loadedDocsCount, setLoadedDocsCount] = useState(0);
 
   // --- Live-Kino-Anzeige & Richter-Freigabe-Sperre ---
-  const [liveStage, setLiveStage] = useState(0); // 0 = inaktiv, 1..4 = aktive Station, 5 = alle 4 Stationen grün
+  const [liveStage, setLiveStage] = useState(0); // 0 = inaktiv, 1..4 = aktive Station, 5 = alle 4 Stationen grün (Freigabe)
   const [liveRound, setLiveRound] = useState(1);
   const [liveMaxRounds, setLiveMaxRounds] = useState(4);
   const [liveLogEntries, setLiveLogEntries] = useState([]);
   const [isJudgeApproved, setIsJudgeApproved] = useState(false);
   const [approvedCleanDraft, setApprovedCleanDraft] = useState("");
+
+  // --- Chefanwalts-Lagebesprechung (Phase A: Strategie-Optionen zum Anklicken & Kombinieren) ---
+  const [strategyBriefing, setStrategyBriefing] = useState(null);
+  const [selectedOptionIds, setSelectedOptionIds] = useState([]);
+  const [briefingCustomNote, setBriefingCustomNote] = useState("");
+  const [fullDossierContextCache, setFullDossierContextCache] = useState("");
 
   const chatBottomRef = useRef(null);
   const inputFieldRef = useRef(null);
@@ -48,14 +54,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     if (!rawText) return "";
     let cleaned = String(rawText).trim();
 
-    // Entferne das Kanzlei-Sokrates / Red-Team Prüfprotokoll-Banner, falls vorhanden
     const bannerMarker = "=================================================================";
     if (cleaned.includes(bannerMarker)) {
       const parts = cleaned.split(bannerMarker);
       cleaned = parts[parts.length - 1].trim();
     }
 
-    // Falls der Text einen expliziten Trenner für den Schriftsatz hat, nutze alles danach
     const draftMarkers = [
       /###\s*FINALER SCHRIFTSATZ[:\s]*/i,
       /###\s*SCHRIFTSATZ-ENTWURF[:\s]*/i,
@@ -70,7 +74,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       }
     }
 
-    // Entferne evtl. umschließende Markdown-Codeblöcke
     cleaned = cleaned.replace(/^```(?:markdown|text)?\s*/i, "").replace(/\s*```$/i, "").trim();
     return cleaned;
   };
@@ -88,7 +91,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
   };
 
-  // Lädt ALLE bisherigen Vorgänge & .md-Zwillinge der Akte als Komplett-Dossier[cite: 2]
+  // Lädt ALLE bisherigen Vorgänge & .md-Zwillinge der Akte als Komplett-Dossier
   const fetchFullAkteContext = async (akteId, fallbackBestText) => {
     if (!akteId) return { fullContextText: fallbackBestText, docsCount: 1 };
 
@@ -131,7 +134,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                     }
                   }
                 } catch (fetchErr) {
-                  // Stilles Ignorieren, falls für eine ältere PDF noch keine .md existiert[cite: 2]
+                  // Stilles Ignorieren, falls für eine ältere PDF noch keine .md existiert
                 }
               }
             }
@@ -284,7 +287,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return `${headerBanner}${currentDraft}`;
   };
 
-  // Startet den kompletten, vollautomatischen Durchlauf (Analyse + Entwurf + Red-Team-Richterprüfung bis Station 4 Grün)
+  // PHASE A: Startet die Akten-Analyse und erstellt die interaktive Chefanwalts-Lagebesprechung (4 Optionen mit Kosten, Dauer & Empfehlung)
   const startFreshAnalysis = async (ownerFlag = isOwnerUser) => {
     if (!dossier) return;
     const currentRunId = ++abortRunRef.current;
@@ -292,11 +295,14 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setIsLoading(true);
     setIsJudgeApproved(false);
     setApprovedCleanDraft("");
+    setStrategyBriefing(null);
+    setSelectedOptionIds([]);
+    setBriefingCustomNote("");
     setLiveStage(1);
     setLiveRound(1);
     setLiveLogEntries([]);
     addLiveLog("Lade vollständiges Akten-Dossier & .md-Zwillingsdateien aus dem Tresor...", "DOSSIER");
-    setLoadingPhaseText("Station 1/4: 32-Mann-Kanzlei Sokrates liest Akten-Dossier ein & erstellt Erstentwurf...");
+    setLoadingPhaseText("Vorprüfung: 32-Mann-Kanzlei Sokrates analysiert Akten-Dossier & bereitet die Mandanten-Lagebesprechung vor...");
     setErrorMsg(null);
 
     const today = new Date().toLocaleDateString('de-DE');
@@ -309,7 +315,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       ? dossier.raw_text 
       : (dossier.brief_entwurf || "Kein Volltext vorhanden.");
 
-    // --- ZWILLINGS-ABRUF LOGIK (EINZEL-FALLBACK)[cite: 2] ---
+    // --- ZWILLINGS-ABRUF LOGIK (EINZEL-FALLBACK) ---
     if (bestText.includes("Kein Volltext") || bestText.includes("OCR läuft") || bestText.length < 150) {
       try {
         const { data, error } = await supabase
@@ -347,41 +353,138 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
     const { fullContextText, docsCount } = await fetchFullAkteContext(dossier.akte_id, bestText);
     setLoadedDocsCount(docsCount);
-    addLiveLog(`Station 1: ${docsCount} Akten-Dokument(e) an 32-Mann-Kanzlei Sokrates übergeben. Analyse & Schriftsatz-Erstentwurf laufen...`, "SOKRATES");
+    setFullDossierContextCache(fullContextText);
+    addLiveLog(`${docsCount} Akten-Dokument(e) an 32-Mann-Kanzlei Sokrates übergeben. Forensische Prüfung auf Rechtsfehler & Wirtschaftlichkeit läuft...`, "SOKRATES");
 
-    const initialUserPrompt = [
-      "Hier ist das vollständige Dokumentendossier der Akte zur sofortigen forensischen Tiefenprüfung und Schriftsatz-Erstellung:",
+    const briefingPrompt = [
+      "Analysiere dieses vollständige Akten-Dossier für unsere Mandanten-Lagebesprechung:",
       "",
-      `Behörde / Absender: ${dossier.kontakt || "Unbekannt"}`,
+      `Behörde / Gegner: ${dossier.kontakt || "Unbekannt"}`,
       `Aktenzeichen: ${dossier.aktenzeichen || "Unbekannt"}`,
       `Frist: ${dossier.frist_extern || "Keine Frist erkannt"}`,
       `Betreff / Thema: ${dossier.thema || "Ohne Betreff"}`,
+      `Unser Mandant: ${mandantFirma} (${mandantAP})`,
+      `Heutiges Datum: ${today}`,
       "",
       "VOLLSTÄNDIGE AKTEN-HISTORIE & DOKUMENTENTEXTE (.MD-ZWILLINGE):",
       fullContextText,
       "",
-      "WICHTIGE KONTEXT-DATEN FÜR DEINEN SCHRIFTSATZ:",
+      "Erstelle jetzt die strukturierte Chefanwalts-Lagebesprechung mit 4 glasklaren Handlungsoptionen (inkl. Kosten, Dauer, Erfolgschance und Wirtschaftlichkeits-Abwägung) als reines JSON!"
+    ].join("\n");
+
+    try {
+      setLiveStage(2);
+      setLoadingPhaseText("Revisions-Senat & Kanzlei Sokrates kalkulieren Prozessrisiko, Kosten & Erfolgschancen für Ihre Lagebesprechung...");
+      addLiveLog("Revisions-Senat (Red Team) prüft Streitwert, Gerichtskostenvorschuss vs. kostenfreie Antragswege (§ 227 AO / § 361 AO)...", "RED-TEAM");
+
+      const { data, error } = await supabase.functions.invoke("sonar-ai-triage", {
+        body: {
+          mode: "strategy_briefing",
+          messages: [{ role: "user", content: briefingPrompt }],
+          engine: ownerFlag ? selectedEngine : "gemini"
+        }
+      });
+
+      if (currentRunId !== abortRunRef.current) return;
+      if (error) throw new Error(error.message || "Fehler beim Erstellen der Lagebesprechung.");
+      if (data?.error) throw new Error(data.error);
+
+      const briefingObj = data?.briefing || null;
+      if (briefingObj && Array.isArray(briefingObj.options)) {
+        setStrategyBriefing(briefingObj);
+        const recommendedIds = briefingObj.options.filter(o => o.is_recommended).map(o => o.id);
+        setSelectedOptionIds(recommendedIds.length > 0 ? recommendedIds : [briefingObj.options[0]?.id].filter(Boolean));
+        addLiveLog("📋 Chefanwalts-Lagebesprechung bereit! Bitte wählen Sie unten Ihre gewünschte Strategie (oder Kombination) aus.", "FREIGABE");
+      }
+
+      // Speichere den Dossier-Kontext als Basis-Historie
+      const baseHistory = [{ role: "user", content: briefingPrompt }];
+      setMessages(baseHistory);
+    } catch (err) {
+      console.error("[MegaLegalModal Briefing Error]:", err);
+      setErrorMsg(err.message || "Fehler beim Laden der Lagebesprechung.");
+    } finally {
+      if (currentRunId === abortRunRef.current) {
+        setIsLoading(false);
+        setLiveStage(0);
+      }
+    }
+  };
+
+  // Toggle-Funktion für die Strategie-Karten (erlaubt Einzelwahl ODER beliebige Kombination mehrerer Karten)
+  const toggleOptionSelection = (optId) => {
+    if (isLoading) return;
+    setSelectedOptionIds(prev => {
+      if (prev.includes(optId)) {
+        return prev.filter(id => id !== optId);
+      }
+      return [...prev, optId];
+    });
+  };
+
+  // PHASE B: Erstellt den Schriftsatz exakt nach den in der Lagebesprechung angeklickten Optionen und jagt ihn durch den Richter-Senat
+  const handleExecuteBriefingSelection = async () => {
+    if (!strategyBriefing || selectedOptionIds.length === 0 || isLoading) return;
+
+    const currentRunId = ++abortRunRef.current;
+    const chosenOptions = strategyBriefing.options.filter(o => selectedOptionIds.includes(o.id));
+    if (chosenOptions.length === 0) return;
+
+    const today = new Date().toLocaleDateString('de-DE');
+    const defaultFirma = isOwnerUser ? "Jens Wilsdorf" : "Mandant / Unternehmensführung";
+    const defaultAP = isOwnerUser ? "Jens Wilsdorf" : "Geschäftsführung";
+    const mandantFirma = dossier?.unsere_firma || defaultFirma;
+    const mandantAP = dossier?.unser_ansprechpartner || defaultAP;
+
+    const chosenTitles = chosenOptions.map(o => `• ${o.title} (${o.subtitle})`).join("\n");
+    const chosenInstructions = chosenOptions.map(o => `[Anweisung zu ${o.title}]: ${o.draft_instruction}`).join("\n\n");
+
+    const userDecisionDisplay = [
+      "📋 **ENTSCHEIDUNG AUS DER MANDANTEN-LAGEBESPRECHUNG:**",
+      chosenTitles,
+      briefingCustomNote.trim() ? `\n💬 **Zusatz-Vorgabe des Mandanten:** "${briefingCustomNote.trim()}"` : ""
+    ].filter(Boolean).join("\n");
+
+    const fullDraftCommand = [
+      "Der Mandant hat in der Lagebesprechung folgende strategische Marschroute (bzw. Kombination) verbindlich ausgewählt:",
+      chosenTitles,
+      "",
+      "DETAILLIERTE AUSARBEITUNGS-VORGABEN FÜR DIESE WAHL:",
+      chosenInstructions,
+      briefingCustomNote.trim() ? `\nZUSÄTZLICHE MANDANTEN-ANWEISUNG (ZWINGEND EINARBEITEN): "${briefingCustomNote.trim()}"` : "",
+      "",
+      "WICHTIGE KONTEXT-DATEN FÜR DEN SCHRIFTSATZ:",
       `- Heutiges Datum (für den Briefkopf): ${today}`,
       `- Unser Mandant (Absender): ${mandantFirma}`,
       `- Ansprechpartner: ${mandantAP}`,
+      `- Behörde / Empfänger: ${dossier?.kontakt || "Behörde"}`,
+      `- Aktenzeichen: ${dossier?.aktenzeichen || ""}`,
+      `- Betreff / Thema: ${dossier?.thema || ""}`,
       "",
-      "DEIN AUFTRAG IN EINEM DURCHGANG:",
-      "Verfasse auf Basis einer knappen, messerscharfen juristischen Prüfung SOFORT den vollständigen, versandfertigen Abwehr-Schriftsatz an die Behörde / Gegenseite nach dem Minto-Prinzip.",
-      "STRIKTE REGELN FÜR DEN SCHRIFTSATZ:",
-      "- Gib AUSSCHLIESSLICH den reinen, versandfertigen Schriftsatz-Text aus (keine Vorrede, keine Analyse-Überschriften davor!), damit er direkt an den Revisions-Senat (Red Team) zur Prüfung übergeben werden kann.",
+      "VOLLSTÄNDIGER AKTEN-KONTEXT:",
+      fullDossierContextCache || dossier?.raw_text || dossier?.brief_entwurf || "",
+      "",
+      "DEIN AUFTRAG:",
+      "Verfasse jetzt SOFORT den vollständigen, juristisch wasserdichten und versandfertigen Schriftsatz exakt gemäß der obigen Auswahl aus der Lagebesprechung nach dem Minto-Prinzip!",
+      "STRIKTE REGELN:",
+      "- Falls eine Kombination gewählt wurde, verbinde die gewählten Optionen nahtlos und logisch miteinander (z. B. kostenfreier Antrag + messerscharfe Darlegung der Rechtsfehler des Bescheids + Hinweis, dass aus reinen Wirtschaftlichkeits-/Prozessökonomiegründen zunächst auf eine Klage verzichtet wird).",
+      "- Gib AUSSCHLIESSLICH den reinen, versandfertigen Schriftsatz-Text aus (ohne Vorrede, ohne Überschriften davor!), damit er sofort an den Revisions-Senat (Red Team) zur Prüfung übergeben werden kann.",
       "- Du bist KEINE Rechtsanwaltskanzlei! Schreibe direkt im Namen des Mandanten und unterzeichne am Ende AUSSCHLIESSLICH mit den obigen Mandantendaten.",
       "- Keine eckigen Platzhalter ([...]), keine Versandhinweise im Briefkopf, kein Anlagenvermerk am Ende."
-    ].join("\n");
+    ].filter(Boolean).join("\n");
 
-    const initialHistory = [{ role: "user", content: initialUserPrompt }];
-    setMessages(initialHistory);
-    if (dossier.akte_id) {
-      await saveChatToDatabase(dossier.akte_id, initialHistory);
-    }
-    await callMegaLegal(initialHistory, true, ownerFlag, currentRunId);
+    setLiveLogEntries([]);
+    addLiveLog(`Lagebesprechung abgeschlossen: ${chosenOptions.length} Option(en) gewählt. Station 1 (Kanzlei Sokrates) formuliert Schriftsatz...`, "SOKRATES");
+
+    // Für die saubere Anzeige im Chat zeigen wir die kompakte Entscheidung, senden aber den vollen Kontext an die KI
+    const displayHistory = [{ role: "user", content: userDecisionDisplay }];
+    const apiHistory = [{ role: "user", content: fullDraftCommand }];
+    setMessages(displayHistory);
+
+    await callMegaLegal(apiHistory, true, isOwnerUser, currentRunId, displayHistory);
   };
 
-  // Initialer Start beim Öffnen des Modals[cite: 2]
+  // Initialer Start beim Öffnen des Modals
   useEffect(() => {
     const initChatOrRestoreMemory = async () => {
       if (isOpen && dossier) {
@@ -391,6 +494,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         setLiveLogEntries([]);
         setIsJudgeApproved(false);
         setApprovedCleanDraft("");
+        setStrategyBriefing(null);
+        setSelectedOptionIds([]);
+        setBriefingCustomNote("");
 
         let ownerDetected = true;
         try {
@@ -419,7 +525,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             if (!error && akteRow && Array.isArray(akteRow.war_room_chat) && akteRow.war_room_chat.length > 0) {
               const savedChat = akteRow.war_room_chat;
               const lastAiMsg = [...savedChat].reverse().find(m => m.role === "assistant");
-              // Nur wiederherstellen, wenn im gespeicherten Chat bereits ein richterlich geprüfter Entwurf vorliegt
               if (lastAiMsg && lastAiMsg.content && lastAiMsg.content.includes("KANZLEI SOKRATES ⚔️ RED-TEAM PRÜFPROTOKOLL")) {
                 setMessages(savedChat);
                 setLoadedDocsCount(1);
@@ -444,6 +549,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         setLiveLogEntries([]);
         setIsJudgeApproved(false);
         setApprovedCleanDraft("");
+        setStrategyBriefing(null);
+        setSelectedOptionIds([]);
       }
     };
 
@@ -453,10 +560,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading, liveLogEntries, liveStage]);
+  }, [messages, isLoading, liveLogEntries, liveStage, strategyBriefing]);
 
   // Hauptfunktion: Führt Station 1 (Sokrates) + automatisch Station 2-4 (Red-Team-Schleife) aus
-  const callMegaLegal = async (history, runFullJudgePipeline = true, ownerFlag = isOwnerUser, runId = abortRunRef.current) => {
+  const callMegaLegal = async (
+    historyForApi,
+    runFullJudgePipeline = true,
+    ownerFlag = isOwnerUser,
+    runId = abortRunRef.current,
+    historyForDisplay = null
+  ) => {
     setIsLoading(true);
     setIsJudgeApproved(false);
     setErrorMsg(null);
@@ -464,14 +577,14 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setLiveRound(1);
 
     setLoadingPhaseText(
-      `Station 1/4: 32-Mann-Kanzlei Sokrates arbeitet am Schriftsatz • danach prüft automatisch das richterliche Red Team...`
+      `Station 1/4: 32-Mann-Kanzlei Sokrates formuliert Ihren Schriftsatz • danach prüft automatisch das richterliche Red Team...`
     );
 
     try {
       const { data, error } = await supabase.functions.invoke("sonar-ai-triage", {
         body: {
           mode: "megalegal_chat",
-          messages: history,
+          messages: historyForApi,
           engine: ownerFlag ? selectedEngine : "gemini",
           enable_second_opinion: false,
         },
@@ -485,7 +598,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       if (runFullJudgePipeline && reply) {
         addLiveLog("Station 1 fertig ✓ -> Erstentwurf von Team Kanzlei Sokrates steht. Übergabe an den Revisions-Senat (Red Team)...", "SOKRATES");
-        const auditedReply = await runAutomatedRedTeamLoop(reply, history, ownerFlag, runId);
+        const auditedReply = await runAutomatedRedTeamLoop(reply, historyForApi, ownerFlag, runId);
         if (runId !== abortRunRef.current || !auditedReply) return;
         reply = auditedReply;
       } else {
@@ -494,7 +607,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         setIsJudgeApproved(true);
       }
 
-      const newMessages = [...history, { role: "assistant", content: reply }];
+      const baseDisplay = historyForDisplay || historyForApi;
+      const newMessages = [...baseDisplay, { role: "assistant", content: reply }];
       setMessages(newMessages);
       if (dossier?.akte_id) {
         await saveChatToDatabase(dossier.akte_id, newMessages);
@@ -536,7 +650,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     await callMegaLegal(updatedHistory, true, isOwnerUser, currentRunId);
   };
 
-  // Express-Autopilot: Durchläuft ebenfalls automatisch die 4 Stationen und schaltet danach die Übergabe frei (oder übergibt direkt)
+  // Express-Vorgabe: Überspringt auf Wunsch die Lagebesprechung und jagt die eigene Vorgabe direkt durch alle 4 Stationen
   const handleExpressAutopilot = async (e) => {
     e?.preventDefault();
     if (!expressInput.trim() || isLoading) return;
@@ -553,16 +667,14 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const expressPrompt = [
       `EXPRESS-ANWEISUNG DES MANDANTEN: "${stichpunkt}"`,
       "",
-      `Verfasse auf Basis dieser Anweisung und der Aktenlage SOFORT das vollständige, juristisch wasserdichte Antwortschreiben im Namen des Mandanten (${dossier?.unsere_firma || defaultFirma}).`,
+      `Verfasse auf Basis dieser Anweisung und der Aktenlage (${fullDossierContextCache || dossier?.raw_text || dossier?.brief_entwurf || ""}) SOFORT das vollständige, juristisch wasserdichte Antwortschreiben im Namen des Mandanten (${dossier?.unsere_firma || defaultFirma}).`,
       "Gib AUSSCHLIESSLICH den reinen, versandfertigen Schriftsatz-Text (ohne Vorrede, ohne Platzhalter) zur sofortigen Vorlage beim richterlichen Red Team aus!"
     ].join("\n");
 
-    const updatedHistory = [...messages, { role: "user", content: expressPrompt }];
-    setMessages(updatedHistory);
-    if (dossier?.akte_id) {
-      await saveChatToDatabase(dossier.akte_id, updatedHistory);
-    }
-    await callMegaLegal(updatedHistory, true, isOwnerUser, currentRunId);
+    const displayHistory = [...messages, { role: "user", content: `⚡ **EXPRESS-VORGABE:** "${stichpunkt}"` }];
+    const apiHistory = [...messages, { role: "user", content: expressPrompt }];
+    setMessages(displayHistory);
+    await callMegaLegal(apiHistory, true, isOwnerUser, currentRunId, displayHistory);
   };
 
   const handleFileUpload = async (e) => {
@@ -573,7 +685,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setIsLoading(true);
     setIsJudgeApproved(false);
     setLiveStage(1);
-    setLoadingPhaseText(`Lese nachgereichte Datei "${file.name}" aus & starte erneute Richter-Prüfung...`);
+    setLoadingPhaseText(`Lese nachgereichte Datei "${file.name}" aus & aktualisiere Prüfung...`);
     setErrorMsg(null);
     let extractedText = "";
 
@@ -618,6 +730,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   // Erzwingt auf Wunsch eine erneute Überprüfung durch Kanzlei Sokrates & Red Team
   const handleDraftDocument = async () => {
     if (isLoading) return;
+    if (strategyBriefing && !approvedCleanDraft && selectedOptionIds.length > 0) {
+      await handleExecuteBriefingSelection();
+      return;
+    }
+
     const currentRunId = ++abortRunRef.current;
     setIsJudgeApproved(false);
     setLiveStage(1);
@@ -655,14 +772,20 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       return;
     }
 
-    // Standard-Wiedervorlage +14 Tage für den Ausgang setzen
     const wvDate = new Date();
     wvDate.setDate(wvDate.getDate() + 14);
     const wvIso = wvDate.toISOString().split('T')[0];
 
+    const chosenTitlesShort = strategyBriefing && selectedOptionIds.length > 0
+      ? strategyBriefing.options
+          .filter(o => selectedOptionIds.includes(o.id))
+          .map(o => `Option ${o.number}`)
+          .join(" + ")
+      : "Richterlich geprüft";
+
     const ausgangsJson = {
       typ: "Ausgang",
-      aktion: "Schriftsatz (Richterlich geprüft & freigegeben) zum Versand",
+      aktion: `Schriftsatz (${chosenTitlesShort} – Richterlich freigegeben) zum Versand`,
       thema: dossier?.thema || "Schriftsatz",
       aktenzeichen: dossier?.aktenzeichen || "",
       kontakt: dossier?.kontakt || "",
@@ -675,7 +798,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       brief_entwurf: rawContent.trim()
     };
 
-    // Falls das JSON-Import-Feld oben im Akten-Cockpit existiert, schreiben wir das Ausgangs-JSON dort ebenfalls sichtbar hinein
     try {
       const magicImportEl = document.getElementById("magic-import");
       if (magicImportEl) {
@@ -702,7 +824,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   };
 
   const handleResetChatMemory = async () => {
-    if (!window.confirm("Gespeicherten War-Room-Verlauf dieser Akte löschen und Analyse mit allen aktuellen Akten-Dokumenten komplett neu starten?")) {
+    if (!window.confirm("Gespeicherten War-Room-Verlauf dieser Akte löschen und Lagebesprechung mit allen aktuellen Akten-Dokumenten komplett neu starten?")) {
       return;
     }
     await startFreshAnalysis(isOwnerUser);
@@ -731,13 +853,14 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   // Definition der 4 leuchtenden Kanzlei-Stationen für das Live-Status-Board
   const kanzleiStations = [
-    { id: 1, icon: "🏛️", title: "1. 32-Mann-Kanzlei Sokrates", desc: "Forensische Analyse & Erstentwurf" },
+    { id: 1, icon: "🏛️", title: "1. 32-Mann-Kanzlei Sokrates", desc: "Schriftsatz nach Lagebesprechung" },
     { id: 2, icon: "⚖️", title: "2. Revisions-Senat (Red Team)", desc: `Kreuzverhör & Fakten-Check (Runde ${liveRound}/${liveMaxRounds})` },
     { id: 3, icon: "🔥", title: "3. Sokrates Spezial-Härtung", desc: "Ausmerzen aller Red-Team-Vetos" },
     { id: 4, icon: "👍", title: "4. Richterliche Freigabe", desc: "100 % Großkanzlei-Zertifizierung" }
   ];
 
   const allFourGreen = !isLoading && liveStage === 5 && isJudgeApproved;
+  const visibleChatMessages = messages.filter((m, idx) => !(idx === 0 && m.role === "user" && m.content.includes("Analysiere dieses vollständige Akten-Dossier")));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -753,7 +876,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
                 </>
               ) : (
-                <span className={`relative inline-flex rounded-full h-3 w-3 ${allFourGreen ? "bg-emerald-400" : "bg-slate-500"}`}></span>
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${allFourGreen ? "bg-emerald-400" : "bg-cyan-400"}`}></span>
               )}
             </span>
             <div>
@@ -827,7 +950,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               onClick={handleResetChatMemory}
               disabled={isLoading}
               className="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-500 transition disabled:opacity-50"
-              title="Gespeicherten Chatverlauf dieser Akte zurücksetzen und alle Akten-Dokumente neu einlesen"
+              title="Gespeicherten Chatverlauf dieser Akte zurücksetzen und Lagebesprechung neu starten"
             >
               🔄 Neu starten
             </button>
@@ -842,13 +965,13 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         {!isOwnerUser && (
           <div className="px-6 py-2 bg-amber-500/15 border-b border-amber-500/40 text-amber-300 text-xs flex items-center justify-between gap-2">
             <span>
-              <strong>ℹ️ Hinweis zur Live-Demo-Umgebung:</strong> Sie erleben SmartSonar in der kostenfreien Live-Demo (1 automatische Red-Team-Schleife). In der Kanzlei-Vollversion arbeitet die ungedrosselte 32-Experten-Kaskade inkl. Claude Sonnet & 4-stufigem Richter-Senat.
+              <strong>ℹ️ Hinweis zur Live-Demo-Umgebung:</strong> Sie erleben SmartSonar in der kostenfreien Live-Demo (inkl. Chefanwalts-Lagebesprechung & 1 automatischer Red-Team-Schleife). In der Kanzlei-Vollversion arbeitet die ungedrosselte 32-Experten-Kaskade inkl. Claude Sonnet & 4-stufigem Richter-Senat.
             </span>
           </div>
         )}
 
-        {/* WEG 1: EXPRESS-AUTOPILOT LEISTE */}
-        <div className={`px-6 py-2.5 border-b ${borderHeader} ${isDark ? "bg-cyan-950/20" : "bg-cyan-50"}`}>
+        {/* WEG 1: EXPRESS-VORGABE LEISTE */}
+        <div className={`px-6 py-2 border-b ${borderHeader} ${isDark ? "bg-cyan-950/20" : "bg-cyan-50"}`}>
           <form onSubmit={handleExpressAutopilot} className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-400 whitespace-nowrap flex items-center gap-1">
               ⚡ Express-Vorgabe:
@@ -858,7 +981,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               value={expressInput}
               onChange={(e) => setExpressInput(e.target.value)}
               disabled={isLoading}
-              placeholder="Kurze Anweisung für Standardfälle (z.B. '140 € wurden bereits am 12.10. überwiesen, Mahngebühr zurückweisen') -> durchläuft sofort alle 4 Prüf-Stationen..."
+              placeholder="Direkt-Anweisung ohne Lagebesprechung (z.B. '140 € wurden bereits am 12.10. überwiesen, Mahngebühr zurückweisen')..."
               className={`flex-1 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 transition disabled:opacity-50 ${inputBg}`}
             />
             <button
@@ -866,34 +989,41 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               disabled={isLoading || !expressInput.trim()}
               className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-extrabold px-4 py-1.5 rounded-lg text-xs transition disabled:opacity-50 whitespace-nowrap shadow"
             >
-              ⚡ Express-Prüfung starten
+              ⚡ Direkt-Schreiben prüfen
             </button>
           </form>
         </div>
 
         {/* LIVE-KINO-ANZEIGE (DIE 4 PFLICHT-STATIONEN DER 32-MANN-KANZLEI & DES RED TEAMS) */}
-        <div className={`px-6 py-3 border-b ${borderHeader} ${isDark ? "bg-slate-950/95" : "bg-slate-100"}`}>
-          <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+        <div className={`px-6 py-2.5 border-b ${borderHeader} ${isDark ? "bg-slate-950/95" : "bg-slate-100"}`}>
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               {isLoading ? (
                 <>
                   <span className="inline-block w-3 h-3 rounded-full bg-amber-400 animate-ping"></span>
                   <span className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
-                    ⚡ VOLLAUTOMATISCHE PRÜFSCHLEIFE LÄUFT: ÜBERGABE ANS COCKPIT WIRD ERST NACH RICHTER-FREIGABE (STATION 4 GRÜN) ENTSERRT...
+                    ⚡ KANZLEI SOKRATES & RED TEAM ARBEITEN: ÜBERGABE ANS COCKPIT WIRD ERST NACH RICHTER-FREIGABE (4X GRÜN) ENTSPERRT...
                   </span>
                 </>
               ) : allFourGreen ? (
                 <>
                   <span className="inline-block w-3 h-3 rounded-full bg-emerald-400"></span>
                   <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400">
-                    ✅ ALLE 4 KANZLEI-STATIONEN GRÜN & RICHTERLICH ABGENOMMEN – ÜBERGABE ANS COCKPIT IST JETZT FREIGESCHALTET!
+                    ✅ ALLE 4 KANZLEI-STATIONEN GRÜN & RICHTERLICH ABGENOMMEN – ÜBERGABE ANS COCKPIT IST FREIGESCHALTET!
+                  </span>
+                </>
+              ) : strategyBriefing ? (
+                <>
+                  <span className="inline-block w-3 h-3 rounded-full bg-cyan-400"></span>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-cyan-300">
+                    📋 SCHRITT 1: BITTE WÄHLEN SIE UNTEN IN DER LAGEBESPRECHUNG IHRE STRATEGIE (ODER KOMBINATION) AUS!
                   </span>
                 </>
               ) : (
                 <>
                   <span className="inline-block w-3 h-3 rounded-full bg-slate-500"></span>
                   <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-                    🔒 WARTE AUF DURCHLAUF DER 4 KANZLEI-STATIONEN...
+                    🔒 WARTE AUF LAGEBESPRECHUNG & DURCHLAUF DER 4 KANZLEI-STATIONEN...
                   </span>
                 </>
               )}
@@ -901,16 +1031,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           </div>
 
           {/* 4 Leuchtende Prozess-Stationen */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-1.5">
             {kanzleiStations.map((st) => {
               const isActive = isLoading && liveStage === st.id;
               const isDone = allFourGreen || (isLoading && liveStage > st.id);
               return (
                 <div
                   key={st.id}
-                  className={`p-2.5 rounded-xl border transition-all duration-500 flex flex-col justify-between gap-1.5 ${
+                  className={`p-2 rounded-xl border transition-all duration-500 flex flex-col justify-between gap-1 ${
                     isActive
-                      ? "bg-amber-950/80 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.45)] scale-[1.02]"
+                      ? "bg-amber-950/80 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.45)] scale-[1.01]"
                       : isDone
                       ? "bg-emerald-950/75 border-emerald-400 shadow-[0_0_14px_rgba(16,185,129,0.3)]"
                       : "bg-slate-900/50 border-slate-800 opacity-45"
@@ -918,7 +1048,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-base flex-shrink-0">
+                      <div className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-slate-900 border border-slate-700 text-sm flex-shrink-0">
                         {st.icon}
                       </div>
                       <div className="text-[11px] font-extrabold text-white truncate">{st.title}</div>
@@ -942,7 +1072,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
           {/* Live-Ticker der Kanzlei-Schritte */}
           {liveLogEntries.length > 0 && (
-            <div className="max-h-20 overflow-y-auto space-y-1 bg-slate-900/90 border border-slate-800 rounded-lg p-2 font-mono text-[11px]">
+            <div className="max-h-16 overflow-y-auto space-y-1 bg-slate-900/90 border border-slate-800 rounded-lg p-1.5 font-mono text-[11px]">
               {liveLogEntries.map((item, i) => (
                 <div key={i} className="flex items-start gap-2 text-slate-200">
                   <span className="text-slate-500 flex-shrink-0">[{item.time}]</span>
@@ -966,14 +1096,156 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           )}
         </div>
 
-        {/* WEG 2: TIEFER JURISTEN-DIALOG */}
+        {/* HAUPTBEREICH: LAGEBESPRECHUNG & SCHRIFTSATZ-DIALOG */}
         <div className={`flex-1 overflow-y-auto p-6 space-y-6 text-sm font-sans ${bgChatArea}`}>
-          {messages.map((m, idx) => {
+          
+          {/* ===================================================================== */}
+          {/* INTERAKTIVE CHEFANWALTS-LAGEBESPRECHUNG (ZUSAMMENFASSUNG & 4 OPTIONEN) */}
+          {/* ===================================================================== */}
+          {strategyBriefing && (
+            <div className={`rounded-2xl border-2 p-5 text-left space-y-4 shadow-xl ${
+              isDark
+                ? "bg-slate-950/90 border-cyan-500/60 text-slate-100"
+                : "bg-slate-50 border-cyan-600 text-slate-900"
+            }`}>
+              <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">⚖️</span>
+                  <div>
+                    <h3 className="text-base font-extrabold uppercase tracking-wide text-cyan-400">
+                      CHEFANWALTS-LAGEBESPRECHUNG & STRATEGIE-WAHL
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Ergebnis der Vorprüfung durch Ihre 32-Mann-Kanzlei Sokrates & den Revisions-Senat
+                    </p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                  Mehrfachauswahl / Kombination möglich ✓
+                </span>
+              </div>
+
+              {/* 1. Klartext-Zusammenfassung & Schwachstellen */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                  <div className="text-xs font-extrabold uppercase text-cyan-400">📌 1. Sachverhalt & Rechtslage auf den Punkt:</div>
+                  <p className="text-xs text-slate-200 leading-relaxed">{strategyBriefing.case_summary}</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                  <div className="text-xs font-extrabold uppercase text-amber-400">🎯 2. Gefundene Hebel & Wirtschaftlichkeits-Check:</div>
+                  <ul className="text-xs text-slate-200 space-y-1 list-disc pl-4">
+                    {(strategyBriefing.weaknesses_found || []).map((w, idx) => (
+                      <li key={idx}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {strategyBriefing.recommended_combination_hint && (
+                <div className="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-xs text-emerald-200 flex items-start gap-2">
+                  <span className="text-base leading-none">💡</span>
+                  <div>
+                    <strong className="text-emerald-300 uppercase">Empfehlung des Leitenden Chefpartners: </strong>
+                    {strategyBriefing.recommended_combination_hint}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Die 4 anklickbaren Handlungsoptionen */}
+              <div>
+                <div className="text-xs font-extrabold uppercase tracking-wider text-slate-300 mb-2.5">
+                  👇 Klicken Sie 1 Option oder eine Kombination aus mehreren Optionen an (Auswahl aktiv: {selectedOptionIds.length}):
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {(strategyBriefing.options || []).map((opt) => {
+                    const isSelected = selectedOptionIds.includes(opt.id);
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => toggleOptionSelection(opt.id)}
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all select-none flex flex-col justify-between gap-2.5 ${
+                          isSelected
+                            ? "bg-cyan-950/70 border-cyan-400 shadow-[0_0_18px_rgba(6,182,212,0.35)] scale-[1.01]"
+                            : "bg-slate-900/70 border-slate-800 hover:border-slate-600 opacity-85"
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {}}
+                                className="w-4 h-4 accent-cyan-400 cursor-pointer"
+                              />
+                              <span className="font-extrabold text-sm text-white">{opt.title}</span>
+                            </div>
+                            {opt.is_recommended && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-400 text-slate-950 whitespace-nowrap flex-shrink-0">
+                                ⭐ Kanzlei-Favorit
+                              </span>
+                            )}
+                          </div>
+                          {opt.subtitle && (
+                            <div className="text-[11px] font-semibold text-cyan-300 pl-6">{opt.subtitle}</div>
+                          )}
+                          <p className="text-xs text-slate-200 leading-relaxed pl-6">{opt.impact}</p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-800/80 text-[11px] pl-6">
+                          <div className="bg-slate-950/80 p-1.5 rounded border border-slate-800">
+                            <span className="block text-[9px] uppercase text-slate-400 font-bold">💰 Kostenrisiko</span>
+                            <span className="font-bold text-amber-300">{opt.costs || "-"}</span>
+                          </div>
+                          <div className="bg-slate-950/80 p-1.5 rounded border border-slate-800">
+                            <span className="block text-[9px] uppercase text-slate-400 font-bold">⏱️ Dauer</span>
+                            <span className="font-bold text-slate-200">{opt.duration || "-"}</span>
+                          </div>
+                          <div className="bg-slate-950/80 p-1.5 rounded border border-slate-800">
+                            <span className="block text-[9px] uppercase text-slate-400 font-bold">📈 Bewertung</span>
+                            <span className="font-bold text-emerald-300">{opt.success_chance || "-"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Optionale Zusatznotiz & Auslöse-Button für den Schriftsatz */}
+              <div className="pt-2 space-y-2.5">
+                <input
+                  type="text"
+                  value={briefingCustomNote}
+                  onChange={(e) => setBriefingCustomNote(e.target.value)}
+                  disabled={isLoading}
+                  placeholder="Optionaler Zusatz für die Endbesprechung (z.B. 'Ratenzahlung in 3 Raten anbieten' oder 'Frist bis 30.11. setzen')..."
+                  className={`w-full rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 ${inputBg}`}
+                />
+
+                <button
+                  type="button"
+                  disabled={isLoading || selectedOptionIds.length === 0}
+                  onClick={handleExecuteBriefingSelection}
+                  className="w-full py-3.5 px-5 rounded-xl font-extrabold text-sm bg-gradient-to-r from-cyan-400 via-emerald-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 shadow-xl transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>
+                    ⚖️ Schreiben gemäß Endbesprechung ({selectedOptionIds.length} Option{selectedOptionIds.length === 1 ? "" : "en"} gewählt) verfassen & richterlich prüfen
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Bisheriger Kommunikations- & Schriftsatz-Verlauf */}
+          {visibleChatMessages.map((m, idx) => {
             const isUser = m.role === "user";
             return (
               <div key={idx} className="flex flex-col w-full items-start">
                 <div className={`text-xs font-bold ${textSub} mb-2 px-1 uppercase tracking-wider text-left`}>
-                  {isUser ? "Mandant / System-Dossier" : `🏛️ Team Kanzlei Sokrates & Red-Team (${isOwnerUser && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
+                  {isUser ? "Mandant / Beschluss aus der Lagebesprechung" : `🏛️ Team Kanzlei Sokrates & Red-Team (${isOwnerUser && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
                 </div>
                 <div className={`w-full text-left rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed border ${isUser ? bgUserMsg : bgAiMsg}`}>
                   {m.content}
@@ -998,7 +1270,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 <div className="flex items-center gap-2">
                   <span className="text-xl">✅</span>
                   <h3 className="text-sm sm:text-base font-extrabold text-emerald-300 uppercase tracking-wide">
-                    ALLE 4 PRÜF-STATIONEN GRÜN (100 % SAFE) – SCHRIFTSATZ IST FREIGEGEBEN!
+                    ALLE 4 PRÜF-STATIONEN GRÜN (100 % SAFE) – SCHRIFTSATZ GEMÄSS LAGEBESPRECHUNG IST FREIGEGEBEN!
                   </h3>
                 </div>
                 <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-400 text-slate-950">
@@ -1007,7 +1279,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               </div>
 
               <p className="text-xs text-slate-200 leading-relaxed">
-                Die 32-Mann-Kanzlei Sokrates und das richterliche Red Team haben den Schriftsatz vollautomatisch erstellt, geprüft und freigegeben. Klicken Sie jetzt auf den grünen Button, um das fertige Schreiben samt Daten direkt in die Aktenansicht im Cockpit zu übernehmen (falls Sie unten im Chat noch eine Änderung eingeben, wird der Schriftsatz automatisch noch einmal vom Richter-Senat nachgeprüft):
+                Ihr Schriftsatz wurde exakt nach Ihrer Auswahl aus der Lagebesprechung ausgearbeitet und vom richterlichen Red Team abgenommen. Sie können ihn jetzt direkt in die Aktenansicht im Cockpit übergeben (oder oben in der Lagebesprechung eine andere Kombination testen):
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -1061,7 +1333,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               type="text"
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder="Optionaler Eingriff / Korrektur-Anweisung (löst nach dem Absenden automatisch eine erneute Richter-Prüfung aus)..."
+              placeholder="Optionaler Eingriff / Korrektur-Anweisung zum Schriftsatz (löst automatisch erneute Richter-Prüfung aus)..."
               disabled={isLoading}
               className={`flex-1 rounded-xl px-4 h-[46px] text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition disabled:opacity-50 ${inputBg}`}
             />
@@ -1099,9 +1371,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 onClick={handleDraftDocument}
                 disabled={isLoading}
                 className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition flex items-center space-x-2 disabled:opacity-50 border border-cyan-500/40"
-                title="Schriftsatz noch einmal komplett durch Kanzlei Sokrates & Red Team prüfen lassen"
+                title="Schriftsatz gemäß gewählter Lagebesprechung ausarbeiten bzw. nochmals durch Richter-Senat prüfen"
               >
-                <span>🔄 Nochmals durch Richter-Senat prüfen</span>
+                <span>⚖️ Schreiben gemäß Lagebesprechung prüfen</span>
               </button>
               
               <button
@@ -1116,13 +1388,13 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 title={
                   allFourGreen
                     ? "Schriftsatz ist zu 100 % vom Richter-Senat freigegeben – jetzt ins Cockpit übergeben"
-                    : "Gesperrt bis alle 4 Stationen oben grün sind (Richterliche Freigabe erforderlich)"
+                    : "Gesperrt bis Sie Ihre Auswahl in der Lagebesprechung getroffen haben und alle 4 Stationen oben grün sind"
                 }
               >
                 <span>
                   {allFourGreen
                     ? "🚀 Ins Cockpit übergeben (Freigegeben ✓)"
-                    : "🔒 Ins Cockpit übergeben (Warte auf 4x Grün...)"}
+                    : "🔒 Ins Cockpit übergeben (Erst Lagebesprechung & 4x Grün)"}
                 </span>
               </button>
             </div>
