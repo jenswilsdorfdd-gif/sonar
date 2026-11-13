@@ -29,7 +29,13 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const [m_bank_name, setM_bank_name] = useState('');
   const [m_ust_intervall, setM_ust_intervall] = useState('Vierteljährlich');
   const [m_dauerfrist, setM_dauerfrist] = useState(false);
+
+  // Neue Dateien vor dem Upload + zugehörige Beschriftungen
   const [m_dateien, setM_dateien] = useState([]);
+  const [m_dateien_labels, setM_dateien_labels] = useState([]);
+
+  // Bereits beim Mandanten gespeicherte Dokumente [{ cleanUrl, label, rawEntry }] zum Anzeigen & Umbenennen im Formular
+  const [m_existing_docs, setM_existing_docs] = useState([]);
 
   const isDarkMode = theme.bg === '#020617';
   const btnTextColor = isDarkMode ? '#000' : '#ffffff';
@@ -41,6 +47,43 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
   const listGrid = "2.5fr 2fr 3fr 2.5fr 50px"; 
 
+  // Hilfsfunktion: Erzeugt aus einem Dateinamen einen sauberen Standard-Anzeigenamen ohne m_Timestamp_-Präfix
+  const getCleanDefaultLabel = (filenameOrUrl) => {
+    const rawFile = extractFilename(String(filenameOrUrl || '').split('#')[0]);
+    const withoutPrefix = rawFile.replace(/^(m|h)_\d+_/, '');
+    const withoutExt = withoutPrefix.replace(/\.[^/.]+$/, '');
+    return withoutExt.replace(/_/g, ' ').trim() || rawFile;
+  };
+
+  // Hilfsfunktion: Liest aus einer gespeicherten URL (inkl. optionalem #label=...) die saubere URL und die Beschriftung aus
+  const parseDocEntry = (rawUrlStr) => {
+    const str = String(rawUrlStr || '').trim();
+    if (!str) return { cleanUrl: '', label: 'Dokument', rawEntry: '' };
+    const [cleanUrl, hashPart] = str.split('#');
+    let customLabel = '';
+    if (hashPart && hashPart.startsWith('label=')) {
+      try {
+        customLabel = decodeURIComponent(hashPart.replace(/^label=/, '')).trim();
+      } catch (_e) {
+        customLabel = hashPart.replace(/^label=/, '').trim();
+      }
+    }
+    const fallbackLabel = getCleanDefaultLabel(cleanUrl);
+    return {
+      cleanUrl,
+      label: customLabel || fallbackLabel,
+      rawEntry: str
+    };
+  };
+
+  // Hilfsfunktion: Baut die URL und die Beschriftung wieder zusammen (Kommas werden durch encodeURIComponent geschützt)
+  const buildDocUrlWithLabel = (cleanUrl, labelText) => {
+    const base = String(cleanUrl || '').split('#')[0].trim();
+    const cleanLabel = String(labelText || '').trim();
+    if (!cleanLabel) return base;
+    return `${base}#label=${encodeURIComponent(cleanLabel)}`;
+  };
+
   const gefilterteMandanten = mandanten.filter((m) => {
     if (!suchbegriff || !suchbegriff.trim()) return true;
     const s = suchbegriff.toLowerCase();
@@ -49,7 +92,12 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     const mail = (m.email || '').toLowerCase();
     const adr = (m.adresse || '').toLowerCase();
     const fx = (m.fax || '').toLowerCase();
-    return fName.includes(s) || ans.includes(s) || mail.includes(s) || adr.includes(s) || fx.includes(s);
+    const docsText = (m.dokument_url || '')
+      .split(',')
+      .filter(Boolean)
+      .map(u => parseDocEntry(u).label.toLowerCase())
+      .join(' ');
+    return fName.includes(s) || ans.includes(s) || mail.includes(s) || adr.includes(s) || fx.includes(s) || docsText.includes(s);
   });
 
   const ladeInFormularMandant = (m) => {
@@ -69,6 +117,23 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     setM_bank_name(cleanVal(m.bank_name) || '');
     setM_ust_intervall(m.ust_intervall || 'Vierteljährlich');
     setM_dauerfrist(m.dauerfrist || false);
+
+    // Bestehende Dokumente dieses Mandanten für das obere Formular aufbereiten
+    if (m.dokument_url) {
+      const parsedList = m.dokument_url
+        .split(',')
+        .map(u => u.trim())
+        .filter(Boolean)
+        .map(u => parseDocEntry(u));
+      setM_existing_docs(parsedList);
+    } else {
+      setM_existing_docs([]);
+    }
+
+    setM_dateien([]);
+    setM_dateien_labels([]);
+    if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -78,8 +143,16 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     setM_fax(isOwnerUser ? OWNER_DEFAULT_FAX : '');
     setM_email('');
     setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
-    setM_iban(''); setM_bank_name(''); setM_ust_intervall('Vierteljährlich'); setM_dauerfrist(false); setM_dateien([]);
+    setM_iban(''); setM_bank_name(''); setM_ust_intervall('Vierteljährlich'); setM_dauerfrist(false);
+    setM_dateien([]); setM_dateien_labels([]); setM_existing_docs([]);
     if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
+  };
+
+  // Handler für neue Datei-Auswahl im oberen Formular (erzeugt direkt die Beschriftungsfelder)
+  const handleNeuerDateiUploadSelect = (e) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    setM_dateien(selectedFiles);
+    setM_dateien_labels(selectedFiles.map(f => getCleanDefaultLabel(f.name)));
   };
 
   const speichereMandant = async (e) => {
@@ -88,34 +161,36 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
     let alleUrls = [];
     if (m_dateien && m_dateien.length > 0) {
-      for (const f of m_dateien) {
+      for (let i = 0; i < m_dateien.length; i++) {
+        const f = m_dateien[i];
+        const customLabel = (m_dateien_labels[i] || '').trim() || getCleanDefaultLabel(f.name);
         const isMd = f.name.toLowerCase().endsWith('.md');
+
         if (isMd) {
           const mdInhalt = await f.text();
-          const baseInfo = `Stammdokument aus Firmen-Tresor. Firma: ${m_firmenname}`;
-          await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: m_firmenname || 'Allgemein', inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`, dokument_url: null }]);
+          const baseInfo = `Stammdokument (${customLabel}) aus Firmen-Tresor. Firma: ${m_firmenname}`;
+          await supabase.from('wissensdatenbank').insert([{ datei_name: `${customLabel} (${f.name})`, firma: m_firmenname || 'Allgemein', inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`, dokument_url: null }]);
           await syncToGithub(f.name, mdInhalt, null, null, showToast);
         } else {
           const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-          const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
+          const dateiName = `m_${Date.now()}_${i}_${sichererDateiname}`; 
           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f);
           if (!uploadError) {
             const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
-            alleUrls.push(linkData.publicUrl);
+            const labeledUrl = buildDocUrlWithLabel(linkData.publicUrl, customLabel);
+            alleUrls.push(labeledUrl);
           }
         }
       }
     }
     
-    let neuDokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
-    let finalDocs = neuDokumentUrl;
-    
-    if (editMandantId) {
-        const existing = mandanten.find(x => x.id === editMandantId);
-        if (existing && existing.dokument_url) {
-            finalDocs = neuDokumentUrl ? `${existing.dokument_url},${neuDokumentUrl}` : existing.dokument_url;
-        }
-    }
+    // Bestehende (evtl. im Formular umbenannte) Dokumente mit neuen Uploads zusammenführen
+    const existingUrlsWithUpdatedLabels = m_existing_docs
+      .filter(d => d && d.cleanUrl)
+      .map(d => buildDocUrlWithLabel(d.cleanUrl, d.label));
+
+    const combinedUrlArray = [...existingUrlsWithUpdatedLabels, ...alleUrls];
+    const finalDocs = combinedUrlArray.length > 0 ? combinedUrlArray.join(',') : null;
 
     const payload = {
       user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
@@ -126,7 +201,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
     if (editMandantId) {
       await supabase.from('mandanten').update(payload).eq('id', editMandantId);
-      showToast('Änderungen im Tresor gespeichert!', 'success');
+      showToast('Änderungen & Dokument-Beschriftungen im Tresor gespeichert!', 'success');
     } else {
       await supabase.from('mandanten').insert([payload]);
       showToast('Neuer Mandant im Tresor angelegt!', 'success');
@@ -144,6 +219,14 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const handleNachtragUploadMandant = async (mId, currentUrls, e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    const defaultLabel = getCleanDefaultLabel(file.name);
+    const inputLabel = window.prompt(
+      `Wie soll dieses Stammdokument beschriftet werden (z.B. "Personalausweis", "Handelsregisterauszug", "Reisepass")?`,
+      defaultLabel
+    );
+    const chosenLabel = (inputLabel !== null && inputLabel.trim() !== '') ? inputLabel.trim() : defaultLabel;
+
     setUploadingMandantId(mId);
     
     const isMd = file.name.toLowerCase().endsWith('.md');
@@ -152,22 +235,27 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
     if (isMd) {
       const mdInhalt = await file.text();
-      const baseInfo = `Nachträgliches Stammdokument. Firma: ${fName}`;
-      await supabase.from('wissensdatenbank').insert([{ datei_name: file.name, firma: fName, inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`, dokument_url: null }]);
+      const baseInfo = `Nachträgliches Stammdokument (${chosenLabel}). Firma: ${fName}`;
+      await supabase.from('wissensdatenbank').insert([{ datei_name: `${chosenLabel} (${file.name})`, firma: fName, inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`, dokument_url: null }]);
       await syncToGithub(file.name, mdInhalt, null, null, showToast);
       ladeDaten();
-      showToast('Stammdokument angehängt!', 'success');
+      showToast(`Stammdokument "${chosenLabel}" angehängt!`, 'success');
     } else {
       const sichererDateiname = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const dateiName = `m_${Date.now()}_${sichererDateiname}`; 
       const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file);
       if (!uploadError) {
         const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
-        const newUrl = linkData.publicUrl;
-        const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
+        const newUrlWithLabel = buildDocUrlWithLabel(linkData.publicUrl, chosenLabel);
+        const updatedUrls = currentUrls ? `${currentUrls},${newUrlWithLabel}` : newUrlWithLabel;
         await supabase.from('mandanten').update({ dokument_url: updatedUrls }).eq('id', mId);
+
+        if (editMandantId === mId) {
+          setM_existing_docs(prev => [...prev, parseDocEntry(newUrlWithLabel)]);
+        }
+
         ladeDaten();
-        showToast('Stammdokument angehängt!', 'success');
+        showToast(`Stammdokument "${chosenLabel}" angehängt!`, 'success');
       } else {
         showToast("Fehler beim Upload: " + uploadError.message, 'error');
       }
@@ -178,12 +266,20 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
   const loescheDateiAusMandant = async (mId, aktuelleUrls, urlZumLoeschen) => {
     if (!window.confirm("Diese Datei wirklich aus dem Firmen-Profil entfernen?")) return;
-    const urlArray = aktuelleUrls.split(',');
-    const neueUrls = urlArray.filter(url => url !== urlZumLoeschen);
+    const cleanTarget = String(urlZumLoeschen || '').split('#')[0].trim();
+    const urlArray = (aktuelleUrls || '').split(',').map(u => u.trim()).filter(Boolean);
+    const neueUrls = urlArray.filter(url => String(url).split('#')[0].trim() !== cleanTarget);
     const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
     const { error: dbError } = await supabase.from('mandanten').update({ dokument_url: neuerUrlString }).eq('id', mId);
     if (!dbError) {
-       try { const parts = decodeURIComponent(urlZumLoeschen).split('/'); const fileName = parts[parts.length - 1]; await supabase.storage.from('dokumente').remove([fileName]); } catch (e) { }
+       try {
+         const parts = decodeURIComponent(cleanTarget).split('/');
+         const fileName = parts[parts.length - 1];
+         await supabase.storage.from('dokumente').remove([fileName]);
+       } catch (e) { }
+       if (editMandantId === mId) {
+         setM_existing_docs(prev => prev.filter(d => d.cleanUrl !== cleanTarget));
+       }
        ladeDaten();
        showToast('Datei erfolgreich aus Tresor entfernt!', 'success');
     } else { showToast("Fehler beim Entfernen der Datei: " + dbError.message, 'error'); }
@@ -289,10 +385,109 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
           <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
             <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: '8px'}}>
-               <Icon name="paperclip" size={16} /> Stammdokumente (HR-Auszug, Gewerbeanmeldung...)
+               <Icon name="paperclip" size={16} /> Stammdokumente (HR-Auszug, Personalausweis, Gewerbeanmeldung...)
             </label>
-            <input id="tresor-datei-upload" type="file" multiple onChange={(e) => setM_dateien(Array.from(e.target.files))} style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}} />
-            {m_dateien.length > 0 && <span style={{fontSize: '13px', color: theme.tresorAccent, marginTop: '8px'}}>Gewählt: {m_dateien.length} Datei(en)</span>}
+            <input
+              id="tresor-datei-upload"
+              type="file"
+              multiple
+              onChange={handleNeuerDateiUploadSelect}
+              style={{...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px'}}
+            />
+
+            {/* BESCHRIFTUNGSFELDER FÜR NEU AUSGEWÄHLTE DATEIEN VOR DEM UPLOAD */}
+            {m_dateien.length > 0 && (
+              <div style={{ marginTop: '12px', padding: '12px', background: theme.inputBg, border: `1px solid ${theme.tresorAccent}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.tresorAccent, textTransform: 'uppercase' }}>
+                  Neue Datei(en) vor dem Speichern beschriften ({m_dateien.length}):
+                </div>
+                {m_dateien.map((fileObj, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '10px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={fileObj.name}>
+                      📄 Originaldatei: {fileObj.name}
+                    </span>
+                    <input
+                      type="text"
+                      value={m_dateien_labels[idx] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setM_dateien_labels(prev => prev.map((lbl, i) => (i === idx ? val : lbl)));
+                      }}
+                      placeholder="Bezeichnung eingeben (z.B. Personalausweis, HR-Auszug, Reisepass)..."
+                      style={{ ...inputStyle, padding: '8px 10px', fontSize: '13px', borderColor: theme.tresorAccent }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* BEREITS HINTERLEGTE DOKUMENTE DIREKT OBEN IM FORMULAR ANZEIGEN, ÖFFNEN & UMBENENNEN */}
+            {editMandantId && m_existing_docs.length > 0 && (
+              <div style={{ marginTop: '12px', padding: '12px', background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain, textTransform: 'uppercase' }}>
+                  Bereits hinterlegte Stammdokumente ({m_existing_docs.length}) – Bezeichnung hier direkt änderbar:
+                </div>
+                {m_existing_docs.map((docItem, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      value={docItem.label}
+                      onChange={(e) => {
+                        const newLbl = e.target.value;
+                        setM_existing_docs(prev => prev.map((item, i) => (i === idx ? { ...item, label: newLbl } : item)));
+                      }}
+                      placeholder="Bezeichnung (z.B. Personalausweis, Handelsregisterauszug)..."
+                      style={{ ...inputStyle, flex: '1 1 240px', padding: '8px 10px', fontSize: '13px' }}
+                    />
+                    <a
+                      href={docItem.cleanUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        background: 'rgba(45, 212, 191, 0.12)',
+                        border: `1px solid ${theme.tresorAccent}`,
+                        color: theme.tresorAccent,
+                        textDecoration: 'none',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap'
+                      }}
+                      title={extractFilename(docItem.cleanUrl)}
+                    >
+                      <Icon name="file" size={14} /> Dokument öffnen
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentMandant = mandanten.find(x => x.id === editMandantId);
+                        loescheDateiAusMandant(editMandantId, currentMandant?.dokument_url || '', docItem.cleanUrl);
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: 'transparent',
+                        border: `1px solid ${theme.warningBorder}`,
+                        color: theme.warningBorder,
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Dokument löschen"
+                    >
+                      <Icon name="trash" size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>3. Bank & Steuer-Setup</h4></div>
@@ -348,7 +543,10 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
           {gefilterteMandanten.map(m => {
             const isExpanded = expandedId === m.id;
             const isActive = editMandantId === m.id;
-            const numDocs = m.dokument_url ? m.dokument_url.split(',').length : 0;
+            const parsedDocs = m.dokument_url
+              ? m.dokument_url.split(',').map(u => u.trim()).filter(Boolean).map(u => parseDocEntry(u))
+              : [];
+            const numDocs = parsedDocs.length;
             const displayFax = cleanVal(m.fax) || (isOwnerUser ? OWNER_DEFAULT_FAX : '');
 
             return (
@@ -394,9 +592,18 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                     <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>IBAN: {cleanVal(m.iban) || '-'}</span>
                   </div>
 
-                  {/* SPALTE 4: DOKUMENTE */}
-                  <div style={{ fontSize: '12px', color: theme.textMuted }}>
-                    {numDocs > 0 ? `(${numDocs} ${numDocs === 1 ? 'Dokument' : 'Dokumente'})` : '-'}
+                  {/* SPALTE 4: DOKUMENTE (INKL. BESCHRIFTUNGS-VORSCHAU) */}
+                  <div style={{ fontSize: '12px', color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {numDocs > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ color: theme.tresorAccent, fontWeight: 'bold' }}>
+                          {numDocs} {numDocs === 1 ? 'Dokument' : 'Dokumente'}
+                        </span>
+                        <span style={{ fontSize: '11px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {parsedDocs.map(d => d.label).join(', ')}
+                        </span>
+                      </div>
+                    ) : '-'}
                   </div>
 
                   {/* SPALTE 5 DESKTOP: PFEIL GANZ RECHTS */}
@@ -428,20 +635,29 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       <div><span style={{color: theme.textMuted}}>Bank:</span> {cleanVal(m.bank_name) || '-'}</div>
                     </div>
 
-                    {/* SPALTE 3: DOKUMENTE */}
+                    {/* SPALTE 3: DOKUMENTE MIT VOLLER LESBARER BESCHRIFTUNG */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {m.dokument_url && m.dokument_url.split(',').map((url, idx) => {
-                        const fileName = extractFilename(url);
+                      {parsedDocs.map((docObj, idx) => {
                         return (
                           <div key={idx} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${theme.border}`, width: 'fit-content', maxWidth: '100%' }}>
-                            <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 6px', fontSize: '10px', color: theme.textMain, background: 'rgba(0,0,0,0.1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={fileName}>
-                              <Icon name="file" size={10} /> {fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName}
+                            <a
+                              href={docObj.cleanUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 8px', fontSize: '11px', fontWeight: 'bold', color: theme.textMain, background: 'rgba(0,0,0,0.1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                              title={`${docObj.label} (${extractFilename(docObj.cleanUrl)})`}
+                            >
+                              <Icon name="file" size={12} /> {docObj.label}
                             </a>
-                            <button onClick={() => loescheDateiAusMandant(m.id, m.dokument_url, url)} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 4px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
-                              <Icon name="x" size={10} />
+                            <button
+                              onClick={() => loescheDateiAusMandant(m.id, m.dokument_url, docObj.cleanUrl)}
+                              style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }}
+                              title="Datei löschen"
+                            >
+                              <Icon name="x" size={11} />
                             </button>
                           </div>
-                        )
+                        );
                       })}
                       {uploadingMandantId === m.id ? (
                         <span style={{ fontSize: '11px', color: theme.tresorAccent }}><Icon name="file" size={10}/> Upload...</span>
