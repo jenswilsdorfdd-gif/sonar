@@ -310,6 +310,12 @@ export default function AktenListe({
                         {akte.akten_historie.map((hist) => {
                           const istHervorgehoben = fokussierterHistId === hist.id;
                           const isHistLocked = hist.is_locked;
+                          const sichtbareDokumentUrls = hist.dokument_url
+                            ? hist.dokument_url
+                                .split(',')
+                                .map((u) => u.trim())
+                                .filter((u) => u !== '' && !u.toLowerCase().split('?')[0].split('#')[0].endsWith('.md'))
+                            : [];
 
                           return (
                             <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
@@ -417,10 +423,10 @@ export default function AktenListe({
                                 </div>
                               </td>
 
-                              {/* DOKUMENTE */}
+                              {/* DOKUMENTE (NUR PDF / ECHTE ANHÄNGE ANZEIGEN, .MD-ZWILLINGE AUSBLENDEN) */}
                               <td style={{ padding: '8px 10px' }}>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                                  {hist.dokument_url && hist.dokument_url.split(',').map((url, idx) => {
+                                  {sichtbareDokumentUrls.map((url, idx) => {
                                     const fileName = extractFilename(url);
                                     return (
                                       <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
@@ -431,7 +437,7 @@ export default function AktenListe({
                                           </button>
                                         )}
                                       </div>
-                                    )
+                                    );
                                   })}
                                   {!isHistLocked && (
                                     uploadingHistId === hist.id ? (
