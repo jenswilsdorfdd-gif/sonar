@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Icon from './Icon';
 import { supabase } from './supabaseClient';
 import { syncToGithub } from './utils';
@@ -108,6 +108,12 @@ export default function AktenFormular({
   // --- STRIKTE OWNER-ERKENNUNG AUSSCHLIESSLICH ÜBER LOGIN-USER-ID ---
   const isFullAccessUser = session?.user?.id === OWNER_USER_ID;
 
+  // --- STATES & REFS FÜR DIE ZWEISTUFIGE DEMO-VERSAND-SICHERHEITSSPERRE ---
+  const [demoVersandWarningStep, setDemoVersandWarningStep] = useState(0); // 0 = geschlossen, 1 = Stufe 1, 2 = Stufe 2 (Letzte Warnung)
+  const [pendingDemoKanal, setPendingDemoKanal] = useState(null); // 'email' | 'fax'
+  const versandEmailInputRef = useRef(null);
+  const versandFaxInputRef = useRef(null);
+
   // Blockiert Kopieren / Ausschneiden / Rechtsklick im Entwurfsfeld für Demo-Tester
   const handleDemoCopyBlock = (e) => {
     if (!isFullAccessUser) {
@@ -144,8 +150,8 @@ export default function AktenFormular({
     }
   };
 
-  // Stellt für Demo-Tester beim Versand (E-Mail / Fax) sicher, dass das ASCII-MUSTER-Wasserzeichen (ohne Emojis für sauberen PDF-Druck) fest im Text steckt
-  const handleProtectedVersand = (kanalTyp) => {
+  // Führt den eigentlichen Versand aus (inkl. garantierter ASCII-MUSTER-Stempelung für Demo-Accounts)
+  const executeActualVersand = (kanalTyp) => {
     if (!isFullAccessUser && briefEntwurf && !briefEntwurf.includes('MUSTER / UNVERBINDLICHE DEMO-ANSICHT')) {
       const stampedText = [
         '==========================================================================',
@@ -159,7 +165,56 @@ export default function AktenFormular({
       ].join('\n');
       setBriefEntwurf(stampedText);
     }
+    setDemoVersandWarningStep(0);
+    setPendingDemoKanal(null);
     handleResendVersand(kanalTyp);
+  };
+
+  // Fängt für Demo-Tester den Klick auf "E-Mail senden" oder "E-Fax" ab und öffnet das 2-stufige Warn-Pop-up
+  const handleProtectedVersand = (kanalTyp) => {
+    if (isFullAccessUser) {
+      executeActualVersand(kanalTyp);
+      return;
+    }
+
+    const targetRecipient = kanalTyp === 'email' ? (gegnerEmail || '').trim() : (gegnerFax || '').trim();
+    if (!targetRecipient) {
+      if (typeof showToast === 'function') {
+        showToast(
+          kanalTyp === 'email'
+            ? 'Bitte trage zuerst eine Test-E-Mail-Adresse in das Feld "Versand-E-Mail (Gegner)" ein!'
+            : 'Bitte trage zuerst eine Test-Faxnummer in das Feld "Versand-Faxnummer (Gegner)" ein!',
+          'warning'
+        );
+      }
+      if (kanalTyp === 'email' && versandEmailInputRef.current) {
+        versandEmailInputRef.current.focus();
+      } else if (kanalTyp === 'fax' && versandFaxInputRef.current) {
+        versandFaxInputRef.current.focus();
+      }
+      return;
+    }
+
+    setPendingDemoKanal(kanalTyp);
+    setDemoVersandWarningStep(1);
+  };
+
+  // Bricht den Demo-Versand ab und fokussiert direkt das Empfängerfeld zur Eingabe einer eigenen Test-Adresse
+  const handleAbortDemoVersandAndFocusField = () => {
+    const kanal = pendingDemoKanal;
+    setDemoVersandWarningStep(0);
+    setPendingDemoKanal(null);
+    setTimeout(() => {
+      if (kanal === 'email' && versandEmailInputRef.current) {
+        versandEmailInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        versandEmailInputRef.current.focus();
+        versandEmailInputRef.current.select();
+      } else if (kanal === 'fax' && versandFaxInputRef.current) {
+        versandFaxInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        versandFaxInputRef.current.focus();
+        versandFaxInputRef.current.select();
+      }
+    }, 80);
   };
 
   // Schlichtes Line-Icon für Kalender (exakt passend zur bestehenden Icon-Komponente)
@@ -705,8 +760,221 @@ export default function AktenFormular({
     : null;
   const currentPromptContacts = getContactsForGegner(currentSelectedGegnerObj);
 
+  const demoTargetLabel = pendingDemoKanal === 'email'
+    ? (gegnerEmail || 'Unbekannte E-Mail')
+    : (gegnerFax || 'Unbekannte Faxnummer');
+  const demoBehoerdenLabel = gegnerName || 'die eingetragene Behörde / Gegenpartei';
+  const demoKanalLabel = pendingDemoKanal === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax)';
+
   return (
     <>
+      {/* --- ZWEISTUFIGES SICHERHEITS-WARN-MODAL FÜR DEMO-TESTER VOR E-MAIL- / FAX-VERSAND --- */}
+      {!isFullAccessUser && demoVersandWarningStep > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.88)',
+            zIndex: 10050,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              background: theme.cardBg || '#0f172a',
+              border: demoVersandWarningStep === 2 ? '3px solid #dc2626' : '2px solid #f59e0b',
+              borderRadius: '14px',
+              padding: '28px',
+              maxWidth: '620px',
+              width: '100%',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.75)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+              textAlign: 'left'
+            }}
+          >
+            {demoVersandWarningStep === 1 ? (
+              <>
+                <div
+                  style={{
+                    background: '#f59e0b',
+                    color: '#000000',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    fontWeight: 900,
+                    fontSize: '14px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <Icon name="alert" size={20} />
+                  ACHTUNG: SIE BEFINDEN SICH IM DEMO- / TESTMODUS!
+                </div>
+
+                <div style={{ color: theme.textMain, fontSize: '15px', lineHeight: '1.6' }}>
+                  Sie sind im Begriff, dieses Schreiben per <strong>{demoKanalLabel}</strong> abzusenden.
+                  <br /><br />
+                  Beachten Sie, dass im Empfängerfeld aktuell folgende reale Adresse hinterlegt ist:
+                  <div
+                    style={{
+                      marginTop: '10px',
+                      marginBottom: '10px',
+                      padding: '12px 14px',
+                      background: 'rgba(220, 38, 38, 0.14)',
+                      border: '1px solid #dc2626',
+                      borderRadius: '8px',
+                      color: theme.textMain,
+                      fontWeight: 'bold',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Empfänger / Behörde: <span style={{ color: '#f87171' }}>{demoBehoerdenLabel}</span><br />
+                    Ziel-Adresse ({pendingDemoKanal === 'email' ? 'E-Mail' : 'Fax'}): <span style={{ color: '#fbbf24', fontFamily: 'monospace', fontSize: '15px' }}>{demoTargetLabel}</span>
+                  </div>
+                  Da Ihr Entwurf im Demo-Modus deutliche <strong>„MUSTER / DEMO-ANSICHT“</strong>-Aufdrucke enthält, sollte dieses Testschreiben <strong>nicht an echte Behörden, Gerichte oder Finanzämter</strong> versendet werden!
+                  <br /><br />
+                  Bitte geben Sie im {pendingDemoKanal === 'email' ? 'E-Mail-Empfängerfeld' : 'Fax-Empfängerfeld'} Ihre <strong>eigene Test-E-Mail-Adresse bzw. Test-Faxnummer</strong> ein, um den Versand risikofrei zu testen.
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handleAbortDemoVersandAndFocusField}
+                    style={{
+                      background: '#10b981',
+                      color: '#000000',
+                      border: 'none',
+                      padding: '16px 20px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 900,
+                      fontSize: '15px',
+                      textAlign: 'center',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                    }}
+                  >
+                    Abbrechen & im Empfängerfeld meine eigene Test-Adresse eintragen (Empfohlen)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDemoVersandWarningStep(2)}
+                    style={{
+                      background: 'transparent',
+                      color: theme.textMuted,
+                      border: `1px solid ${theme.border}`,
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '12px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    Nein, die eingetragene Adresse ({demoTargetLabel}) ist meine Test-Adresse – weiter zum Versand
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    background: '#dc2626',
+                    color: '#ffffff',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    fontWeight: 900,
+                    fontSize: '15px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <Icon name="alert" size={22} />
+                  LETZTE WARNUNG VOR SCHARFEM VERSAND!
+                </div>
+
+                <div style={{ color: theme.textMain, fontSize: '15px', lineHeight: '1.6' }}>
+                  <strong>Dieses Schreiben geht jetzt direkt und unwiderruflich raus an:</strong>
+                  <div
+                    style={{
+                      marginTop: '10px',
+                      marginBottom: '12px',
+                      padding: '14px',
+                      background: 'rgba(220, 38, 38, 0.2)',
+                      border: '2px solid #dc2626',
+                      borderRadius: '8px',
+                      color: '#ffffff',
+                      fontWeight: 900,
+                      fontSize: '15px'
+                    }}
+                  >
+                    {demoBehoerdenLabel} — {demoTargetLabel}
+                  </div>
+                  Sind Sie sich <strong>absolut sicher</strong>, dass Sie ein mit <strong>„MUSTER / UNVERBINDLICHE DEMO-ANSICHT“</strong> gestempeltes Testschreiben wirklich an <strong>{demoBehoerdenLabel} ({demoTargetLabel})</strong> versenden wollen?
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+                  {/* SEHR SICHTBARER, GROSSER ABBRECHEN-BUTTON */}
+                  <button
+                    type="button"
+                    onClick={handleAbortDemoVersandAndFocusField}
+                    style={{
+                      background: '#10b981',
+                      color: '#000000',
+                      border: '2px solid #059669',
+                      padding: '18px 22px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontWeight: 900,
+                      fontSize: '16px',
+                      textTransform: 'uppercase',
+                      textAlign: 'center',
+                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.45)'
+                    }}
+                  >
+                    ✋ NEIN – VERSAND SOFORT ABBRECHEN & EMPFÄNGER ÄNDERN
+                  </button>
+
+                  {/* UNAUFFÄLLIGER, KLEINER OK-BUTTON GANZ UNTEN */}
+                  <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => executeActualVersand(pendingDemoKanal)}
+                      style={{
+                        background: 'transparent',
+                        color: theme.textMuted,
+                        border: `1px dashed ${theme.border}`,
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'normal',
+                        fontSize: '11px',
+                        opacity: 0.65
+                      }}
+                    >
+                      Ja, ich will dieses Musterschreiben trotzdem an {demoTargetLabel} senden
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {showTriageModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1064,11 +1332,26 @@ export default function AktenFormular({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>
             <div>
               <label style={{...labelStyle, color: theme.textMain}}>Versand-E-Mail (Gegner)</label>
-              <input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} placeholder="z.B. poststelle@..." style={{...inputStyle, padding: '8px'}} />
+              <input
+                ref={versandEmailInputRef}
+                type="email"
+                value={gegnerEmail}
+                onChange={(e) => setGegnerEmail(e.target.value)}
+                placeholder="z.B. poststelle@..."
+                style={{...inputStyle, padding: '8px'}}
+              />
             </div>
             <div>
               <label style={{...labelStyle, color: theme.textMain}}>Versand-Faxnummer (Gegner)</label>
-              <input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} placeholder="z.B. 0351 123456" style={{...inputStyle, padding: '8px'}} />
+              <input
+                ref={versandFaxInputRef}
+                type="text"
+                value={gegnerFax}
+                onChange={(e) => setGegnerFax(e.target.value)}
+                onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))}
+                placeholder="z.B. 0351 123456"
+                style={{...inputStyle, padding: '8px'}}
+              />
             </div>
             <div>
               <label style={{...labelStyle, color: theme.textMain}}>z. Hd. (Fax-Deckblatt)</label>
