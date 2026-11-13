@@ -1162,9 +1162,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                         key={opt.id}
                         onClick={() => toggleOptionSelection(opt.id)}
                         style={{
-                          borderColor: isSelected ? "#0ea5e9" : (isDark ? "#334155" : "#cbd5e1"),
+                          borderColor: isSelected ? "#fbbf24" : (isDark ? "#334155" : "#cbd5e1"),
                           backgroundColor: isSelected
-                            ? (isDark ? "rgba(14, 165, 233, 0.12)" : "rgba(14, 165, 233, 0.08)")
+                            ? (isDark ? "rgba(251, 191, 36, 0.12)" : "rgba(251, 191, 36, 0.08)")
                             : (isDark ? "#0f172a" : "#ffffff")
                         }}
                         className="p-4 rounded-lg border-2 cursor-pointer transition-all select-none flex flex-col justify-between gap-3"
@@ -1176,7 +1176,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => {}}
-                                className="w-4 h-4 accent-[#0ea5e9] cursor-pointer flex-shrink-0"
+                                className="w-4 h-4 accent-[#fbbf24] cursor-pointer flex-shrink-0"
                               />
                               <span className={`font-extrabold text-sm ${textTitle}`}>{opt.title}</span>
                             </div>
@@ -1217,7 +1217,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 </div>
               </div>
 
-              {/* Optionale Zusatznotiz & einheitlicher Cockpit-Button für den Schriftsatz */}
+              {/* Optionale Zusatznotiz & GELBER PRÜF-BUTTON */}
               <div className="pt-2 space-y-2.5">
                 <input
                   type="text"
@@ -1225,17 +1225,24 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   onChange={(e) => setBriefingCustomNote(e.target.value)}
                   disabled={isLoading}
                   placeholder="Optionaler Zusatz für die Ausarbeitung (z.B. besondere Sachverhaltsdetails oder ergänzende Mandanten-Vorgaben)..."
-                  className={`w-full rounded-lg px-3.5 py-2.5 text-xs border focus:outline-none focus:border-[#0ea5e9] ${inputBg}`}
+                  className={`w-full rounded-lg px-3.5 py-2.5 text-xs border focus:outline-none focus:border-[#fbbf24] ${inputBg}`}
                 />
 
                 <button
                   type="button"
                   disabled={isLoading || selectedOptionIds.length === 0}
                   onClick={handleExecuteBriefingSelection}
-                  style={{ backgroundColor: "#0ea5e9", color: "#000000" }}
-                  className="w-full py-3 px-5 rounded-lg font-extrabold text-sm hover:opacity-90 transition disabled:opacity-50 cursor-pointer flex items-center justify-center"
+                  style={{
+                    backgroundColor: "#fbbf24",
+                    color: "#000000",
+                    border: "2px solid #f59e0b",
+                    boxShadow: "0 4px 14px rgba(245, 158, 11, 0.35)"
+                  }}
+                  className="w-full py-3.5 px-5 rounded-lg font-extrabold text-sm hover:opacity-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center uppercase tracking-wide"
                 >
-                  Schreiben gemäß Lagebesprechung ({selectedOptionIds.length} Option{selectedOptionIds.length === 1 ? "" : "en"} gewählt) verfassen & durch SONAR NEMESIS prüfen
+                  {selectedOptionIds.length > 1
+                    ? `Ausgewählte Optionen (${selectedOptionIds.length}) durch SONAR NEMESIS prüfen`
+                    : "Ausgewählte Option durch SONAR NEMESIS prüfen"}
                 </button>
               </div>
             </div>
@@ -1362,12 +1369,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               onChange={(e) => setInputPrompt(e.target.value)}
               placeholder="Optionaler Eingriff / Korrektur-Anweisung zum Schriftsatz (löst automatisch erneute Prüfung durch SONAR NEMESIS aus)..."
               disabled={isLoading}
-              className={`flex-1 rounded-lg px-4 h-[42px] text-xs sm:text-sm border focus:outline-none focus:border-[#0ea5e9] transition disabled:opacity-50 ${inputBg}`}
+              className={`flex-1 rounded-lg px-4 h-[42px] text-xs sm:text-sm border focus:outline-none focus:border-[#fbbf24] transition disabled:opacity-50 ${inputBg}`}
             />
             <button
               type="submit"
               disabled={isLoading || !inputPrompt.trim()}
-              style={{ backgroundColor: "#0ea5e9", color: "#000000" }}
+              style={{ backgroundColor: "#fbbf24", color: "#000000" }}
               className="font-extrabold px-5 h-[42px] rounded-lg text-xs sm:text-sm hover:opacity-90 transition disabled:opacity-50 flex-shrink-0 cursor-pointer"
             >
               Anweisung senden & neu prüfen
