@@ -6,6 +6,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const OWNER_USER_ID = "ea175141-2c03-4f93-ba1b-392570229cb2";
+const OWNER_DEFAULT_FAX = "0351 85074535";
 
 export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchriftsatz, theme }) {
   const [messages, setMessages] = useState([]);
@@ -397,6 +398,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const defaultAP = ownerFlag ? "Jens Wilsdorf" : "Geschäftsführung";
     const mandantFirma = dossier.unsere_firma || defaultFirma;
     const mandantAP = dossier.unser_ansprechpartner || defaultAP;
+    const mandantFax = dossier.unser_fax || (ownerFlag ? OWNER_DEFAULT_FAX : "");
 
     let bestText = (dossier.raw_text && dossier.raw_text.trim() !== "") 
       ? dossier.raw_text 
@@ -449,7 +451,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       `Aktenzeichen / Steuernummer: ${dossier.aktenzeichen || "Unbekannt"}`,
       `Frist: ${dossier.frist_extern || "Bitte nach dem Grundsatz des sichersten Weges ab Ursprungsdokument berechnen"}`,
       `Betreff / Thema: ${dossier.thema || "Ohne Betreff"}`,
-      `Unser Mandant: ${mandantFirma} (${mandantAP})`,
+      `Unser Mandant: ${mandantFirma} (${mandantAP})${mandantFax ? ` | Unser Telefax: ${mandantFax}` : ""}`,
       `Heutiges Datum: ${today}`,
       "",
       "VOLLSTÄNDIGE AKTEN-HISTORIE & DOKUMENTENTEXTE (.MD-ZWILLINGE):",
@@ -524,6 +526,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const defaultAP = isOwnerUser ? "Jens Wilsdorf" : "Geschäftsführung";
     const mandantFirma = dossier?.unsere_firma || defaultFirma;
     const mandantAP = dossier?.unser_ansprechpartner || defaultAP;
+    const mandantFax = dossier?.unser_fax || (isOwnerUser ? OWNER_DEFAULT_FAX : "");
 
     const chosenTitles = chosenOptions.map(o => `• ${o.title} (${o.subtitle})`).join("\n");
     const chosenInstructions = chosenOptions.map(o => `(Anweisung zu ${o.title}): ${o.draft_instruction}`).join("\n\n");
@@ -548,6 +551,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       `- Heutiges Datum (für den Briefkopf): ${today}`,
       `- Unser Mandant (Absender): ${mandantFirma}`,
       `- Unterzeichner / Geschäftsführer: ${mandantAP}`,
+      mandantFax ? `- Unsere Telefaxnummer (für den Briefkopf / Rückantworten): ${mandantFax}` : "",
       `- Empfänger / Behörde / Gegenpartei: ${dossier?.kontakt || "Siehe Originaldokument"}`,
       `- Aktenzeichen / Steuernummer: ${dossier?.aktenzeichen || "Siehe Originaldokument"}`,
       `- Betreff / Thema: ${dossier?.thema || ""}`,
