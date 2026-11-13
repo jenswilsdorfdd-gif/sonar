@@ -1217,15 +1217,11 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (!upErr) {
         const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
         mdPubUrl = linkData?.publicUrl || null;
-        if (mdPubUrl) {
-          const updatedUrls = currentUrls ? `${currentUrls},${mdPubUrl}` : mdPubUrl;
-          await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
-        }
       }
       await supabase.from('wissensdatenbank').insert([{ datei_name: file.name, firma: akteFirma || 'Allgemein', inhalt_text: `${baseInfo}\n\n${mdInhalt.substring(0, 3000)}...`, dokument_url: mdPubUrl }]);
       await syncToGithub(file.name, mdInhalt, null, null, showToast);
       ladeDaten();
-      showToast('Dokument erfolgreich angehängt!', 'success');
+      showToast('MD-Dokument im Wissensspeicher hinterlegt!', 'success');
     } else {
       const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, file, { upsert: true });
       if (!uploadError) {
@@ -1273,7 +1269,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const druckeSendebericht = (eintrag) => {
     const printWindow = window.open('', '_blank');
-    const anhaengeText = eintrag.dokument_url ? eintrag.dokument_url.split(',').map(url => extractFilename(url)).join(', ') : 'Keine Anhänge';
+    const sichtbareUrls = eintrag.dokument_url
+      ? eintrag.dokument_url.split(',').map(u => u.trim()).filter(u => u !== '' && !u.toLowerCase().split('?')[0].endsWith('.md'))
+      : [];
+    const anhaengeText = sichtbareUrls.length > 0 ? sichtbareUrls.map(url => extractFilename(url)).join(', ') : 'Keine Anhänge';
     printWindow.document.write(`<html><head><title>Sendebericht - ${eintrag.unser_zeichen || 'Ausgang'}</title><style>body { font-family: Arial, sans-serif; padding: 30px; color: #111; line-height: 1.6; } .box { border: 2px solid #000; padding: 20px; border-radius: 6px; margin-bottom: 20px; } h1 { font-size: 22px; border-bottom: 2px solid #000; padding-bottom: 8px; margin-beacht: 20px; text-transform: uppercase; } .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 13px; margin-bottom: 20px; } .meta-item { border-bottom: 1px solid #ddd; padding-bottom: 5px; } .badge { display: inline-block; background: #10b981; color: #fff; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; } pre { white-space: pre-wrap; font-family: Courier, monospace; background: #f8f9fa; padding: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }</style></head><body><h1>SONAR SENDEBERICHT / AUSGANGSNACHWEIS</h1><div class="box"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;"><div><span class="badge">STATUS: ERFOLGREICH VERSENDET</span></div><div><strong>Sendedatum:</strong> ${formatDatum(eintrag.datum)}</div></div><div class="meta-grid"><div class="meta-item"><strong>Absender / Mandant:</strong><br/>${eintrag.unsere_firma || '-'}</div><div class="meta-item"><strong>Empfänger / Behörde:</strong><br/>${eintrag.gegner_name || '-'}</div><div class="meta-item"><strong>Unser Zeichen:</strong><br/>${eintrag.unser_zeichen || '-'}</div><div class="meta-item"><strong>Aktenzeichen (Gegner):</strong><br/>${eintrag.aktenzeichen || '-'}</div><div class="meta-item"><strong>Versandart / Kanal:</strong><br/>${eintrag.kanal || 'E-Mail / Fax'}</div><div class="meta-item"><strong>Vorgang / Zieladresse:</strong><br/>${eintrag.aktion || '-'}</div><div class="meta-item" style="grid-column: 1 / -1;"><strong>Gegenstand (Thema):</strong><br/>${eintrag.thema || '-'}</div><div class="meta-item" style="grid-column: 1 / -1;"><strong>Übermittelte Dateianhänge:</strong><br/>${anhaengeText}</div></div></div><h3>DOKUMENTIERTES SCHREIBEN (TEXTINHALT):</h3><pre>${eintrag.brief_entwurf || '(Kein Textkörper hinterlegt)'}</pre><script>window.onload = function() { window.print(); window.close(); }</script></body></html>`);
     printWindow.document.close();
   };
@@ -1335,6 +1334,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         .replace(/\*\*(.*?)\*\*/g, '$1');
 
       const defaultFirmaName = isOwnerAccount ? 'Jens Wilsdorf' : (unserAnsprechpartner || 'Mandant');
+      const userLoginEmail = session?.user?.email ? String(session.user.email).trim() : '';
 
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
         method: "POST",
@@ -1343,6 +1343,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           to: targetAddress,
           subject: betreff,
           text: cleanTextForPdf,
+          isOwnerAccount: isOwnerAccount,
+          userLoginEmail: userLoginEmail,
           signatureUrl: SIGNATUR_URL,
           unsereFirma: unsereFirma || matchedMandant?.firmenname || defaultFirmaName,
           mandantProfil: mandantProfil,
@@ -1411,7 +1413,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
            if (!upErr) {
              const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
              mdPubUrl = linkData?.publicUrl || null;
-             if (mdPubUrl) alleUrls.push(mdPubUrl);
            }
 
            await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: mdPubUrl }]);
@@ -1540,7 +1541,6 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       if (!entError) {
          const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(fileName);
          entPubUrl = linkData?.publicUrl || null;
-         if (entPubUrl) alleUrls.push(entPubUrl);
       }
 
       if (zuSpeicherndeDateien.length === 0) {
@@ -2138,6 +2138,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                     const isExpanded = expandedVersandId === ausgang.id;
                     const rawAction = ausgang.aktion || '';
                     const zielKontakt = rawAction.includes('versendet an ') ? rawAction.split('versendet an ')[1] : '';
+                    const sichtbareAusgangUrls = ausgang.dokument_url
+                      ? ausgang.dokument_url.split(',').map(u => u.trim()).filter(u => u !== '' && !u.toLowerCase().split('?')[0].endsWith('.md'))
+                      : [];
 
                     return (
                       <div key={ausgang.id} style={{ border: `1px solid ${theme.border}`, borderRadius: '8px', overflow: 'hidden', background: isExpanded ? (isDarkMode ? 'rgba(0, 229, 255, 0.05)' : '#f0f9ff') : theme.inputBg }}>
@@ -2204,7 +2207,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
                           </div>
 
                           <div className="vh-col-full" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {ausgang.dokument_url ? ausgang.dokument_url.split(',').map((url, idx) => (
+                            {sichtbareAusgangUrls.length > 0 ? sichtbareAusgangUrls.map((url, idx) => (
                               <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', minHeight: '34px', boxSizing: 'border-box', fontSize: '11px', color: theme.accent, background: 'transparent', border: `1px solid ${theme.accent}`, borderRadius: '4px', textDecoration: 'none', width: '100%', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={extractFilename(url)} onClick={(e) => e.stopPropagation()}>
                                 <Icon name="file" size={12} style={{ flexShrink: 0 }} />
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{extractFilename(url)}</span>
