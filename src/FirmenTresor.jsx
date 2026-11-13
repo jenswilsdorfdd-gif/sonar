@@ -3,7 +3,12 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub, extractFilename, cleanVal } from './utils';
 
+const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
+const OWNER_DEFAULT_FAX = '035185074535';
+
 export default function FirmenTresor({ session, theme, mandanten, ladeDaten, showToast, suchbegriff }) {
+  const isOwnerUser = session?.user?.id === OWNER_USER_ID;
+
   const [laedt, setLaedt] = useState(false);
   const [uploadingMandantId, setUploadingMandantId] = useState(null);
   const [editMandantId, setEditMandantId] = useState(null);
@@ -13,6 +18,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
   const [m_ansprechpartner, setM_ansprechpartner] = useState('');
   const [m_adresse, setM_adresse] = useState('');
   const [m_telefon, setM_telefon] = useState('');
+  const [m_fax, setM_fax] = useState(isOwnerUser ? OWNER_DEFAULT_FAX : '');
   const [m_email, setM_email] = useState('');
   const [m_steuernummer, setM_steuernummer] = useState('');
   const [m_ust_id, setM_ust_id] = useState('');
@@ -42,7 +48,8 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     const ans = (m.ansprechpartner || '').toLowerCase();
     const mail = (m.email || '').toLowerCase();
     const adr = (m.adresse || '').toLowerCase();
-    return fName.includes(s) || ans.includes(s) || mail.includes(s) || adr.includes(s);
+    const fx = (m.fax || '').toLowerCase();
+    return fName.includes(s) || ans.includes(s) || mail.includes(s) || adr.includes(s) || fx.includes(s);
   });
 
   const ladeInFormularMandant = (m) => {
@@ -51,6 +58,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     setM_ansprechpartner(cleanVal(m.ansprechpartner) || '');
     setM_adresse(cleanVal(m.adresse) || '');
     setM_telefon(cleanVal(m.telefon) || '');
+    setM_fax(cleanVal(m.fax) || (isOwnerUser ? OWNER_DEFAULT_FAX : ''));
     setM_email(cleanVal(m.email) || '');
     setM_steuernummer(cleanVal(m.steuernummer) || '');
     setM_ust_id(cleanVal(m.ust_id) || '');
@@ -66,7 +74,9 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
   const resetMandantForm = () => {
     setEditMandantId(null);
-    setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon(''); setM_email('');
+    setM_firmenname(''); setM_ansprechpartner(''); setM_adresse(''); setM_telefon('');
+    setM_fax(isOwnerUser ? OWNER_DEFAULT_FAX : '');
+    setM_email('');
     setM_steuernummer(''); setM_ust_id(''); setM_betriebsnummer(''); setM_vbg_nummer(''); setM_handelsregister('');
     setM_iban(''); setM_bank_name(''); setM_ust_intervall('Vierteljährlich'); setM_dauerfrist(false); setM_dateien([]);
     if (document.getElementById('tresor-datei-upload')) document.getElementById('tresor-datei-upload').value = '';
@@ -109,7 +119,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
     const payload = {
       user_id: session.user.id, firmenname: m_firmenname, ansprechpartner: m_ansprechpartner, adresse: m_adresse,
-      telefon: m_telefon, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
+      telefon: m_telefon, fax: m_fax, email: m_email, steuernummer: m_steuernummer, ust_id: m_ust_id, betriebsnummer: m_betriebsnummer,
       vbg_nummer: m_vbg_nummer, handelsregister: m_handelsregister, iban: m_iban, bank_name: m_bank_name,
       ust_intervall: m_ust_intervall, dauerfrist: m_dauerfrist, dokument_url: finalDocs
     };
@@ -267,6 +277,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
           <div><label style={labelStyle}>Ansprechpartner</label><input value={m_ansprechpartner} onChange={e=>setM_ansprechpartner(e.target.value)} style={inputStyle}/></div>
           <div><label style={labelStyle}>Adresse</label><input value={m_adresse} onChange={e=>setM_adresse(e.target.value)} style={inputStyle}/></div>
           <div><label style={labelStyle}>Telefon</label><input value={m_telefon} onChange={e=>setM_telefon(e.target.value)} style={inputStyle}/></div>
+          <div><label style={labelStyle}>Faxnummer</label><input value={m_fax} onChange={e=>setM_fax(e.target.value)} placeholder="z.B. 035185074535" style={inputStyle}/></div>
           <div><label style={labelStyle}>E-Mail</label><input value={m_email} onChange={e=>setM_email(e.target.value)} style={inputStyle}/></div>
 
           <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}><h4 style={h4StyleTresor}>2. Wichtige Nummern & Stammdokumente</h4></div>
@@ -338,6 +349,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
             const isExpanded = expandedId === m.id;
             const isActive = editMandantId === m.id;
             const numDocs = m.dokument_url ? m.dokument_url.split(',').length : 0;
+            const displayFax = cleanVal(m.fax) || (isOwnerUser ? OWNER_DEFAULT_FAX : '');
 
             return (
               <div 
@@ -367,9 +379,12 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                     </div>
                   </div>
                   
-                  {/* SPALTE 2: KONTAKT */}
+                  {/* SPALTE 2: KONTAKT (INKL. FAXNUMMER) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
                     <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="phone" size={12}/> {cleanVal(m.telefon) || '-'}</span>
+                    {displayFax && (
+                      <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>FAX: {displayFax}</span>
+                    )}
                     <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="mail" size={12}/> {cleanVal(m.email) || '-'}</span>
                   </div>
 
@@ -394,9 +409,12 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                 {isExpanded && (
                   <div className="tresor-expanded-grid" style={{ marginTop: '15px', paddingTop: '15px', borderTop: `1px solid ${theme.border}`, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                     
-                    {/* SPALTE 1: ADRESSE & UST-RADAR */}
+                    {/* SPALTE 1: ADRESSE, FAX & UST-RADAR */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <span style={{ fontSize: '12px', color: theme.textMain }}>{cleanVal(m.adresse) || '-'}</span>
+                      {displayFax && (
+                        <span style={{ fontSize: '12px', color: theme.textMain }}>Fax: {displayFax}</span>
+                      )}
                       <div style={{ marginTop: '4px', fontSize: '11px', color: theme.textMain, fontWeight: 'bold' }}>
                         USt-Radar: <span style={{ color: theme.tresorAccent }}>{m.ust_intervall || 'Vierteljährlich'} {m.dauerfrist ? '(DFV)' : ''}</span>
                       </div>
