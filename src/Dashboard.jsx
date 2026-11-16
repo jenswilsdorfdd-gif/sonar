@@ -218,11 +218,11 @@ export default function Dashboard({ session }) {
     if (!session?.user?.id) return;
     const uid = session.user.id;
 
+    // Alle Akten (Offen & Erledigt) laden, damit der Filter "Erledigte ein-/ausblenden" in AktenCockpit funktioniert
     const { data: aktenData, error: aktenError } = await supabase
       .from('akten')
       .select('*, akten_historie (*)')
       .eq('user_id', uid)
-      .eq('status', 'Offen')
       .order('created_at', { ascending: false });
 
     if (!aktenError && aktenData) {
@@ -324,14 +324,16 @@ export default function Dashboard({ session }) {
               </button>
             )}
 
-            {/* --- RESPONSIVE BUTTONS (JS Gesteuert) --- */}
-            <button
-              title="Tech-Handbuch"
-              onClick={() => setActiveTab('handbuch')}
-              style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-              <Icon name="book" size={18} /> 
-              {!isMobile && <span>Tech-Handbuch</span>}
-            </button>
+            {/* --- TECH-HANDBUCH BUTTON (STRIKT NUR FÜR OWNER SICHTBAR, IN TESTVERSION AUSGEBLENDET) --- */}
+            {!isDemoUser && (
+              <button
+                title="Tech-Handbuch"
+                onClick={() => setActiveTab('handbuch')}
+                style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
+                <Icon name="book" size={18} /> 
+                {!isMobile && <span>Tech-Handbuch</span>}
+              </button>
+            )}
 
             <button
               title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
@@ -454,8 +456,8 @@ export default function Dashboard({ session }) {
           />
         )}
 
-        {/* --- NEU: HANDBUCH VIEW --- */}
-        {activeTab === 'handbuch' && (
+        {/* --- HANDBUCH VIEW (STRIKT NUR FÜR OWNER) --- */}
+        {!isDemoUser && activeTab === 'handbuch' && (
           <Handbuch theme={theme} />
         )}
 
