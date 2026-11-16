@@ -6,6 +6,7 @@ import Wissensspeicher from './Wissensspeicher';
 import FirmenTresor from './FirmenTresor';
 import GegnerCrm from './GegnerCrm';
 import Handbuch from './Handbuch';
+import ComplianceRadar from './ComplianceRadar';
 
 export default function Dashboard({ session }) {
   // Haupt-Mandant (Owner) ID zum Schutz vor versehentlichem Demo-Reset
@@ -89,7 +90,7 @@ export default function Dashboard({ session }) {
   const handleDemoReset = async () => {
     if (!isDemoUser || !session?.user?.id) return;
     const confirmReset = window.confirm(
-      "🧹 DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruflich löschen?"
+      "🧹 DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruich löschen?"
     );
     if (!confirmReset) return;
 
@@ -152,6 +153,7 @@ export default function Dashboard({ session }) {
   const theme = isDarkMode ? {
     bg: '#020617', cardBg: '#0f172a', border: '#1e293b', textMain: '#ffffff', textMuted: '#94a3b8',
     accent: '#00e5ff', accentHover: '#00b8cc', tresorAccent: '#2dd4bf', tresorBg: 'rgba(45, 212, 191, 0.1)',
+    complianceAccent: '#f59e0b', complianceBg: 'rgba(245, 158, 11, 0.1)',
     wissenAccent: '#a855f7', wissenBg: 'rgba(168, 85, 247, 0.1)',
     gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
     handbuchAccent: '#10b981', handbuchBg: 'rgba(16, 185, 129, 0.1)', 
@@ -161,6 +163,7 @@ export default function Dashboard({ session }) {
   } : {
     bg: '#f8fafc', cardBg: '#ffffff', border: '#e2e8f0', textMain: '#0f172a', textMuted: '#64748b',
     accent: '#0284c7', accentHover: '#0369a1', tresorAccent: '#0f766e', tresorBg: '#f0fdfa',
+    complianceAccent: '#d97706', complianceBg: '#fffbeb',
     wissenAccent: '#7e22ce', wissenBg: '#faf5ff',
     gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
     handbuchAccent: '#059669', handbuchBg: '#d1fae5', 
@@ -173,6 +176,7 @@ export default function Dashboard({ session }) {
     switch (activeTab) {
       case 'wissen': return theme.wissenAccent;
       case 'tresor': return theme.tresorAccent;
+      case 'compliance': return theme.complianceAccent;
       case 'gegner': return theme.gegnerAccent;
       case 'handbuch': return theme.handbuchAccent;
       default: return theme.accent;
@@ -251,13 +255,21 @@ export default function Dashboard({ session }) {
       .order('name', { ascending: true });
     if (gegnerData) setGegnerListe(gegnerData);
 
+    // Lädt eigene Wissenseinträge UND die global freigegebenen Gerichts-Streams
     const { data: wissenData, error: wissenErr } = await supabase
       .from('wissensdatenbank')
       .select('*')
-      .eq('user_id', uid)
-      .order('created_at', { ascending: false });
+      .or(`user_id.eq.${uid},firma.eq.Allgemein (Gerichte/Behörden),datei_name.like.RSS_%`)
+      .order('id', { ascending: false });
+
     if (!wissenErr && wissenData) {
       setWissenEintraege(wissenData);
+    } else {
+      const { data: fallbackWissen } = await supabase
+        .from('wissensdatenbank')
+        .select('*')
+        .eq('user_id', uid);
+      if (fallbackWissen) setWissenEintraege(fallbackWissen);
     }
   };
 
@@ -660,30 +672,36 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* --- TAB NAVIGATION (HAUPTMENÜ) NEUE REIHENFOLGE --- */}
+        {/* --- TAB NAVIGATION (HAUPTMENÜ) NEUE REIHENFOLGE INKL. COMPLIANCE & BOARDROOM --- */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
           
           <button
             onClick={() => setActiveTab('akten')}
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="cabinet" size={22} /> AKTEN
           </button>
 
           <button
             onClick={() => setActiveTab('tresor')}
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="building" size={22} /> WIR
           </button>
 
           <button
+            onClick={() => setActiveTab('compliance')}
+            style={{ flex: '1 1 130px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'compliance' ? `2px solid ${theme.complianceAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'compliance' ? theme.complianceAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="alert" size={22} /> COMPLIANCE
+          </button>
+
+          <button
             onClick={() => setActiveTab('gegner')}
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="shield" size={22} /> GEGNER
           </button>
 
           <button
             onClick={() => setActiveTab('wissen')}
-            style={{ flex: '1 1 120px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="brain" size={22} /> WISSEN
           </button>
 
@@ -727,6 +745,17 @@ export default function Dashboard({ session }) {
               suchbegriff={suchbegriff}
               globalUrlText={globalUrlText}
               setGlobalUrlText={setGlobalUrlText}
+            />
+          )}
+
+          {activeTab === 'compliance' && (
+            <ComplianceRadar
+              session={session}
+              theme={theme}
+              mandanten={mandanten}
+              akten={akten}
+              ladeDaten={ladeDaten}
+              showToast={showToast}
             />
           )}
 
