@@ -108,6 +108,14 @@ export default function AktenFormular({
   // --- STRIKTE OWNER-ERKENNUNG AUSSCHLIESSLICH ÜBER LOGIN-USER-ID ---
   const isFullAccessUser = session?.user?.id === OWNER_USER_ID;
 
+  // --- CLICK-WRAP PFLICHT-BESTÄTIGUNG VOR VERSAND (HUMAN-IN-THE-LOOP) ---
+  const [isLegalConfirmed, setIsLegalConfirmed] = useState(isFullAccessUser);
+
+  // Setzt die Click-Wrap-Checkbox beim Wechsel einer Akte oder des Modus für Nicht-Owner automatisch auf false zurück
+  useEffect(() => {
+    setIsLegalConfirmed(isFullAccessUser);
+  }, [selectedAkteId, modus, isFullAccessUser]);
+
   // --- STATES & REFS FÜR DIE ZWEISTUFIGE DEMO-VERSAND-SICHERHEITSSPERRE ---
   const [demoVersandWarningStep, setDemoVersandWarningStep] = useState(0); // 0 = geschlossen, 1 = Stufe 1, 2 = Stufe 2 (Letzte Warnung)
   const [pendingDemoKanal, setPendingDemoKanal] = useState(null); // 'email' | 'fax'
@@ -167,11 +175,21 @@ export default function AktenFormular({
     }
     setDemoVersandWarningStep(0);
     setPendingDemoKanal(null);
+    if (!isFullAccessUser) {
+      setIsLegalConfirmed(false);
+    }
     handleResendVersand(kanalTyp);
   };
 
   // Fängt für Demo-Tester den Klick auf "E-Mail senden" oder "E-Fax" ab und öffnet das 2-stufige Warn-Pop-up
   const handleProtectedVersand = (kanalTyp) => {
+    if (!isLegalConfirmed) {
+      if (typeof showToast === 'function') {
+        showToast('Bitte bestätigen Sie zuerst die eigenverantwortliche Prüfung des Entwurfs.', 'warning');
+      }
+      return;
+    }
+
     if (isFullAccessUser) {
       executeActualVersand(kanalTyp);
       return;
@@ -753,6 +771,7 @@ export default function AktenFormular({
       setAktion(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
       setBriefEntwurf(''); setBezugId(''); setClearOldFristen(true);
       setShowTaskPanel(false); setTaskBetrag(''); setTaskIban(''); setTaskVwz(''); setTaskNotiz('');
+      if (!isFullAccessUser) setIsLegalConfirmed(false);
       
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
@@ -1349,11 +1368,102 @@ export default function AktenFormular({
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
             <label style={{...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen / Arbeitsanweisung & Notizen</label>
+
+            {/* --- VERPFLICHTENDE CLICK-WRAP-CHECKBOX UNMITTELBAR VOR DEN VERSAND-BUTTONS --- */}
+            <div
+              style={{
+                width: '100%',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                background: isLegalConfirmed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.12)',
+                border: isLegalConfirmed ? '1px solid #10b981' : '1px solid #f59e0b',
+                marginBottom: '6px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  fontSize: '12.5px',
+                  lineHeight: '1.5',
+                  color: theme.textMain,
+                  fontWeight: 'bold'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isLegalConfirmed}
+                  onChange={(e) => setIsLegalConfirmed(e.target.checked)}
+                  style={{
+                    marginTop: '3px',
+                    width: '18px',
+                    height: '18px',
+                    accentColor: '#10b981',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                />
+                <span>
+                  Pflicht-Bestätigung vor Versand (Human-in-the-Loop): Ich bestätige als vertretungsberechtigter Erklärender, dass ich den durch das KI-System unverbindlich vorbereiteten Schriftsatzentwurf, sämtliche darin genannten Fakten, Anträge und Fristen sowie die Empfängeradresse eigenverantwortlich geprüft habe und dieses Schreiben hiermit als meine eigene rechtsverbindliche Erklärung absende (§ 2 Lizenz- & Haftungsbedingungen).
+                </span>
+              </label>
+            </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px', width: '100%' }}>
               <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
-              <button type="button" onClick={() => handleProtectedVersand('email')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="send" size={16} /> E-Mail senden (Resend)</button>
-              <button type="button" onClick={() => handleProtectedVersand('fax')} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Icon name="phone" size={16} /> E-Fax (Simple-Fax)</button>
+              <button
+                type="button"
+                disabled={!isLegalConfirmed}
+                onClick={() => handleProtectedVersand('email')}
+                className={!isLegalConfirmed ? 'opacity-50 cursor-not-allowed' : ''}
+                style={{
+                  background: theme.accent,
+                  color: btnTextColor,
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '12px 14px',
+                  minHeight: '44px',
+                  fontSize: '13px',
+                  cursor: isLegalConfirmed ? 'pointer' : 'not-allowed',
+                  opacity: isLegalConfirmed ? 1 : 0.5,
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+                title={!isLegalConfirmed ? 'Bitte bestätigen Sie zuerst die eigenverantwortliche Prüfung des Entwurfs.' : 'Schreiben per E-Mail (Resend) versenden'}
+              >
+                <Icon name="send" size={16} /> E-Mail senden (Resend)
+              </button>
+              <button
+                type="button"
+                disabled={!isLegalConfirmed}
+                onClick={() => handleProtectedVersand('fax')}
+                className={!isLegalConfirmed ? 'opacity-50 cursor-not-allowed' : ''}
+                style={{
+                  background: theme.accent,
+                  color: btnTextColor,
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '12px 14px',
+                  minHeight: '44px',
+                  fontSize: '13px',
+                  cursor: isLegalConfirmed ? 'pointer' : 'not-allowed',
+                  opacity: isLegalConfirmed ? 1 : 0.5,
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+                title={!isLegalConfirmed ? 'Bitte bestätigen Sie zuerst die eigenverantwortliche Prüfung des Entwurfs.' : 'Schreiben per E-Fax (Simple-Fax) versenden'}
+              >
+                <Icon name="phone" size={16} /> E-Fax (Simple-Fax)
+              </button>
               
               {/* KONSISTENTER BUTTON: DURCHGEHEND BLAU MIT DUNKLER SCHRIFT & SCHLICHTEM LINE-ICON */}
               <button 
