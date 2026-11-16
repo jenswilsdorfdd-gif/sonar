@@ -475,6 +475,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         .from('dokumente')
         .upload(finalMdName, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
 
+      // Synchrones Backup (Owner -> Hauptordner / Tester -> Sammel-Testordner inkl. 30-Tage-Cleanup)
+      await syncToGithub(finalMdName, mdContentToStore, uploadedPublicPdfUrl, 'web_scan', showToast);
+
       if (uploadedPublicPdfUrl) {
         parsedData.pdf_url = uploadedPublicPdfUrl;
       }
@@ -1251,6 +1254,9 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
             if (twinLink?.publicUrl) twinPubUrl = twinLink.publicUrl;
           }
           await supabase.from('wissensdatenbank').insert([{ datei_name: mdDisplayName, firma: akteFirma || 'Allgemein', inhalt_text: infoTxt, dokument_url: twinPubUrl }]);
+          await syncToGithub(mdDisplayName, extrahierterText, newUrl, 'nachtrag_upload', showToast);
+        } else {
+          await syncToGithub(file.name.replace(/\.[^/.]+$/, "") + ".md", infoTxt, newUrl, 'nachtrag_upload', showToast);
         }
 
         ladeDaten();
