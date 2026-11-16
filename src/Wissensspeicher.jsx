@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
+import { syncToGithub } from './utils';
 
 // --- PDF.js Import für die clientseitige Extraktion ---
 import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+const OWNER_USER_ID = "ea175141-2c03-4f93-ba1b-392570229cb2";
 
 export default function Wissensspeicher({ theme, wissenEintraege, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff }) {
   const [laedt, setLaedt] = useState(false);
@@ -14,6 +17,11 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   const [wissenFirmaFilter, setWissenFirmaFilter] = useState('');
   const [wissenGegnerFilter, setWissenGegnerFilter] = useState('');
   const [wissenAnzeigeModus, setWissenAnzeigeModus] = useState('md');
+
+  // --- GERICHTS-STREAM SYNC STATES & OWNER-CHECK ---
+  const [isOwnerUser, setIsOwnerUser] = useState(false);
+  const [rssLaedt, setRssLaedt] = useState(false);
+  const [selectedGericht, setSelectedGericht] = useState('');
 
   // --- RESPONSIVE STATE FÜR MOBILE CARD-ANSICHT ---
   const [isMobile, setIsMobile] = useState(false);
@@ -25,9 +33,48 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        setIsOwnerUser(data?.user?.id === OWNER_USER_ID);
+      } catch (_e) {
+        setIsOwnerUser(false);
+      }
+    };
+    checkUser();
+  }, []);
+
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
-  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word' };
+  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
+
+  // --- GERICHTS-STREAMS LIVE ABRUFEN (EDGE FUNCTION TRIGGER) ---
+  const starteGerichtsStreamSync = async () => {
+    if (rssLaedt) return;
+    setRssLaedt(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('rss-knowledge-scraper', {
+        body: selectedGericht ? { gericht: selectedGericht } : {}
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Fehler beim Abruf der Gerichts-Streams.');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      await ladeDaten();
+      showToast(`✅ ${data?.message || 'Gerichts-Streams erfolgreich synchronisiert!'}`, 'success');
+    } catch (err) {
+      console.error('RSS-Scraper Fehler:', err);
+      showToast('❌ Fehler beim Gerichts-Stream-Abruf: ' + (err.message || err), 'error');
+    } finally {
+      setRssLaedt(false);
+    }
+  };
 
   // --- HILFSFUNKTIONEN FÜR EXTRAKTION ---
   const extractTextFromPDF = async (file) => {
@@ -99,6 +146,8 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           inhalt_text: finalDbText,
           dokument_url: mdPublicUrl
         }]);
+
+        await syncToGithub(newFileName, mdInhalt, null, 'wissen_bulk_md', showToast);
       } catch (err) {
         console.error("Import-Fehler bei MD File:", file.name, err);
       }
@@ -173,6 +222,10 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                 inhalt_text: extrahierterText.substring(0, 3000),
                 dokument_url: twinMdUrl
              }]);
+
+             await syncToGithub(mdFileName, mdContent, pubUrl, 'wissen_bulk_pdf', showToast);
+          } else {
+             await syncToGithub(`${finalBaseName}.md`, `Dokument: ${newFileName}`, pubUrl, 'wissen_bulk_pdf', showToast);
           }
         }
       } catch (err) {
@@ -188,13 +241,28 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     showToast(`✅ Upload abgeschlossen! Dateien wurden in den Supabase-Wissensspeicher geladen.`, 'success');
   };
 
-  // --- LÖSCHEN INKL. SUPABASE STORAGE CLEANUP ---
+  // --- PRÜFUNG OB EINTRAG EIN GLOBALER GERICHTS-STREAM IST ---
+  const isGlobalCourtEntry = (eintrag) => {
+    if (!eintrag) return false;
+    return (
+      eintrag.firma === 'Allgemein (Gerichte/Behörden)' ||
+      (eintrag.datei_name && String(eintrag.datei_name).startsWith('RSS_'))
+    );
+  };
+
+  // --- LÖSCHEN INKL. SUPABASE STORAGE CLEANUP (GESCHÜTZT FÜR DEMO-TESTER BEI GERICHTS-STREAMS) ---
   const loescheWissenEintrag = async (eintrag) => {
     if (!eintrag || !eintrag.id) return;
+
+    if (isGlobalCourtEntry(eintrag) && !isOwnerUser) {
+      showToast("Globale Gerichtsentscheidungen können im Demo-Modus nicht gelöscht werden.", "warning");
+      return;
+    }
+
     const isMd = eintrag.datei_name && eintrag.datei_name.toLowerCase().endsWith('.md');
     if (!window.confirm(`Diesen ${isMd ? 'MD' : 'PDF'}-Eintrag dauerhaft aus dem Wissensspeicher entfernen?`)) return;
 
-    if (eintrag.dokument_url) {
+    if (eintrag.dokument_url && String(eintrag.dokument_url).includes('/storage/v1/object/public/dokumente/')) {
       try {
         const parts = decodeURIComponent(eintrag.dokument_url).split('/');
         const storageFileName = parts[parts.length - 1];
@@ -211,7 +279,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     ladeDaten();
   };
 
-  // --- FILTERUNG FÜR MD UND PDF AUS SUPABASE (MANDANTENISOLIERT) ---
+  // --- FILTERUNG FÜR MD UND PDF AUS SUPABASE (MANDANTENISOLIERT + GLOBALE GERICHTS-STREAMS) ---
   const basisGefilterteWissenEintraege = wissenEintraege.filter(w => {
     const matchSuche = !suchbegriff.trim() ||
       (w.datei_name || '').toLowerCase().includes(suchbegriff.toLowerCase()) ||
@@ -235,8 +303,59 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   return (
     <div>
       <h2 style={{ margin: '0 0 20px 0', color: theme.textMain, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
-        <Icon name="brain" size={24} style={{ color: theme.wissenAccent }} /> Alt-Dokumente & Wissensbasis importieren
+        <Icon name="brain" size={24} style={{ color: theme.wissenAccent }} /> Alt-Dokumente, Gerichts-Streams & Wissensbasis
       </h2>
+
+      {/* --- LIVE GERICHTS-STREAM PANEL (BVerfG, BGH, BFH, BVerwG, BAG, BSG, EuGH, EGMR) --- */}
+      <div style={{ ...panelStyle, marginBottom: '20px', border: `1px solid ${theme.wissenAccent}`, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
+        <div style={{ textAlign: 'left', flex: '1 1 300px' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '15px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="book" size={18} style={{ color: theme.wissenAccent }} />
+            <span>Höchstrichterliche Gerichts-Streams (Live-Rechtsprechung für KI-Triage & War-Room)</span>
+          </div>
+          <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>
+            Alle Entscheidungen unter „Allgemein (Gerichte/Behörden)“ fließen bei der Ausarbeitung von Schriftsätzen automatisch in die KI-Prüfung ein.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
+            value={selectedGericht}
+            onChange={(e) => setSelectedGericht(e.target.value)}
+            disabled={rssLaedt}
+            style={{ ...inputStyle, width: 'auto', minWidth: '210px', padding: '10px 12px', fontSize: '13px' }}
+          >
+            <option value="">Alle Höchstgerichte (Komplett)</option>
+            <option value="BVerfG">Bundesverfassungsgericht (BVerfG)</option>
+            <option value="BFH">Bundesfinanzhof (BFH)</option>
+            <option value="BGH">Bundesgerichtshof (BGH)</option>
+            <option value="BVerwG">Bundesverwaltungsgericht (BVerwG)</option>
+            <option value="BSG">Bundessozialgericht (BSG)</option>
+            <option value="BAG">Bundesarbeitsgericht (BAG)</option>
+            <option value="EuGH">Europäischer Gerichtshof (EuGH)</option>
+            <option value="EGMR">Menschenrechtsgerichtshof (EGMR)</option>
+          </select>
+
+          <button
+            type="button"
+            disabled={rssLaedt}
+            onClick={starteGerichtsStreamSync}
+            style={{
+              padding: '10px 16px',
+              background: theme.wissenAccent,
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: rssLaedt ? 'wait' : 'pointer',
+              fontWeight: 'bold',
+              fontSize: '13px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {rssLaedt ? '⏳ Scrape Gerichts-Feeds...' : '⚖️ Gerichts-Streams jetzt aktualisieren'}
+          </button>
+        </div>
+      </div>
 
       <form onSubmit={StarteBulkImport} style={{ ...panelStyle, marginBottom: '30px', border: `1px solid ${theme.wissenAccent}` }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px', textAlign: 'left' }}>
@@ -322,7 +441,8 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             onChange={(e) => setWissenFirmaFilter(e.target.value)}
             style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
           >
-            <option value="">Alle Mandanten</option>
+            <option value="">Alle Quellen & Mandanten</option>
+            <option value="Allgemein (Gerichte/Behörden)">⚖️ Allgemein (Gerichte/Behörden - RSS)</option>
             <option value="Allgemein">Allgemein (Ohne Mandant)</option>
             {mandanten.map(m => <option key={m.id} value={m.firmenname}>{m.firmenname}</option>)}
           </select>
@@ -354,37 +474,44 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
               </thead>
               <tbody>
                 {aktiveListe.slice(0, 50).length > 0 ? (
-                  aktiveListe.slice(0, 50).map(w => (
-                    <tr key={w.id} style={{ borderBottom: `1px solid ${theme.border}`, transition: 'background 0.2s' }}>
-                      <td style={{ padding: '12px 15px' }}>
-                        {w.dokument_url ? (
-                          <a href={w.dokument_url} target="_blank" rel="noreferrer" style={{ color: theme.wissenAccent, textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Icon name="file" size={14} /> {w.datei_name}
-                          </a>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => oeffneTextVorschau(w)}
-                            style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 'bold', color: theme.wissenAccent, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', textAlign: 'left' }}
-                            title="Gespeicherten Textinhalt im neuen Tab anzeigen"
-                          >
-                            <Icon name="file" size={14} /> {w.datei_name}
-                          </button>
-                        )}
-                        {w.inhalt_text && (
-                          <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '4px' }}>
-                            {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 15px', color: theme.textMain }}>{w.firma || 'Allgemein'}</td>
-                      <td style={{ padding: '12px 15px', textAlign: 'center' }}>
-                        <button onClick={() => loescheWissenEintrag(w)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Eintrag löschen">
-                          <Icon name="trash" size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  aktiveListe.slice(0, 50).map(w => {
+                    const darfLoeschen = isOwnerUser || !isGlobalCourtEntry(w);
+                    return (
+                      <tr key={w.id} style={{ borderBottom: `1px solid ${theme.border}`, transition: 'background 0.2s' }}>
+                        <td style={{ padding: '12px 15px' }}>
+                          {w.dokument_url ? (
+                            <a href={w.dokument_url} target="_blank" rel="noreferrer" style={{ color: theme.wissenAccent, textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Icon name="file" size={14} /> {w.datei_name}
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => oeffneTextVorschau(w)}
+                              style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 'bold', color: theme.wissenAccent, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', textAlign: 'left' }}
+                              title="Gespeicherten Textinhalt im neuen Tab anzeigen"
+                            >
+                              <Icon name="file" size={14} /> {w.datei_name}
+                            </button>
+                          )}
+                          {w.inhalt_text && (
+                            <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '4px' }}>
+                              {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 15px', color: theme.textMain }}>{w.firma || 'Allgemein'}</td>
+                        <td style={{ padding: '12px 15px', textAlign: 'center' }}>
+                          {darfLoeschen ? (
+                            <button onClick={() => loescheWissenEintrag(w)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Eintrag löschen">
+                              <Icon name="trash" size={16} />
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: theme.textMuted }} title="Globale Rechtsprechung (Schreibgeschützt)">🔒</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan="3" style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>
@@ -400,43 +527,50 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {aktiveListe.slice(0, 50).length > 0 ? (
-              aktiveListe.slice(0, 50).map(w => (
-                <div key={w.id} style={{ padding: '15px', borderBottom: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {w.dokument_url ? (
-                    <a href={w.dokument_url} target="_blank" rel="noreferrer" title={w.datei_name} style={{ color: theme.wissenAccent, textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', maxWidth: '100%' }}>
-                      <div style={{ flexShrink: 0, display: 'flex' }}><Icon name="file" size={14} /></div>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%' }}>
-                        {w.datei_name}
-                      </span>
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => oeffneTextVorschau(w)}
-                      title={w.datei_name}
-                      style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 'bold', color: theme.wissenAccent, display: 'flex', alignItems: 'center', gap: '6px', maxWidth: '100%', fontSize: '13px', textAlign: 'left' }}
-                    >
-                      <div style={{ flexShrink: 0, display: 'flex' }}><Icon name="file" size={14} /></div>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%' }}>
-                        {w.datei_name}
-                      </span>
-                    </button>
-                  )}
+              aktiveListe.slice(0, 50).map(w => {
+                const darfLoeschen = isOwnerUser || !isGlobalCourtEntry(w);
+                return (
+                  <div key={w.id} style={{ padding: '15px', borderBottom: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {w.dokument_url ? (
+                      <a href={w.dokument_url} target="_blank" rel="noreferrer" title={w.datei_name} style={{ color: theme.wissenAccent, textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', maxWidth: '100%' }}>
+                        <div style={{ flexShrink: 0, display: 'flex' }}><Icon name="file" size={14} /></div>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%' }}>
+                          {w.datei_name}
+                        </span>
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => oeffneTextVorschau(w)}
+                        title={w.datei_name}
+                        style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 'bold', color: theme.wissenAccent, display: 'flex', alignItems: 'center', gap: '6px', maxWidth: '100%', fontSize: '13px', textAlign: 'left' }}
+                      >
+                        <div style={{ flexShrink: 0, display: 'flex' }}><Icon name="file" size={14} /></div>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%' }}>
+                          {w.datei_name}
+                        </span>
+                      </button>
+                    )}
 
-                  {w.inhalt_text && (
-                    <div style={{ fontSize: '11px', color: theme.textMuted, lineHeight: '1.4' }}>
-                      {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
+                    {w.inhalt_text && (
+                      <div style={{ fontSize: '11px', color: theme.textMuted, lineHeight: '1.4' }}>
+                        {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
+                      </div>
+                    )}
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                      <span style={{ fontSize: '12px', color: theme.textMain, fontWeight: '500' }}>{w.firma || 'Allgemein'}</span>
+                      {darfLoeschen ? (
+                        <button onClick={() => loescheWissenEintrag(w)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Eintrag löschen">
+                          <Icon name="trash" size={16} />
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: theme.textMuted }} title="Globale Rechtsprechung (Schreibgeschützt)">🔒</span>
+                      )}
                     </div>
-                  )}
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                    <span style={{ fontSize: '12px', color: theme.textMain, fontWeight: '500' }}>{w.firma || 'Allgemein'}</span>
-                    <button onClick={() => loescheWissenEintrag(w)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }} title="Eintrag löschen">
-                      <Icon name="trash" size={16} />
-                    </button>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div style={{ padding: '20px', textAlign: 'center', color: theme.textMuted }}>
                 {wissenAnzeigeModus === 'md'
