@@ -156,7 +156,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
     cleaned = cleaned.replace(/^```(?:markdown|text|json)?\s*/i, "").replace(/\s*```$/i, "").trim();
     cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, "$1");
-    return cleaned;
+    return cleaned.trim();
   };
 
   // Speichert den aktuellen Chatverlauf persistent in der Tabelle 'akten'
@@ -457,7 +457,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       "VOLLSTÄNDIGE AKTEN-HISTORIE & DOKUMENTENTEXTE (.MD-ZWILLINGE):",
       fullContextText.substring(0, 250000),
       "",
-      "Erstelle jetzt die strukturierte Lagebesprechung des Leitenden Chefpartners nach dem SCQA-Framework mit 4 glasklaren Handlungsoptionen (inkl. Kosten, Dauer, Erfolgschance, allen entscheidungsbefugten Stellen, Widerspruchs-Check und Wirtschaftlichkeits-Abwägung) als reines JSON ohne Markdown-Backticks!"
+      "Erstelle jetzt die strukturierte Lagebesprechung des Leitenden Chefpartners nach dem SCQA-Framework (inkl. Prüfung der gesetzlichen Vertretungszwang- & Berufsträger-Weiche mandatory_counsel_required / counsel_type / counsel_reason sowie 4 glasklaren Handlungsoptionen mit Kosten, Dauer, Erfolgschance, allen entscheidungsbefugten Stellen, Widerspruchs-Check und Wirtschaftlichkeits-Abwägung) als reines JSON ohne Markdown-Backticks!"
     ].join("\n");
 
     try {
@@ -877,7 +877,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   // Schlichte, einheitliche Farbpalette exakt passend zum vorderen SONAR Cockpit
   const bgModal = isDark ? "bg-slate-900" : "bg-white";
-  const borderModal = isDark ? "border-slate-700" : "border-slate-300";
+  const borderModal = isDark ? "bg-slate-700" : "border-slate-300";
   const bgHeader = isDark ? "bg-slate-950" : "bg-slate-100";
   const borderHeader = isDark ? "border-slate-800" : "border-slate-300";
   const textTitle = isDark ? "text-white" : "text-slate-900";
@@ -908,6 +908,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   const allFourGreen = !isLoading && liveStage === 5 && isJudgeApproved;
   const visibleChatMessages = messages.filter((m, idx) => !(idx === 0 && m.role === "user" && m.content.includes("Analysiere dieses vollständige Akten-Dossier")));
+
+  const counselBadgeLabel = strategyBriefing?.counsel_type === "STEUERBERATER"
+    ? "STEUERBERATER-PFLICHT / DRINGENDE MANDATIERUNG"
+    : strategyBriefing?.counsel_type === "RECHTSANWALT_UND_STEUERBERATER"
+    ? "RECHTSANWALTS- & STEUERBERATER-PFLICHT"
+    : "GESETZLICHER ANWALTSZWANG / BERUFSTRÄGER-PFLICHT";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -1109,6 +1115,33 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   Auswahl aktiv: {selectedOptionIds.length}
                 </span>
               </div>
+
+              {/* GESETZLICHE VERTRETUNGSZWANG- & BERUFSTRÄGER-WARNBOX (FALLS ERKANNT) */}
+              {Boolean(strategyBriefing.mandatory_counsel_required) && (
+                <div
+                  style={{
+                    borderColor: "#dc2626",
+                    backgroundColor: isDark ? "rgba(220, 38, 38, 0.16)" : "rgba(220, 38, 38, 0.1)"
+                  }}
+                  className="p-4 rounded-lg border-2 space-y-2 text-left"
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span
+                      style={{ backgroundColor: "#dc2626", color: "#ffffff" }}
+                      className="px-2.5 py-1 rounded text-[11px] font-extrabold uppercase tracking-wide"
+                    >
+                      ACHTUNG: {counselBadgeLabel} ERKANNT!
+                    </span>
+                    <span className="text-[11px] font-bold text-red-400 uppercase">
+                      Gesetzliche Vertretungspflicht / Vorbehaltsaufgabe beachten
+                    </span>
+                  </div>
+                  <p className={`text-xs sm:text-[13px] font-bold leading-relaxed ${isDark ? "text-red-200" : "text-red-900"}`}>
+                    {strategyBriefing.counsel_reason ||
+                      "In diesem Verfahren bzw. für das weiterführende Rechtsmittel besteht gesetzlicher Vertretungszwang oder akuter Beratungsbedarf durch einen zugelassenen Rechtsanwalt bzw. Steuerberater. Nutzen Sie den untenstehenden Entwurf als strukturierte Sachverhalts- und Argumentationsvorbereitung für Ihren Berufsträger."}
+                  </p>
+                </div>
+              )}
 
               {/* Punkt 1 & Punkt 2 untereinander über die volle Breite für 100 % Lesbarkeit ohne Scrollbalken */}
               <div className="flex flex-col gap-4">
