@@ -47,7 +47,19 @@ export default function AktenListe({
         </h2>
         <button 
           onClick={() => setZeigeErledigte(!zeigeErledigte)}
-          style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
+          style={{
+            background: zeigeErledigte ? '#f59e0b' : theme.accent,
+            color: zeigeErledigte ? '#000000' : btnTextColor,
+            border: 'none',
+            borderRadius: '6px',
+            padding: '6px 12px',
+            fontSize: '12px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
         >
           <Icon name="folder" size={14} /> {zeigeErledigte ? 'Erledigte ausblenden' : 'Erledigte einblenden'}
         </button>
@@ -119,33 +131,63 @@ export default function AktenListe({
         {gefilterteAkten.map((akte) => {
           const isExpanded = aufgeklappteAkten.includes(akte.id);
           const istFokussiert = (fokussierteAkteId === akte.id);
+          const istErledigt = akte.status === 'Erledigt';
+
+          // Farbliche Hervorhebung für erledigte Akten (solange nicht reaktiviert)
+          const rowBackground = istFokussiert
+            ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe')
+            : istErledigt
+            ? (isDarkMode ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7')
+            : 'transparent';
+
+          const rowBorderLeft = istFokussiert
+            ? `6px solid ${theme.accent}`
+            : istErledigt
+            ? '6px solid #f59e0b'
+            : '6px solid transparent';
 
           return (
-            <div id={`akte-karte-${akte.id}`} key={akte.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istFokussiert ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe') : 'transparent', borderLeft: istFokussiert ? `6px solid ${theme.accent}` : '6px solid transparent', transition: 'all 0.3s ease', width: '100%', boxSizing: 'border-box' }}>
+            <div
+              id={`akte-karte-${akte.id}`}
+              key={akte.id}
+              style={{
+                borderBottom: `1px solid ${istErledigt ? 'rgba(245, 158, 11, 0.35)' : theme.border}`,
+                background: rowBackground,
+                borderLeft: rowBorderLeft,
+                transition: 'all 0.3s ease',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}
+            >
               
               <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)}>
                 
                 {/* 1. LINKER RAHMEN: DESKTOP CHEVRON (Mit Zwangs-Breite) */}
-                <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', color: istFokussiert ? theme.accent : theme.textMuted }}>
+                <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', color: istFokussiert ? theme.accent : (istErledigt ? '#f59e0b' : theme.textMuted) }}>
                   <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                 </div>
 
                 {/* 2. MOBILER KOPF */}
                 <div className="mobile-only" style={{ width: '100%' }}>
                   <div className="akten-mobile-top">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '24px', color: istFokussiert ? theme.accent : theme.textMuted }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ width: '24px', color: istFokussiert ? theme.accent : (istErledigt ? '#f59e0b' : theme.textMuted) }}>
                         <Icon name={isExpanded ? 'down' : 'right'} size={20} />
                       </div>
-                      <strong style={{ color: theme.accent, fontSize: '14px' }}>
+                      <strong style={{ color: istErledigt ? '#f59e0b' : theme.accent, fontSize: '14px' }}>
                         [{akte.unser_zeichen || '---'}]
                       </strong>
+                      {istErledigt && (
+                        <span style={{ background: '#f59e0b', color: '#000000', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                          ✓ Erledigt
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                       <select 
                         value={akte.status || 'Offen'} 
                         onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                        style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', textAlign: 'center' }}
+                        style={{ background: istErledigt ? '#f59e0b' : theme.accent, color: istErledigt ? '#000000' : btnTextColor, border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', textAlign: 'center' }}
                       >
                         <option value="Offen">Offen</option>
                         <option value="Erledigt">Erledigt</option>
@@ -165,7 +207,7 @@ export default function AktenListe({
                 <div style={{ flex: '1 1 100%', minWidth: 0, boxSizing: 'border-box' }}>
                   <div className="akten-desktop-grid">
                     
-                    <div className="akten-field-box desktop-only">
+                    <div className="akten-field-box desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <input 
                         type="text" 
                         defaultValue={akte.unser_zeichen || ''} 
@@ -173,8 +215,13 @@ export default function AktenListe({
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Unser Zeichen" 
                         disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.accent, fontSize: '14px', fontWeight: 'bold', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? '#f59e0b' : theme.accent, fontSize: '14px', fontWeight: 'bold', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
                       />
+                      {istErledigt && (
+                        <span style={{ background: '#f59e0b', color: '#000000', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          ✓ Erledigt
+                        </span>
+                      )}
                     </div>
 
                     {/* GEGNER FELD + HOVER TOOLTIP */}
@@ -186,7 +233,7 @@ export default function AktenListe({
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegner" 
                         disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '15px', fontWeight: 'bold', cursor: akte.is_locked ? 'help' : 'text' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? (isDarkMode ? '#fde68a' : '#92400e') : theme.textMain, fontSize: '15px', fontWeight: 'bold', cursor: akte.is_locked ? 'help' : 'text' }} 
                       />
                       {akte.is_locked && (
                         <div className="tooltip-content" style={{ display: 'none', position: 'absolute', top: '100%', left: 0, background: theme.cardBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', zIndex: 9999, width: '280px', boxShadow: '0 5px 15px rgba(0,0,0,0.5)', fontSize: '13px', color: theme.textMain, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
@@ -206,7 +253,7 @@ export default function AktenListe({
                         onClick={(e) => e.stopPropagation()} 
                         placeholder="Gegenstand" 
                         disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMain, fontSize: '14px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? (isDarkMode ? '#fcd34d' : '#b45309') : theme.textMain, fontSize: '14px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
                       />
                     </div>
 
@@ -242,7 +289,7 @@ export default function AktenListe({
                   <select 
                     value={akte.status || 'Offen'} 
                     onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                    style={{ background: akte.status === 'Erledigt' ? theme.border : theme.accent, color: akte.status === 'Erledigt' ? theme.textMain : btnTextColor, border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
+                    style={{ background: istErledigt ? '#f59e0b' : theme.accent, color: istErledigt ? '#000000' : btnTextColor, border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
                   >
                     <option value="Offen">Offen</option>
                     <option value="Erledigt">Erledigt</option>
@@ -267,13 +314,13 @@ export default function AktenListe({
                 <div style={{ background: theme.inputBg, padding: '15px', borderTop: `1px solid ${theme.border}`, width: '100%', boxSizing: 'border-box' }}>
                   
                   {/* AKTIONSMENÜ */}
-                  <div className="akten-actions-bar" style={{ background: theme.cardBg, border: `1px solid ${theme.border}` }}>
-                    <div style={{ fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
-                      Aktions-Menü
+                  <div className="akten-actions-bar" style={{ background: theme.cardBg, border: `1px solid ${istErledigt ? '#f59e0b' : theme.border}` }}>
+                    <div style={{ fontSize: '13px', color: istErledigt ? '#f59e0b' : theme.textMain, fontWeight: 'bold' }}>
+                      {istErledigt ? 'Aktions-Menü (Akte ist als ERLEDIGT archiviert & versiegelt)' : 'Aktions-Menü'}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', maxWidth: '600px' }}>
                       {akte.status === 'Erledigt' && (
-                        <button onClick={() => toggleAkteStatus(akte.id, akte.status)} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="folder" size={14} /> Akte wiedereröffnen</button>
+                        <button onClick={() => toggleAkteStatus(akte.id, akte.status)} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="folder" size={14} /> Akte wiedereröffnen (Reaktivieren)</button>
                       )}
                       <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
                       <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
