@@ -21,7 +21,7 @@ export default function Dashboard({ session }) {
   // --- STATE FÜR DAS 3-TAB RECHTS-MODAL ('impressum' | 'datenschutz' | 'haftung' | null) ---
   const [legalModalTab, setLegalModalTab] = useState(null);
 
-  // --- NEU: RESPONSIVE STATE FÜR HEADER-BUTTONS ---
+  // --- RESPONSIVE STATE FÜR HEADER-BUTTONS ---
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function Dashboard({ session }) {
     }, 7000);
   };
 
-  // --- NEU: GLOBALE SUCHE & URL FETCH LOGIK ---
+  // --- GLOBALE SUCHE & URL FETCH LOGIK ---
   const [suchbegriff, setSuchbegriff] = useState('');
   const [webFetchLoading, setWebFetchLoading] = useState(false);
   const [globalUrlText, setGlobalUrlText] = useState(null);
@@ -71,11 +71,11 @@ export default function Dashboard({ session }) {
 
         setGlobalUrlText(`--- LIVE WEBSEITEN-INHALT VON ${urlStr} ---\n\n${cleanText}`);
         setActiveTab('akten');
-        showToast(`✅ Inhalte von ${urlStr} erfolgreich aus dem Netz geladen und im Schreibfenster eingefügt!`, 'success');
+        showToast(`Inhalte von ${urlStr} erfolgreich aus dem Netz geladen und im Schreibfenster eingefügt.`, 'success');
       }
     } catch (e) {
       console.error("Fehler beim Abrufen der URL:", e);
-      showToast("❌ Fehler beim Abrufen der URL aus dem Netz.", 'error');
+      showToast("Fehler beim Abrufen der URL aus dem Netz.", 'error');
     }
     setWebFetchLoading(false);
   };
@@ -90,7 +90,7 @@ export default function Dashboard({ session }) {
   const handleDemoReset = async () => {
     if (!isDemoUser || !session?.user?.id) return;
     const confirmReset = window.confirm(
-      "🧹 DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruich löschen?"
+      "DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruflich löschen?"
     );
     if (!confirmReset) return;
 
@@ -140,10 +140,10 @@ export default function Dashboard({ session }) {
       await supabase.from('import_queue').delete().eq('user_id', uid);
 
       await ladeDaten();
-      showToast("✅ Alle Test-Daten und Dokumente wurden rückstandslos gelöscht!", "success");
+      showToast("Alle Test-Daten und Dokumente wurden rückstandslos gelöscht.", "success");
     } catch (err) {
       console.error("Fehler beim Demo-Reset:", err);
-      showToast("❌ Fehler beim Zurücksetzen der Demo-Daten: " + (err.message || err), "error");
+      showToast("Fehler beim Zurücksetzen der Demo-Daten: " + (err.message || err), "error");
     } finally {
       setResetLoading(false);
     }
@@ -626,7 +626,7 @@ export default function Dashboard({ session }) {
                 disabled={resetLoading}
                 onClick={handleDemoReset}
                 style={{
-                  background: theme.warningBg,
+                  background: 'transparent',
                   color: theme.gegnerAccent,
                   border: `1px solid ${theme.gegnerAccent}`,
                   padding: isMobile ? '8px 12px' : '8px 16px',
@@ -639,7 +639,7 @@ export default function Dashboard({ session }) {
                 }}
               >
                 <Icon name="trash" size={18} />
-                {!isMobile && <span>{resetLoading ? 'Bereinige...' : '🧹 Demo zurücksetzen'}</span>}
+                {!isMobile && <span>{resetLoading ? 'Bereinige...' : 'Demo zurücksetzen'}</span>}
               </button>
             )}
 
@@ -672,7 +672,7 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* --- TAB NAVIGATION (HAUPTMENÜ) NEUE REIHENFOLGE INKL. COMPLIANCE & BOARDROOM --- */}
+        {/* --- TAB NAVIGATION (EXAKTE REIHENFOLGE: AKTEN – WIR – GEGNER – COMPLIANCE – WISSEN) --- */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
           
           <button
@@ -688,15 +688,15 @@ export default function Dashboard({ session }) {
           </button>
 
           <button
-            onClick={() => setActiveTab('compliance')}
-            style={{ flex: '1 1 130px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'compliance' ? `2px solid ${theme.complianceAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'compliance' ? theme.complianceAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <Icon name="alert" size={22} /> COMPLIANCE
-          </button>
-
-          <button
             onClick={() => setActiveTab('gegner')}
             style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="shield" size={22} /> GEGNER
+          </button>
+
+          <button
+            onClick={() => setActiveTab('compliance')}
+            style={{ flex: '1 1 130px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'compliance' ? `2px solid ${theme.complianceAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'compliance' ? theme.complianceAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <Icon name="alert" size={22} /> COMPLIANCE
           </button>
 
           <button
@@ -723,7 +723,7 @@ export default function Dashboard({ session }) {
             }}
             style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
           />
-          {webFetchLoading && <span style={{ fontSize: '12px', color: activeColor }}>🌐 Lade Webseite...</span>}
+          {webFetchLoading && <span style={{ fontSize: '12px', color: activeColor }}>Lade Webseite...</span>}
           {suchbegriff && (
             <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
               <Icon name="x" size={18} />
@@ -748,6 +748,28 @@ export default function Dashboard({ session }) {
             />
           )}
 
+          {activeTab === 'tresor' && (
+            <FirmenTresor
+              session={session}
+              theme={theme}
+              mandanten={mandanten}
+              ladeDaten={ladeDaten}
+              showToast={showToast}
+              suchbegriff={suchbegriff}
+            />
+          )}
+
+          {activeTab === 'gegner' && (
+            <GegnerCrm
+              session={session}
+              theme={theme}
+              gegnerListe={gegnerListe}
+              ladeDaten={ladeDaten}
+              showToast={showToast}
+              suchbegriff={suchbegriff}
+            />
+          )}
+
           {activeTab === 'compliance' && (
             <ComplianceRadar
               session={session}
@@ -764,28 +786,6 @@ export default function Dashboard({ session }) {
               theme={theme}
               wissenEintraege={wissenEintraege}
               mandanten={mandanten}
-              gegnerListe={gegnerListe}
-              ladeDaten={ladeDaten}
-              showToast={showToast}
-              suchbegriff={suchbegriff}
-            />
-          )}
-
-          {activeTab === 'tresor' && (
-            <FirmenTresor
-              session={session}
-              theme={theme}
-              mandanten={mandanten}
-              ladeDaten={ladeDaten}
-              showToast={showToast}
-              suchbegriff={suchbegriff}
-            />
-          )}
-
-          {activeTab === 'gegner' && (
-            <GegnerCrm
-              session={session}
-              theme={theme}
               gegnerListe={gegnerListe}
               ladeDaten={ladeDaten}
               showToast={showToast}
