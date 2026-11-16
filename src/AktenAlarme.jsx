@@ -1,5 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from './supabaseClient';
 import Icon from './Icon';
+import {
+  HEADCOUNT_THRESHOLDS,
+  RECURRING_COMPLIANCE_DEADLINES,
+  calculateKSchGFTE
+} from './config/sonarComplianceRules';
 
 export default function AktenAlarme({
   theme,
@@ -16,8 +22,12 @@ export default function AktenAlarme({
   handleInlineEdit,
   handleTerminVerschieben,
   handleNachhaken,
-  formatDatum
+  formatDatum,
+  ladeDaten,
+  showToast
 }) {
+  const [creatingComplianceKey, setCreatingComplianceKey] = useState(null);
+
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
   const berechneTageBis = (datumStr) => {
@@ -85,7 +95,132 @@ export default function AktenAlarme({
   });
   ustRadar.sort((a,b) => a.tageUebrig - b.tageUebrig);
 
-  if (fristenWarnungen.length === 0 && ustRadar.length === 0) {
+  // --- SONAR COMPLIANCE RADAR: UNTERJÄHRIGE GESETZLICHE FRISTEN (<= 30 TAGE) & KRITISCHE SCHWELLENWERTE ---
+  const complianceAlarme = [];
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  mandanten.forEach(m => {
+    const cp = (m && typeof m.compliance_profile === 'object' && m.compliance_profile !== null)
+      ? m.compliance_profile
+      : {};
+    const rechtsform = cp.rechtsform || 'GmbH';
+    const headcountTotal = Number(cp.headcount_total || 0);
+    const fteKschg = calculateKSchGFTE(cp.headcount_parttime_20, cp.headcount_parttime_30, cp.headcount_fulltime);
+
+    // 1. Jahresfristen aus RECURRING_COMPLIANCE_DEADLINES prüfen (Anzeige wenn <= 30 Tage entfernt)
+    RECURRING_COMPLIANCE_DEADLINES.forEach(dl => {
+      if (dl.cycle !== 'YEARLY') return;
+      if (dl.appliesTo && !dl.appliesTo.includes(rechtsform)) return;
+      if (headcountTotal < Number(dl.minHeadcount || 0)) return;
+      if (dl.id === 'ticker_ksk_meldung' && !cp.uses_external_creatives) return;
+      if (dl.id === 'ticker_lucid_verpackg' && !cp.ships_physical_goods) return;
+
+      let targetDate = new Date(actYear, Number(dl.month || 1) - 1, Number(dl.day || 1));
+      if (targetDate < todayMidnight) {
+        targetDate = new Date(actYear + 1, Number(dl.month || 1) - 1, Number(dl.day || 1));
+      }
+      const isoStr = targetDate.toISOString().split('T')[0];
+      const tage = berechneTageBis(isoStr);
+
+      if (tage !== null && tage <= 30) {
+        const akteThema = `Compliance-Pflicht: ${dl.title}`;
+        const alreadyExists = akten.some(
+          a => a.status !== 'Erledigt' && a.thema === akteThema && a.mandant_name === m.firmenname
+        );
+        if (!alreadyExists) {
+          complianceAlarme.push({
+            key: `dl_${m.id}_${dl.id}`,
+            firma: m.firmenname,
+            title: dl.title,
+            legalBasis: dl.legalBasis,
+            warningText: dl.warningText,
+            datum: isoStr,
+            tageUebrig: tage
+          });
+        }
+      }
+    });
+
+    // 2. Kritische KSchG-Schwelle (> 10,0 FTE) als Warnkarte, falls noch nicht als Wiedervorlage hinterlegt
+    if (fteKschg > 10.0) {
+      const kschgRule = HEADCOUNT_THRESHOLDS.find(t => t.metric === 'fte_kschg');
+      if (kschgRule) {
+        const akteThema = `Compliance-Pflicht: ${kschgRule.title}`;
+        const alreadyExists = akten.some(
+          a => a.status !== 'Erledigt' && a.thema === akteThema && a.mandant_name === m.firmenname
+        );
+        if (!alreadyExists) {
+          complianceAlarme.push({
+            key: `th_${m.id}_kschg`,
+            firma: m.firmenname,
+            title: `${kschgRule.title} (Aktuell: ${fteKschg.toFixed(2)} FTE)`,
+            legalBasis: kschgRule.legalBasis,
+            warningText: kschgRule.obligations.join('\n• '),
+            datum: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+            tageUebrig: 7
+          });
+        }
+      }
+    }
+  });
+
+  // 1-Klick-Erstellung einer Wiedervorlage-Akte direkt aus der Alarmbox
+  const handleCreateComplianceWiedervorlageFromAlarm = async (item) => {
+    if (!item || creatingComplianceKey) return;
+    setCreatingComplianceKey(item.key);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const uid = authData?.user?.id;
+      if (!uid) throw new Error('Nicht angemeldet.');
+
+      const akteThema = `Compliance-Pflicht: ${item.title}`;
+      const kuerzel = String(item.firma || 'COMP').replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
+      const unserZeichen = `COMP-${kuerzel}-${new Date().getFullYear()}-${String(Math.floor(100 + Math.random() * 900))}`;
+
+      const { data: newAkte, error: akteErr } = await supabase
+        .from('akten')
+        .insert([{
+          user_id: uid,
+          unser_zeichen: unserZeichen,
+          mandant_name: item.firma,
+          gegner_name: 'Interne Organ-Compliance / Behördenfrist',
+          aktenzeichen_gegner: item.legalBasis,
+          thema: akteThema,
+          status: 'Offen'
+        }])
+        .select()
+        .single();
+
+      if (akteErr || !newAkte) throw new Error(akteErr?.message || 'Fehler beim Anlegen der Akte.');
+
+      await supabase.from('akten_historie').insert([{
+        user_id: uid,
+        akte_id: newAkte.id,
+        datum: new Date().toISOString().split('T')[0],
+        typ: 'Eingang',
+        kanal: 'Compliance-Radar',
+        aktion: item.title,
+        frist_extern: item.datum,
+        wiedervorlage: item.datum,
+        brief_entwurf: `GESETZLICHE GRUNDLAGE: ${item.legalBasis}\n\nHAFTUNGS- & PFLICHTHINWEIS:\n${item.warningText}`
+      }]);
+
+      if (typeof ladeDaten === 'function') await ladeDaten();
+      if (typeof showToast === 'function') {
+        showToast(`✅ Compliance-Wiedervorlage [${unserZeichen}] für ${item.firma} angelegt!`, 'success');
+      }
+    } catch (err) {
+      console.error('Compliance-Wiedervorlage Fehler:', err);
+      if (typeof showToast === 'function') {
+        showToast('❌ Fehler: ' + (err.message || err), 'error');
+      }
+    } finally {
+      setCreatingComplianceKey(null);
+    }
+  };
+
+  if (fristenWarnungen.length === 0 && ustRadar.length === 0 && complianceAlarme.length === 0) {
     return null;
   }
 
@@ -127,7 +262,7 @@ export default function AktenAlarme({
       
       <div style={{ ...panelStyle, background: theme.warningBg, border: `1px solid ${theme.warningBorder}` }}>
         <h4 onClick={() => setIsAlarmsOpen(!isAlarmsOpen)} style={{ color: theme.warningText, margin: isAlarmsOpen ? '0 0 15px 0' : '0', textAlign: 'left', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Icon name="alert" size={20} /> Dringende Alarme & Fällige Wiedervorlagen ({fristenWarnungen.length + ustRadar.length})</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Icon name="alert" size={20} /> Dringende Alarme, Compliance-Radar & Fällige Wiedervorlagen ({fristenWarnungen.length + ustRadar.length + complianceAlarme.length})</div>
           <div style={{ color: theme.warningBorder }}><Icon name={isAlarmsOpen ? 'down' : 'right'} size={20} /></div>
         </h4>
         {isAlarmsOpen && (
@@ -173,6 +308,55 @@ export default function AktenAlarme({
               <div key={`ust-${i}`} style={{ background: theme.cardItemBg, padding: '12px 18px', borderRadius: '8px', border: `1px solid ${theme.border}`, borderLeft: `5px solid ${theme.tresorAccent}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><strong style={{ color: theme.tresorAccent }}><Icon name="folder" size={14} /> {r.firma}</strong> — <span style={{ color: theme.textMain }}>{r.bezeichnung}</span></div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}><span style={{ fontSize: '13px', color: theme.textMuted }}>Fällig am {formatDatum(r.datum)}</span><span style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain }}>(Noch {r.tageUebrig} Tage)</span></div>
+              </div>
+            ))}
+            {complianceAlarme.map((c) => (
+              <div
+                key={c.key}
+                style={{
+                  background: theme.cardItemBg,
+                  padding: '12px 18px',
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.border}`,
+                  borderLeft: '5px solid #f59e0b',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#f59e0b', fontSize: '13.5px' }}>
+                      ⚖️ [{c.firma}] {c.title}
+                    </strong>
+                    <span style={{ fontSize: '11px', color: theme.textMuted }}>({c.legalBasis})</span>
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: theme.textMain }}>{c.warningText}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#f59e0b' }}>
+                    Frist: {formatDatum(c.datum)} (Noch {c.tageUebrig} Tage)
+                  </span>
+                  <button
+                    type="button"
+                    disabled={creatingComplianceKey === c.key}
+                    onClick={() => handleCreateComplianceWiedervorlageFromAlarm(c)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      background: '#f59e0b',
+                      color: '#000000',
+                      fontSize: '11.5px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {creatingComplianceKey === c.key ? '⏳ Lege an...' : '+ Als Wiedervorlage-Akte'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
