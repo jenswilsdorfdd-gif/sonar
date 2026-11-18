@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub } from './utils';
+import RssFeedHealthAlert from './RssFeedHealthAlert';
 
 // --- PDF.js Import für die clientseitige Extraktion ---
 import * as pdfjsLib from 'pdfjs-dist';
@@ -67,10 +68,10 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
       }
 
       await ladeDaten();
-      showToast(`✅ ${data?.message || 'Gerichts-Streams erfolgreich synchronisiert!'}`, 'success');
+      showToast(`${data?.message || 'Gerichts-Streams erfolgreich synchronisiert.'}`, 'success');
     } catch (err) {
       console.error('RSS-Scraper Fehler:', err);
-      showToast('❌ Fehler beim Gerichts-Stream-Abruf: ' + (err.message || err), 'error');
+      showToast('Fehler beim Gerichts-Stream-Abruf: ' + (err.message || err), 'error');
     } finally {
       setRssLaedt(false);
     }
@@ -90,9 +91,27 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     return fullText;
   };
 
-  // --- VORSCHAU FÜR TEXT-EINTRÄGE OHNE DIREKTE STORAGE-URL ---
-  const oeffneTextVorschau = (eintrag) => {
-    const textContent = eintrag.inhalt_text || 'Kein Textinhalt hinterlegt.';
+  // --- VOLLTEXT-VORSCHAU (LÄDT ECHTEN VOLLTEXT BIS 85.000 ZEICHEN AUS DEM BUCKET 'dokumente' ODER NUTZT DB-FALLBACK) ---
+  const oeffneTextVorschau = async (eintrag) => {
+    let textContent = eintrag?.inhalt_text || 'Kein Textinhalt hinterlegt.';
+    try {
+      if (eintrag?.dokument_url && String(eintrag.dokument_url).includes('/storage/v1/object/public/dokumente/')) {
+        const res = await fetch(eintrag.dokument_url);
+        if (res.ok) {
+          const fullTxt = await res.text();
+          if (fullTxt && fullTxt.trim().length > 0) textContent = fullTxt;
+        }
+      } else if (eintrag?.datei_name) {
+        const { data, error } = await supabase.storage.from('dokumente').download(eintrag.datei_name);
+        if (!error && data) {
+          const fullTxt = await data.text();
+          if (fullTxt && fullTxt.trim().length > 0) textContent = fullTxt;
+        }
+      }
+    } catch (e) {
+      console.warn('Volltext aus Storage konnte nicht geladen werden, zeige DB-Vorschau:', e);
+    }
+
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
     const blobUrl = URL.createObjectURL(blob);
     window.open(blobUrl, '_blank', 'noopener,noreferrer');
@@ -125,7 +144,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
         const originalBaseName = file.name.substring(0, file.name.lastIndexOf('.'));
         const safeName = originalBaseName.replace(/[^a-zA-Z0-9.-]/g, '_');
         const mdInhalt = await file.text();
-        const finalDbText = mdInhalt.substring(0, 3000);
+        const finalDbText = mdInhalt.substring(0, 8000);
         const newFileName = `${safeName}.md`;
         const storagePath = `wissen_${timestamp}_${newFileName}`;
 
@@ -195,7 +214,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           await supabase.from('wissensdatenbank').insert([{
             datei_name: newFileName,
             firma: bulkFirma || 'Allgemein',
-            inhalt_text: needsMdGeneration ? extrahierterText.substring(0, 3000) : `Dokument: ${newFileName}`,
+            inhalt_text: needsMdGeneration ? extrahierterText.substring(0, 8000) : `Dokument: ${newFileName}`,
             dokument_url: pubUrl
           }]);
 
@@ -219,7 +238,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
              await supabase.from('wissensdatenbank').insert([{
                 datei_name: mdFileName,
                 firma: bulkFirma || 'Allgemein',
-                inhalt_text: extrahierterText.substring(0, 3000),
+                inhalt_text: extrahierterText.substring(0, 8000),
                 dokument_url: twinMdUrl
              }]);
 
@@ -238,7 +257,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     setLaedt(false);
     setTimeout(() => { ladeDaten(); }, 300);
     if (document.getElementById('bulk-file-input')) document.getElementById('bulk-file-input').value = '';
-    showToast(`✅ Upload abgeschlossen! Dateien wurden in den Supabase-Wissensspeicher geladen.`, 'success');
+    showToast(`Upload abgeschlossen! Dateien wurden in den Supabase-Wissensspeicher geladen.`, 'success');
   };
 
   // --- PRÜFUNG OB EINTRAG EIN GLOBALER GERICHTS-STREAM IST ---
@@ -275,7 +294,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     }
 
     await supabase.from('wissensdatenbank').delete().eq('id', eintrag.id);
-    showToast(`✅ ${isMd ? 'MD' : 'PDF'}-Eintrag gelöscht!`, 'success');
+    showToast(`${isMd ? 'MD' : 'PDF'}-Eintrag gelöscht.`, 'success');
     ladeDaten();
   };
 
@@ -306,15 +325,23 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
         <Icon name="brain" size={24} style={{ color: theme.wissenAccent }} /> Alt-Dokumente, Gerichts-Streams & Wissensbasis
       </h2>
 
-      {/* --- LIVE GERICHTS-STREAM PANEL (BVerfG, BGH, BFH, BVerwG, BAG, BSG, EuGH, EGMR) --- */}
+      {/* --- ÜBERSICHTS-KACHEL: RSS-QUELLEN-MONITOR (25 FEEDS) --- */}
+      <RssFeedHealthAlert
+        theme={theme}
+        showToast={showToast}
+        ladeDaten={ladeDaten}
+        mode="monitor"
+      />
+
+      {/* --- LIVE GERICHTS-STREAM PANEL (25 RECHTS-, STEUER- & BEHÖRDEN-FEEDS) --- */}
       <div style={{ ...panelStyle, marginBottom: '20px', border: `1px solid ${theme.wissenAccent}`, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}>
         <div style={{ textAlign: 'left', flex: '1 1 300px' }}>
           <div style={{ fontWeight: 'bold', fontSize: '15px', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="book" size={18} style={{ color: theme.wissenAccent }} />
-            <span>Höchstrichterliche Gerichts-Streams (Live-Rechtsprechung für KI-Triage & War-Room)</span>
+            <span>Höchstrichterliche Gerichts- & Behörden-Streams (Volltext-Rechtsprechung für KI-Triage & War-Room)</span>
           </div>
           <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>
-            Alle Entscheidungen unter „Allgemein (Gerichte/Behörden)“ fließen bei der Ausarbeitung von Schriftsätzen automatisch in die KI-Prüfung ein.
+            Alle Entscheidungen unter „Allgemein (Gerichte/Behörden)“ liegen als ungekürzte Volltexte (bis 85.000 Zeichen inkl. §§-Header) im Storage-Bucket vor.
           </div>
         </div>
 
@@ -325,7 +352,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             disabled={rssLaedt}
             style={{ ...inputStyle, width: 'auto', minWidth: '210px', padding: '10px 12px', fontSize: '13px' }}
           >
-            <option value="">Alle Höchstgerichte (Komplett)</option>
+            <option value="">Alle Quellen / Gerichte (Komplett)</option>
             <option value="BVerfG">Bundesverfassungsgericht (BVerfG)</option>
             <option value="BFH">Bundesfinanzhof (BFH)</option>
             <option value="BGH">Bundesgerichtshof (BGH)</option>
@@ -334,6 +361,8 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             <option value="BAG">Bundesarbeitsgericht (BAG)</option>
             <option value="EuGH">Europäischer Gerichtshof (EuGH)</option>
             <option value="EGMR">Menschenrechtsgerichtshof (EGMR)</option>
+            <option value="BMF-Steuern">BMF Steuern</option>
+            <option value="BaFin">BaFin Aufsicht</option>
           </select>
 
           <button
@@ -352,7 +381,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
               whiteSpace: 'nowrap'
             }}
           >
-            {rssLaedt ? '⏳ Scrape Gerichts-Feeds...' : '⚖️ Gerichts-Streams jetzt aktualisieren'}
+            {rssLaedt ? 'Scrape Gerichts-Feeds...' : 'Gerichts-Streams jetzt aktualisieren'}
           </button>
         </div>
       </div>
@@ -378,7 +407,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             />
             {bulkDateien.length > 0 && (
               <div style={{ marginTop: '10px', fontSize: '13px', color: theme.wissenAccent, fontWeight: 'bold' }}>
-                📂 {bulkDateien.length} Datei(en) ausgewählt und bereit zum Import!
+                {bulkDateien.length} Datei(en) ausgewählt und bereit zum Import!
               </div>
             )}
           </div>
@@ -386,7 +415,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
 
         {bulkStatus && (
           <div style={{ marginTop: '20px', padding: '12px', background: theme.wissenBg, border: `1px solid ${theme.wissenAccent}`, borderRadius: '6px', color: theme.textMain, fontSize: '13px', textAlign: 'left' }}>
-            <strong>⏳ Import läuft:</strong> {bulkStatus.text} ({bulkStatus.fortschritt} von {bulkStatus.gesamt})
+            <strong>Import läuft:</strong> {bulkStatus.text} ({bulkStatus.fortschritt} von {bulkStatus.gesamt})
           </div>
         )}
 
@@ -442,7 +471,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             style={{ ...inputStyle, padding: '10px', fontSize: '13px' }}
           >
             <option value="">Alle Quellen & Mandanten</option>
-            <option value="Allgemein (Gerichte/Behörden)">⚖️ Allgemein (Gerichte/Behörden - RSS)</option>
+            <option value="Allgemein (Gerichte/Behörden)">Allgemein (Gerichte/Behörden - RSS)</option>
             <option value="Allgemein">Allgemein (Ohne Mandant)</option>
             {mandanten.map(m => <option key={m.id} value={m.firmenname}>{m.firmenname}</option>)}
           </select>
@@ -488,14 +517,14 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                               type="button"
                               onClick={() => oeffneTextVorschau(w)}
                               style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 'bold', color: theme.wissenAccent, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', textAlign: 'left' }}
-                              title="Gespeicherten Textinhalt im neuen Tab anzeigen"
+                              title="Kompletten Volltext im neuen Tab anzeigen"
                             >
                               <Icon name="file" size={14} /> {w.datei_name}
                             </button>
                           )}
                           {w.inhalt_text && (
                             <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '4px' }}>
-                              {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
+                              {w.inhalt_text.length > 110 ? w.inhalt_text.substring(0, 110) + '...' : w.inhalt_text}
                             </div>
                           )}
                         </td>
@@ -506,7 +535,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                               <Icon name="trash" size={16} />
                             </button>
                           ) : (
-                            <span style={{ fontSize: '11px', color: theme.textMuted }} title="Globale Rechtsprechung (Schreibgeschützt)">🔒</span>
+                            <span style={{ fontSize: '11px', color: theme.textMuted }} title="Globale Rechtsprechung (Schreibgeschützt)">Geschützt</span>
                           )}
                         </td>
                       </tr>
@@ -554,7 +583,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
 
                     {w.inhalt_text && (
                       <div style={{ fontSize: '11px', color: theme.textMuted, lineHeight: '1.4' }}>
-                        {w.inhalt_text.length > 80 ? w.inhalt_text.substring(0, 80) + '...' : w.inhalt_text}
+                        {w.inhalt_text.length > 110 ? w.inhalt_text.substring(0, 110) + '...' : w.inhalt_text}
                       </div>
                     )}
                     
@@ -565,7 +594,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                           <Icon name="trash" size={16} />
                         </button>
                       ) : (
-                        <span style={{ fontSize: '11px', color: theme.textMuted }} title="Globale Rechtsprechung (Schreibgeschützt)">🔒</span>
+                        <span style={{ fontSize: '11px', color: theme.textMuted }} title="Globale Rechtsprechung (Schreibgeschützt)">Geschützt</span>
                       )}
                     </div>
                   </div>
