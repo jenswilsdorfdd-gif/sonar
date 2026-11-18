@@ -7,6 +7,7 @@ import FirmenTresor from './FirmenTresor';
 import GegnerCrm from './GegnerCrm';
 import Handbuch from './Handbuch';
 import ComplianceRadar from './ComplianceRadar';
+import RssFeedHealthAlert from './RssFeedHealthAlert';
 
 export default function Dashboard({ session }) {
   // Haupt-Mandant (Owner) ID zum Schutz vor versehentlichem Demo-Reset
@@ -277,6 +278,14 @@ export default function Dashboard({ session }) {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh', position: 'relative' }}>
+
+      {/* --- GLOBALER RSS-HEALTH-ALARM (RENDERT NUR BEI DEFEKTEN FEEDS MIT STATUS = 'error') --- */}
+      <RssFeedHealthAlert
+        theme={theme}
+        showToast={showToast}
+        ladeDaten={ladeDaten}
+        mode="popup"
+      />
 
       {/* --- GLOBAL TOAST CONTAINER --- */}
       <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
