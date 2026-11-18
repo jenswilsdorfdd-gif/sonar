@@ -8,6 +8,31 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 const OWNER_USER_ID = "ea175141-2c03-4f93-ba1b-392570229cb2";
 const OWNER_DEFAULT_FAX = "0351 85074535";
 
+// STUFE 2 HELPER: Lädt den ungekürzten Original-Volltext (bis 85.000 Zeichen) eines Urteils aus dem Supabase Storage Bucket 'dokumente'
+export async function loadFullDecisionTextForWarroom(row, supabaseClient = supabase) {
+  if (!row) return "";
+  try {
+    if (row.dokument_url && String(row.dokument_url).includes("/storage/v1/object/public/dokumente/")) {
+      const cleanUrl = String(row.dokument_url).split("#")[0].trim();
+      const res = await fetch(cleanUrl);
+      if (res.ok) {
+        const fullTxt = await res.text();
+        if (fullTxt && fullTxt.trim().length > 0) return fullTxt;
+      }
+    }
+    if (row.datei_name) {
+      const { data, error } = await supabaseClient.storage.from("dokumente").download(row.datei_name);
+      if (!error && data) {
+        const fullTxt = await data.text();
+        if (fullTxt && fullTxt.trim().length > 0) return fullTxt;
+      }
+    }
+  } catch (e) {
+    console.warn("Storage-Volltext konnte nicht geladen werden, nutze DB-Vorschau:", e);
+  }
+  return row.inhalt_text || "";
+}
+
 export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchriftsatz, theme }) {
   const [messages, setMessages] = useState([]);
   const [inputPrompt, setInputPrompt] = useState("");
@@ -169,6 +194,95 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         .eq('id', akteId);
     } catch (e) {
       console.error("Fehler beim Speichern des War-Room-Chats:", e);
+    }
+  };
+
+  // 2-STUFEN-RECHTSDATENBANK-LOADER:
+  // Stufe 1: Schnelle Suche in public.wissensdatenbank (8.000-Zeichen-Vorschau & indexierte §§-Header)
+  // Stufe 2: Automatisches Nachladen des ungekürzten Original-Volltextes (bis 85.000 Zeichen) aus dem Bucket 'dokumente'
+  const fetchRelevantDecisionsWithFullText = async (dossierText, dossierThema, dossierKontakt) => {
+    try {
+      const combinedSearchInput = `${dossierThema || ""} ${dossierKontakt || ""} ${(dossierText || "").substring(0, 15000)}`;
+
+      // Extrahiere genannte Paragraphen (z.B. "§ 129 AO", "§ 361", "Art. 19") oder relevante Fachbegriffe
+      const normMatches = combinedSearchInput.match(/(?:§§?\s*\d+[a-z]?|Art\.\s*\d+)/gi) || [];
+      const uniqueNorms = Array.from(new Set(normMatches.map(n => n.replace(/\s+/g, " ").trim()))).slice(0, 5);
+
+      const candidateMap = new Map();
+
+      // 1. Gezielte Suche über erkannte Rechtsnormen (§§) in inhalt_text
+      for (const norm of uniqueNorms) {
+        const { data: normRows } = await supabase
+          .from("wissensdatenbank")
+          .select("id, datei_name, firma, inhalt_text, dokument_url")
+          .ilike("inhalt_text", `%${norm}%`)
+          .order("id", { ascending: false })
+          .limit(3);
+
+        if (Array.isArray(normRows)) {
+          normRows.forEach(r => {
+            if (!candidateMap.has(r.id)) {
+              candidateMap.set(r.id, { row: r, score: (candidateMap.get(r.id)?.score || 0) + 3 });
+            } else {
+              candidateMap.get(r.id).score += 2;
+            }
+          });
+        }
+      }
+
+      // 2. Ergänzende Suche über Thema-Stichworte, falls noch weniger als 3 Treffer vorliegen
+      if (candidateMap.size < 3 && dossierThema) {
+        const words = String(dossierThema)
+          .split(/[^a-zA-ZäöüÄÖÜß0-9]+/)
+          .filter(w => w.length >= 5)
+          .slice(0, 3);
+
+        for (const word of words) {
+          const { data: wordRows } = await supabase
+            .from("wissensdatenbank")
+            .select("id, datei_name, firma, inhalt_text, dokument_url")
+            .or(`inhalt_text.ilike.%${word}%,datei_name.ilike.%${word}%`)
+            .order("id", { ascending: false })
+            .limit(2);
+
+          if (Array.isArray(wordRows)) {
+            wordRows.forEach(r => {
+              if (!candidateMap.has(r.id)) {
+                candidateMap.set(r.id, { row: r, score: 1 });
+              }
+            });
+          }
+        }
+      }
+
+      if (candidateMap.size === 0) return { decisionsFullTextBlock: "", matchedCount: 0 };
+
+      // Top-3 einschlägige Entscheidungen auswählen und über Stufe 2 den echten Volltext aus dem Bucket 'dokumente' nachladen
+      const topCandidates = Array.from(candidateMap.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map(item => item.row);
+
+      let decisionsBlock = "\n\n========================================\n";
+      decisionsBlock += "EINSCHLÄGIGE VOLLTEXT-ENTSCHEIDUNGEN & RECHTSQUELLEN AUS DER SONAR-WISSENSDATENBANK (BUCKET-VOLLTEXTE):\n";
+
+      let loadedCount = 0;
+      for (const row of topCandidates) {
+        const fullDecisionText = await loadFullDecisionTextForWarroom(row, supabase);
+        if (fullDecisionText && fullDecisionText.trim().length > 0) {
+          loadedCount++;
+          decisionsBlock += `\n--- RECHTSQUELLE ${loadedCount}: ${row.datei_name} (${row.firma || "Allgemein"}) ---\n`;
+          decisionsBlock += `${fullDecisionText.trim().substring(0, 45000)}\n`;
+        }
+      }
+
+      return {
+        decisionsFullTextBlock: loadedCount > 0 ? decisionsBlock : "",
+        matchedCount: loadedCount
+      };
+    } catch (e) {
+      console.warn("Hinweis beim Nachladen der Wissensdatenbank-Volltexte:", e);
+      return { decisionsFullTextBlock: "", matchedCount: 0 };
     }
   };
 
@@ -390,7 +504,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setLiveStage(1);
     setLiveRound(1);
     setLiveLogEntries([]);
-    setLoadingPhaseText("Vorprüfung: Kanzlei Sokrates analysiert Akten-Dossier & bereitet die Lagebesprechung vor...");
+    setLoadingPhaseText("Vorprüfung: Kanzlei Sokrates analysiert Akten-Dossier & lädt Volltext-Urteile aus dem Storage...");
     setErrorMsg(null);
 
     const today = new Date().toLocaleDateString('de-DE');
@@ -441,8 +555,20 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
 
     const { fullContextText, docsCount } = await fetchFullAkteContext(dossier.akte_id, bestText);
-    setLoadedDocsCount(docsCount);
-    setFullDossierContextCache(fullContextText);
+
+    // 2-STUFEN-VOLLTEXT-ABRUF AUS DER WISSENSDATENBANK & BUCKET 'dokumente'
+    const { decisionsFullTextBlock, matchedCount } = await fetchRelevantDecisionsWithFullText(
+      fullContextText,
+      dossier.thema,
+      dossier.kontakt
+    );
+
+    const enrichedContextText = decisionsFullTextBlock
+      ? `${fullContextText}\n${decisionsFullTextBlock}`
+      : fullContextText;
+
+    setLoadedDocsCount(docsCount + matchedCount);
+    setFullDossierContextCache(enrichedContextText);
 
     const briefingPrompt = [
       "Analysiere dieses vollständige Akten-Dossier für unsere Mandanten-Lagebesprechung nach den 8 Universellen Gesetzen der Juristischen Methodenlehre:",
@@ -454,8 +580,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       `Unser Mandant: ${mandantFirma} (${mandantAP})${mandantFax ? ` | Unser Telefax: ${mandantFax}` : ""}`,
       `Heutiges Datum: ${today}`,
       "",
-      "VOLLSTÄNDIGE AKTEN-HISTORIE & DOKUMENTENTEXTE (.MD-ZWILLINGE):",
-      fullContextText.substring(0, 250000),
+      "VOLLSTÄNDIGE AKTEN-HISTORIE, DOKUMENTENTEXTE (.MD-ZWILLINGE) & VOLLTEXT-ENTSCHEIDUNGEN:",
+      enrichedContextText.substring(0, 250000),
       "",
       "Erstelle jetzt die strukturierte Lagebesprechung des Leitenden Chefpartners nach dem SCQA-Framework (inkl. Prüfung der gesetzlichen Vertretungszwang- & Berufsträger-Weiche mandatory_counsel_required / counsel_type / counsel_reason sowie 4 glasklaren Handlungsoptionen mit Kosten, Dauer, Erfolgschance, allen entscheidungsbefugten Stellen, Widerspruchs-Check und Wirtschaftlichkeits-Abwägung) als reines JSON ohne Markdown-Backticks!"
     ].join("\n");
@@ -467,7 +593,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       const { data, error } = await invokeTriageWithRetry({
         mode: "strategy_briefing",
         messages: [{ role: "user", content: briefingPrompt }],
-        raw_text: fullContextText.substring(0, 250000),
+        raw_text: enrichedContextText.substring(0, 250000),
         engine: ownerFlag ? selectedEngine : "gemini"
       });
 
@@ -556,7 +682,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       `- Aktenzeichen / Steuernummer: ${dossier?.aktenzeichen || "Siehe Originaldokument"}`,
       `- Betreff / Thema: ${dossier?.thema || ""}`,
       "",
-      "VOLLSTÄNDIGER ORIGINAL-AKTEN-KONTEXT:",
+      "VOLLSTÄNDIGER ORIGINAL-AKTEN-KONTEXT INKL. VOLLTEXT-ENTSCHEIDUNGEN:",
       rawContextToUse,
       "",
       "DEIN AUFTRAG (DIE 8 UNIVERSELLEN GESETZE DER JURISTISCHEN METHODENLEHRE ZWINGEND BEACHTEN):",
@@ -939,7 +1065,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               )}
             </div>
             <p className={`text-xs ${textSub}`}>
-              Akte: {dossier?.aktenzeichen || "Neu"} | Gegenpartei: {dossier?.kontakt || "Behörde"} | Mandant: {displayMandantName}
+              Akte: {dossier?.aktenzeichen || "Neu"} | Gegenpartei: {dossier?.kontakt || "Behörde"} | Mandant: {displayMandantName} | Geladene Quellen/Volltexte: {loadedDocsCount}
             </p>
           </div>
 
