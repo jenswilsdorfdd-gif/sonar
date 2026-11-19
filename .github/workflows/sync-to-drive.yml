@@ -39,7 +39,8 @@ jobs:
               fs.existsSync(f) &&
               allowedExt.some(ext => f.endsWith(ext)) &&
               !f.includes("package-lock.json") &&
-              !f.startsWith("node_modules/")
+              !f.startsWith("node_modules/") &&
+              !f.startsWith("wissensdatenbank/")
             );
 
             async function run() {
