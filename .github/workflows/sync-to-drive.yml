@@ -1,0 +1,71 @@
+name: Sync Code to Google Drive (02_Code_Sync)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  sync_to_drive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Send Code Files to Supabase Drive Sync
+        env:
+          SUPABASE_URL: "https://loyzfkxkuyypgteskxkm.supabase.co"
+          PROJECT_NAME: "SONAR_COCKPIT"
+        run: |
+          node -e '
+            const fs = require("fs");
+            const { execSync } = require("child_process");
+
+            let filesToSync = [];
+            try {
+              const diff = execSync("git diff --name-only HEAD~1 HEAD").toString().trim();
+              if (diff) filesToSync = diff.split("\n");
+            } catch (e) {}
+
+            if (filesToSync.length === 0 || process.env.GITHUB_EVENT_NAME === "workflow_dispatch") {
+              const allFiles = execSync("git ls-files").toString().trim().split("\n");
+              filesToSync = allFiles;
+            }
+
+            const allowedExt = [".ts", ".tsx", ".js", ".jsx", ".sql", ".json", ".css", ".md"];
+            const filtered = filesToSync.filter(f =>
+              fs.existsSync(f) &&
+              allowedExt.some(ext => f.endsWith(ext)) &&
+              !f.includes("package-lock.json") &&
+              !f.startsWith("node_modules/")
+            );
+
+            async function run() {
+              const batchSize = 10;
+              for (let i = 0; i < filtered.length; i += batchSize) {
+                const batch = filtered.slice(i, i + batchSize).map(filePath => ({
+                  path: filePath,
+                  content: fs.readFileSync(filePath, "utf8").substring(0, 90000)
+                }));
+
+                const res = await fetch(`${process.env.SUPABASE_URL}/functions/v1/sync-code-to-drive`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    repo: process.env.GITHUB_REPOSITORY,
+                    commit: process.env.GITHUB_SHA,
+                    project_name: process.env.PROJECT_NAME,
+                    folder_name: "02_Code_Sync",
+                    files: batch
+                  })
+                });
+
+                const result = await res.json();
+                console.log(`Batch ${i / batchSize + 1}:`, JSON.stringify(result));
+                if (!res.ok || !result.success) process.exit(1);
+              }
+            }
+            run();
+          '
