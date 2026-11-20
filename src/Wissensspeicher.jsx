@@ -18,6 +18,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   const [wissenFirmaFilter, setWissenFirmaFilter] = useState('');
   const [wissenGegnerFilter, setWissenGegnerFilter] = useState('');
   const [wissenAnzeigeModus, setWissenAnzeigeModus] = useState('md');
+  const [visibleLimit, setVisibleLimit] = useState(50);
 
   // --- GERICHTS-STREAM SYNC STATES & OWNER-CHECK ---
   const [isOwnerUser, setIsOwnerUser] = useState(false);
@@ -46,13 +47,18 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     checkUser();
   }, []);
 
+  // Bei Filter- oder Moduswechsel das sichtbare Limit sauber auf 50 zurücksetzen
+  useEffect(() => {
+    setVisibleLimit(50);
+  }, [suchbegriff, wissenFirmaFilter, wissenGegnerFilter, wissenAnzeigeModus]);
+
   const inputStyle = { width: '100%', padding: '12px', boxSizing: 'border-box', border: `1px solid ${theme.inputBorder}`, borderRadius: '6px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textMain, outline: 'none' };
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
-  // --- GERICHTS-STREAMS LIVE ABRUFEN (EDGE FUNCTION TRIGGER) ---
+  // --- GERICHTS-STREAMS LIVE ABRUFEN (NUR FÜR OWNER AKTIV) ---
   const starteGerichtsStreamSync = async () => {
-    if (rssLaedt) return;
+    if (!isOwnerUser || rssLaedt) return;
     setRssLaedt(true);
     try {
       const { data, error } = await supabase.functions.invoke('rss-knowledge-scraper', {
@@ -130,7 +136,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     const gesamt = bulkDateien.length;
     let currentStep = 0;
     const timestamp = Date.now();
-    
+
     // Sortiere Dateien in MD und den Rest (PDFs / Bilder)
     const mdFiles = bulkDateien.filter(f => f.name.toLowerCase().endsWith('.md'));
     const nonMdFiles = bulkDateien.filter(f => !f.name.toLowerCase().endsWith('.md'));
@@ -139,7 +145,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     for (const file of mdFiles) {
       currentStep++;
       setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `Importiere (MD): ${file.name}...` });
-      
+
       try {
         const originalBaseName = file.name.substring(0, file.name.lastIndexOf('.'));
         const safeName = originalBaseName.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -166,7 +172,10 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           dokument_url: mdPublicUrl
         }]);
 
-        await syncToGithub(newFileName, mdInhalt, null, 'wissen_bulk_md', showToast);
+        // GitHub-Sync ausschließlich für den Owner ausführen (niemals Tester-Dateien ins Owner-Repo spiegeln)
+        if (isOwnerUser) {
+          await syncToGithub(newFileName, mdInhalt, null, 'wissen_bulk_md', showToast);
+        }
       } catch (err) {
         console.error("Import-Fehler bei MD File:", file.name, err);
       }
@@ -181,30 +190,30 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
         const isPdf = file.name.toLowerCase().endsWith('.pdf');
         const originalBaseName = file.name.substring(0, file.name.lastIndexOf('.'));
         let finalBaseName = originalBaseName.replace(/[^a-zA-Z0-9.-]/g, '_');
-        
+
         let extrahierterText = '';
         let needsMdGeneration = false;
 
         // Prüfen, ob wir das PDF lokal auslesen müssen (weil keine fertige MD vom Scanner kam)
         if (isPdf) {
-           const hasMatchingMd = mdFiles.some(md => md.name.substring(0, md.name.lastIndexOf('.')).replace(/[^a-zA-Z0-9.-]/g, '_') === finalBaseName);
-           if (!hasMatchingMd) {
-             setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `Lese lokales PDF aus: ${file.name}...` });
-             try {
-                 extrahierterText = await extractTextFromPDF(file);
-                 if (extrahierterText.trim().length > 50) {
-                    needsMdGeneration = true;
-                 }
-             } catch (pdfErr) {
-                 console.error("Fehler bei lokaler PDF Extraktion:", pdfErr);
-             }
-           }
+          const hasMatchingMd = mdFiles.some(md => md.name.substring(0, md.name.lastIndexOf('.')).replace(/[^a-zA-Z0-9.-]/g, '_') === finalBaseName);
+          if (!hasMatchingMd) {
+            setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `Lese lokales PDF aus: ${file.name}...` });
+            try {
+              extrahierterText = await extractTextFromPDF(file);
+              if (extrahierterText.trim().length > 50) {
+                needsMdGeneration = true;
+              }
+            } catch (pdfErr) {
+              console.error("Fehler bei lokaler PDF Extraktion:", pdfErr);
+            }
+          }
         }
 
         const fileExtension = file.name.substring(file.name.lastIndexOf('.'));
         const newFileName = `${finalBaseName}${fileExtension}`;
         const storagePath = `wissen_${timestamp}_${newFileName}`;
-        
+
         const { error: uploadError } = await supabase.storage.from('dokumente').upload(storagePath, file, { upsert: true });
 
         if (!uploadError) {
@@ -220,31 +229,33 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
 
           // Fehlendes MD-Gegenstück als Twin-Storage direkt im Supabase Bucket 'dokumente' erzeugen
           if (needsMdGeneration) {
-             const mdFileName = `${finalBaseName}.md`;
-             const mdStoragePath = `wissen_${timestamp}_${mdFileName}`;
-             const mdContent = `Upload via Wissensspeicher.\nOriginal-PDF: ${pubUrl}\n\n${extrahierterText}`;
-             
-             let twinMdUrl = pubUrl;
-             const mdBlob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
-             const { error: mdUpErr } = await supabase.storage
-               .from('dokumente')
-               .upload(mdStoragePath, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+            const mdFileName = `${finalBaseName}.md`;
+            const mdStoragePath = `wissen_${timestamp}_${mdFileName}`;
+            const mdContent = `Upload via Wissensspeicher.\nOriginal-PDF: ${pubUrl}\n\n${extrahierterText}`;
 
-             if (!mdUpErr) {
-               const { data: mdPubData } = supabase.storage.from('dokumente').getPublicUrl(mdStoragePath);
-               if (mdPubData?.publicUrl) twinMdUrl = mdPubData.publicUrl;
-             }
+            let twinMdUrl = pubUrl;
+            const mdBlob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
+            const { error: mdUpErr } = await supabase.storage
+              .from('dokumente')
+              .upload(mdStoragePath, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
 
-             await supabase.from('wissensdatenbank').insert([{
-                datei_name: mdFileName,
-                firma: bulkFirma || 'Allgemein',
-                inhalt_text: extrahierterText.substring(0, 8000),
-                dokument_url: twinMdUrl
-             }]);
+            if (!mdUpErr) {
+              const { data: mdPubData } = supabase.storage.from('dokumente').getPublicUrl(mdStoragePath);
+              if (mdPubData?.publicUrl) twinMdUrl = mdPubData.publicUrl;
+            }
 
-             await syncToGithub(mdFileName, mdContent, pubUrl, 'wissen_bulk_pdf', showToast);
-          } else {
-             await syncToGithub(`${finalBaseName}.md`, `Dokument: ${newFileName}`, pubUrl, 'wissen_bulk_pdf', showToast);
+            await supabase.from('wissensdatenbank').insert([{
+              datei_name: mdFileName,
+              firma: bulkFirma || 'Allgemein',
+              inhalt_text: extrahierterText.substring(0, 8000),
+              dokument_url: twinMdUrl
+            }]);
+
+            if (isOwnerUser) {
+              await syncToGithub(mdFileName, mdContent, pubUrl, 'wissen_bulk_pdf', showToast);
+            }
+          } else if (isOwnerUser) {
+            await syncToGithub(`${finalBaseName}.md`, `Dokument: ${newFileName}`, pubUrl, 'wissen_bulk_pdf', showToast);
           }
         }
       } catch (err) {
@@ -318,6 +329,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   );
 
   const aktiveListe = wissenAnzeigeModus === 'md' ? gefilterteMdEintraege : gefiltertePdfEintraege;
+  const sichtbareListe = aktiveListe.slice(0, visibleLimit);
 
   return (
     <div>
@@ -341,49 +353,65 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             <span>Höchstrichterliche Gerichts- & Behörden-Streams (Volltext-Rechtsprechung für KI-Triage & War-Room)</span>
           </div>
           <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>
-            Alle Entscheidungen unter „Allgemein (Gerichte/Behörden)“ liegen als ungekürzte Volltexte (bis 85.000 Zeichen inkl. §§-Header) im Storage-Bucket vor.
+            Alle Entscheidungen unter „Allgemein (Gerichte/Behörden)“ liegen als ungekürzte Volltexte (bis 85.000 Zeichen inkl. §§-Header) im Storage-Bucket vor und stehen automatisch im War-Room bereit.
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <select
-            value={selectedGericht}
-            onChange={(e) => setSelectedGericht(e.target.value)}
-            disabled={rssLaedt}
-            style={{ ...inputStyle, width: 'auto', minWidth: '210px', padding: '10px 12px', fontSize: '13px' }}
-          >
-            <option value="">Alle Quellen / Gerichte (Komplett)</option>
-            <option value="BVerfG">Bundesverfassungsgericht (BVerfG)</option>
-            <option value="BFH">Bundesfinanzhof (BFH)</option>
-            <option value="BGH">Bundesgerichtshof (BGH)</option>
-            <option value="BVerwG">Bundesverwaltungsgericht (BVerwG)</option>
-            <option value="BSG">Bundessozialgericht (BSG)</option>
-            <option value="BAG">Bundesarbeitsgericht (BAG)</option>
-            <option value="EuGH">Europäischer Gerichtshof (EuGH)</option>
-            <option value="EGMR">Menschenrechtsgerichtshof (EGMR)</option>
-            <option value="BMF-Steuern">BMF Steuern</option>
-            <option value="BaFin">BaFin Aufsicht</option>
-          </select>
+        {isOwnerUser ? (
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={selectedGericht}
+              onChange={(e) => setSelectedGericht(e.target.value)}
+              disabled={rssLaedt}
+              style={{ ...inputStyle, width: 'auto', minWidth: '210px', padding: '10px 12px', fontSize: '13px' }}
+            >
+              <option value="">Alle Quellen / Gerichte (Komplett)</option>
+              <option value="BVerfG">Bundesverfassungsgericht (BVerfG)</option>
+              <option value="BFH">Bundesfinanzhof (BFH)</option>
+              <option value="BGH">Bundesgerichtshof (BGH)</option>
+              <option value="BVerwG">Bundesverwaltungsgericht (BVerwG)</option>
+              <option value="BSG">Bundessozialgericht (BSG)</option>
+              <option value="BAG">Bundesarbeitsgericht (BAG)</option>
+              <option value="EuGH">Europäischer Gerichtshof (EuGH)</option>
+              <option value="EGMR">Menschenrechtsgerichtshof (EGMR)</option>
+              <option value="BMF-Steuern">BMF Steuern</option>
+              <option value="BaFin">BaFin Aufsicht</option>
+            </select>
 
-          <button
-            type="button"
-            disabled={rssLaedt}
-            onClick={starteGerichtsStreamSync}
+            <button
+              type="button"
+              disabled={rssLaedt}
+              onClick={starteGerichtsStreamSync}
+              style={{
+                padding: '10px 16px',
+                background: theme.wissenAccent,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: rssLaedt ? 'wait' : 'pointer',
+                fontWeight: 'bold',
+                fontSize: '13px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {rssLaedt ? 'Scrape Gerichts-Feeds...' : 'Gerichts-Streams jetzt aktualisieren'}
+            </button>
+          </div>
+        ) : (
+          <div
             style={{
-              padding: '10px 16px',
-              background: theme.wissenAccent,
-              color: '#fff',
-              border: 'none',
+              padding: '8px 14px',
               borderRadius: '6px',
-              cursor: rssLaedt ? 'wait' : 'pointer',
+              border: `1px solid ${theme.wissenAccent}`,
+              color: theme.wissenAccent,
+              fontSize: '12px',
               fontWeight: 'bold',
-              fontSize: '13px',
               whiteSpace: 'nowrap'
             }}
           >
-            {rssLaedt ? 'Scrape Gerichts-Feeds...' : 'Gerichts-Streams jetzt aktualisieren'}
-          </button>
-        </div>
+            Automatische Synchronisation aktiv (Volltext-Lesezugriff)
+          </div>
+        )}
       </div>
 
       <form onSubmit={StarteBulkImport} style={{ ...panelStyle, marginBottom: '30px', border: `1px solid ${theme.wissenAccent}` }}>
@@ -462,7 +490,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           </button>
         </div>
       </div>
-      
+
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 min(100%, 150px)' }}>
           <select
@@ -490,7 +518,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
 
       {/* --- DESKTOP ODER MOBILE LAYOUT LOGIK --- */}
       <div style={{ borderRadius: '8px', border: `1px solid ${theme.border}`, background: theme.cardBg, overflow: 'hidden' }}>
-        
+
         {!isMobile ? (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: '500px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
@@ -502,8 +530,8 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                 </tr>
               </thead>
               <tbody>
-                {aktiveListe.slice(0, 50).length > 0 ? (
-                  aktiveListe.slice(0, 50).map(w => {
+                {sichtbareListe.length > 0 ? (
+                  sichtbareListe.map(w => {
                     const darfLoeschen = isOwnerUser || !isGlobalCourtEntry(w);
                     return (
                       <tr key={w.id} style={{ borderBottom: `1px solid ${theme.border}`, transition: 'background 0.2s' }}>
@@ -555,8 +583,8 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {aktiveListe.slice(0, 50).length > 0 ? (
-              aktiveListe.slice(0, 50).map(w => {
+            {sichtbareListe.length > 0 ? (
+              sichtbareListe.map(w => {
                 const darfLoeschen = isOwnerUser || !isGlobalCourtEntry(w);
                 return (
                   <div key={w.id} style={{ padding: '15px', borderBottom: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -586,7 +614,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                         {w.inhalt_text.length > 110 ? w.inhalt_text.substring(0, 110) + '...' : w.inhalt_text}
                       </div>
                     )}
-                    
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                       <span style={{ fontSize: '12px', color: theme.textMain, fontWeight: '500' }}>{w.firma || 'Allgemein'}</span>
                       {darfLoeschen ? (
@@ -607,6 +635,27 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                   : 'Keine PDF-Dokumente für diese Filterung gefunden.'}
               </div>
             )}
+          </div>
+        )}
+
+        {aktiveListe.length > visibleLimit && (
+          <div style={{ padding: '14px', textAlign: 'center', borderTop: `1px solid ${theme.border}` }}>
+            <button
+              type="button"
+              onClick={() => setVisibleLimit(prev => prev + 50)}
+              style={{
+                background: 'transparent',
+                border: `1px solid ${theme.wissenAccent}`,
+                color: theme.wissenAccent,
+                padding: '8px 18px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '13px'
+              }}
+            >
+              Weitere Entscheidungen anzeigen ({sichtbareListe.length} von {aktiveListe.length})
+            </button>
           </div>
         )}
       </div>
