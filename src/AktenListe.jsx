@@ -45,7 +45,7 @@ export default function AktenListe({
         <h2 style={{ margin: '0', color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
           <Icon name="folder" size={24} /> Akten-Übersicht
         </h2>
-        <button 
+        <button
           onClick={() => setZeigeErledigte(!zeigeErledigte)}
           style={{
             background: zeigeErledigte ? '#f59e0b' : theme.accent,
@@ -67,10 +67,10 @@ export default function AktenListe({
 
       {/* AKTEN-ÜBERSICHT WRAPPER */}
       <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', textAlign: 'left', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
-        
+
         {/* DESKTOP HEADER - EXAKTE 1:1 KOPIE DER ZEILE FÜR PERFEKTE BÜNDIGKEIT */}
         <div className="akten-row-wrapper desktop-only" style={{ background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted, cursor: 'default' }}>
-          
+
           {/* 1. LINKER RAHMEN: CHEVRON PLATZHALTER (Mit Zwangs-Breite) */}
           <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', opacity: 0.4 }}>
             <Icon name="right" size={20} />
@@ -79,7 +79,7 @@ export default function AktenListe({
           {/* 2. FELDER CONTAINER GRID */}
           <div style={{ flex: '1 1 100%', minWidth: 0, boxSizing: 'border-box' }}>
             <div className="akten-desktop-grid">
-              
+
               <div className="akten-field-box desktop-only">
                 <div style={{ ...inlineInputStyle, border: 'none', background: 'transparent', padding: '2px', margin: 0, fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: theme.textMuted, width: '100%', boxSizing: 'border-box' }}>
                   Unser Zeichen
@@ -132,6 +132,8 @@ export default function AktenListe({
           const isExpanded = aufgeklappteAkten.includes(akte.id);
           const istFokussiert = (fokussierteAkteId === akte.id);
           const istErledigt = akte.status === 'Erledigt';
+          const isShowcase = Boolean(akte.is_demo_showcase);
+          const effectiveAkteLocked = Boolean(akte.is_locked || isShowcase);
 
           // Farbliche Hervorhebung für erledigte Akten (solange nicht reaktiviert)
           const rowBackground = istFokussiert
@@ -144,6 +146,8 @@ export default function AktenListe({
             ? `6px solid ${theme.accent}`
             : istErledigt
             ? '6px solid #f59e0b'
+            : isShowcase
+            ? `6px solid ${theme.wissenAccent || '#a855f7'}`
             : '6px solid transparent';
 
           return (
@@ -159,9 +163,9 @@ export default function AktenListe({
                 boxSizing: 'border-box'
               }}
             >
-              
+
               <div className="akten-row-wrapper" onClick={() => toggleAkte(akte.id)}>
-                
+
                 {/* 1. LINKER RAHMEN: DESKTOP CHEVRON (Mit Zwangs-Breite) */}
                 <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', color: istFokussiert ? theme.accent : (istErledigt ? '#f59e0b' : theme.textMuted) }}>
                   <Icon name={isExpanded ? 'down' : 'right'} size={20} />
@@ -177,6 +181,11 @@ export default function AktenListe({
                       <strong style={{ color: istErledigt ? '#f59e0b' : theme.accent, fontSize: '14px' }}>
                         [{akte.unser_zeichen || '---'}]
                       </strong>
+                      {isShowcase && (
+                        <span style={{ border: `1px solid ${theme.wissenAccent || '#a855f7'}`, color: theme.wissenAccent || '#a855f7', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                          MUSTER
+                        </span>
+                      )}
                       {istErledigt && (
                         <span style={{ background: '#f59e0b', color: '#000000', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>
                           ✓ Erledigt
@@ -184,39 +193,46 @@ export default function AktenListe({
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <select 
-                        value={akte.status || 'Offen'} 
-                        onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                        style={{ background: istErledigt ? '#f59e0b' : theme.accent, color: istErledigt ? '#000000' : btnTextColor, border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', textAlign: 'center' }}
+                      <select
+                        value={akte.status || 'Offen'}
+                        disabled={isShowcase}
+                        onChange={(e) => { if (!isShowcase && e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }}
+                        style={{ background: istErledigt ? '#f59e0b' : theme.accent, color: istErledigt ? '#000000' : btnTextColor, border: 'none', padding: '4px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: isShowcase ? 'not-allowed' : 'pointer', opacity: isShowcase ? 0.75 : 1, outline: 'none', textAlign: 'center' }}
                       >
                         <option value="Offen">Offen</option>
                         <option value="Erledigt">Erledigt</option>
                       </select>
-                      <button 
-                        onClick={() => handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked)} 
-                        style={{ background: 'transparent', border: 'none', color: akte.is_locked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title={akte.is_locked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)'}
+                      <button
+                        disabled={isShowcase}
+                        onClick={() => { if (!isShowcase) handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked); }}
+                        style={{ background: 'transparent', border: 'none', color: effectiveAkteLocked ? theme.warningBorder : theme.textMuted, cursor: isShowcase ? 'not-allowed' : 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title={isShowcase ? 'Musterakte ist dauerhaft schreibgeschützt' : (effectiveAkteLocked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)')}
                       >
-                        <Icon name={akte.is_locked ? "lock" : "unlock"} size={18} />
+                        <Icon name={effectiveAkteLocked ? "lock" : "unlock"} size={18} />
                       </button>
                     </div>
                   </div>
                 </div>
-                
+
                 {/* 3. FELDER CONTAINER (Mitte - Identisch zum Header) */}
                 <div style={{ flex: '1 1 100%', minWidth: 0, boxSizing: 'border-box' }}>
                   <div className="akten-desktop-grid">
-                    
+
                     <div className="akten-field-box desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <input 
-                        type="text" 
-                        defaultValue={akte.unser_zeichen || ''} 
-                        onBlur={(e) => { if (e.target.value !== (akte.unser_zeichen || '')) handleAkteStammdatenEdit(akte.id, 'unser_zeichen', e.target.value); }} 
-                        onClick={(e) => e.stopPropagation()} 
-                        placeholder="Unser Zeichen" 
-                        disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? '#f59e0b' : theme.accent, fontSize: '14px', fontWeight: 'bold', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
+                      <input
+                        type="text"
+                        defaultValue={akte.unser_zeichen || ''}
+                        onBlur={(e) => { if (!effectiveAkteLocked && e.target.value !== (akte.unser_zeichen || '')) handleAkteStammdatenEdit(akte.id, 'unser_zeichen', e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Unser Zeichen"
+                        disabled={effectiveAkteLocked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? '#f59e0b' : theme.accent, fontSize: '14px', fontWeight: 'bold', cursor: effectiveAkteLocked ? 'not-allowed' : 'text' }}
                       />
+                      {isShowcase && (
+                        <span style={{ border: `1px solid ${theme.wissenAccent || '#a855f7'}`, color: theme.wissenAccent || '#a855f7', padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 'bold', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          MUSTER
+                        </span>
+                      )}
                       {istErledigt && (
                         <span style={{ background: '#f59e0b', color: '#000000', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 }}>
                           ✓ Erledigt
@@ -225,59 +241,59 @@ export default function AktenListe({
                     </div>
 
                     {/* GEGNER FELD + HOVER TOOLTIP */}
-                    <div className={`akten-field-box ${akte.is_locked ? "tooltip-container" : ""}`} style={{ position: 'relative' }}>
-                      <input 
-                        type="text" 
-                        defaultValue={akte.gegner_name || ''} 
-                        onBlur={(e) => { if (e.target.value !== (akte.gegner_name || '')) handleAkteStammdatenEdit(akte.id, 'gegner_name', e.target.value); }} 
-                        onClick={(e) => e.stopPropagation()} 
-                        placeholder="Gegner" 
-                        disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? (isDarkMode ? '#fde68a' : '#92400e') : theme.textMain, fontSize: '15px', fontWeight: 'bold', cursor: akte.is_locked ? 'help' : 'text' }} 
+                    <div className={`akten-field-box ${effectiveAkteLocked ? "tooltip-container" : ""}`} style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        defaultValue={akte.gegner_name || ''}
+                        onBlur={(e) => { if (!effectiveAkteLocked && e.target.value !== (akte.gegner_name || '')) handleAkteStammdatenEdit(akte.id, 'gegner_name', e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Gegner"
+                        disabled={effectiveAkteLocked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? (isDarkMode ? '#fde68a' : '#92400e') : theme.textMain, fontSize: '15px', fontWeight: 'bold', cursor: effectiveAkteLocked ? 'help' : 'text' }}
                       />
-                      {akte.is_locked && (
+                      {effectiveAkteLocked && (
                         <div className="tooltip-content" style={{ display: 'none', position: 'absolute', top: '100%', left: 0, background: theme.cardBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', zIndex: 9999, width: '280px', boxShadow: '0 5px 15px rgba(0,0,0,0.5)', fontSize: '13px', color: theme.textMain, cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
                           <strong style={{ display: 'block', marginBottom: '10px', color: theme.accent, fontSize: '14px' }}>{akte.gegner_name || 'Unbekannt'}</strong>
-                          <div style={{ marginBottom: '6px' }}>👤 {akte.gegner_ansprechpartner || '-'}</div>
-                          <div style={{ marginBottom: '6px' }}>📞 {akte.gegner_telefon || '-'}</div>
-                          <div>✉️ {akte.gegner_email || '-'}</div>
+                          <div style={{ marginBottom: '6px' }}>AP: {akte.gegner_ansprechpartner || '-'}</div>
+                          <div style={{ marginBottom: '6px' }}>Tel: {akte.gegner_telefon || '-'}</div>
+                          <div>E-Mail: {akte.gegner_email || '-'}</div>
                         </div>
                       )}
                     </div>
 
                     <div className="akten-field-box">
-                      <input 
-                        type="text" 
-                        defaultValue={akte.thema || ''} 
-                        onBlur={(e) => { if (e.target.value !== (akte.thema || '')) handleAkteStammdatenEdit(akte.id, 'thema', e.target.value); }} 
-                        onClick={(e) => e.stopPropagation()} 
-                        placeholder="Gegenstand" 
-                        disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? (isDarkMode ? '#fcd34d' : '#b45309') : theme.textMain, fontSize: '14px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
+                      <input
+                        type="text"
+                        defaultValue={akte.thema || ''}
+                        onBlur={(e) => { if (!effectiveAkteLocked && e.target.value !== (akte.thema || '')) handleAkteStammdatenEdit(akte.id, 'thema', e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Gegenstand"
+                        disabled={effectiveAkteLocked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: istErledigt ? (isDarkMode ? '#fcd34d' : '#b45309') : theme.textMain, fontSize: '14px', cursor: effectiveAkteLocked ? 'not-allowed' : 'text' }}
                       />
                     </div>
 
                     <div className="akten-field-box">
-                      <input 
-                        type="text" 
-                        defaultValue={akte.gegner_ansprechpartner || ''} 
-                        onBlur={(e) => { if (e.target.value !== (akte.gegner_ansprechpartner || '')) handleAkteStammdatenEdit(akte.id, 'gegner_ansprechpartner', e.target.value); }} 
-                        onClick={(e) => e.stopPropagation()} 
-                        placeholder="Ansprechpartner" 
-                        disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
+                      <input
+                        type="text"
+                        defaultValue={akte.gegner_ansprechpartner || ''}
+                        onBlur={(e) => { if (!effectiveAkteLocked && e.target.value !== (akte.gegner_ansprechpartner || '')) handleAkteStammdatenEdit(akte.id, 'gegner_ansprechpartner', e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Ansprechpartner"
+                        disabled={effectiveAkteLocked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', cursor: effectiveAkteLocked ? 'not-allowed' : 'text' }}
                       />
                     </div>
 
                     <div className="akten-field-box">
-                      <input 
-                        type="text" 
-                        defaultValue={akte.aktenzeichen || ''} 
-                        onBlur={(e) => { if (e.target.value !== (akte.aktenzeichen || '')) handleAkteStammdatenEdit(akte.id, 'aktenzeichen', e.target.value); }} 
-                        onClick={(e) => e.stopPropagation()} 
-                        placeholder="Aktenzeichen" 
-                        disabled={akte.is_locked}
-                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', cursor: akte.is_locked ? 'not-allowed' : 'text' }} 
+                      <input
+                        type="text"
+                        defaultValue={akte.aktenzeichen || ''}
+                        onBlur={(e) => { if (!effectiveAkteLocked && e.target.value !== (akte.aktenzeichen || '')) handleAkteStammdatenEdit(akte.id, 'aktenzeichen', e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Aktenzeichen"
+                        disabled={effectiveAkteLocked}
+                        style={{ ...inlineInputStyle, width: '100%', boxSizing: 'border-box', margin: 0, padding: '2px', border: 'none', background: 'transparent', outline: 'none', color: theme.textMuted, fontSize: '13px', cursor: effectiveAkteLocked ? 'not-allowed' : 'text' }}
                       />
                     </div>
 
@@ -286,10 +302,11 @@ export default function AktenListe({
 
                 {/* 4. RECHTE SPALTE 1: STATUS DROPDOWN (Mit Zwangs-Breite) */}
                 <div className="desktop-only" style={{ width: '80px', minWidth: '80px', flexShrink: 0, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                  <select 
-                    value={akte.status || 'Offen'} 
-                    onChange={(e) => { if(e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }} 
-                    style={{ background: istErledigt ? '#f59e0b' : theme.accent, color: istErledigt ? '#000000' : btnTextColor, border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', outline: 'none', width: '100%', textAlign: 'center' }}
+                  <select
+                    value={akte.status || 'Offen'}
+                    disabled={isShowcase}
+                    onChange={(e) => { if (!isShowcase && e.target.value !== akte.status) toggleAkteStatus(akte.id, akte.status); }}
+                    style={{ background: istErledigt ? '#f59e0b' : theme.accent, color: istErledigt ? '#000000' : btnTextColor, border: 'none', padding: '4px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: isShowcase ? 'not-allowed' : 'pointer', opacity: isShowcase ? 0.75 : 1, outline: 'none', width: '100%', textAlign: 'center' }}
                   >
                     <option value="Offen">Offen</option>
                     <option value="Erledigt">Erledigt</option>
@@ -298,12 +315,13 @@ export default function AktenListe({
 
                 {/* 5. RECHTER RAHMEN: SCHLOSS ICON (Mit Zwangs-Breite) */}
                 <div className="desktop-only" style={{ width: '30px', minWidth: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked)} 
-                    style={{ background: 'transparent', border: 'none', color: akte.is_locked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    title={akte.is_locked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)'}
+                  <button
+                    disabled={isShowcase}
+                    onClick={() => { if (!isShowcase) handleAkteStammdatenEdit(akte.id, 'is_locked', !akte.is_locked); }}
+                    style={{ background: 'transparent', border: 'none', color: effectiveAkteLocked ? theme.warningBorder : theme.textMuted, cursor: isShowcase ? 'not-allowed' : 'pointer', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title={isShowcase ? 'Musterakte ist dauerhaft schreibgeschützt (Read-Only)' : (effectiveAkteLocked ? 'Akte entsperren' : 'Akte versiegeln (Read-Only)')}
                   >
-                    <Icon name={akte.is_locked ? "lock" : "unlock"} size={18} />
+                    <Icon name={effectiveAkteLocked ? "lock" : "unlock"} size={18} />
                   </button>
                 </div>
 
@@ -312,30 +330,38 @@ export default function AktenListe({
               {/* AUFGEKLAPPTER BEREICH */}
               {isExpanded && (
                 <div style={{ background: theme.inputBg, padding: '15px', borderTop: `1px solid ${theme.border}`, width: '100%', boxSizing: 'border-box' }}>
-                  
+
                   {/* AKTIONSMENÜ */}
-                  <div className="akten-actions-bar" style={{ background: theme.cardBg, border: `1px solid ${istErledigt ? '#f59e0b' : theme.border}` }}>
-                    <div style={{ fontSize: '13px', color: istErledigt ? '#f59e0b' : theme.textMain, fontWeight: 'bold' }}>
-                      {istErledigt ? 'Aktions-Menü (Akte ist als ERLEDIGT archiviert & versiegelt)' : 'Aktions-Menü'}
+                  <div className="akten-actions-bar" style={{ background: theme.cardBg, border: `1px solid ${istErledigt ? '#f59e0b' : (isShowcase ? (theme.wissenAccent || '#a855f7') : theme.border)}` }}>
+                    <div style={{ fontSize: '13px', color: isShowcase ? (theme.wissenAccent || '#a855f7') : (istErledigt ? '#f59e0b' : theme.textMain), fontWeight: 'bold' }}>
+                      {isShowcase
+                        ? 'Musterakte (Dauerhaft schreibgeschützt – Vorgang über „Laden“ im Formular & War-Room einsehbar)'
+                        : istErledigt
+                        ? 'Aktions-Menü (Akte ist als ERLEDIGT archiviert & versiegelt)'
+                        : 'Aktions-Menü'}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', maxWidth: '600px' }}>
-                      {akte.status === 'Erledigt' && (
+                      {!isShowcase && akte.status === 'Erledigt' && (
                         <button onClick={() => toggleAkteStatus(akte.id, akte.status)} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="folder" size={14} /> Akte wiedereröffnen (Reaktivieren)</button>
                       )}
-                      <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
+                      {!isShowcase && (
+                        <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
+                      )}
                       <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
-                      
-                      {mergeSourceId === akte.id ? (
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
-                          <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', flex: '1 1 auto' }}>
-                            <option value="">-- Ziel-Akte wählen --</option>
-                            {sortedAktenForDropdown.filter(a => a.id !== akte.id).map(a => (<option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>))}
-                          </select>
-                          <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
-                          <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => setMergeSourceId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px dashed ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="link" size={14} /> In Sammelakte verschieben (Merge)</button>
+
+                      {!isShowcase && (
+                        mergeSourceId === akte.id ? (
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
+                            <select value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)} style={{ ...inputStyle, padding: '6px 10px', fontSize: '12px', flex: '1 1 auto' }}>
+                              <option value="">-- Ziel-Akte wählen --</option>
+                              {sortedAktenForDropdown.filter(a => a.id !== akte.id && !a.is_demo_showcase).map(a => (<option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>))}
+                            </select>
+                            <button onClick={() => mergeAkte(akte.id)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Merge bestätigen</button>
+                            <button onClick={() => { setMergeSourceId(null); setMergeTargetId(''); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Abbrechen</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setMergeSourceId(akte.id)} style={{ background: 'transparent', color: theme.accent, border: `1px dashed ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="link" size={14} /> In Sammelakte verschieben (Merge)</button>
+                        )
                       )}
                     </div>
                   </div>
@@ -354,9 +380,9 @@ export default function AktenListe({
                         </tr>
                       </thead>
                       <tbody>
-                        {akte.akten_historie.map((hist) => {
+                        {(akte.akten_historie || []).map((hist) => {
                           const istHervorgehoben = fokussierterHistId === hist.id;
-                          const isHistLocked = hist.is_locked;
+                          const isHistLocked = Boolean(hist.is_locked || isShowcase);
                           const sichtbareDokumentUrls = hist.dokument_url
                             ? hist.dokument_url
                                 .split(',')
@@ -366,13 +392,13 @@ export default function AktenListe({
 
                           return (
                             <tr id={`hist-zeile-${hist.id}`} key={hist.id} style={{ borderBottom: `1px solid ${theme.border}`, background: istHervorgehoben ? (isDarkMode ? 'rgba(0, 229, 255, 0.15)' : '#e0f2fe') : 'transparent', transition: 'background 0.5s ease' }}>
-                              
+
                               {/* MOBILER KOPF (NUR MOBIL) */}
                               <td className="mobile-only">
                                 <div className="hist-mobile-header-row">
-                                  <select 
-                                    defaultValue={hist.typ || ''} 
-                                    onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
+                                  <select
+                                    defaultValue={hist.typ || ''}
+                                    onChange={(e) => { if (!isHistLocked && e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }}
                                     className="hist-typ-select"
                                     disabled={isHistLocked}
                                     style={{ width: 'auto', flex: '1 1 auto', cursor: isHistLocked ? 'not-allowed' : 'pointer' }}
@@ -381,19 +407,24 @@ export default function AktenListe({
                                     <option value="Ausgang">Ausgang</option>
                                     <option value="Intern">Intern</option>
                                   </select>
-                                  <input 
-                                    type="date" 
-                                    defaultValue={hist.datum || ''} 
-                                    onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
+                                  <input
+                                    type="date"
+                                    defaultValue={hist.datum || ''}
+                                    onBlur={(e) => { if (!isHistLocked && e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }}
                                     disabled={isHistLocked}
-                                    style={{ ...inlineInputStyle, width: 'auto', flex: '1 1 auto', cursor: isHistLocked ? 'not-allowed' : 'text' }} 
+                                    style={{ ...inlineInputStyle, width: 'auto', flex: '1 1 auto', cursor: isHistLocked ? 'not-allowed' : 'text' }}
                                   />
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <button onClick={() => ladeVorgangInMaske(akte, hist)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Laden</button>
-                                    <button onClick={() => handleInlineEdit(hist.id, 'is_locked', !isHistLocked)} style={{ background: 'transparent', border: 'none', color: isHistLocked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '4px' }}>
+                                    <button
+                                      disabled={isShowcase}
+                                      onClick={() => { if (!isShowcase) handleInlineEdit(hist.id, 'is_locked', !isHistLocked); }}
+                                      style={{ background: 'transparent', border: 'none', color: isHistLocked ? theme.warningBorder : theme.textMuted, cursor: isShowcase ? 'not-allowed' : 'pointer', padding: '4px' }}
+                                      title={isShowcase ? "Muster-Vorgang ist schreibgeschützt" : (isHistLocked ? "Vorgang entsperren" : "Vorgang verschließen")}
+                                    >
                                       <Icon name={isHistLocked ? "lock" : "unlock"} size={16} />
                                     </button>
-                                    {!isHistLocked && (
+                                    {!isHistLocked && !isShowcase && (
                                       <button onClick={() => loescheHistorieEintrag(hist.id)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '4px' }}>
                                         <Icon name="trash" size={16} />
                                       </button>
@@ -404,39 +435,39 @@ export default function AktenListe({
 
                               {/* DESKTOP SPALTE 1: TYP */}
                               <td style={{ padding: '8px 10px' }} className="desktop-only">
-                                 <select 
-                                   defaultValue={hist.typ || ''} 
-                                   onChange={(e) => { if (e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }} 
-                                   className="hist-typ-select"
-                                   disabled={isHistLocked}
-                                   style={{ cursor: isHistLocked ? 'not-allowed' : 'pointer', opacity: isHistLocked ? 0.8 : 1 }}
-                                 >
-                                    <option value="Eingang">Eingang</option>
-                                    <option value="Ausgang">Ausgang</option>
-                                    <option value="Intern">Intern</option>
-                                 </select>
+                                <select
+                                  defaultValue={hist.typ || ''}
+                                  onChange={(e) => { if (!isHistLocked && e.target.value !== (hist.typ || '')) handleInlineEdit(hist.id, 'typ', e.target.value); }}
+                                  className="hist-typ-select"
+                                  disabled={isHistLocked}
+                                  style={{ cursor: isHistLocked ? 'not-allowed' : 'pointer', opacity: isHistLocked ? 0.8 : 1 }}
+                                >
+                                  <option value="Eingang">Eingang</option>
+                                  <option value="Ausgang">Ausgang</option>
+                                  <option value="Intern">Intern</option>
+                                </select>
                               </td>
 
                               {/* DESKTOP SPALTE 2: DATUM */}
                               <td style={{ padding: '8px 10px' }} className="desktop-only">
-                                <input 
-                                  type="date" 
-                                  defaultValue={hist.datum || ''} 
-                                  onBlur={(e) => { if (e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }} 
+                                <input
+                                  type="date"
+                                  defaultValue={hist.datum || ''}
+                                  onBlur={(e) => { if (!isHistLocked && e.target.value !== (hist.datum || '')) handleInlineEdit(hist.id, 'datum', e.target.value); }}
                                   disabled={isHistLocked}
-                                  style={{ ...inlineInputStyle, cursor: isHistLocked ? 'not-allowed' : 'text' }} 
+                                  style={{ ...inlineInputStyle, cursor: isHistLocked ? 'not-allowed' : 'text' }}
                                 />
                               </td>
 
                               {/* AKTION */}
                               <td style={{ padding: '8px 10px' }}>
-                                <input 
-                                  type="text" 
-                                  defaultValue={hist.aktion || ''} 
-                                  onBlur={(e) => { if (e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }} 
+                                <input
+                                  type="text"
+                                  defaultValue={hist.aktion || ''}
+                                  onBlur={(e) => { if (!isHistLocked && e.target.value !== (hist.aktion || '')) handleInlineEdit(hist.id, 'aktion', e.target.value); }}
                                   disabled={isHistLocked}
-                                  style={{ ...inlineInputStyle, cursor: isHistLocked ? 'not-allowed' : 'text' }} 
-                                  placeholder="Ohne Aktion" 
+                                  style={{ ...inlineInputStyle, cursor: isHistLocked ? 'not-allowed' : 'text' }}
+                                  placeholder="Ohne Aktion"
                                 />
                               </td>
 
@@ -445,26 +476,26 @@ export default function AktenListe({
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ fontSize: '11px', color: theme.textMuted, width: '30px' }}>Frist:</span>
-                                    <input 
-                                      type="date" 
+                                    <input
+                                      type="date"
                                       key={`frist-${hist.frist_extern}`}
-                                      defaultValue={hist.frist_extern || ''} 
-                                      onBlur={(e) => { if (e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }} 
+                                      defaultValue={hist.frist_extern || ''}
+                                      onBlur={(e) => { if (!isHistLocked && e.target.value !== (hist.frist_extern || '')) handleInlineEdit(hist.id, 'frist_extern', e.target.value); }}
                                       disabled={isHistLocked}
-                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none', cursor: isHistLocked ? 'not-allowed' : 'text'}} 
-                                      title="Frist setzen (löscht automatisch WV)" 
+                                      style={{ ...inlineInputStyle, padding: '2px', borderBottom: 'none', cursor: isHistLocked ? 'not-allowed' : 'text' }}
+                                      title="Frist setzen (löscht automatisch WV)"
                                     />
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ fontSize: '11px', color: theme.warningBorder, fontWeight: 'bold', width: '30px' }}>WV:</span>
-                                    <input 
-                                      type="date" 
+                                    <input
+                                      type="date"
                                       key={`wv-${hist.wiedervorlage}`}
-                                      defaultValue={hist.wiedervorlage || ''} 
-                                      onBlur={(e) => { if (e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }} 
+                                      defaultValue={hist.wiedervorlage || ''}
+                                      onBlur={(e) => { if (!isHistLocked && e.target.value !== (hist.wiedervorlage || '')) handleInlineEdit(hist.id, 'wiedervorlage', e.target.value); }}
                                       disabled={isHistLocked}
-                                      style={{...inlineInputStyle, padding: '2px', borderBottom: 'none', cursor: isHistLocked ? 'not-allowed' : 'text'}} 
-                                      title="WV setzen (löscht automatisch Frist)" 
+                                      style={{ ...inlineInputStyle, padding: '2px', borderBottom: 'none', cursor: isHistLocked ? 'not-allowed' : 'text' }}
+                                      title="WV setzen (löscht automatisch Frist)"
                                     />
                                   </div>
                                 </div>
@@ -478,7 +509,7 @@ export default function AktenListe({
                                     return (
                                       <div key={idx} onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'stretch', background: theme.border, borderRadius: '6px', overflow: 'hidden', border: `1px solid ${theme.border}` }}>
                                         <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', color: theme.textMain, background: 'rgba(0,0,0,0.1)' }} title={fileName}><Icon name="file" size={12} /> {fileName.length > 18 ? fileName.substring(0, 15) + '...' : fileName}</a>
-                                        {!isHistLocked && (
+                                        {!isHistLocked && !isShowcase && (
                                           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); loescheDateiAusHistorie(hist.id, hist.dokument_url, url); }} style={{ background: 'transparent', border: 'none', borderLeft: `1px solid ${theme.border}`, padding: '0 6px', cursor: 'pointer', color: theme.textMuted }} title="Datei löschen">
                                             <Icon name="x" size={12} />
                                           </button>
@@ -486,7 +517,10 @@ export default function AktenListe({
                                       </div>
                                     );
                                   })}
-                                  {!isHistLocked && (
+                                  {isShowcase && sichtbareDokumentUrls.length === 0 && (
+                                    <span style={{ fontSize: '11px', color: theme.textMuted }}>Text & War-Room über „Laden“ einsehbar</span>
+                                  )}
+                                  {!isHistLocked && !isShowcase && (
                                     uploadingHistId === hist.id ? (
                                       <span style={{ fontSize: '11px', color: theme.accent }}><Icon name="file" size={12} /> Upload...</span>
                                     ) : (
@@ -501,21 +535,22 @@ export default function AktenListe({
                               {/* DESKTOP SPALTE 6: AKTIONEN (LADEN & SCHLOSS & LÖSCHEN) */}
                               <td style={{ padding: '8px 10px', textAlign: 'center' }} className="desktop-only">
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                  
+
                                   <button onClick={() => ladeVorgangInMaske(akte, hist)} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }} title="Diesen Vorgang oben in die Maske laden">Laden</button>
-                                  
+
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <button 
-                                      onClick={() => handleInlineEdit(hist.id, 'is_locked', !isHistLocked)} 
-                                      style={{ background: 'transparent', border: 'none', color: isHistLocked ? theme.warningBorder : theme.textMuted, cursor: 'pointer', padding: '2px', display: 'flex', justifyContent: 'center' }} 
-                                      title={isHistLocked ? "Vorgang entsperren" : "Vorgang verschließen (Read-Only)"}
+                                    <button
+                                      disabled={isShowcase}
+                                      onClick={() => { if (!isShowcase) handleInlineEdit(hist.id, 'is_locked', !isHistLocked); }}
+                                      style={{ background: 'transparent', border: 'none', color: isHistLocked ? theme.warningBorder : theme.textMuted, cursor: isShowcase ? 'not-allowed' : 'pointer', padding: '2px', display: 'flex', justifyContent: 'center' }}
+                                      title={isShowcase ? "Muster-Vorgang ist dauerhaft schreibgeschützt" : (isHistLocked ? "Vorgang entsperren" : "Vorgang verschließen (Read-Only)")}
                                     >
                                       <Icon name={isHistLocked ? "lock" : "unlock"} size={14} />
                                     </button>
-                                    {!isHistLocked && (
-                                      <button 
-                                        onClick={() => loescheHistorieEintrag(hist.id)} 
-                                        style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '2px', display: 'flex', justifyContent: 'center' }} 
+                                    {!isHistLocked && !isShowcase && (
+                                      <button
+                                        onClick={() => loescheHistorieEintrag(hist.id)}
+                                        style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '2px', display: 'flex', justifyContent: 'center' }}
                                         title="Vorgang löschen"
                                       >
                                         <Icon name="trash" size={14} />
@@ -536,7 +571,7 @@ export default function AktenListe({
                 </div>
               )}
             </div>
-          )
+          );
         })}
       </div>
     </>
