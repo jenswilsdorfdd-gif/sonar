@@ -91,7 +91,7 @@ export default function Dashboard({ session }) {
   const handleDemoReset = async () => {
     if (!isDemoUser || !session?.user?.id) return;
     const confirmReset = window.confirm(
-      "DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruflich löschen?"
+      "DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account selbst angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruflich löschen? (Die schreibgeschützten Musterakten bleiben erhalten.)"
     );
     if (!confirmReset) return;
 
@@ -132,7 +132,7 @@ export default function Dashboard({ session }) {
         await supabase.storage.from('dokumente').remove(Array.from(filesToRemove));
       }
 
-      // 2. Alle Tabellen-Einträge dieses Demo-Users löschen (globale Gerichts-Streams haben eine andere/null user_id und bleiben unberührt!)
+      // 2. Alle Tabellen-Einträge dieses Demo-Users löschen (globale Musterakten & Gerichts-Streams haben user_id = NULL und bleiben unberührt!)
       await supabase.from('akten_historie').delete().eq('user_id', uid);
       await supabase.from('akten').delete().eq('user_id', uid);
       await supabase.from('mandanten').delete().eq('user_id', uid);
@@ -141,7 +141,7 @@ export default function Dashboard({ session }) {
       await supabase.from('import_queue').delete().eq('user_id', uid);
 
       await ladeDaten();
-      showToast("Alle Test-Daten und Dokumente wurden rückstandslos gelöscht.", "success");
+      showToast("Alle eigenen Test-Daten und Dokumente wurden rückstandslos gelöscht.", "success");
     } catch (err) {
       console.error("Fehler beim Demo-Reset:", err);
       showToast("Fehler beim Zurücksetzen der Demo-Daten: " + (err.message || err), "error");
@@ -225,21 +225,41 @@ export default function Dashboard({ session }) {
   const ladeDaten = async () => {
     if (!session?.user?.id) return;
     const uid = session.user.id;
+    const isOwner = uid === OWNER_USER_ID;
 
-    // Alle Akten (Offen & Erledigt) laden, damit der Filter "Erledigte ein-/ausblenden" in AktenCockpit funktioniert
-    const { data: aktenData, error: aktenError } = await supabase
+    // Owner lädt strikt nur seine eigenen Akten; Demo-Tester laden ihre eigenen Akten PLUS die 3 schreibgeschützten Musterakten
+    let aktenQuery = supabase
       .from('akten')
       .select('*, akten_historie (*)')
-      .eq('user_id', uid)
       .order('created_at', { ascending: false });
+
+    if (isOwner) {
+      aktenQuery = aktenQuery.eq('user_id', uid);
+    } else {
+      aktenQuery = aktenQuery.or(`user_id.eq.${uid},is_demo_showcase.eq.true`);
+    }
+
+    const { data: aktenData, error: aktenError } = await aktenQuery;
 
     if (!aktenError && aktenData) {
       aktenData.forEach(akte => {
         if (akte.akten_historie) {
-          akte.akten_historie.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          akte.akten_historie.sort((a, b) => new Date(b.datum || b.created_at) - new Date(a.datum || a.created_at));
         }
       });
-      setAkten(aktenData);
+
+      // Eigene Akten des Testers oben, darunter geordnet die Musterakten (MUSTER-01 bis MUSTER-03)
+      const sortedAkten = [...aktenData].sort((a, b) => {
+        const aShow = Boolean(a.is_demo_showcase);
+        const bShow = Boolean(b.is_demo_showcase);
+        if (aShow !== bShow) return aShow ? 1 : -1;
+        if (aShow && bShow) {
+          return String(a.unser_zeichen || '').localeCompare(String(b.unser_zeichen || ''));
+        }
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+
+      setAkten(sortedAkten);
     }
 
     const { data: mandantenData } = await supabase
@@ -256,7 +276,7 @@ export default function Dashboard({ session }) {
       .order('name', { ascending: true });
     if (gegnerData) setGegnerListe(gegnerData);
 
-    // Lädt eigene Wissenseinträge UND alle global freigegebenen Gerichts-Streams (mit PostgREST-konformen Anführungszeichen für Klammern/Leerzeichen!)
+    // Lädt eigene Wissenseinträge UND alle global freigegebenen Gerichts-Streams
     const { data: wissenData, error: wissenErr } = await supabase
       .from('wissensdatenbank')
       .select('*')
@@ -551,7 +571,7 @@ export default function Dashboard({ session }) {
                     <strong>§ 1 Ausschließliche Ausrichtung auf Unternehmer (B2B) & Rechtsnatur der Software (Reines IT-Werkzeug)</strong><br />
                     (1) Das System „SMART SONAR COCKPIT“ richtet sich ausschließlich an Unternehmer im Sinne des § 14 Abs. 1 BGB, juristische Personen des öffentlichen Rechts und öffentlich-rechtliche Sondervermögen. Eine Nutzung durch Verbraucher (§ 13 BGB) ist ausgeschlossen.<br />
                     (2) Die Software stellt ein rein technisches Informations-, Dokumentenmanagement- und Textentwurfswerkzeug (Decision-Support- & Drafting-System) für die unternehmensinterne Eigenverwaltung des Lizenznehmers dar.<br />
-                    (3) <strong>Keine Rechts- oder Steuerberatung (§ 3 RDG / § 5 StBerG):</strong> Die durch die Software-Algorithmen (<code>sonar-ai-triage</code> / <code>SONAR NEMESIS</code>) automatisiert erstellten rechtlichen oder steuerlichen Einschätzungen, Subsumtionen, Fristenberechnungen und Schriftsatzentwürfen stellen <strong>keine Rechtsdienstleistung nach § 2 Abs. 1 RDG</strong> und <strong>keine Hilfeleistung in Steuersachen nach § 5 Abs. 1 StBerG</strong> durch die Wilsdorf & Sommer GmbH dar. Das System ersetzt im Streit- oder Zweifelsfall nicht die Konsultation eines zugelassenen Rechtsanwalts, Patentanwalts, Steuerberaters oder Wirtschaftsprüfers.
+                    (3) <strong>Keine Rechts- oder Steuerberatung (§ 3 RDG / § 5 StBerG):</strong> Die durch die Software-Algorithmen (<code>sonar-ai-triage</code> / <code>SONAR NEMESIS</code>) automatisiert erstellten rechtlichen oder steuerlichen Einschätzungen, Subsumtionen, Fristenberechnungen und Schriftsatzentwürfe stellen <strong>keine Rechtsdienstleistung nach § 2 Abs. 1 RDG</strong> und <strong>keine Hilfeleistung in Steuersachen nach § 5 Abs. 1 StBerG</strong> durch die Wilsdorf & Sommer GmbH dar. Das System ersetzt im Streit- oder Zweifelsfall nicht die Konsultation eines zugelassenen Rechtsanwalts, Patentanwalts, Steuerberaters oder Wirtschaftsprüfers.
                   </div>
 
                   <div>
@@ -636,7 +656,7 @@ export default function Dashboard({ session }) {
             {/* --- DEMO-RESET BUTTON (NUR FÜR DEMO-/TEST-USER SICHTBAR) --- */}
             {isDemoUser && (
               <button
-                title="Alle Test-Daten und Dokumente dieses Demo-Zugangs löschen"
+                title="Alle eigenen Test-Daten und Dokumente dieses Demo-Zugangs löschen"
                 disabled={resetLoading}
                 onClick={handleDemoReset}
                 style={{
