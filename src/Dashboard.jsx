@@ -84,7 +84,7 @@ export default function Dashboard({ session }) {
   // --- LOGOUT LOGIK ---
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.reload(); 
+    window.location.reload();
   };
 
   // --- DEMO-DATEN BEREINIGEN (NUR FÜR NICHT-OWNER / DEMO-ACCOUNTS) ---
@@ -132,7 +132,7 @@ export default function Dashboard({ session }) {
         await supabase.storage.from('dokumente').remove(Array.from(filesToRemove));
       }
 
-      // 2. Alle Tabellen-Einträge dieses Demo-Users löschen
+      // 2. Alle Tabellen-Einträge dieses Demo-Users löschen (globale Gerichts-Streams haben eine andere/null user_id und bleiben unberührt!)
       await supabase.from('akten_historie').delete().eq('user_id', uid);
       await supabase.from('akten').delete().eq('user_id', uid);
       await supabase.from('mandanten').delete().eq('user_id', uid);
@@ -157,7 +157,7 @@ export default function Dashboard({ session }) {
     complianceAccent: '#f59e0b', complianceBg: 'rgba(245, 158, 11, 0.1)',
     wissenAccent: '#a855f7', wissenBg: 'rgba(168, 85, 247, 0.1)',
     gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
-    handbuchAccent: '#10b981', handbuchBg: 'rgba(16, 185, 129, 0.1)', 
+    handbuchAccent: '#10b981', handbuchBg: 'rgba(16, 185, 129, 0.1)',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e',
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a',
     cardItemBg: 'rgba(15, 23, 42, 0.7)'
@@ -167,7 +167,7 @@ export default function Dashboard({ session }) {
     complianceAccent: '#d97706', complianceBg: '#fffbeb',
     wissenAccent: '#7e22ce', wissenBg: '#faf5ff',
     gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
-    handbuchAccent: '#059669', handbuchBg: '#d1fae5', 
+    handbuchAccent: '#059669', handbuchBg: '#d1fae5',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48',
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e',
     cardItemBg: '#ffffff'
@@ -207,7 +207,7 @@ export default function Dashboard({ session }) {
         padding: 8px 16px !important;
         gap: 8px !important;
       }
-      
+
       @media (max-width: 850px) {
         .header-btn {
           padding: 8px 12px !important;
@@ -256,21 +256,26 @@ export default function Dashboard({ session }) {
       .order('name', { ascending: true });
     if (gegnerData) setGegnerListe(gegnerData);
 
-    // Lädt eigene Wissenseinträge UND die global freigegebenen Gerichts-Streams
+    // Lädt eigene Wissenseinträge UND alle global freigegebenen Gerichts-Streams (mit PostgREST-konformen Anführungszeichen für Klammern/Leerzeichen!)
     const { data: wissenData, error: wissenErr } = await supabase
       .from('wissensdatenbank')
       .select('*')
-      .or(`user_id.eq.${uid},firma.eq.Allgemein (Gerichte/Behörden),datei_name.like.RSS_%`)
-      .order('id', { ascending: false });
+      .or(`user_id.eq.${uid},firma.eq."Allgemein (Gerichte/Behörden)",datei_name.like.RSS_%`)
+      .order('created_at', { ascending: false })
+      .limit(1000);
 
     if (!wissenErr && wissenData) {
       setWissenEintraege(wissenData);
     } else {
-      const { data: fallbackWissen } = await supabase
-        .from('wissensdatenbank')
-        .select('*')
-        .eq('user_id', uid);
-      if (fallbackWissen) setWissenEintraege(fallbackWissen);
+      console.warn("Wissensdatenbank Or-Filter Hinweis, lade per Dual-Fallback:", wissenErr);
+      const [{ data: ownWissen }, { data: rssWissen }] = await Promise.all([
+        supabase.from('wissensdatenbank').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+        supabase.from('wissensdatenbank').select('*').like('datei_name', 'RSS_%').order('created_at', { ascending: false }).limit(500)
+      ]);
+      const mergedMap = new Map();
+      (ownWissen || []).forEach(r => mergedMap.set(r.id, r));
+      (rssWissen || []).forEach(r => mergedMap.set(r.id, r));
+      setWissenEintraege(Array.from(mergedMap.values()));
     }
   };
 
@@ -307,7 +312,7 @@ export default function Dashboard({ session }) {
             animation: t.fadingOut ? 'fadeOut 0.3s forwards' : 'slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
           }}>
             <div style={{ color: t.type === 'success' ? '#10b981' : t.type === 'error' ? theme.gegnerAccent : theme.hintBorder }}>
-               <Icon name={t.type === 'success' ? 'check' : t.type === 'error' ? 'x' : 'alert'} size={24} />
+              <Icon name={t.type === 'success' ? 'check' : t.type === 'error' ? 'x' : 'alert'} size={24} />
             </div>
             <div style={{ fontSize: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.4', textAlign: 'left' }}>{t.message}</div>
           </div>
@@ -546,7 +551,7 @@ export default function Dashboard({ session }) {
                     <strong>§ 1 Ausschließliche Ausrichtung auf Unternehmer (B2B) & Rechtsnatur der Software (Reines IT-Werkzeug)</strong><br />
                     (1) Das System „SMART SONAR COCKPIT“ richtet sich ausschließlich an Unternehmer im Sinne des § 14 Abs. 1 BGB, juristische Personen des öffentlichen Rechts und öffentlich-rechtliche Sondervermögen. Eine Nutzung durch Verbraucher (§ 13 BGB) ist ausgeschlossen.<br />
                     (2) Die Software stellt ein rein technisches Informations-, Dokumentenmanagement- und Textentwurfswerkzeug (Decision-Support- & Drafting-System) für die unternehmensinterne Eigenverwaltung des Lizenznehmers dar.<br />
-                    (3) <strong>Keine Rechts- oder Steuerberatung (§ 3 RDG / § 5 StBerG):</strong> Die durch die Software-Algorithmen (<code>sonar-ai-triage</code> / <code>SONAR NEMESIS</code>) automatisiert erstellten rechtlichen oder steuerlichen Einschätzungen, Subsumtionen, Fristenberechnungen und Schriftsatzentwürfe stellen <strong>keine Rechtsdienstleistung nach § 2 Abs. 1 RDG</strong> und <strong>keine Hilfeleistung in Steuersachen nach § 5 Abs. 1 StBerG</strong> durch die Wilsdorf & Sommer GmbH dar. Das System ersetzt im Streit- oder Zweifelsfall nicht die Konsultation eines zugelassenen Rechtsanwalts, Patentanwalts, Steuerberaters oder Wirtschaftsprüfers.
+                    (3) <strong>Keine Rechts- oder Steuerberatung (§ 3 RDG / § 5 StBerG):</strong> Die durch die Software-Algorithmen (<code>sonar-ai-triage</code> / <code>SONAR NEMESIS</code>) automatisiert erstellten rechtlichen oder steuerlichen Einschätzungen, Subsumtionen, Fristenberechnungen und Schriftsatzentwürfen stellen <strong>keine Rechtsdienstleistung nach § 2 Abs. 1 RDG</strong> und <strong>keine Hilfeleistung in Steuersachen nach § 5 Abs. 1 StBerG</strong> durch die Wilsdorf & Sommer GmbH dar. Das System ersetzt im Streit- oder Zweifelsfall nicht die Konsultation eines zugelassenen Rechtsanwalts, Patentanwalts, Steuerberaters oder Wirtschaftsprüfers.
                   </div>
 
                   <div>
@@ -625,9 +630,9 @@ export default function Dashboard({ session }) {
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
           </h1>
-          
+
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            
+
             {/* --- DEMO-RESET BUTTON (NUR FÜR DEMO-/TEST-USER SICHTBAR) --- */}
             {isDemoUser && (
               <button
@@ -658,7 +663,7 @@ export default function Dashboard({ session }) {
                 title="Tech-Handbuch"
                 onClick={() => setActiveTab('handbuch')}
                 style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-                <Icon name="book" size={18} /> 
+                <Icon name="book" size={18} />
                 {!isMobile && <span>Tech-Handbuch</span>}
               </button>
             )}
@@ -667,15 +672,15 @@ export default function Dashboard({ session }) {
               title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
               onClick={() => setIsDarkMode(!isDarkMode)}
               style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-              <Icon name="sun" size={18} /> 
+              <Icon name="sun" size={18} />
               {!isMobile && <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
-            
+
             <button
               title="Abmelden"
               onClick={handleLogout}
               style={{ background: 'transparent', color: theme.gegnerAccent, border: `1px solid ${theme.gegnerAccent}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-              <Icon name="x" size={18} /> 
+              <Icon name="x" size={18} />
               {!isMobile && <span>Abmelden</span>}
             </button>
           </div>
@@ -683,7 +688,7 @@ export default function Dashboard({ session }) {
 
         {/* --- TAB NAVIGATION (EXAKTE REIHENFOLGE: AKTEN – WIR – GEGNER – COMPLIANCE – WISSEN) --- */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
-          
+
           <button
             onClick={() => setActiveTab('akten')}
             style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
