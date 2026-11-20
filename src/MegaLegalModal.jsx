@@ -37,7 +37,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const [messages, setMessages] = useState([]);
   const [inputPrompt, setInputPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingPhaseText, setLoadingPhaseText] = useState("Kanzlei Sokrates & SONAR NEMESIS arbeiten...");
+  const [loadingPhaseText, setLoadingPhaseText] = useState("Kanzlei Alpha, Spiegel-Kanzlei Omega & Revisionssenat arbeiten...");
   const [errorMsg, setErrorMsg] = useState(null);
   const [copyWarningToast, setCopyWarningToast] = useState(false);
 
@@ -357,7 +357,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return { fullContextText: fallbackBestText, docsCount: 1 };
   };
 
-  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline: Generator <-> SONAR NEMESIS (mit 250.000 Zeichen Volltext-Kapazität)
+  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline: Kanzlei Alpha <-> Spiegel-Kanzlei Omega & Revisionssenat (mit 250.000 Zeichen Volltext-Kapazität)
   const runAutomatedRedTeamLoop = async (
     initialDraft,
     historyContext,
@@ -381,9 +381,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       setLiveRound(round);
       setLiveStage(2);
       setLoadingPhaseText(
-        `Station 2/4 (Runde ${round}/${maxRounds}): SONAR NEMESIS prüft den Entwurf gegen das Originaldokument & die 8 Universellen Gesetze...`
+        `Station 2/4 (Runde ${round}/${maxRounds}): Spiegel-Kanzlei Omega prüft den Entwurf kontradiktorisch gegen Originaldokument & Universelle Gesetze...`
       );
-      addLiveLog(`Station 2 (Runde ${round}/${maxRounds}): Forensische Prüfung & In-Memory-Patching durch SONAR NEMESIS läuft...`, "NEMESIS");
+      addLiveLog(`Station 2 (Runde ${round}/${maxRounds}): Gegenprüfung & In-Memory-Patching durch Spiegel-Kanzlei Omega läuft...`, "OMEGA");
 
       const { data: checkData, error: checkErr } = await invokeTriageWithRetry({
         mode: "red_team_check",
@@ -405,11 +405,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       if (checkErr || checkData?.error) {
         setLiveStage(3);
-        setLoadingPhaseText("Station 3/4: Formale Endkontrolle wird durchgeführt...");
+        setLoadingPhaseText("Station 3/4: Formale Delta-Zusammenführung wird durchgeführt...");
         await sleep(300);
         setLiveStage(4);
-        setLoadingPhaseText("Station 4/4: Revisions-Endabnahme erteilt!");
-        auditProtocolLines.push(`Runde ${round} – Revisions-Endabnahme abgeschlossen.`);
+        setLoadingPhaseText("Station 4/4: Endabnahme durch den Revisionssenat erteilt!");
+        auditProtocolLines.push(`Runde ${round} – Endabnahme durch den Revisionssenat abgeschlossen.`);
         await sleep(300);
         break;
       }
@@ -424,15 +424,15 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       if (audit.approved || audit.status_badge === "FREIGABE_DAUMEN_HOCH" || !audit.veto_points || audit.veto_points.length === 0) {
         setLiveStage(3);
-        setLoadingPhaseText("Station 3/4: In-Memory-Delta-Patches & Paragraphen-Kette versiegelt...");
+        setLoadingPhaseText("Station 3/4: In-Memory-Delta-Patches & Paragraphen-Kette zusammengeführt...");
         await sleep(350);
 
         setLiveStage(4);
-        setLoadingPhaseText(`Station 4/4: SONAR NEMESIS erteilt Revisions-Freigabe (Score: ${audit.score || 99}/100)!`);
-        auditProtocolLines.push(`Runde ${round} – SONAR NEMESIS Endabnahme (${audit.score || 99}/100 Punkte): FREIGABE ERTEILT – ${audit.summary}`);
+        setLoadingPhaseText(`Station 4/4: Revisionssenat erteilt Freigabe (Score: ${audit.score || 99}/100)!`);
+        auditProtocolLines.push(`Runde ${round} – Spiegel-Kanzlei Omega & Revisionssenat (${audit.score || 99}/100 Punkte): FREIGABE ERTEILT – ${audit.summary}`);
         if (Array.isArray(audit.applied_patches_log) && audit.applied_patches_log.length > 0) {
           auditProtocolLines.push(
-            ...audit.applied_patches_log.map((ap, idx) => `   • In-Memory-Patch ${idx + 1}: ${ap}`)
+            ...audit.applied_patches_log.map((ap, idx) => ` • Omega-Patch ${idx + 1}: ${ap}`)
           );
         }
         await sleep(350);
@@ -441,13 +441,13 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       const vetoCount = audit.veto_points.length;
       auditProtocolLines.push(
-        `Runde ${round} – SONAR NEMESIS VETO (${audit.score || 85}/100 Punkte): ${audit.summary}\n` +
-        audit.veto_points.map((vp, idx) => `   • Veto ${idx + 1}: ${vp}`).join("\n")
+        `Runde ${round} – Spiegel-Kanzlei Omega VETO (${audit.score || 85}/100 Punkte): ${audit.summary}\n` +
+        audit.veto_points.map((vp, idx) => ` • Veto ${idx + 1}: ${vp}`).join("\n")
       );
 
       setLiveStage(3);
       setLoadingPhaseText(
-        `Station 3/4 (Runde ${round}/${maxRounds}): Delta-Patching für ${vetoCount} Punkt(e) wird ausgeführt...`
+        `Station 3/4 (Runde ${round}/${maxRounds}): Delta-Zusammenführung für ${vetoCount} Punkt(e) wird ausgeführt...`
       );
 
       const { data: revData, error: revErr } = await invokeTriageWithRetry({
@@ -470,8 +470,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       if (round === maxRounds) {
         setLiveStage(4);
-        setLoadingPhaseText("Station 4/4: Revisions-Endabnahme & Qualitäts-Zertifizierung abgeschlossen!");
-        auditProtocolLines.push(`Revisions-Endabnahme nach Runde ${round}: Alle Veto-Punkte per Delta-Patch eingearbeitet und freigegeben.`);
+        setLoadingPhaseText("Station 4/4: Endabnahme durch den Revisionssenat abgeschlossen!");
+        auditProtocolLines.push(`Endabnahme durch den Revisionssenat nach Runde ${round}: Alle Punkte der Spiegel-Kanzlei Omega per Delta-Patch eingearbeitet und freigegeben.`);
         await sleep(350);
       }
     }
@@ -482,7 +482,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
     const headerBanner = [
       "=================================================================",
-      `KANZLEI SOKRATES & SONAR NEMESIS PRÜFPROTOKOLL (${auditProtocolLines.length} PRÜF-EINTRÄGE – FREIGEGEBEN)`,
+      `KANZLEI ALPHA • SPIEGEL-KANZLEI OMEGA • REVISIONSSENAT – PRÜFPROTOKOLL (${auditProtocolLines.length} PRÜF-EINTRÄGE – FREIGEGEBEN)`,
       ...auditProtocolLines,
       "=================================================================\n\n"
     ].join("\n");
@@ -504,7 +504,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setLiveStage(1);
     setLiveRound(1);
     setLiveLogEntries([]);
-    setLoadingPhaseText("Vorprüfung: Kanzlei Sokrates analysiert Akten-Dossier & lädt Volltext-Urteile aus dem Storage...");
+    setLoadingPhaseText("Vorprüfung: Chefabteilung analysiert Akten-Dossier & lädt Volltext-Urteile aus dem Storage...");
     setErrorMsg(null);
 
     const today = new Date().toLocaleDateString('de-DE');
@@ -514,8 +514,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const mandantAP = dossier.unser_ansprechpartner || defaultAP;
     const mandantFax = dossier.unser_fax || (ownerFlag ? OWNER_DEFAULT_FAX : "");
 
-    let bestText = (dossier.raw_text && dossier.raw_text.trim() !== "") 
-      ? dossier.raw_text 
+    let bestText = (dossier.raw_text && dossier.raw_text.trim() !== "")
+      ? dossier.raw_text
       : (dossier.brief_entwurf || "Kein Volltext vorhanden.");
 
     // --- ZWILLINGS-ABRUF LOGIK (EINZEL-FALLBACK) ---
@@ -536,7 +536,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
           let targetUrl = mdUrl;
           if (!targetUrl && pdfUrl) {
-            targetUrl = pdfUrl.replace(/\.[^/.]+$/, "") + ".md"; 
+            targetUrl = pdfUrl.replace(/\.[^/.]+$/, "") + ".md";
           }
 
           if (targetUrl) {
@@ -544,7 +544,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             if (res.ok) {
               const fetchedText = await res.text();
               if (fetchedText && fetchedText.trim() !== "") {
-                bestText = fetchedText; 
+                bestText = fetchedText;
               }
             }
           }
@@ -571,7 +571,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setFullDossierContextCache(enrichedContextText);
 
     const briefingPrompt = [
-      "Analysiere dieses vollständige Akten-Dossier für unsere Mandanten-Lagebesprechung nach den 8 Universellen Gesetzen der Juristischen Methodenlehre:",
+      "Analysiere dieses vollständige Akten-Dossier für unsere Mandanten-Lagebesprechung nach den Universellen Gesetzen der Juristischen Methodenlehre:",
       "",
       `Behörde / Gegenpartei: ${dossier.kontakt || "Unbekannt"}`,
       `Aktenzeichen / Steuernummer: ${dossier.aktenzeichen || "Unbekannt"}`,
@@ -588,7 +588,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
     try {
       setLiveStage(2);
-      setLoadingPhaseText("SONAR NEMESIS & Kanzlei Sokrates kalkulieren Verfahrensrisiko, Fristen & Erfolgschancen für Ihre Lagebesprechung...");
+      setLoadingPhaseText("Chefabteilung & Spezialisten-Board kalkulieren Verfahrensrisiko, Fristen & Erfolgschancen für Ihre Lagebesprechung...");
 
       const { data, error } = await invokeTriageWithRetry({
         mode: "strategy_briefing",
@@ -639,7 +639,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     });
   };
 
-  // PHASE B: Erstellt den Schriftsatz 100 % fallneutral nach den in der Lagebesprechung angeklickten Optionen und den 8 Universellen Gesetzen
+  // PHASE B: Erstellt den Schriftsatz 100 % fallneutral nach den in der Lagebesprechung angeklickten Optionen
   const handleExecuteBriefingSelection = async () => {
     if (!strategyBriefing || selectedOptionIds.length === 0 || isLoading) return;
 
@@ -685,14 +685,14 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       "VOLLSTÄNDIGER ORIGINAL-AKTEN-KONTEXT INKL. VOLLTEXT-ENTSCHEIDUNGEN:",
       rawContextToUse,
       "",
-      "DEIN AUFTRAG (DIE 8 UNIVERSELLEN GESETZE DER JURISTISCHEN METHODENLEHRE ZWINGEND BEACHTEN):",
+      "DEIN AUFTRAG ALS KANZLEI ALPHA (UNIVERSELLE GESETZE & REVISIONS-DOGMATIK ZWINGEND BEACHTEN):",
       "Verfasse jetzt SOFORT den vollständigen, wasserdichten und druckfertigen Schriftsatz exakt gemäß der obigen Auswahl nach dem Minto-Prinzip (BLUF + MECE, vollständig bis zur Unterschrift)!",
       "STRIKTE PFLICHT-CHECKLISTE:",
       "1. VERFAHRENSSTADIEN-TRENNUNG & ADRESSATEN-FOKUSSIERUNG: Prüfe für jeden Streitgegenstand vorab das genaue Verfahrensstadium. Ist ein Vorverfahren bereits durch Einspruchs-/Widerspruchsentscheidung abgeschlossen, verschwende keinen eigenen Hauptabschnitt mehr an die nicht mehr abhilfebefugte Rechtsbehelfsstelle und rüge keine formell nach § 126 AO / § 45 VwVfG geheilten Begründungsmängel als formell unheilbar, sondern richte die Anträge im Rubrum und BLUF direkt an die jetzt gesetzlich entscheidungsbefugten Stellen (Erhebungs-/Erlassstelle für sachlichen UND persönlichen Billigkeitserlass samt Vollstreckungsschutz sowie Veranlagungs-/Ausgangsstelle für offene Parallel-/Folgeverfahren mit voller Aktenhoheit).",
-      "2. AUTONOME FRISTEN-MATHEMATIK NACH DEM SICHERSTEN WEG: Berechne den Fristablauf kalendergenau ab dem frühesten Ursprungsdokument (unter Beachtung, dass eine Teilberichtigung nach § 129 AO / § 42 VwVfG / § 319 ZPO die Frist für unveränderte Punkte nicht neu startet) und setze sowohl im Eingangsblock (BLUF) als auch im Schlussabschnitt eine einheitliche Reaktionsfrist mindestens 7 bis 10 Kalendertage VOR Ablauf dieser frühesten Notfrist.",
+      "2. AUTONOME FRISTEN-MATHEMATIK & BEWEISLAST-SCHILD: Berechne den Fristablauf kalendergenau ab dem frühesten Ursprungsdokument (unter Beachtung, dass eine Teilberichtigung nach § 129 AO / § 42 VwVfG / § 319 ZPO die Frist für unveränderte Punkte nicht neu startet), nutze bei behördlichen Fristen vorrangig § 109 Abs. 1 Satz 2 AO / § 31 Abs. 7 Satz 2 VwVfG (+ § 242 BGB), stelle bei unklarem Zugang früherer Schreiben die objektive Zugangsbeweislast scharf und setze im BLUF sowie Schlussabschnitt eine einheitliche Reaktionsfrist mindestens 7 bis 10 Kalendertage VOR Ablauf der frühesten Notfrist.",
       "3. CROSS-DOCUMENT-WIDERSPRUCHS-CHECK & BUMERANG-TECHNIK: Vergleiche Begleitschreiben und Bescheid/Vertrag Wort für Wort, zitiere etwaige Selbstwidersprüche wörtlich mit exakter Seiten- und Abschnittsangabe und drehe jedes von der Gegenseite angeführte Gerichtsurteil über die gemeinsame gesetzliche Wurzel und spezifische höchstrichterliche Leitentscheidungen als Bumerang gegen die Gegenseite.",
-      "4. DOGMATISCH SAUBERER RECHTSSCHUTZ & KONTOSCHUTZ: Trenne die Rechtsschutzinstrumente strikt nach Verfahrensstadium (z. B. § 361 Abs. 2 AO für offene Einsprüche vs. § 258 AO für das Erlassverfahren), behaupte niemals eine automatische Fälligkeitssperre allein durch Antragstellung (vgl. § 361 Abs. 1 Satz 1 AO) und kopple die Auskehrung verrechneter Guthaben direkt an den Wegfall des Rechtsgrundes (§ 37 Abs. 2 Satz 1 und 2 AO i. V. m. § 218 Abs. 2 AO).",
-      "5. VERTRETUNGS-FORMEL, WIR-FORM & REINER GESCHÄFTSBRIEF-STIL: Eröffne bei Gesellschaften (GmbH, UG, AG, KG, OHG) zwingend mit der organschaftlichen Vertretungsformel (§ 35 Abs. 1 Satz 1 GmbHG i. V. m. § 34 Abs. 1 Satz 1 AO) in durchgängiger 'Wir'-Form. Gib AUSSCHLIESSLICH den reinen, druckfertigen Geschäftsbrief-Text aus: KEINE Vorrede, KEINE eckigen Klammern [ ], KEINE Markdown-Sternchen (**), KEINE Rauten (###) und KEINE Markdown-Tabellenstriche (|---|)!"
+      "4. DOGMATISCH SAUBERER RECHTSSCHUTZ, KONTOSCHUTZ & ORGANHAFTUNGSSCHUTZ: Trenne die Rechtsschutzinstrumente strikt nach Verfahrensstadium (z. B. § 361 Abs. 2 AO für offene Einsprüche vs. § 258 AO für das Erlassverfahren), behaupte niemals eine automatische Fälligkeitssperre allein durch Antragstellung (vgl. § 361 Abs. 1 Satz 1 AO), kopple die Auskehrung verrechneter Guthaben direkt an den Wegfall des Rechtsgrundes (§ 37 Abs. 2 Satz 1 und 2 AO i. V. m. § 218 Abs. 2 AO) und schütze den Geschäftsführer persönlich vor Haftungsdurchgriffen.",
+      "5. VERTRETUNGS-FORMEL, WIR-FORM & REINER GESCHÄFTSBRIEF-STIL: Eröffne bei Gesellschaften (GmbH, UG, AG, KG, OHG) zwingend mit der organschaftlichen Vertretungsformel in durchgängiger 'Wir'-Form. Gib AUSSCHLIESSLICH den reinen, druckfertigen Geschäftsbrief-Text aus: KEINE Vorrede, KEINE eckigen Klammern [ ], KEINE Markdown-Sternchen (**), KEINE Rauten (###) und KEINE Markdown-Tabellenstriche (|---|)!"
     ].filter(Boolean).join("\n");
 
     const displayHistory = [{ role: "user", content: userDecisionDisplay }];
@@ -701,7 +701,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
     await callMegaLegal(apiHistory, true, isOwnerUser, currentRunId, displayHistory, rawContextToUse);
   };
-
   // Initialer Start beim Öffnen des Modals
   useEffect(() => {
     const initChatOrRestoreMemory = async () => {
@@ -745,7 +744,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               if (
                 lastAiMsg &&
                 lastAiMsg.content &&
-                (lastAiMsg.content.includes("PRÜFPROTOKOLL") || lastAiMsg.content.includes("SONAR NEMESIS"))
+                (
+                  lastAiMsg.content.includes("PRÜFPROTOKOLL") ||
+                  lastAiMsg.content.includes("SONAR NEMESIS") ||
+                  lastAiMsg.content.includes("SPIEGEL-KANZLEI OMEGA")
+                )
               ) {
                 setMessages(savedChat);
                 setLoadedDocsCount(1);
@@ -786,7 +789,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
   }, [messages, isLoading, liveStage, strategyBriefing]);
 
-  // Hauptfunktion: Führt Station 1 (Generator) + automatisch Station 2-4 (SONAR NEMESIS In-Memory-Patching) aus
+  // Hauptfunktion: Führt Station 1 (Kanzlei Alpha) + automatisch Station 2-4 (Spiegel-Kanzlei Omega & Revisionssenat In-Memory-Patching) aus
   const callMegaLegal = async (
     historyForApi,
     runFullJudgePipeline = true,
@@ -804,7 +807,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const effectiveRawText = (rawTextOverride || fullDossierContextCache || dossier?.raw_text || dossier?.brief_entwurf || "").substring(0, 250000);
 
     setLoadingPhaseText(
-      `Station 1/4: Kanzlei Sokrates formuliert Ihren Schriftsatz nach den 8 Universellen Gesetzen • danach prüft & patcht automatisch SONAR NEMESIS...`
+      `Station 1/4: Kanzlei Alpha formuliert den Schriftsatz • danach prüfen & patchen Spiegel-Kanzlei Omega & Revisionssenat...`
     );
 
     try {
@@ -848,7 +851,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
   };
 
-  // Wenn der Nutzer zwischendurch eine eigene Anweisung eingibt -> Sperre aktivieren & komplett neu durch SONAR NEMESIS jagen!
+  // Wenn der Nutzer zwischendurch eine eigene Anweisung eingibt -> Sperre aktivieren & erneut durch Spiegel-Kanzlei Omega & Revisionssenat prüfen!
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     if (!inputPrompt.trim() || isLoading) return;
@@ -863,7 +866,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const wrappedInstruction = [
       `ZUSATZ-ANWEISUNG / ÄNDERUNGSWUNSCH DES MANDANTEN: "${userInstruction}"`,
       "",
-      "Arbeite diese Anweisung sofort unter Beachtung der 8 Universellen Gesetze der Juristischen Methodenlehre in den Schriftsatz ein und gib AUSSCHLIESSLICH den vollständig aktualisierten, druckfertigen Schriftsatz-Text (ohne Vorrede, ohne eckige Klammern, ohne Markdown-Sternchen **, direkt im Namen des Mandanten) aus, damit er erneut SONAR NEMESIS zur Pflicht-Abnahme vorgelegt werden kann!"
+      "Arbeite diese Anweisung sofort unter Beachtung der Universellen Gesetze der Juristischen Methodenlehre in den Schriftsatz ein und gib AUSSCHLIESSLICH den vollständig aktualisierten, druckfertigen Schriftsatz-Text (ohne Vorrede, ohne eckige Klammern, ohne Markdown-Sternchen **, direkt im Namen des Mandanten) aus, damit er erneut der Spiegel-Kanzlei Omega und dem Revisionssenat zur Pflicht-Abnahme vorgelegt werden kann!"
     ].join("\n");
 
     const updatedHistory = [...messages, { role: "user", content: wrappedInstruction }];
@@ -908,8 +911,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       const combinedRaw = `${fullDossierContextCache}\n\n=== NACHGEREICHTE DATEI (${file.name}) ===\n${extractedText}`.substring(0, 250000);
       setFullDossierContextCache(combinedRaw);
 
-      const prompt = `Hier ist der nachgereichte Volltext aus der Datei "${file.name}":\n\n${extractedText.substring(0, 200000)}\n\nBitte arbeite diese neuen Fakten sofort unter Beachtung der 8 Universellen Gesetze der Juristischen Methodenlehre in den versandfertigen Schriftsatz ein und gib den kompletten, aktualisierten Schriftsatz-Text (ohne Markdown-Sternchen **) zur erneuten Prüfung durch SONAR NEMESIS aus.`;
-      
+      const prompt = `Hier ist der nachgereichte Volltext aus der Datei "${file.name}":\n\n${extractedText.substring(0, 200000)}\n\nBitte arbeite diese neuen Fakten sofort unter Beachtung der Universellen Gesetze der Juristischen Methodenlehre in den versandfertigen Schriftsatz ein und gib den kompletten, aktualisierten Schriftsatz-Text (ohne Markdown-Sternchen **) zur erneuten Prüfung durch Spiegel-Kanzlei Omega und den Revisionssenat aus.`;
+
       const updatedHistory = [...messages, { role: "user", content: prompt }];
       setMessages(updatedHistory);
       if (dossier?.akte_id) {
@@ -922,8 +925,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       setErrorMsg(err.message || "Fehler beim Auslesen der Datei.");
       setIsLoading(false);
     }
-    
-    e.target.value = ""; 
+
+    e.target.value = "";
   };
 
   // SOFORT-ÜBERGABE INS COCKPIT (Nur bedienbar, wenn alle 4 Stationen grün sind & Revisions-Freigabe vorliegt!)
@@ -1024,12 +1027,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   const displayMandantName = dossier?.unsere_firma || (isOwnerUser ? "Jens Wilsdorf" : "Mandant");
 
-  // Die 4 Pflicht-Stationen (ohne bunte Icons, schlicht nummeriert)
+  // Die 4 Pflicht-Stationen mit dezenter neuer Kanzlei-Nomenklatur (Kanzlei Alpha / Spiegel-Kanzlei Omega / Revisionssenat)
   const kanzleiStations = [
-    { id: 1, title: "1. Kanzlei Sokrates (Generator)", desc: "Minto-BLUF nach Lagebesprechung" },
-    { id: 2, title: "2. SONAR NEMESIS (Red Team)", desc: `8-Gesetze-Prüfung & In-Memory-Patch (Runde ${liveRound}/${liveMaxRounds})` },
-    { id: 3, title: "3. Sokrates Delta-Merge", desc: "Deterministischer Patch-Einbau" },
-    { id: 4, title: "4. Richterliche Endabnahme", desc: "100 % Großkanzlei-Zertifizierung" }
+    { id: 1, title: "1. Kanzlei Alpha (Entwurf)", desc: "Minto-BLUF & Spezialisten-Board" },
+    { id: 2, title: "2. Spiegel-Kanzlei Omega", desc: `Gegenprüfung & In-Memory-Patch (Runde ${liveRound}/${liveMaxRounds})` },
+    { id: 3, title: "3. Delta-Zusammenführung", desc: "Deterministischer Patch-Einbau" },
+    { id: 4, title: "4. Revisionssenat", desc: "Richterliche Endabnahme & Freigabe" }
   ];
 
   const allFourGreen = !isLoading && liveStage === 5 && isJudgeApproved;
@@ -1044,7 +1047,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className={`flex flex-col w-full max-w-6xl h-[94vh] ${bgModal} border ${borderModal} rounded-xl shadow-2xl overflow-hidden`}>
-        
+
         {/* 1. HEADER: Titel + Demo-Badge direkt daneben + einheitliche Steuer-Buttons */}
         <div className={`flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-b ${borderHeader} ${bgHeader}`}>
           <div className="flex flex-col gap-1">
@@ -1103,7 +1106,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 isDark ? "bg-slate-900 border-slate-700 text-slate-300" : "bg-white border-slate-300 text-slate-700"
               } select-none`}
             >
-              <span>Auto-Widerstreit (Sokrates vs. Nemesis) AKTIV</span>
+              <span>Kanzlei Alpha vs. Omega AKTIV</span>
             </div>
 
             <button
@@ -1146,11 +1149,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           <div className="mb-2 text-left">
             {isLoading ? (
               <span style={{ color: "#f59e0b" }} className="text-xs font-extrabold uppercase tracking-wider">
-                KANZLEI SOKRATES & SONAR NEMESIS ARBEITEN – ÜBERGABE ANS COCKPIT WIRD NACH REVISIONS-FREIGABE (4X GRÜN) FREIGESCHALTET...
+                KANZLEI ALPHA, SPIEGEL-KANZLEI OMEGA & REVISIONSSENAT ARBEITEN – ÜBERGABE WIRD NACH FREIGABE (4X GRÜN) AKTIVIERT...
               </span>
             ) : allFourGreen ? (
               <span style={{ color: "#10b981" }} className="text-xs font-extrabold uppercase tracking-wider">
-                ALLE 4 KANZLEI-STATIONEN GRÜN & ABGENOMMEN – ÜBERGABE ANS COCKPIT IST FREIGESCHALTET!
+                ALLE 4 STATIONEN GRÜN & VOM REVISIONSSENAT ABGENOMMEN – ÜBERGABE ANS COCKPIT IST FREIGESCHALTET!
               </span>
             ) : (
               <span className={`text-xs font-extrabold uppercase tracking-wider ${textTitle}`}>
@@ -1231,10 +1234,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               <div className={`flex items-center justify-between flex-wrap gap-2 border-b pb-3 ${borderHeader}`}>
                 <div>
                   <h3 className={`text-base font-extrabold uppercase tracking-wide ${textTitle}`}>
-                    KANZLEI-LAGEBESPRECHUNG & STRATEGIE-WAHL
+                    CHEFABTEILUNGS-LAGEBESPRECHUNG & STRATEGIE-WAHL
                   </h3>
                   <p className={`text-xs ${textSub}`}>
-                    Ergebnis der Vorprüfung nach den 8 Universellen Gesetzen (Mehrfachauswahl / Kombination möglich)
+                    Vorprüfung durch das einberufene Spezialisten-Board (Mehrfachauswahl / Kombination möglich)
                   </p>
                 </div>
                 <span className={`px-3 py-1 rounded text-xs font-bold border ${borderModal} ${textSub}`}>
@@ -1400,8 +1403,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   className="w-full py-3.5 px-5 rounded-lg font-extrabold text-sm hover:opacity-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center uppercase tracking-wide"
                 >
                   {selectedOptionIds.length > 1
-                    ? `Ausgewählte Optionen (${selectedOptionIds.length}) durch SONAR NEMESIS prüfen`
-                    : "Ausgewählte Option durch SONAR NEMESIS prüfen"}
+                    ? `Ausgewählte Optionen (${selectedOptionIds.length}) durch Kanzlei Alpha & Omega ausarbeiten`
+                    : "Ausgewählte Option durch Kanzlei Alpha & Omega ausarbeiten"}
                 </button>
               </div>
             </div>
@@ -1415,7 +1418,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 <div className={`text-xs font-bold ${textSub} mb-1.5 px-1 uppercase tracking-wider text-left`}>
                   {isUser
                     ? "Mandant / Beschluss aus der Lagebesprechung"
-                    : `Kanzlei Sokrates & SONAR NEMESIS (${isOwnerUser && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
+                    : `Kanzlei Alpha • Spiegel-Kanzlei Omega • Revisionssenat (${isOwnerUser && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
                 </div>
                 <div
                   className={`w-full text-left rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed border relative overflow-hidden ${bgCard}`}
@@ -1459,7 +1462,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 style={{ color: "#10b981" }} className="text-sm sm:text-base font-extrabold uppercase tracking-wide">
-                  ALLE 4 PRÜF-STATIONEN GRÜN – SCHRIFTSATZ GEMÄSS LAGEBESPRECHUNG IST FREIGEGEBEN
+                  ALLE 4 STATIONEN GRÜN – SCHRIFTSATZ DURCH REVISIONSSENAT FREIGEGEBEN
                 </h3>
                 <span
                   style={{ backgroundColor: "#10b981", color: "#000000" }}
@@ -1470,7 +1473,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               </div>
 
               <p className={`text-xs leading-relaxed ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                Ihr Schriftsatz wurde nach Ihrer Auswahl aus der Lagebesprechung ausgearbeitet und von SONAR NEMESIS nach den 8 Universellen Gesetzen der Juristischen Methodenlehre abgenommen. Klicken Sie jetzt auf „Ins Cockpit übergeben“, um den Entwurf in die Aktenansicht zu übernehmen.
+                Ihr Schriftsatz wurde durch Kanzlei Alpha ausgearbeitet, von der Spiegel-Kanzlei Omega kontradiktorisch geprüft und vom Revisionssenat abgenommen. Klicken Sie jetzt auf „Ins Cockpit übergeben“, um den Entwurf in die Aktenansicht zu übernehmen.
               </p>
 
               <div className="flex flex-wrap gap-3 pt-1">
@@ -1505,18 +1508,18 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         {/* 5. SCHLICHTER FOOTER: Korrektur-Eingabe + Schließen + 1 klarer Übergabe-Button */}
         <div className={`p-4 border-t ${borderHeader} ${bgFooter} space-y-3 flex-shrink-0`}>
           <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
-            <label 
+            <label
               className={`flex items-center justify-center h-[42px] w-[42px] rounded-lg cursor-pointer border transition flex-shrink-0 ${headerBtnInactive}`}
               title="Fehlendes Dokument (PDF/MD) nachladen (löst automatisch erneute Prüfung aus)"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
-              <input 
-                type="file" 
-                accept=".pdf,.md,.txt" 
-                className="hidden" 
-                onChange={handleFileUpload} 
+              <input
+                type="file"
+                accept=".pdf,.md,.txt"
+                className="hidden"
+                onChange={handleFileUpload}
                 disabled={isLoading}
               />
             </label>
@@ -1526,7 +1529,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               type="text"
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder="Optionaler Eingriff / Korrektur-Anweisung zum Schriftsatz (löst automatisch erneute Prüfung durch SONAR NEMESIS aus)..."
+              placeholder="Optionaler Eingriff / Korrektur-Anweisung zum Schriftsatz (löst erneute Prüfung durch Spiegel-Kanzlei Omega aus)..."
               disabled={isLoading}
               className={`flex-1 rounded-lg px-4 h-[42px] text-xs sm:text-sm border focus:outline-none focus:border-[#fbbf24] transition disabled:opacity-50 ${inputBg}`}
             />
@@ -1548,7 +1551,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             >
               Schließen (Verlauf bleibt gespeichert)
             </button>
-            
+
             <button
               type="button"
               onClick={handleExtractAndApplyJSON}
@@ -1565,7 +1568,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               }`}
               title={
                 allFourGreen
-                  ? "Schriftsatz ist von SONAR NEMESIS freigegeben – jetzt ins Cockpit übergeben"
+                  ? "Schriftsatz ist vom Revisionssenat freigegeben – jetzt ins Cockpit übergeben"
                   : "Wird freigeschaltet, sobald die Prüfung nach der Lagebesprechung abgeschlossen ist (4x Grün)"
               }
             >
