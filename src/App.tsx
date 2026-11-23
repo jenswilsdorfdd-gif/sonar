@@ -26,18 +26,19 @@ export default function App() {
   const [session, setSession] = useState<any>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [requesterName, setRequesterName] = useState('')
+  const [requesterFirma, setRequesterFirma] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // --- NEU: Login-Modus ('password' | 'magic') & Status-Meldungen für Magic Link ---
+  // Login-Modus ('password' | 'magic') & Status-Meldungen
   const [loginMode, setLoginMode] = useState<'password' | 'magic'>('password')
   const [authNotice, setAuthNotice] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
-  
-  // --- Responsive State für den Public Wrapper ---
+
+  // Responsive State für den Public Wrapper & Login-Box
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // Resize-Listener für die mobile Header-Anpassung
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     handleResize(); // Initialer Check
     window.addEventListener('resize', handleResize);
@@ -63,19 +64,17 @@ export default function App() {
   if (isPublicHandbuch) {
     return (
       <div style={{ backgroundColor: publicTheme.bg, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        
         {/* Header-Leiste für das öffentliche Handbuch */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: isMobile ? '12px 15px' : '15px 30px', // Weniger Padding auf Mobile
+          padding: isMobile ? '12px 15px' : '15px 30px',
           backgroundColor: publicTheme.cardBg,
           borderBottom: `1px solid ${publicTheme.border}`,
           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          gap: isMobile ? '10px' : '0' // Verhindert Überlappung bei kleinen Screens
+          gap: isMobile ? '10px' : '0'
         }}>
-          {/* Logo / Branding */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: publicTheme.accent, letterSpacing: '1px' }}>
               ((o))
@@ -84,10 +83,9 @@ export default function App() {
               SONAR COCKPIT
             </h1>
           </div>
-          {/* Titel der Seite */}
-          <div style={{ 
-            fontSize: isMobile ? '11px' : '14px', 
-            color: publicTheme.textMuted, 
+          <div style={{
+            fontSize: isMobile ? '11px' : '14px',
+            color: publicTheme.textMuted,
             fontWeight: '500',
             textAlign: 'right',
             lineHeight: '1.2'
@@ -96,7 +94,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Eigentlicher Handbuch-Inhalt */}
         <div style={{ padding: isMobile ? '10px' : '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
           <Handbuch theme={publicTheme} />
         </div>
@@ -104,7 +101,7 @@ export default function App() {
     )
   }
 
-  // Klassischer Passwort-Login
+  // Klassischer Passwort-Login (Owner / Vollzugang)
   const handleLogin = async (e: any) => {
     e.preventDefault()
     setLoading(true)
@@ -122,34 +119,94 @@ export default function App() {
     setLoading(false)
   }
 
-  // Passwortloser Magic-Link-Login (ideal für Test- & Demo-Accounts)
+  // Türsteher-geschützter Magic-Link-Login für Test- & Demo-Interessenten
   const handleMagicLink = async (e: any) => {
     e.preventDefault()
-    if (!email.trim()) return
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail) return
 
     setLoading(true)
     setAuthError(null)
     setAuthNotice(null)
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
-    })
+    try {
+      // 1. Prüfen, ob E-Mail bereits freigeschaltet ist oder neue Anfrage für das Owner-Cockpit anlegen
+      const { data: gateRes, error: gateErr } = await supabase.rpc('check_or_request_demo_access', {
+        p_email: cleanEmail,
+        p_name: requesterName.trim() || null,
+        p_firma: requesterFirma.trim() || null
+      })
 
-    if (error) {
-      setAuthError(error.message)
-    } else {
-      setAuthNotice(
-        `✅ Magic Link wurde an ${email.trim()} gesendet! Bitte klicke auf den Zugangslink in deiner E-Mail, um direkt ins Cockpit zu starten.`
-      )
+      if (gateErr) {
+        throw new Error(gateErr.message || 'Freigabe-Prüfung konnte nicht durchgeführt werden.')
+      }
+
+      const accessStatus = gateRes?.status || 'requested'
+
+      if (accessStatus === 'invalid_email') {
+        setAuthError('Bitte gib eine gültige geschäftliche E-Mail-Adresse ein.')
+        setLoading(false)
+        return
+      }
+
+      if (accessStatus === 'rejected') {
+        setAuthError('Für diese E-Mail-Adresse konnte leider kein Testzugang freigeschaltet werden.')
+        setLoading(false)
+        return
+      }
+
+      if (accessStatus === 'requested') {
+        setAuthNotice(
+          `Anfrage erfolgreich übermittelt: Wir haben deine Anfrage für ${cleanEmail} erhalten. Sobald dein kostenfreier Testzugang freigegeben ist, erhältst du eine E-Mail und kannst dich hier direkt anmelden.`
+        )
+        setLoading(false)
+        return
+      }
+
+      if (accessStatus === 'already_pending') {
+        setAuthNotice(
+          `Deine Anfrage für ${cleanEmail} liegt uns bereits zur Prüfung vor. Sobald die Freigabe erfolgt ist, benachrichtigen wir dich umgehend per E-Mail.`
+        )
+        setLoading(false)
+        return
+      }
+
+      // 2. Nur wenn status === 'approved' -> echten Magic Link versenden!
+      const { error: otpErr } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      })
+
+      if (otpErr) {
+        setAuthError(otpErr.message)
+      } else {
+        setAuthNotice(
+          `Dein Zugang ist freigeschaltet – der Magic Link wurde soeben an ${cleanEmail} gesendet! Bitte klicke auf den Zugangslink in deiner E-Mail, um direkt ins Cockpit zu starten.`
+        )
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Verbindungsfehler bei der Zugangs-Prüfung.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   if (session) {
     return <Dashboard session={session} />
+  }
+
+  const inputBaseStyle = {
+    padding: '12px 14px',
+    width: '100%',
+    borderRadius: '8px',
+    border: '1px solid #334155',
+    backgroundColor: '#020617',
+    color: '#ffffff',
+    fontSize: '14px',
+    outline: 'none',
+    boxSizing: 'border-box' as const
   }
 
   return (
@@ -170,7 +227,7 @@ export default function App() {
         borderRadius: '16px',
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
         width: '100%',
-        maxWidth: '420px',
+        maxWidth: '440px',
         textAlign: 'center',
         boxSizing: 'border-box'
       }}>
@@ -187,7 +244,7 @@ export default function App() {
           KI-gestütztes Kanzlei- & Behörden-Abwehrsystem
         </p>
 
-        {/* Umschalter: Passwort vs. Magic Link (Test-Zugang) */}
+        {/* Umschalter: Passwort vs. Testzugang (Magic Link) */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -213,7 +270,7 @@ export default function App() {
               transition: 'all 0.2s ease'
             }}
           >
-            🔑 Passwort
+            Mandanten-Login
           </button>
           <button
             type="button"
@@ -230,7 +287,7 @@ export default function App() {
               transition: 'all 0.2s ease'
             }}
           >
-            ✨ Magic Link (Test)
+            Testzugang (Demo)
           </button>
         </div>
 
@@ -238,27 +295,46 @@ export default function App() {
         <form onSubmit={loginMode === 'password' ? handleLogin : handleMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ textAlign: 'left' }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
-              E-Mail-Adresse
+              Geschäftliche E-Mail-Adresse*
             </label>
             <input
               type="email"
-              placeholder="name@kanzlei.de"
+              placeholder="name@unternehmen.de"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{
-                padding: '12px 14px',
-                width: '100%',
-                borderRadius: '8px',
-                border: '1px solid #334155',
-                backgroundColor: '#020617',
-                color: '#ffffff',
-                fontSize: '14px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              style={inputBaseStyle}
             />
           </div>
+
+          {loginMode === 'magic' && (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px', textAlign: 'left' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
+                  Ihr Name (bei Erst-Anfrage)
+                </label>
+                <input
+                  type="text"
+                  placeholder="z.B. Max Mustermann"
+                  value={requesterName}
+                  onChange={(e) => setRequesterName(e.target.value)}
+                  style={inputBaseStyle}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
+                  Firma / Kanzlei (optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="z.B. Muster GmbH"
+                  value={requesterFirma}
+                  onChange={(e) => setRequesterFirma(e.target.value)}
+                  style={inputBaseStyle}
+                />
+              </div>
+            </div>
+          )}
 
           {loginMode === 'password' && (
             <div style={{ textAlign: 'left' }}>
@@ -271,17 +347,7 @@ export default function App() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                style={{
-                  padding: '12px 14px',
-                  width: '100%',
-                  borderRadius: '8px',
-                  border: '1px solid #334155',
-                  backgroundColor: '#020617',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                style={inputBaseStyle}
               />
             </div>
           )}
@@ -295,9 +361,9 @@ export default function App() {
               color: '#fda4af',
               fontSize: '13px',
               textAlign: 'left',
-              lineHeight: '1.4'
+              lineHeight: '1.45'
             }}>
-              ⚠️ {authError}
+              {authError}
             </div>
           )}
 
@@ -310,7 +376,7 @@ export default function App() {
               color: '#6ee7b7',
               fontSize: '13px',
               textAlign: 'left',
-              lineHeight: '1.4'
+              lineHeight: '1.45'
             }}>
               {authNotice}
             </div>
@@ -335,16 +401,16 @@ export default function App() {
             }}
           >
             {loading
-              ? 'Verbinde...'
+              ? 'Prüfe Zugang...'
               : loginMode === 'password'
-                ? '🔒 Im Cockpit anmelden'
-                : '✨ Magic Link per E-Mail senden'}
+              ? 'Im Cockpit anmelden'
+              : 'Testzugang anfordern / Magic Link senden'}
           </button>
         </form>
 
         {loginMode === 'magic' && (
-          <p style={{ marginTop: '16px', marginBottom: 0, fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>
-            Du erhältst einen Einmal-Login-Link per E-Mail und startest in deiner eigenen, datenschutzisolierten Sandbox.
+          <p style={{ marginTop: '16px', marginBottom: 0, fontSize: '11.5px', color: '#64748b', lineHeight: '1.45' }}>
+            Neue Interessenten werden nach kurzer Freigabe per E-Mail informiert. Bereits freigeschaltete Adressen erhalten sofort ihren Einmal-Login-Link.
           </p>
         )}
       </div>
