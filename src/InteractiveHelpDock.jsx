@@ -2,6 +2,7 @@
 // ADAPTIVE FELD-FÜR-FELD LIVE-BEDIENHILFE FÜR SONAR COCKPIT
 // - Desktop & großes Tablet (> 1024px): Feststehendes (position: fixed) 1/3-Kontext-Dock rechts, das beim Scrollen immer sichtbar mitläuft + "i"-Badges
 // - Smartphone & kompakte Screens (<= 1024px): 100 % Cockpit-Breite + antippbare "i"-Badges + kompaktes 1-Ebenen-Pop-up
+// - Automatische Overflow-Erkennung: Container mit overflow: hidden schneiden das "i"-Badge niemals ab (.sonar-help-badge-inset)
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SONAR_HELP_CATALOG, SONAR_GUIDED_TOUR } from './config/sonarHelpCatalog';
@@ -126,7 +127,7 @@ export default function InteractiveHelpDock({
   }, [isOpen, isCompactViewport, scrollDockToTop]);
 
   // =========================================================================
-  // UNIVERSELLE "i"-BADGES AN ALLEN [data-help]-BEREICHEN (DESKTOP & MOBIL)
+  // UNIVERSELLE "i"-BADGES AN ALLEN [data-help]-BEREICHEN (INKL. CLIPPING-SCHUTZ)
   // =========================================================================
   const removeAllHelpBadges = useCallback(() => {
     if (typeof document === 'undefined') return;
@@ -151,17 +152,24 @@ export default function InteractiveHelpDock({
       if (!key || !SONAR_HELP_CATALOG[key]) return;
       validNodes.add(node);
 
+      const computedStyle = window.getComputedStyle(node);
+      const clipsContent =
+        computedStyle.overflow !== 'visible' ||
+        computedStyle.overflowX !== 'visible' ||
+        computedStyle.overflowY !== 'visible';
+
       let existingBadge = node.querySelector(`:scope > .sonar-help-corner-badge[data-badge-for="${key}"]`);
       if (!existingBadge) {
-        const computedPos = window.getComputedStyle(node).position;
-        if (computedPos === 'static') {
+        if (computedStyle.position === 'static') {
           node.style.position = 'relative';
           node.setAttribute('data-sonar-pos-patched', 'true');
         }
 
         const badgeBtn = document.createElement('button');
         badgeBtn.type = 'button';
-        badgeBtn.className = 'sonar-help-corner-badge';
+        badgeBtn.className = clipsContent
+          ? 'sonar-help-corner-badge sonar-help-badge-inset'
+          : 'sonar-help-corner-badge';
         badgeBtn.setAttribute('data-badge-for', key);
         badgeBtn.setAttribute('data-sonar-help-ignore', 'true');
         badgeBtn.setAttribute('title', `Hilfe anzeigen: ${SONAR_HELP_CATALOG[key].title}`);
@@ -181,6 +189,13 @@ export default function InteractiveHelpDock({
         });
 
         node.appendChild(badgeBtn);
+      } else {
+        // Falls sich das Overflow-Verhalten z. B. durch Resize ändert, Inset-Klasse live nachziehen
+        if (clipsContent) {
+          existingBadge.classList.add('sonar-help-badge-inset');
+        } else {
+          existingBadge.classList.remove('sonar-help-badge-inset');
+        }
       }
     });
 
@@ -329,11 +344,16 @@ export default function InteractiveHelpDock({
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          z-index: 48;
+          z-index: 55;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
           padding: 0;
           user-select: none;
           transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        /* Verhindert jedes Abschneiden bei Boxen mit overflow: hidden (z. B. Tresor- & Gegner-Listen) */
+        .sonar-help-corner-badge.sonar-help-badge-inset {
+          top: 6px;
+          right: 6px;
         }
         .sonar-help-corner-badge:hover {
           transform: scale(1.12);
