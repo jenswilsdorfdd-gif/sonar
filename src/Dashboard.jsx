@@ -248,6 +248,42 @@ export default function Dashboard({ session }) {
 
   const activeColor = getLogoColor();
 
+  // --- EINHEITLICHES HEADER-BUTTON-DESIGN (WIE LIVE-HILFE: TRANSPARENT + BLAU -> BEI AKTIVIERUNG INVERTIERT) ---
+  const headerPrimaryBlue = isDarkMode ? '#06b6d4' : '#0284c7';
+  const headerActiveText = '#020617';
+
+  const getHeaderBluePillStyle = (isActive) => ({
+    background: isActive ? headerPrimaryBlue : 'transparent',
+    color: isActive ? headerActiveText : headerPrimaryBlue,
+    border: `1px solid ${headerPrimaryBlue}`,
+    padding: isMobile ? '8px 12px' : '8px 16px',
+    borderRadius: '30px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: isMobile ? '5px' : '8px',
+    fontWeight: 'bold',
+    fontSize: '13px',
+    lineHeight: 1.2,
+    transition: 'all 0.18s ease'
+  });
+
+  const getHeaderDangerPillStyle = (isBusy = false) => ({
+    background: 'transparent',
+    color: theme.gegnerAccent,
+    border: `1px solid ${theme.gegnerAccent}`,
+    padding: isMobile ? '8px 12px' : '8px 16px',
+    borderRadius: '30px',
+    cursor: isBusy ? 'wait' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: isMobile ? '0' : '8px',
+    fontWeight: 'bold',
+    fontSize: '13px',
+    lineHeight: 1.2,
+    transition: 'all 0.18s ease'
+  });
+
   useEffect(() => {
     const styleId = 'sonar-global-styles';
     let styleTag = document.getElementById(styleId);
@@ -781,7 +817,7 @@ export default function Dashboard({ session }) {
         }}
       >
 
-        {/* --- HEADER & LIVE-HILFE & SUPPORT & THEME TOGGLE & LOGOUT --- */}
+        {/* --- HEADER: DURCHGÄNGIG EINHEITLICHES OUTLINE-/AKTIV-PANEL --- */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '20px' : '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
@@ -789,56 +825,34 @@ export default function Dashboard({ session }) {
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
 
-            {/* --- LIVE-BEDIENHILFE SCHALTER (2/3 DESKTOP-DOCK ODER SMARTPHONE "i"-MODUS) --- */}
+            {/* 1. LIVE-BEDIENHILFE (INAKTIV: BLAU OUTLINE | AKTIV: BLAU GEFÜLLT + DUNKLE SCHRIFT/ICON) */}
             <button
               type="button"
               data-sonar-help-ignore="true"
               title={isHelpOpen ? 'Interaktive Live-Bedienhilfe ausschalten' : 'Interaktive Live-Bedienhilfe einschalten'}
               onClick={() => setIsHelpOpen(!isHelpOpen)}
-              style={{
-                background: isHelpOpen ? '#06b6d4' : 'transparent',
-                color: isHelpOpen ? '#020617' : '#06b6d4',
-                border: '1px solid #06b6d4',
-                padding: isMobile ? '8px 12px' : '8px 16px',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: isMobile ? '5px' : '8px',
-                fontWeight: 'bold',
-                fontSize: '13px'
-              }}
+              style={getHeaderBluePillStyle(isHelpOpen)}
             >
               <Icon name="bulb" size={18} />
               <span>{isMobile ? (isHelpOpen ? 'Hilfe AN' : 'Hilfe') : (isHelpOpen ? 'Live-Hilfe aktiv' : 'Live-Hilfe')}</span>
             </button>
 
-            {/* --- DEMO-RESET BUTTON (NUR FÜR DEMO-/TEST-USER SICHTBAR) --- */}
+            {/* OPTIONAL FÜR TESTER: DEMO ZURÜCKSETZEN (ROTES OUTLINE WIE ABMELDEN) */}
             {isDemoUser && (
               <button
+                type="button"
                 data-help="header_demo_reset"
                 title="Alle eigenen Test-Daten und Dokumente dieses Demo-Zugangs löschen"
                 disabled={resetLoading}
                 onClick={handleDemoReset}
-                style={{
-                  background: 'transparent',
-                  color: theme.gegnerAccent,
-                  border: `1px solid ${theme.gegnerAccent}`,
-                  padding: isMobile ? '8px 12px' : '8px 16px',
-                  borderRadius: '30px',
-                  cursor: resetLoading ? 'wait' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: isMobile ? '0' : '8px',
-                  fontWeight: 'bold'
-                }}
+                style={getHeaderDangerPillStyle(resetLoading)}
               >
                 <Icon name="trash" size={18} />
                 {!isMobile && <span>{resetLoading ? 'Bereinige...' : 'Demo zurücksetzen'}</span>}
               </button>
             )}
 
-            {/* --- ZENTRALER SUPPORT-BUTTON MIT LIVE-SMARTPHONE-BADGE (FÜR OWNER & ALLE KUNDEN/TESTER) --- */}
+            {/* 2. SUPPORT (EXAKT WIE LIVE-HILFE: BLAU OUTLINE | BEIM ÖFFNEN BLAU GEFÜLLT + ROTER BADGE-PIN) */}
             <button
               type="button"
               data-sonar-help-ignore="true"
@@ -847,23 +861,14 @@ export default function Dashboard({ session }) {
                   ? `Support & Mitteilungen (${supportUnreadCount} neu)`
                   : 'Support & Mitteilungen öffnen'
               }
-              onClick={() => setIsSupportOpen(true)}
+              onClick={() => setIsSupportOpen(!isSupportOpen)}
               style={{
+                ...getHeaderBluePillStyle(isSupportOpen),
                 position: 'relative',
-                background: supportUnreadCount > 0 ? 'rgba(239, 68, 68, 0.12)' : 'transparent',
-                color: theme.textMain,
-                border: supportUnreadCount > 0 ? '1px solid #ef4444' : `1px solid ${theme.border}`,
-                padding: isMobile ? '8px 12px' : '8px 16px',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: isMobile ? '0' : '8px',
-                fontWeight: 'bold',
-                fontSize: '13px'
+                gap: isMobile ? '0' : '8px'
               }}
             >
-              <Icon name="mail" size={18} style={{ color: supportUnreadCount > 0 ? '#ef4444' : theme.accent }} />
+              <Icon name="mail" size={18} />
               {!isMobile && <span>Support</span>}
               {supportUnreadCount > 0 && (
                 <span
@@ -891,19 +896,28 @@ export default function Dashboard({ session }) {
               )}
             </button>
 
+            {/* 3. LIGHT / DARK MODE (EXAKT WIE LIVE-HILFE: TRANSPARENT + BLAU | IM AKTIVEN LIGHT MODE INVERTIERT GEFÜLLT) */}
             <button
+              type="button"
               data-help="header_theme_toggle"
               title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
               onClick={() => setIsDarkMode(!isDarkMode)}
-              style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-              <Icon name="sun" size={18} />
+              style={{
+                ...getHeaderBluePillStyle(!isDarkMode),
+                gap: isMobile ? '0' : '8px'
+              }}
+            >
+              <Icon name={isDarkMode ? 'sun' : 'moon'} size={18} />
               {!isMobile && <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
 
+            {/* 4. ABMELDEN (EINHEITLICHER ROTER OUTLINE-STIL) */}
             <button
+              type="button"
               title="Abmelden"
               onClick={handleLogout}
-              style={{ background: 'transparent', color: theme.gegnerAccent, border: `1px solid ${theme.gegnerAccent}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
+              style={getHeaderDangerPillStyle(false)}
+            >
               <Icon name="x" size={18} />
               {!isMobile && <span>Abmelden</span>}
             </button>
