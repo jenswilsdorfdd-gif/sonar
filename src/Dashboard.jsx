@@ -9,7 +9,7 @@ import Handbuch from './Handbuch';
 import ComplianceRadar from './ComplianceRadar';
 import RssFeedHealthAlert from './RssFeedHealthAlert';
 import InteractiveHelpDock from './InteractiveHelpDock';
-import DemoAccessAlert from './DemoAccessAlert';
+import SupportCenterModal from './SupportCenterModal';
 
 export default function Dashboard({ session }) {
   // Haupt-Mandant (Owner) ID zum Schutz vor versehentlichem Demo-Reset
@@ -27,6 +27,10 @@ export default function Dashboard({ session }) {
 
   // --- LIVE-BEDIENHILFE (2/3 DESKTOP-DOCK & SMARTPHONE "i"-BADGES) ---
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+
+  // --- ZENTRALES SUPPORT-, FREIGABE- & TICKET-CENTER ---
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [supportUnreadCount, setSupportUnreadCount] = useState(0);
 
   // --- STATE FÜR DAS 3-TAB RECHTS-MODAL ('impressum' | 'datenschutz' | 'haftung' | null) ---
   const [legalModalTab, setLegalModalTab] = useState(null);
@@ -149,7 +153,7 @@ export default function Dashboard({ session }) {
   const handleDemoReset = async () => {
     if (!isDemoUser || !session?.user?.id) return;
     const confirmReset = window.confirm(
-      "DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account selbst angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruflich löschen? (Die schreibgeschützten Musterakten bleiben erhalten.)"
+      "DEMO-BEREINIGUNG (Datenschutz-Reset):\n\nMöchtest du alle in diesem Test-Account selbst angelegten Akten, Dokumente (.pdf / .md), Mandanten und Gegner jetzt vollständig und unwiderruflich löschen? (Die schreibgeschützten Musterakten sowie deine Support-Mitteilungen bleiben erhalten.)"
     );
     if (!confirmReset) return;
 
@@ -190,7 +194,7 @@ export default function Dashboard({ session }) {
         await supabase.storage.from('dokumente').remove(Array.from(filesToRemove));
       }
 
-      // 2. Alle Tabellen-Einträge dieses Demo-Users löschen (globale Musterakten & Gerichts-Streams haben user_id = NULL und bleiben unberührt!)
+      // 2. Alle Tabellen-Einträge dieses Demo-Users löschen (globale Musterakten, Gerichts-Streams & Support-Tickets bleiben unberührt!)
       await supabase.from('akten_historie').delete().eq('user_id', uid);
       await supabase.from('akten').delete().eq('user_id', uid);
       await supabase.from('mandanten').delete().eq('user_id', uid);
@@ -405,6 +409,17 @@ export default function Dashboard({ session }) {
         showToast={showToast}
         ladeDaten={ladeDaten}
         mode="popup"
+      />
+
+      {/* --- ZENTRALES SUPPORT-, FREIGABE- & TICKET-CENTER (BLEIBT GEMOUNTET FÜR LIVE-BADGE!) --- */}
+      <SupportCenterModal
+        session={session}
+        theme={theme}
+        isDarkMode={isDarkMode}
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
+        onUnreadCountChange={setSupportUnreadCount}
+        showToast={showToast}
       />
 
       {/* --- GLOBAL TOAST CONTAINER (MOBIL-SICHER ANGEPASST) --- */}
@@ -766,7 +781,7 @@ export default function Dashboard({ session }) {
         }}
       >
 
-        {/* --- HEADER & LIVE-HILFE & THEME TOGGLE & LOGOUT --- */}
+        {/* --- HEADER & LIVE-HILFE & SUPPORT & THEME TOGGLE & LOGOUT --- */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '20px' : '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
@@ -823,16 +838,58 @@ export default function Dashboard({ session }) {
               </button>
             )}
 
-            {/* --- TECH-HANDBUCH BUTTON (STRIKT NUR FÜR OWNER SICHTBAR, IN TESTVERSION AUSGEBLENDET) --- */}
-            {!isDemoUser && (
-              <button
-                title="Tech-Handbuch"
-                onClick={() => setActiveTab('handbuch')}
-                style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
-                <Icon name="book" size={18} />
-                {!isMobile && <span>Tech-Handbuch</span>}
-              </button>
-            )}
+            {/* --- ZENTRALER SUPPORT-BUTTON MIT LIVE-SMARTPHONE-BADGE (FÜR OWNER & ALLE KUNDEN/TESTER) --- */}
+            <button
+              type="button"
+              data-sonar-help-ignore="true"
+              title={
+                supportUnreadCount > 0
+                  ? `Support & Mitteilungen (${supportUnreadCount} neu)`
+                  : 'Support & Mitteilungen öffnen'
+              }
+              onClick={() => setIsSupportOpen(true)}
+              style={{
+                position: 'relative',
+                background: supportUnreadCount > 0 ? 'rgba(239, 68, 68, 0.12)' : 'transparent',
+                color: theme.textMain,
+                border: supportUnreadCount > 0 ? '1px solid #ef4444' : `1px solid ${theme.border}`,
+                padding: isMobile ? '8px 12px' : '8px 16px',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: isMobile ? '0' : '8px',
+                fontWeight: 'bold',
+                fontSize: '13px'
+              }}
+            >
+              <Icon name="mail" size={18} style={{ color: supportUnreadCount > 0 ? '#ef4444' : theme.accent }} />
+              {!isMobile && <span>Support</span>}
+              {supportUnreadCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-5px',
+                    minWidth: '20px',
+                    height: '20px',
+                    padding: '0 6px',
+                    borderRadius: '999px',
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '11px',
+                    fontWeight: 900,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.6)',
+                    lineHeight: 1
+                  }}
+                >
+                  {supportUnreadCount > 99 ? '99+' : supportUnreadCount}
+                </span>
+              )}
+            </button>
 
             <button
               data-help="header_theme_toggle"
@@ -918,13 +975,6 @@ export default function Dashboard({ session }) {
           )}
         </div>
 
-        {/* --- PROMINENTE TÜRSTEHER-ERINNERUNG FÜR NEUE DEMO-ZUGANGSANFRAGEN (NUR FÜR OWNER SICHTBAR) --- */}
-        <DemoAccessAlert
-          session={session}
-          theme={theme}
-          showToast={showToast}
-        />
-
         {/* --- VIEWS ROUTING --- */}
         <div style={{ flex: '1 0 auto', minWidth: 0 }}>
           {activeTab === 'akten' && (
@@ -1001,7 +1051,7 @@ export default function Dashboard({ session }) {
           )}
         </div>
 
-        {/* --- DURCHGÄNGIGER RECHTS-, URHEBERRECHTS- & COMPLIANCE-FOOTER --- */}
+        {/* --- DURCHGÄNGIGER RECHTS-, URHEBERRECHTS- & COMPLIANCE-FOOTER (INKL. ADMIN-EXKLUSIVEM TECH-HANDBUCH-LINK) --- */}
         <footer
           style={{
             marginTop: '48px',
@@ -1072,6 +1122,33 @@ export default function Dashboard({ session }) {
             >
               Lizenz-, Haftungs- & RDG/StBerG-Bedingungen
             </button>
+
+            {/* --- TECH-HANDBUCH LINK UNTEN IM FOOTER (STRIKT NUR FÜR OWNER / ADMIN SICHTBAR) --- */}
+            {!isDemoUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('handbuch');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: activeTab === 'handbuch' ? theme.handbuchAccent : theme.accent,
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  padding: 0,
+                  textDecoration: 'underline',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Icon name="book" size={13} />
+                <span>Tech-Handbuch</span>
+              </button>
+            )}
           </div>
         </footer>
 
