@@ -1832,7 +1832,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   }, [session?.user?.id]); 
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
       
       <style>{`
         /* HELPER KLASSEN FÜR STRIKTE TRENNUNG */
@@ -2260,14 +2260,31 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </div>
       )}
 
+      {/* --- MAGIC IMPORT & KI-WEB-SCANNER (BEIDE EINZELN AN DIE LIVE-HILFE GEKOPPELT) --- */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px', width: '100%' }}>
-        <div style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.accent}`, transition: 'border-color 0.3s ease' }}>
-          <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}><Icon name="folder" size={18} /> MAGIC IMPORT (JSON AUS SONAR WAR-ROOM)</label>
-          <textarea id="magic-import" value={jsonImport} onChange={handleJsonImport} placeholder={isOwnerAccount ? '{"typ": "Eingang", "unser_zeichen": "0001-SBS-Finanzamt", "thema": "..."}' : '{"typ": "Eingang", "unser_zeichen": "0001-MANDANT-Finanzamt", "thema": "..."}'} style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }} />
+        <div
+          data-help="akten_magic_import"
+          style={{ ...panelStyle, margin: 0, background: theme.hintBg, border: `1px dashed ${theme.accent}`, transition: 'border-color 0.3s ease' }}
+        >
+          <label style={{...labelStyle, color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease'}}>
+            <Icon name="folder" size={18} /> MAGIC IMPORT (JSON AUS SONAR WAR-ROOM)
+          </label>
+          <textarea
+            id="magic-import"
+            value={jsonImport}
+            onChange={handleJsonImport}
+            placeholder={isOwnerAccount ? '{"typ": "Eingang", "unser_zeichen": "0001-SBS-Finanzamt", "thema": "..."}' : '{"typ": "Eingang", "unser_zeichen": "0001-MANDANT-Finanzamt", "thema": "..."}'}
+            style={{ ...inputStyle, background: 'rgba(0,0,0,0.1)', border: `1px solid ${theme.accent}`, color: theme.textMain, height: '100px', fontFamily: 'monospace', fontSize: '14px', marginTop: '5px', transition: 'border-color 0.3s ease' }}
+          />
         </div>
 
-        <div style={{ ...panelStyle, margin: 0, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}>
-          <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}><Icon name="file" size={16} /> WEB-SCANNER & MANUELLER UPLOAD (PDF/MD)</label>
+        <div
+          data-help="akten_web_scanner"
+          style={{ ...panelStyle, margin: 0, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', border: `1px solid ${theme.border}` }}
+        >
+          <label style={{...labelStyle, color: theme.accent, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', transition: 'color 0.3s ease'}}>
+            <Icon name="file" size={16} /> WEB-SCANNER & MANUELLER UPLOAD (PDF/MD)
+          </label>
           <input
             id="datei-upload-manuell"
             type="file"
@@ -2316,24 +2333,30 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         </div>
       </div>
 
-      <AktenAlarme 
-        theme={theme}
-        isDarkMode={isDarkMode}
-        btnTextColor={btnTextColor}
-        akten={akten}
-        mandanten={mandanten}
-        isAlarmsOpen={isAlarmsOpen}
-        setIsAlarmsOpen={setIsAlarmsOpen}
-        openMenuId={openMenuId}
-        setOpenMenuId={setOpenMenuId}
-        handleAlarmKlick={handleAlarmKlick}
-        ladeVorgangInMaske={ladeVorgangInMaske}
-        handleInlineEdit={handleInlineEdit}
-        handleTerminVerschieben={handleTerminVerschieben}
-        handleNachhaken={handleNachhaken}
-        formatDatum={formatDatum}
-      />
+      {/* --- FRISTEN-, WIEDERVORLAGE- & UST-RADAR --- */}
+      <div data-help="akten_alarme_panel" style={{ width: '100%' }}>
+        <AktenAlarme 
+          theme={theme}
+          isDarkMode={isDarkMode}
+          btnTextColor={btnTextColor}
+          akten={akten}
+          mandanten={mandanten}
+          isAlarmsOpen={isAlarmsOpen}
+          setIsAlarmsOpen={setIsAlarmsOpen}
+          openMenuId={openMenuId}
+          setOpenMenuId={setOpenMenuId}
+          handleAlarmKlick={handleAlarmKlick}
+          ladeVorgangInMaske={ladeVorgangInMaske}
+          handleInlineEdit={handleInlineEdit}
+          handleTerminVerschieben={handleTerminVerschieben}
+          handleNachhaken={handleNachhaken}
+          formatDatum={formatDatum}
+          ladeDaten={ladeDaten}
+          showToast={showToast}
+        />
+      </div>
 
+      {/* --- AKTEN-ERFASSUNGS- & VERSANDFORMULAR --- */}
       <AktenFormular
         theme={theme}
         btnTextColor={btnTextColor}
@@ -2428,38 +2451,41 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         showToast={showToast}
       />
 
-      <AktenListe
-        theme={theme}
-        isDarkMode={isDarkMode}
-        btnTextColor={btnTextColor}
-        inputStyle={inputStyle}
-        inlineInputStyle={inlineInputStyle}
-        zeigeErledigte={zeigeErledigte}
-        setZeigeErledigte={setZeigeErledigte}
-        gefilterteAkten={gefilterteAkten}
-        aufgeklappteAkten={aufgeklappteAkten}
-        toggleAkte={toggleAkte}
-        fokussierteAkteId={fokussierteAkteId}
-        fokussierterHistId={fokussierterHistId}
-        toggleAkteStatus={toggleAkteStatus}
-        handleAkteStammdatenEdit={handleAkteStammdatenEdit}
-        loescheAkte={loescheAkte}
-        druckeAkte={druckeAkte}
-        mergeSourceId={mergeSourceId}
-        setMergeSourceId={setMergeSourceId}
-        mergeTargetId={mergeTargetId}
-        setMergeTargetId={setMergeTargetId}
-        mergeAkte={mergeAkte}
-        sortedAktenForDropdown={sortedAktenForDropdown}
-        getAkteDropdownText={getAkteDropdownText}
-        handleInlineEdit={handleInlineEdit}
-        ladeVorgangInMaske={ladeVorgangInMaske}
-        loescheHistorieEintrag={loescheHistorieEintrag}
-        loescheDateiAusHistorie={loescheDateiAusHistorie}
-        handleNachtragUploadAkte={handleNachtragUploadAkte}
-        uploadingHistId={uploadingHistId}
-        formatDatum={formatDatum}
-      />
+      {/* --- AKTEN-ÜBERSICHT & SHOWCASE-MUSTERAKTEN --- */}
+      <div data-help="akten_liste_overview" style={{ width: '100%' }}>
+        <AktenListe
+          theme={theme}
+          isDarkMode={isDarkMode}
+          btnTextColor={btnTextColor}
+          inputStyle={inputStyle}
+          inlineInputStyle={inlineInputStyle}
+          zeigeErledigte={zeigeErledigte}
+          setZeigeErledigte={setZeigeErledigte}
+          gefilterteAkten={gefilterteAkten}
+          aufgeklappteAkten={aufgeklappteAkten}
+          toggleAkte={toggleAkte}
+          fokussierteAkteId={fokussierteAkteId}
+          fokussierterHistId={fokussierterHistId}
+          toggleAkteStatus={toggleAkteStatus}
+          handleAkteStammdatenEdit={handleAkteStammdatenEdit}
+          loescheAkte={loescheAkte}
+          druckeAkte={druckeAkte}
+          mergeSourceId={mergeSourceId}
+          setMergeSourceId={setMergeSourceId}
+          mergeTargetId={mergeTargetId}
+          setMergeTargetId={setMergeTargetId}
+          mergeAkte={mergeAkte}
+          sortedAktenForDropdown={sortedAktenForDropdown}
+          getAkteDropdownText={getAkteDropdownText}
+          handleInlineEdit={handleInlineEdit}
+          ladeVorgangInMaske={ladeVorgangInMaske}
+          loescheHistorieEintrag={loescheHistorieEintrag}
+          loescheDateiAusHistorie={loescheDateiAusHistorie}
+          handleNachtragUploadAkte={handleNachtragUploadAkte}
+          uploadingHistId={uploadingHistId}
+          formatDatum={formatDatum}
+        />
+      </div>
 
       <MegaLegalModal
         isOpen={isWarRoomOpen}
