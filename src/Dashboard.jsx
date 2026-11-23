@@ -8,6 +8,7 @@ import GegnerCrm from './GegnerCrm';
 import Handbuch from './Handbuch';
 import ComplianceRadar from './ComplianceRadar';
 import RssFeedHealthAlert from './RssFeedHealthAlert';
+import InteractiveHelpDock from './InteractiveHelpDock';
 
 export default function Dashboard({ session }) {
   // Haupt-Mandant (Owner) ID zum Schutz vor versehentlichem Demo-Reset
@@ -19,18 +20,38 @@ export default function Dashboard({ session }) {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [resetLoading, setResetLoading] = useState(false);
 
+  // --- LIVE-BEDIENHILFE (2/3 DESKTOP-DOCK & SMARTPHONE "i"-BADGES) ---
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
   // --- STATE FÜR DAS 3-TAB RECHTS-MODAL ('impressum' | 'datenschutz' | 'haftung' | null) ---
   const [legalModalTab, setLegalModalTab] = useState(null);
 
-  // --- RESPONSIVE STATE FÜR HEADER-BUTTONS ---
+  // --- RESPONSIVE STATES FÜR HEADER-BUTTONS (<= 768px) & SPLIT-DOCK (<= 1024px) ---
   const [isMobile, setIsMobile] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      setIsCompactViewport(window.innerWidth <= 1024);
+    };
     handleResize(); // Initialer Check
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Setzt eine Body-Klasse für die dezente Hover-Markierung im Desktop-2/3-Modus
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isHelpOpen && !isCompactViewport) {
+      document.body.classList.add('sonar-live-help-desktop');
+    } else {
+      document.body.classList.remove('sonar-live-help-desktop');
+    }
+    return () => {
+      document.body.classList.remove('sonar-live-help-desktop');
+    };
+  }, [isHelpOpen, isCompactViewport]);
 
   // --- GLOBALE DATEN-STATES (Source of Truth) ---
   const [akten, setAkten] = useState([]);
@@ -301,8 +322,20 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { ladeDaten(); }, [session?.user?.id]);
 
+  const desktopSplitActive = isHelpOpen && !isCompactViewport;
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: '100vh', position: 'relative' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'stretch',
+        justifyContent: desktopSplitActive ? 'space-between' : 'center',
+        width: '100%',
+        minHeight: '100vh',
+        position: 'relative'
+      }}
+    >
 
       {/* --- GLOBALER RSS-HEALTH-ALARM (RENDERT NUR BEI DEFEKTEN FEEDS MIT STATUS = 'error') --- */}
       <RssFeedHealthAlert
@@ -312,29 +345,42 @@ export default function Dashboard({ session }) {
         mode="popup"
       />
 
-      {/* --- GLOBAL TOAST CONTAINER --- */}
-      <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* --- GLOBAL TOAST CONTAINER (MOBIL-SICHER ANGEPASST) --- */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: isMobile ? '12px' : (desktopSplitActive ? 'calc(33.333% + 16px)' : '20px'),
+          left: isMobile ? '12px' : 'auto',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          pointerEvents: 'none'
+        }}
+      >
         {toasts.map(t => (
           <div key={t.id} style={{
+            pointerEvents: 'auto',
             background: theme.cardBg,
             color: theme.textMain,
             borderLeft: `5px solid ${t.type === 'success' ? '#10b981' : t.type === 'error' ? theme.gegnerAccent : theme.hintBorder}`,
-            padding: '16px 20px',
+            padding: '14px 18px',
             borderRadius: '8px',
             boxShadow: isDarkMode ? '0 10px 25px rgba(0,0,0,0.5)' : '0 10px 25px rgba(0,0,0,0.15)',
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
-            minWidth: '280px',
-            maxWidth: '450px',
+            minWidth: isMobile ? '0' : '280px',
+            maxWidth: isMobile ? '100%' : '450px',
             wordBreak: 'break-word',
             border: `1px solid ${theme.border}`,
             animation: t.fadingOut ? 'fadeOut 0.3s forwards' : 'slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
           }}>
-            <div style={{ color: t.type === 'success' ? '#10b981' : t.type === 'error' ? theme.gegnerAccent : theme.hintBorder }}>
-              <Icon name={t.type === 'success' ? 'check' : t.type === 'error' ? 'x' : 'alert'} size={24} />
+            <div style={{ color: t.type === 'success' ? '#10b981' : t.type === 'error' ? theme.gegnerAccent : theme.hintBorder, flexShrink: 0 }}>
+              <Icon name={t.type === 'success' ? 'check' : t.type === 'error' ? 'x' : 'alert'} size={22} />
             </div>
-            <div style={{ fontSize: '14px', whiteSpace: 'pre-wrap', lineHeight: '1.4', textAlign: 'left' }}>{t.message}</div>
+            <div style={{ fontSize: '13.5px', whiteSpace: 'pre-wrap', lineHeight: '1.4', textAlign: 'left' }}>{t.message}</div>
           </div>
         ))}
       </div>
@@ -585,7 +631,7 @@ export default function Dashboard({ session }) {
                     <strong>§ 3 Haftungsbeschränkung & Ausschluss von § 536a Abs. 1 Alt. 1 BGB</strong><br />
                     (1) Die Wilsdorf & Sommer GmbH haftet unbeschränkt nur für Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit, die auf einer Pflichtverletzung der Wilsdorf & Sommer GmbH, ihrer gesetzlichen Vertreter oder Erfüllungsgehilfen (§ 278 BGB) beruhen, sowie für sonstige Schäden, die auf Vorsatz oder grober Fahrlässigkeit (§ 276 BGB) oder dem Fehlen einer ausdrücklich übernommenen Beschaffenheitsgarantie (§ 443 BGB) oder Ansprüchen nach dem Produkthaftungsgesetz beruhen.<br />
                     (2) Bei leicht fahrlässiger Verletzung wesentlicher Vertragspflichten, deren Erfüllung die ordnungsgemäße Durchführung des Vertrages überhaupt erst ermöglicht und auf deren Einhaltung der Vertragspartner regelmäßig vertrauen darf (<strong>Kardinalpflichten</strong>, vgl. § 307 Abs. 2 Nr. 2 BGB), ist die Haftung der Wilsdorf & Sommer GmbH der Höhe nach auf den vertragstypischen, bei Vertragsschluss vorhersehbaren Schaden begrenzt. Im Übrigen ist die Haftung für leichte Fahrlässigkeit ausgeschlossen.<br />
-                    (3) <strong>Ausschluss der verschuldensunabhängigen Garantiehaftung:</strong> Soweit auf die dauerhafte Überlassung, Systempflege oder Lizenzierung der Software oder einzelner Backend-Komponenten mietvertragliche Vorschriften (§§ 535 ff. BGB) Anwendung finden, wird die verschuldensunabhängige Garantiehaftung der Wilsdorf & Sommer GmbH für bei Vertragsschluss vorhandene (anfängliche) Mängel gemäß <strong>§ 536a Abs. 1 Alt. 1 BGB ausdrücklich ausgeschlossen</strong>.<br />
+                    (3) <strong>Ausschluss der verschuldensunabhängigen Garantiehaftung:</strong> Soweit auf die dauerhafte Überlassung, Systempflege oder Lizenzierung der Software oder einzelner Backend-Komponenten mietvertragliche Vorschriften (§§ 535 ff. BGB) Anwendung finden, wird die verschuldensunabhängigen Garantiehaftung der Wilsdorf & Sommer GmbH für bei Vertragsschluss vorhandene (anfängliche) Mängel gemäß <strong>§ 536a Abs. 1 Alt. 1 BGB ausdrücklich ausgeschlossen</strong>.<br />
                     (4) <strong>Haftungsausschluss für Dritt-APIs & Versäumnis ungeprüfter KI-Entwürfe:</strong> Die Wilsdorf & Sommer GmbH übernimmt keine Haftung für Ausfälle, Rate-Limits oder Übermittlungsfehler externer Drittanbieter-Infrastrukturen (Supabase, Google Cloud/Gemini, Anthropic, Resend, Simple-Fax) sowie für Vermögensschäden, Rechtsverluste, Säumniszuschläge, Verspätungszuschläge oder Fristversäumnisse, die daraus resultieren, dass der Nutzer entgegen § 2 Abs. 2 einen KI-generierten Entwurf oder eine KI-Fristenberechnung ohne eigenverantwortliche sachliche und rechtliche Endkontrolle übernommen oder versendet hat (überwiegendes Mitverschulden des Nutzers gemäß § 254 Abs. 1 BGB).<br />
                     (5) Im reinen <strong>unentgeltlichen Demo- und Testbetrieb</strong> haftet die Wilsdorf & Sommer GmbH analog §§ 521, 599 BGB ausschließlich für Vorsatz und grobe Fahrlässigkeit.
                   </div>
@@ -643,19 +689,57 @@ export default function Dashboard({ session }) {
         </div>
       )}
 
-      <div style={{ width: '100%', maxWidth: '1200px', padding: 'max(15px, 2vw)', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* --- HAUPT-ARBEITSBEREICH (2/3 BEI AKTIVEM DESKTOP-DOCK, SONST ZENTRIERT BIS 1200PX) --- */}
+      <div
+        style={{
+          flex: desktopSplitActive ? '1 1 66.666%' : '0 1 1200px',
+          width: desktopSplitActive ? '66.666%' : '100%',
+          maxWidth: desktopSplitActive ? 'none' : '1200px',
+          minWidth: 0,
+          margin: desktopSplitActive ? '0' : '0 auto',
+          padding: 'max(14px, 2vw)',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '100vh'
+        }}
+      >
 
-        {/* --- HEADER & THEME TOGGLE & LOGOUT --- */}
+        {/* --- HEADER & LIVE-HILFE & THEME TOGGLE & LOGOUT --- */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-          <h1 style={{ margin: 0, color: theme.textMain, fontSize: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '20px' : '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
           </h1>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
 
+            {/* --- NEUER LIVE-BEDIENHILFE SCHALTER (2/3 DESKTOP-DOCK ODER SMARTPHONE "i"-MODUS) --- */}
+            <button
+              type="button"
+              data-sonar-help-ignore="true"
+              title={isHelpOpen ? 'Interaktive Live-Bedienhilfe ausschalten' : 'Interaktive Live-Bedienhilfe einschalten'}
+              onClick={() => setIsHelpOpen(!isHelpOpen)}
+              style={{
+                background: isHelpOpen ? '#06b6d4' : 'transparent',
+                color: isHelpOpen ? '#020617' : '#06b6d4',
+                border: '1px solid #06b6d4',
+                padding: isMobile ? '8px 12px' : '8px 16px',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: isMobile ? '5px' : '8px',
+                fontWeight: 'bold',
+                fontSize: '13px'
+              }}
+            >
+              <Icon name="bulb" size={18} />
+              <span>{isMobile ? (isHelpOpen ? 'Hilfe AN' : 'Hilfe') : (isHelpOpen ? 'Live-Hilfe aktiv' : 'Live-Hilfe')}</span>
+            </button>
+
             {/* --- DEMO-RESET BUTTON (NUR FÜR DEMO-/TEST-USER SICHTBAR) --- */}
             {isDemoUser && (
               <button
+                data-help="header_demo_reset"
                 title="Alle eigenen Test-Daten und Dokumente dieses Demo-Zugangs löschen"
                 disabled={resetLoading}
                 onClick={handleDemoReset}
@@ -689,6 +773,7 @@ export default function Dashboard({ session }) {
             )}
 
             <button
+              data-help="header_theme_toggle"
               title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
               onClick={() => setIsDarkMode(!isDarkMode)}
               style={{ background: theme.cardBg, color: theme.textMain, border: `1px solid ${theme.border}`, padding: isMobile ? '8px 12px' : '8px 16px', borderRadius: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '8px', fontWeight: 'bold' }}>
@@ -707,43 +792,49 @@ export default function Dashboard({ session }) {
         </div>
 
         {/* --- TAB NAVIGATION (EXAKTE REIHENFOLGE: AKTEN – WIR – GEGNER – COMPLIANCE – WISSEN) --- */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', width: '100%' }}>
+        <div
+          data-help="nav_tabs"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? '10px' : '15px', marginBottom: '20px', width: '100%' }}
+        >
 
           <button
             onClick={() => setActiveTab('akten')}
-            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: isMobile ? '1 1 calc(50% - 10px)' : '1 1 110px', padding: isMobile ? '12px 10px' : '15px', fontSize: isMobile ? '13px' : '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'akten' ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'akten' ? theme.accent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="cabinet" size={22} /> AKTEN
           </button>
 
           <button
             onClick={() => setActiveTab('tresor')}
-            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: isMobile ? '1 1 calc(50% - 10px)' : '1 1 110px', padding: isMobile ? '12px 10px' : '15px', fontSize: isMobile ? '13px' : '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'tresor' ? `2px solid ${theme.tresorAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'tresor' ? theme.tresorAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="building" size={22} /> WIR
           </button>
 
           <button
             onClick={() => setActiveTab('gegner')}
-            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: isMobile ? '1 1 calc(50% - 10px)' : '1 1 110px', padding: isMobile ? '12px 10px' : '15px', fontSize: isMobile ? '13px' : '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'gegner' ? `2px solid ${theme.gegnerAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'gegner' ? theme.gegnerAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="shield" size={22} /> GEGNER
           </button>
 
           <button
             onClick={() => setActiveTab('compliance')}
-            style={{ flex: '1 1 130px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'compliance' ? `2px solid ${theme.complianceAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'compliance' ? theme.complianceAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: isMobile ? '1 1 calc(50% - 10px)' : '1 1 130px', padding: isMobile ? '12px 10px' : '15px', fontSize: isMobile ? '13px' : '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'compliance' ? `2px solid ${theme.complianceAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'compliance' ? theme.complianceAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="alert" size={22} /> COMPLIANCE
           </button>
 
           <button
             onClick={() => setActiveTab('wissen')}
-            style={{ flex: '1 1 110px', padding: '15px', fontSize: '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            style={{ flex: isMobile ? '1 1 100%' : '1 1 110px', padding: isMobile ? '12px 10px' : '15px', fontSize: isMobile ? '13px' : '15px', fontWeight: 'bold', borderRadius: '12px', border: activeTab === 'wissen' ? `2px solid ${theme.wissenAccent}` : `1px solid ${theme.border}`, cursor: 'pointer', background: theme.cardBg, color: activeTab === 'wissen' ? theme.wissenAccent : theme.textMuted, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <Icon name="brain" size={22} /> WISSEN
           </button>
 
         </div>
 
         {/* --- DYNAMISCHE VOLLTEXT-SUCHLEISTE (GLOBAL) --- */}
-        <div style={{ background: theme.cardBg, borderRadius: '12px', padding: '12px 18px', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${activeColor}`, transition: 'border-color 0.3s ease' }}>
-          <Icon name="search" size={20} style={{ color: activeColor, transition: 'color 0.3s ease' }} />
+        <div
+          data-help="global_search"
+          style={{ background: theme.cardBg, borderRadius: '12px', padding: '12px 18px', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${activeColor}`, transition: 'border-color 0.3s ease' }}
+        >
+          <Icon name="search" size={20} style={{ color: activeColor, transition: 'color 0.3s ease', flexShrink: 0 }} />
           <input
             type="text"
             placeholder="Übergreifende Volltextsuche oder URL eingeben (z.B. https://finanzamt.de...)"
@@ -755,18 +846,18 @@ export default function Dashboard({ session }) {
                 handleLiveUrlFetch(val);
               }
             }}
-            style={{ width: '100%', background: 'transparent', border: 'none', color: theme.textMain, fontSize: '15px', outline: 'none' }}
+            style={{ width: '100%', minWidth: 0, background: 'transparent', border: 'none', color: theme.textMain, fontSize: isMobile ? '14px' : '15px', outline: 'none' }}
           />
-          {webFetchLoading && <span style={{ fontSize: '12px', color: activeColor }}>Lade Webseite...</span>}
+          {webFetchLoading && <span style={{ fontSize: '12px', color: activeColor, whiteSpace: 'nowrap' }}>Lade Webseite...</span>}
           {suchbegriff && (
-            <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer' }}>
+            <button onClick={() => setSuchbegriff('')} style={{ background: 'transparent', border: 'none', color: theme.textMuted, cursor: 'pointer', flexShrink: 0 }}>
               <Icon name="x" size={18} />
             </button>
           )}
         </div>
 
         {/* --- VIEWS ROUTING --- */}
-        <div style={{ flex: '1 0 auto' }}>
+        <div style={{ flex: '1 0 auto', minWidth: 0 }}>
           {activeTab === 'akten' && (
             <AktenCockpit
               session={session}
@@ -783,48 +874,56 @@ export default function Dashboard({ session }) {
           )}
 
           {activeTab === 'tresor' && (
-            <FirmenTresor
-              session={session}
-              theme={theme}
-              mandanten={mandanten}
-              ladeDaten={ladeDaten}
-              showToast={showToast}
-              suchbegriff={suchbegriff}
-            />
+            <div data-help="tresor_main">
+              <FirmenTresor
+                session={session}
+                theme={theme}
+                mandanten={mandanten}
+                ladeDaten={ladeDaten}
+                showToast={showToast}
+                suchbegriff={suchbegriff}
+              />
+            </div>
           )}
 
           {activeTab === 'gegner' && (
-            <GegnerCrm
-              session={session}
-              theme={theme}
-              gegnerListe={gegnerListe}
-              ladeDaten={ladeDaten}
-              showToast={showToast}
-              suchbegriff={suchbegriff}
-            />
+            <div data-help="gegner_crm_main">
+              <GegnerCrm
+                session={session}
+                theme={theme}
+                gegnerListe={gegnerListe}
+                ladeDaten={ladeDaten}
+                showToast={showToast}
+                suchbegriff={suchbegriff}
+              />
+            </div>
           )}
 
           {activeTab === 'compliance' && (
-            <ComplianceRadar
-              session={session}
-              theme={theme}
-              mandanten={mandanten}
-              akten={akten}
-              ladeDaten={ladeDaten}
-              showToast={showToast}
-            />
+            <div data-help="compliance_radar_main">
+              <ComplianceRadar
+                session={session}
+                theme={theme}
+                mandanten={mandanten}
+                akten={akten}
+                ladeDaten={ladeDaten}
+                showToast={showToast}
+              />
+            </div>
           )}
 
           {activeTab === 'wissen' && (
-            <Wissensspeicher
-              theme={theme}
-              wissenEintraege={wissenEintraege}
-              mandanten={mandanten}
-              gegnerListe={gegnerListe}
-              ladeDaten={ladeDaten}
-              showToast={showToast}
-              suchbegriff={suchbegriff}
-            />
+            <div data-help="wissen_main">
+              <Wissensspeicher
+                theme={theme}
+                wissenEintraege={wissenEintraege}
+                mandanten={mandanten}
+                gegnerListe={gegnerListe}
+                ladeDaten={ladeDaten}
+                showToast={showToast}
+                suchbegriff={suchbegriff}
+              />
+            </div>
           )}
 
           {/* --- HANDBUCH VIEW (STRIKT NUR FÜR OWNER) --- */}
@@ -908,6 +1007,18 @@ export default function Dashboard({ session }) {
         </footer>
 
       </div>
+
+      {/* --- RECHTES 1/3 LIVE-INSPEKTOR-DOCK (> 1024px) BZW. SMARTPHONE-POPUP-CONTROLLER (<= 1024px) --- */}
+      <InteractiveHelpDock
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+        theme={theme}
+        isDarkMode={isDarkMode}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isCompactViewport={isCompactViewport}
+      />
+
     </div>
   );
 }
