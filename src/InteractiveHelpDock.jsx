@@ -1,6 +1,6 @@
 // src/InteractiveHelpDock.jsx
 // ADAPTIVE FELD-FÜR-FELD LIVE-BEDIENHILFE FÜR SONAR COCKPIT
-// - Desktop & großes Tablet (> 1024px): 1/3-Kontext-Dock rechts + "i"-Badges an allen [data-help]-Feldern + automatisches Mitlaufen bei Feldklick/Fokus
+// - Desktop & großes Tablet (> 1024px): Feststehendes (position: fixed) 1/3-Kontext-Dock rechts, das beim Scrollen immer sichtbar mitläuft + "i"-Badges
 // - Smartphone & kompakte Screens (<= 1024px): 100 % Cockpit-Breite + antippbare "i"-Badges + kompaktes 1-Ebenen-Pop-up
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -43,7 +43,7 @@ export default function InteractiveHelpDock({
     }
   }, [isOpen]);
 
-  // Scrollt das rechte Desktop-Dock sanft nach oben, sobald ein neues Feld fokussiert/angeklickt wird
+  // Scrollt den Inhalt innerhalb des rechten Desktop-Docks nach oben, sobald ein neues Feld gewählt wird
   const scrollDockToTop = useCallback(() => {
     if (dockAsideRef.current) {
       dockAsideRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -78,7 +78,6 @@ export default function InteractiveHelpDock({
       return key && SONAR_HELP_CATALOG[key] ? key : null;
     };
 
-    // Maus-Hover wechselt live mit, solange der Nutzer kein Thema fest gepinnt hat
     const handleMouseOver = (e) => {
       if (pinnedRef.current) return;
       const key = findHelpKeyFromTarget(e.target);
@@ -91,8 +90,6 @@ export default function InteractiveHelpDock({
       }, 80);
     };
 
-    // Sobald der Nutzer aktiv in ein Eingabefeld / Select / Textarea klickt oder per Tab hineinspringt ->
-    // arbeitet das rechte Hilfe-Dock IMMER sofort mit (löst ggf. einen alten Pin auf das neue Arbeitsfeld um!)
     const handleFocusIn = (e) => {
       const key = findHelpKeyFromTarget(e.target);
       if (!key) return;
@@ -187,7 +184,6 @@ export default function InteractiveHelpDock({
       }
     });
 
-    // Verwaiste Badges entfernen, falls ein Bereich ausgeblendet wurde
     document.querySelectorAll('.sonar-help-corner-badge').forEach((btn) => {
       if (!btn.parentElement || !validNodes.has(btn.parentElement)) {
         btn.remove();
@@ -195,7 +191,7 @@ export default function InteractiveHelpDock({
     });
   }, [isOpen, removeAllHelpBadges, scrollDockToTop]);
 
-  // Markiert das aktuell im Desktop-Dock aktive "i"-Badge optisch (Gold/Grün bei Pin)
+  // Markiert das aktuell im Desktop-Dock aktive "i"-Badge optisch (Gold-Amber)
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') return;
     const currentKey = isCompactViewport
@@ -220,7 +216,6 @@ export default function InteractiveHelpDock({
 
     syncHelpBadges();
 
-    // MutationObserver hängt "i"-Badges sofort auch an dynamisch aufgeklappte Panels & Modals (z. B. War-Room)
     let rafId = null;
     const observer = new MutationObserver(() => {
       if (rafId) cancelAnimationFrame(rafId);
@@ -297,7 +292,6 @@ export default function InteractiveHelpDock({
 
   return (
     <>
-      {/* Styles für die universellen "i"-Kanten-Badges (Light- & Dark-Mode fest) und Fokus-Rahmen */}
       <style>{`
         [data-help] {
           transition: outline-color 0.15s ease, box-shadow 0.15s ease;
@@ -354,289 +348,304 @@ export default function InteractiveHelpDock({
       `}</style>
 
       {/* =================================================================== */}
-      {/* MODUS A: DESKTOP & GROSSES TABLET (> 1024px) -> FESTES 1/3-DOCK     */}
+      {/* MODUS A: DESKTOP (> 1024px) -> PLATZHALTER + FIXED MITLAUF-DOCK     */}
       {/* =================================================================== */}
       {!isCompactViewport && (
-        <aside
-          ref={dockAsideRef}
-          data-sonar-help-ignore="true"
-          style={{
-            width: '33.333%',
-            minWidth: '320px',
-            maxWidth: '460px',
-            backgroundColor: dockBg,
-            borderLeft: `2px solid ${helpAccent}`,
-            color: textMain,
-            position: 'sticky',
-            top: 0,
-            height: '100vh',
-            overflowY: 'auto',
-            boxSizing: 'border-box',
-            padding: '18px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
-            textAlign: 'left',
-            zIndex: 60,
-            flexShrink: 0
-          }}
-        >
-          {/* Dock-Kopfzeile */}
+        <>
+          {/* Stiller 1/3-Platzhalter im Flex-Layout, damit das linke 2/3-Cockpit exakt seine Breite behält */}
           <div
+            aria-hidden="true"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              paddingBottom: '12px',
-              borderBottom: `1px solid ${dockBorder}`
+              width: '33.333%',
+              minWidth: '320px',
+              flexShrink: 0,
+              pointerEvents: 'none'
             }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  letterSpacing: '0.8px',
-                  textTransform: 'uppercase',
-                  color: helpAccent
-                }}
-              >
-                LIVE-HILFE (ARBEITET AUTOMATISCH MIT)
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: textMuted, marginTop: '2px' }}>
-                Ins Feld klicken oder kleines „i“ wählen
-              </div>
-            </div>
+          />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                type="button"
-                onClick={() => setPinnedHelpId(isPinned ? null : entry.id)}
-                style={{
-                  background: isPinned ? '#fbbf24' : 'transparent',
-                  color: isPinned ? '#020617' : helpAccent,
-                  border: `1px solid ${isPinned ? '#fbbf24' : helpAccent}`,
-                  borderRadius: '6px',
-                  padding: '5px 9px',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  cursor: 'pointer'
-                }}
-                title="Aktuelle Erklärung festpinnen (wird bei Klick in ein neues Eingabefeld automatisch aktualisiert)"
-              >
-                {isPinned ? 'Gepinnt' : 'Anpinnen'}
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  background: 'transparent',
-                  color: textMuted,
-                  border: `1px solid ${dockBorder}`,
-                  borderRadius: '6px',
-                  padding: '5px 9px',
-                  fontSize: '12px',
-                  fontWeight: 800,
-                  cursor: 'pointer'
-                }}
-                title="Live-Bedienhilfe ausschalten"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-
-          {/* Aktives Feld / Element */}
-          <div
+          {/* Echtes Fixed-Dock am rechten Bildschirmrand: Scrollt zu 100 % immer neben deiner aktuellen Position mit! */}
+          <aside
+            ref={dockAsideRef}
+            data-sonar-help-ignore="true"
             style={{
-              backgroundColor: dockCardBg,
-              border: `1px solid ${isPinned ? '#fbbf24' : dockBorder}`,
-              borderRadius: '10px',
-              padding: '14px',
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: '33.333%',
+              minWidth: '320px',
+              height: '100vh',
+              backgroundColor: dockBg,
+              borderLeft: `2px solid ${helpAccent}`,
+              color: textMain,
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+              padding: '18px 20px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px'
+              gap: '14px',
+              textAlign: 'left',
+              zIndex: 60,
+              boxShadow: isDarkMode ? '-8px 0 28px rgba(0, 0, 0, 0.45)' : '-8px 0 24px rgba(15, 23, 42, 0.08)'
             }}
           >
-            <div>
-              <span
-                style={{
-                  display: 'inline-block',
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  fontSize: '10px',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                  color: helpAccent,
-                  marginBottom: '6px'
-                }}
-              >
-                {entry.module}
-              </span>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: textMain, lineHeight: 1.3 }}>
-                {entry.title}
-              </h3>
-            </div>
-
-            {/* Sektion 1: Was ist das? */}
+            {/* Dock-Kopfzeile */}
             <div
               style={{
-                padding: '10px 12px',
-                borderRadius: '8px',
-                backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.65)' : '#f8fafc',
-                border: `1px solid ${dockBorder}`
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                paddingBottom: '12px',
+                borderBottom: `1px solid ${dockBorder}`
               }}
             >
-              <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: helpAccent, marginBottom: '4px' }}>
-                1. Was ist das?
-              </div>
-              <div style={{ fontSize: '13px', lineHeight: 1.5, color: textMain }}>
-                {entry.whatIsIt}
-              </div>
-            </div>
-
-            {/* Sektion 2: Was passiert hier? */}
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: '8px',
-                backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.65)' : '#f8fafc',
-                border: `1px solid ${dockBorder}`
-              }}
-            >
-              <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#10b981', marginBottom: '4px' }}>
-                2. Was passiert hier?
-              </div>
-              <div style={{ fontSize: '13px', lineHeight: 1.5, color: textMain }}>
-                {entry.whatHappens}
-              </div>
-            </div>
-
-            {/* Sektion 3: Worauf muss ich achten? */}
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: '8px',
-                backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.08)' : '#fffbeb',
-                border: '1px solid rgba(245, 158, 11, 0.4)'
-              }}
-            >
-              <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#f59e0b', marginBottom: '4px' }}>
-                3. Praxis-Hinweis
-              </div>
-              <div style={{ fontSize: '13px', lineHeight: 1.5, color: textMain }}>
-                {entry.watchOut}
-              </div>
-            </div>
-          </div>
-
-          {/* Geführte 8-Schritte-Schnelltour */}
-          <div
-            style={{
-              backgroundColor: dockCardBg,
-              border: `1px solid ${dockBorder}`,
-              borderRadius: '10px',
-              padding: '14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: textMuted }}>
-                Schnelltour durch die wichtigsten Felder
-              </span>
-              {tourIndex !== null && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTourIndex(null);
-                    setPinnedHelpId(null);
-                  }}
+              <div>
+                <div
                   style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: helpAccent,
                     fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    padding: 0
+                    fontWeight: 800,
+                    letterSpacing: '0.8px',
+                    textTransform: 'uppercase',
+                    color: helpAccent
                   }}
                 >
-                  Tour lösen
+                  LIVE-HILFE (SCROLLT AUTOMATISCH MIT)
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: textMuted, marginTop: '2px' }}>
+                  Ins Feld klicken oder kleines „i“ wählen
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPinnedHelpId(isPinned ? null : entry.id)}
+                  style={{
+                    background: isPinned ? '#fbbf24' : 'transparent',
+                    color: isPinned ? '#020617' : helpAccent,
+                    border: `1px solid ${isPinned ? '#fbbf24' : helpAccent}`,
+                    borderRadius: '6px',
+                    padding: '5px 9px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                  title="Aktuelle Erklärung festpinnen (wird bei Klick in ein neues Eingabefeld automatisch aktualisiert)"
+                >
+                  {isPinned ? 'Gepinnt' : 'Anpinnen'}
                 </button>
-              )}
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{
+                    background: 'transparent',
+                    color: textMuted,
+                    border: `1px solid ${dockBorder}`,
+                    borderRadius: '6px',
+                    padding: '5px 9px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                  title="Live-Bedienhilfe ausschalten"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              {SONAR_GUIDED_TOUR.map((t, idx) => {
-                const activeStep = tourIndex === idx || entry.id === t.helpId;
-                return (
+            {/* Aktives Feld / Element */}
+            <div
+              style={{
+                backgroundColor: dockCardBg,
+                border: `1px solid ${isPinned ? '#fbbf24' : dockBorder}`,
+                borderRadius: '10px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    backgroundColor: 'rgba(6, 182, 212, 0.15)',
+                    color: helpAccent,
+                    marginBottom: '6px'
+                  }}
+                >
+                  {entry.module}
+                </span>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: textMain, lineHeight: 1.3 }}>
+                  {entry.title}
+                </h3>
+              </div>
+
+              {/* Sektion 1: Was ist das? */}
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.65)' : '#f8fafc',
+                  border: `1px solid ${dockBorder}`
+                }}
+              >
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: helpAccent, marginBottom: '4px' }}>
+                  1. Was ist das?
+                </div>
+                <div style={{ fontSize: '13px', lineHeight: 1.5, color: textMain }}>
+                  {entry.whatIsIt}
+                </div>
+              </div>
+
+              {/* Sektion 2: Was passiert hier? */}
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.65)' : '#f8fafc',
+                  border: `1px solid ${dockBorder}`
+                }}
+              >
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#10b981', marginBottom: '4px' }}>
+                  2. Was passiert hier?
+                </div>
+                <div style={{ fontSize: '13px', lineHeight: 1.5, color: textMain }}>
+                  {entry.whatHappens}
+                </div>
+              </div>
+
+              {/* Sektion 3: Worauf muss ich achten? */}
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.08)' : '#fffbeb',
+                  border: '1px solid rgba(245, 158, 11, 0.4)'
+                }}
+              >
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#f59e0b', marginBottom: '4px' }}>
+                  3. Praxis-Hinweis
+                </div>
+                <div style={{ fontSize: '13px', lineHeight: 1.5, color: textMain }}>
+                  {entry.watchOut}
+                </div>
+              </div>
+            </div>
+
+            {/* Geführte 8-Schritte-Schnelltour */}
+            <div
+              style={{
+                backgroundColor: dockCardBg,
+                border: `1px solid ${dockBorder}`,
+                borderRadius: '10px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: textMuted }}>
+                  Schnelltour durch die wichtigsten Felder
+                </span>
+                {tourIndex !== null && (
                   <button
-                    key={t.step}
                     type="button"
-                    onClick={() => jumpToTourStep(idx)}
+                    onClick={() => {
+                      setTourIndex(null);
+                      setPinnedHelpId(null);
+                    }}
                     style={{
-                      textAlign: 'left',
-                      padding: '7px 10px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: activeStep ? 800 : 600,
-                      border: `1px solid ${activeStep ? helpAccent : dockBorder}`,
-                      backgroundColor: activeStep ? 'rgba(6, 182, 212, 0.16)' : 'transparent',
-                      color: activeStep ? helpAccent : textMain,
-                      cursor: 'pointer'
+                      background: 'transparent',
+                      border: 'none',
+                      color: helpAccent,
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0
                     }}
                   >
-                    {t.label}
+                    Tour lösen
                   </button>
-                );
-              })}
-            </div>
+                )}
+              </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-              <button
-                type="button"
-                onClick={() => jumpToTourStep(tourIndex === null ? 0 : Math.max(0, tourIndex - 1))}
-                disabled={tourIndex === null || tourIndex === 0}
-                style={{
-                  flex: 1,
-                  padding: '8px',
-                  borderRadius: '6px',
-                  border: `1px solid ${dockBorder}`,
-                  background: 'transparent',
-                  color: textMain,
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  cursor: tourIndex === null || tourIndex === 0 ? 'not-allowed' : 'pointer',
-                  opacity: tourIndex === null || tourIndex === 0 ? 0.45 : 1
-                }}
-              >
-                Zurück
-              </button>
-              <button
-                type="button"
-                onClick={() => jumpToTourStep(tourIndex === null ? 0 : (tourIndex + 1) % SONAR_GUIDED_TOUR.length)}
-                style={{
-                  flex: 1,
-                  padding: '8px',
-                  borderRadius: '6px',
-                  border: `1px solid ${helpAccent}`,
-                  background: helpAccent,
-                  color: '#020617',
-                  fontSize: '12px',
-                  fontWeight: 800,
-                  cursor: 'pointer'
-                }}
-              >
-                {tourIndex === null ? 'Rundgang starten' : 'Weiter'}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                {SONAR_GUIDED_TOUR.map((t, idx) => {
+                  const activeStep = tourIndex === idx || entry.id === t.helpId;
+                  return (
+                    <button
+                      key={t.step}
+                      type="button"
+                      onClick={() => jumpToTourStep(idx)}
+                      style={{
+                        textAlign: 'left',
+                        padding: '7px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: activeStep ? 800 : 600,
+                        border: `1px solid ${activeStep ? helpAccent : dockBorder}`,
+                        backgroundColor: activeStep ? 'rgba(6, 182, 212, 0.16)' : 'transparent',
+                        color: activeStep ? helpAccent : textMain,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => jumpToTourStep(tourIndex === null ? 0 : Math.max(0, tourIndex - 1))}
+                  disabled={tourIndex === null || tourIndex === 0}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    borderRadius: '6px',
+                    border: `1px solid ${dockBorder}`,
+                    background: 'transparent',
+                    color: textMain,
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: tourIndex === null || tourIndex === 0 ? 'not-allowed' : 'pointer',
+                    opacity: tourIndex === null || tourIndex === 0 ? 0.45 : 1
+                  }}
+                >
+                  Zurück
+                </button>
+                <button
+                  type="button"
+                  onClick={() => jumpToTourStep(tourIndex === null ? 0 : (tourIndex + 1) % SONAR_GUIDED_TOUR.length)}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    borderRadius: '6px',
+                    border: `1px solid ${helpAccent}`,
+                    background: helpAccent,
+                    color: '#020617',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {tourIndex === null ? 'Rundgang starten' : 'Weiter'}
+                </button>
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        </>
       )}
 
       {/* =================================================================== */}
