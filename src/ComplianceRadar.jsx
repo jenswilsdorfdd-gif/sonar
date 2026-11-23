@@ -279,7 +279,7 @@ export default function ComplianceRadar({
         (a) =>
           a.status !== 'Erledigt' &&
           a.thema === akteThema &&
-          a.mandant_name === activeMandant.firmenname
+          (a.unsere_firma === activeMandant.firmenname || a.mandant_name === activeMandant.firmenname)
       );
 
       if (existingOpenAkte) {
@@ -300,9 +300,10 @@ export default function ComplianceRadar({
           {
             user_id: uid,
             unser_zeichen: unserZeichen,
-            mandant_name: activeMandant.firmenname,
+            unsere_firma: activeMandant.firmenname,
+            unser_ansprechpartner: activeMandant.ansprechpartner || null,
             gegner_name: 'Interne Organ-Compliance / Behördenfrist',
-            aktenzeichen_gegner: legalBasis,
+            aktenzeichen: legalBasis,
             thema: akteThema,
             status: 'Offen'
           }
@@ -319,10 +320,9 @@ export default function ComplianceRadar({
           user_id: uid,
           akte_id: insertedAkte.id,
           datum: new Date().toISOString().split('T')[0],
-          typ: 'Eingang',
+          typ: 'Intern',
           kanal: 'Compliance-Radar',
           aktion: itemTitle,
-          frist_extern: wvDate,
           wiedervorlage: wvDate,
           brief_entwurf: `GESETZLICHE GRUNDLAGE: ${legalBasis}\n\nHAFTUNGS- & PFLICHTHINWEIS:\n${warningText}`
         }
@@ -381,9 +381,12 @@ export default function ComplianceRadar({
               borderRadius: '12px',
               maxWidth: '680px',
               width: '100%',
-              padding: '24px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '20px',
               boxShadow: '0 20px 50px rgba(0,0,0,0.75)',
-              textAlign: 'left'
+              textAlign: 'left',
+              boxSizing: 'border-box'
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
@@ -420,7 +423,8 @@ export default function ComplianceRadar({
                   borderRadius: '6px',
                   padding: '6px 10px',
                   cursor: 'pointer',
-                  fontWeight: 'bold'
+                  fontWeight: 'bold',
+                  flexShrink: 0
                 }}
               >
                 <Icon name="x" size={16} />
@@ -616,7 +620,7 @@ export default function ComplianceRadar({
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: '8px' }}>
                 <button
                   type="button"
                   onClick={() => setPulseModalMandant(null)}
@@ -657,8 +661,11 @@ export default function ComplianceRadar({
         </div>
       )}
 
-      {/* --- KOPFBEREICH & MANDANTEN-AUSWAHL --- */}
-      <div style={{ ...panelStyle, border: `1px solid ${pageAccent}` }}>
+      {/* --- KOPFBEREICH, MANDANTEN-AUSWAHL & 90-TAGE-PULS-CHECK --- */}
+      <div
+        data-help="compliance_header_puls"
+        style={{ ...panelStyle, border: `1px solid ${pageAccent}` }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h2 style={{ margin: 0, color: theme.textMain, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -670,11 +677,11 @@ export default function ComplianceRadar({
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', width: '100%', maxWidth: 'fit-content' }}>
             <select
               value={activeMandant?.id || ''}
               onChange={(e) => setSelectedMandantId(e.target.value)}
-              style={{ ...inputStyle, width: 'auto', minWidth: '250px', fontWeight: 'bold' }}
+              style={{ ...inputStyle, width: 'auto', minWidth: 'min(100%, 240px)', flex: '1 1 220px', fontWeight: 'bold' }}
             >
               {mandanten.map((m) => {
                 const cp = getSafeProfile(m);
@@ -706,7 +713,7 @@ export default function ComplianceRadar({
           </div>
         </div>
 
-        {/* WENN PRIVAT ODER COMPLIANCE DEAKTIVIERT IST: RUHIGER HINWEIS MIT 1-KLICK-AKTIVIERUNG */}
+        {/* WENN PRIVAT ODER COMPLIANCE DEAKTIVIERT IST */}
         {activeMandant && (activeProfile.compliance_disabled || activeProfile.rechtsform === 'Privat') ? (
           <div
             style={{
@@ -812,9 +819,9 @@ export default function ComplianceRadar({
       {/* HAUPTINHALTE NUR WENN COMPLIANCE NICHT DEAKTIVIERT IST */}
       {activeMandant && !activeProfile.compliance_disabled && activeProfile.rechtsform !== 'Privat' && (
         <>
-          {/* --- SEKTION 1: BRANCHENSPEZIFISCHE BETRIEBS- & PRÜFPFLICHTEN (WZ-CODE, DGUV V3, LEITERN, REGALE, FUHRPARK) --- */}
+          {/* --- SEKTION 1: BRANCHENSPEZIFISCHE BETRIEBS- & PRÜFPFLICHTEN --- */}
           {activeBranchObj && activeBranchObj.specificObligations && activeBranchObj.specificObligations.length > 0 && (
-            <div style={panelStyle}>
+            <div data-help="compliance_branchen_1" style={panelStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
                 <div>
                   <h3 style={{ margin: 0, color: theme.textMain, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -856,7 +863,7 @@ export default function ComplianceRadar({
           )}
 
           {/* --- SEKTION 2: MITARBEITER-SCHWELLENWERT-MATRIX --- */}
-          <div style={panelStyle}>
+          <div data-help="compliance_schwellen_2" style={panelStyle}>
             <h3 style={{ margin: '0 0 6px 0', color: theme.textMain, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Icon name="alert" size={18} style={{ color: pageAccent }} />
               2. Gesetzliche Mitarbeiter-Schwellenwerte (Arbeitgeber- & Organpflichten)
@@ -937,7 +944,7 @@ export default function ComplianceRadar({
           </div>
 
           {/* --- SEKTION 3: UNTERJÄHRIGER BEHÖRDEN-, ABGABEN- & FRISTEN-TICKER --- */}
-          <div style={panelStyle}>
+          <div data-help="compliance_ticker_3" style={panelStyle}>
             <h3 style={{ margin: '0 0 6px 0', color: theme.textMain, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Icon name="folder" size={18} style={{ color: pageAccent }} />
               3. Unterjähriger Behörden-, Abgaben- & Fristen-Ticker
@@ -946,7 +953,7 @@ export default function ComplianceRadar({
               Alle für „{activeMandant.firmenname}“ relevanten Monats- und Jahresfristen mit Countdown und 1-Klick-Wiedervorlage.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '12px' }}>
               {applicableDeadlines.map((dl) => {
                 const isUrgent = dl.daysLeft <= 30;
                 const lockKey = `${activeMandant.id}_${dl.title}`;
@@ -967,7 +974,7 @@ export default function ComplianceRadar({
                     }}
                   >
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
                         <span
                           style={{
                             fontSize: '10px',
@@ -1022,14 +1029,16 @@ export default function ComplianceRadar({
           </div>
 
           {/* --- SEKTION 4: 1-KLICK-BOARDROOM & BESCHLUSS-GENERATOR --- */}
-          <BeschlussGenerator
-            theme={theme}
-            mandanten={mandanten}
-            selectedMandantId={activeMandant.id}
-            setSelectedMandantId={setSelectedMandantId}
-            ladeDaten={ladeDaten}
-            showToast={showToast}
-          />
+          <div data-help="compliance_boardroom_4" style={{ width: '100%' }}>
+            <BeschlussGenerator
+              theme={theme}
+              mandanten={mandanten}
+              selectedMandantId={activeMandant.id}
+              setSelectedMandantId={setSelectedMandantId}
+              ladeDaten={ladeDaten}
+              showToast={showToast}
+            />
+          </div>
         </>
       )}
     </div>
