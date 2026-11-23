@@ -678,8 +678,8 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
     if (unloeschbarRule) {
       const confirmWord = window.prompt(
         `GESETZLICHE LÖSCH-SPERRE (${unloeschbarRule.title} | ${unloeschbarRule.legalBasis}):\n\n` +
-          `${unloeschbarRule.riskWarning}\n\n` +
-          `Um dieses Dokument dennoch unwiderruflich aus dem Tresor zu entfernen, tippe bitte exakt das Wort LOESCHEN ein:`
+        `${unloeschbarRule.riskWarning}\n\n` +
+        `Um dieses Dokument dennoch unwiderruflich aus dem Tresor zu entfernen, tippe bitte exakt das Wort LOESCHEN ein:`
       );
       if (confirmWord !== 'LOESCHEN') {
         showToast('Löschvorgang abgebrochen – Pflichtdokument bleibt geschützt im Tresor.', 'warning');
@@ -762,6 +762,12 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
           gap: 20px;
           align-items: start;
         }
+        .tresor-add-bank-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 1.6fr 1fr auto;
+          gap: 10px;
+          align-items: end;
+        }
 
         @media (max-width: 768px) {
           .tresor-desktop-only {
@@ -793,6 +799,9 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
           .tresor-expanded-grid > div {
             width: 100% !important;
           }
+          .tresor-add-bank-grid {
+            grid-template-columns: 1fr !important;
+          }
           .tresor-delete-btn {
             width: 100% !important;
             justify-content: center !important;
@@ -807,652 +816,672 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
       </h2>
 
       <form onSubmit={speichereMandant} style={{ ...panelStyle, marginBottom: '20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px', textAlign: 'left' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', textAlign: 'left' }}>
           
-          {/* 1. ALLGEMEINE KONTAKTDATEN */}
-          <div style={{ gridColumn: '1 / -1' }}>
-            <h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten & Rechtsform</h4>
-          </div>
+          {/* 1. ALLGEMEINE KONTAKTDATEN & RECHTSFORM */}
+          <div
+            data-help="tresor_stammdaten_1"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px' }}
+          >
+            <div style={{ gridColumn: '1 / -1' }}>
+              <h4 style={h4StyleTresor}>1. Allgemeine Kontaktdaten & Rechtsform</h4>
+            </div>
 
-          <div>
-            <label style={labelStyle}>Firma / Name*</label>
-            <input required value={m_firmenname} onChange={(e) => setM_firmenname(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Rechtsform*</label>
-            <select
-              value={m_rechtsform}
-              onChange={(e) => {
-                const val = e.target.value;
-                setM_rechtsform(val);
-                if (val === 'Privat') {
-                  setM_compliance_disabled(true);
-                  setM_wz_code('00.00.0');
-                } else {
-                  setM_compliance_disabled(false);
-                }
-              }}
-              style={inputStyle}
-            >
-              {RECHTSFORMEN.map((rf) => (
-                <option key={rf.id} value={rf.id}>
-                  {rf.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>
-              {m_rechtsform === 'Einzelunternehmen' || m_rechtsform === 'e.K.'
-                ? 'Geschäftsinhaber / Ansprechpartner'
-                : m_rechtsform === 'Privat'
-                ? 'Vor- und Nachname'
-                : 'Geschäftsführer / Ansprechpartner'}
-            </label>
-            <input value={m_ansprechpartner} onChange={(e) => setM_ansprechpartner(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Adresse (Sitz / Zustellanschrift)</label>
-            <input value={m_adresse} onChange={(e) => setM_adresse(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Telefon</label>
-            <input value={m_telefon} onChange={(e) => setM_telefon(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Faxnummer</label>
-            <input value={m_fax} onChange={(e) => setM_fax(e.target.value)} placeholder="z.B. 035185074535" style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>E-Mail</label>
-            <input value={m_email} onChange={(e) => setM_email(e.target.value)} style={inputStyle} />
-          </div>
-
-          {/* 2. STEUER-, REGISTER- & GEWERBETECHNISCHE NUMMERN */}
-          <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-            <h4 style={h4StyleTresor}>2. Steuer-, Register- & Gewerbe-Identifikationsnummern</h4>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Steuernummer (Finanzamt)</label>
-            <input value={m_steuernummer} onChange={(e) => setM_steuernummer(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Umsatzsteuer-IdNr. (§ 27a UStG)</label>
-            <input value={m_ust_id} onChange={(e) => setM_ust_id(e.target.value)} placeholder="z.B. DE123456789" style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Wirtschafts-IdNr. (§ 139c AO)</label>
-            <input value={m_wirtschafts_id} onChange={(e) => setM_wirtschafts_id(e.target.value)} placeholder="z.B. DE123456789-00001" style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>USt-Voranmeldungs-Intervall</label>
-            <select value={m_ust_intervall} onChange={(e) => setM_ust_intervall(e.target.value)} style={inputStyle}>
-              <option value="Monatlich">Monatlich</option>
-              <option value="Vierteljährlich">Vierteljährlich</option>
-              <option value="Jährlich">Jährlich (Keine Voranmeldung)</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Dauerfristverlängerung (DFV)</label>
-            <select value={m_dauerfrist ? 'true' : 'false'} onChange={(e) => setM_dauerfrist(e.target.value === 'true')} style={inputStyle}>
-              <option value="false">Nein</option>
-              <option value="true">Ja (+1 Monat Frist)</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Handels-/Gesellschaftsregister</label>
-            <input value={m_handelsregister} onChange={(e) => setM_handelsregister(e.target.value)} placeholder="z.B. AG Dresden HRB 43220" style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Transparenzregister-Nummer</label>
-            <input value={m_transparenzregister_nr} onChange={(e) => setM_transparenzregister_nr(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Betriebsnummer (Agentur für Arbeit)</label>
-            <input value={m_betriebsnummer} onChange={(e) => setM_betriebsnummer(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>BG-Mitgliedsnummer (VBG / BG BAU etc.)</label>
-            <input value={m_vbg_nummer} onChange={(e) => setM_vbg_nummer(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>IHK- / Handwerkskammer-Nr.</label>
-            <input value={m_ihk_hwk_nr} onChange={(e) => setM_ihk_hwk_nr(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>LUCID-Verpackungsregister-Nr.</label>
-            <input value={m_lucid_nr} onChange={(e) => setM_lucid_nr(e.target.value)} placeholder="z.B. DE1234567890123" style={inputStyle} />
-          </div>
-
-          {/* WZ-2008 BRANCHENKENNZAHL-AUSWAHL & SUCHHILFE */}
-          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '15px' }}>
             <div>
-              <label style={labelStyle}>Branchenkennzahl (WZ 2008) per Stichwort ermitteln</label>
-              <input
-                type="text"
-                value={m_wz_search}
+              <label style={labelStyle}>Firma / Name*</label>
+              <input required value={m_firmenname} onChange={(e) => setM_firmenname(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Rechtsform*</label>
+              <select
+                value={m_rechtsform}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setM_wz_search(val);
-                  const matches = findMatchingBranches(val);
-                  if (matches.length > 0) {
-                    setM_wz_code(matches[0].code);
-                    if (matches[0].isSchwarzArbG) setM_is_hazardous_branch(true);
-                  }
-                }}
-                placeholder="Stichwort tippen (z.B. Handwerk, Elektro, IT, Bau, Gastro)..."
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Amtliche Branchenkennzahl (für Fördermittel & BG-Pflichten)</label>
-              <select
-                value={m_wz_code}
-                onChange={(e) => {
-                  const code = e.target.value;
-                  setM_wz_code(code);
-                  const found = WZ_BRANCHEN_KATALOG.find((b) => b.code === code);
-                  if (found && found.isSchwarzArbG) {
-                    setM_is_hazardous_branch(true);
+                  setM_rechtsform(val);
+                  if (val === 'Privat') {
+                    setM_compliance_disabled(true);
+                    setM_wz_code('00.00.0');
+                  } else {
+                    setM_compliance_disabled(false);
                   }
                 }}
                 style={inputStyle}
               >
-                {filteredBranches.map((b) => (
-                  <option key={b.code} value={b.code}>
-                    {b.label}
+                {RECHTSFORMEN.map((rf) => (
+                  <option key={rf.id} value={rf.id}>
+                    {rf.label}
                   </option>
                 ))}
               </select>
             </div>
+
+            <div>
+              <label style={labelStyle}>
+                {m_rechtsform === 'Einzelunternehmen' || m_rechtsform === 'e.K.'
+                  ? 'Geschäftsinhaber / Ansprechpartner'
+                  : m_rechtsform === 'Privat'
+                  ? 'Vor- und Nachname'
+                  : 'Geschäftsführer / Ansprechpartner'}
+              </label>
+              <input value={m_ansprechpartner} onChange={(e) => setM_ansprechpartner(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Adresse (Sitz / Zustellanschrift)</label>
+              <input value={m_adresse} onChange={(e) => setM_adresse(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Telefon</label>
+              <input value={m_telefon} onChange={(e) => setM_telefon(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Faxnummer</label>
+              <input value={m_fax} onChange={(e) => setM_fax(e.target.value)} placeholder="z.B. 035185074535" style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>E-Mail</label>
+              <input value={m_email} onChange={(e) => setM_email(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          {/* 2. STEUER-, REGISTER- & GEWERBETECHNISCHE NUMMERN + WZ-2008 */}
+          <div
+            data-help="tresor_steuern_wz_2"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px' }}
+          >
+            <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
+              <h4 style={h4StyleTresor}>2. Steuer-, Register- & Gewerbe-Identifikationsnummern</h4>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Steuernummer (Finanzamt)</label>
+              <input value={m_steuernummer} onChange={(e) => setM_steuernummer(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Umsatzsteuer-IdNr. (§ 27a UStG)</label>
+              <input value={m_ust_id} onChange={(e) => setM_ust_id(e.target.value)} placeholder="z.B. DE123456789" style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Wirtschafts-IdNr. (§ 139c AO)</label>
+              <input value={m_wirtschafts_id} onChange={(e) => setM_wirtschafts_id(e.target.value)} placeholder="z.B. DE123456789-00001" style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>USt-Voranmeldungs-Intervall</label>
+              <select value={m_ust_intervall} onChange={(e) => setM_ust_intervall(e.target.value)} style={inputStyle}>
+                <option value="Monatlich">Monatlich</option>
+                <option value="Vierteljährlich">Vierteljährlich</option>
+                <option value="Jährlich">Jährlich (Keine Voranmeldung)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Dauerfristverlängerung (DFV)</label>
+              <select value={m_dauerfrist ? 'true' : 'false'} onChange={(e) => setM_dauerfrist(e.target.value === 'true')} style={inputStyle}>
+                <option value="false">Nein</option>
+                <option value="true">Ja (+1 Monat Frist)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Handels-/Gesellschaftsregister</label>
+              <input value={m_handelsregister} onChange={(e) => setM_handelsregister(e.target.value)} placeholder="z.B. AG Dresden HRB 43220" style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Transparenzregister-Nummer</label>
+              <input value={m_transparenzregister_nr} onChange={(e) => setM_transparenzregister_nr(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Betriebsnummer (Agentur für Arbeit)</label>
+              <input value={m_betriebsnummer} onChange={(e) => setM_betriebsnummer(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>BG-Mitgliedsnummer (VBG / BG BAU etc.)</label>
+              <input value={m_vbg_nummer} onChange={(e) => setM_vbg_nummer(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>IHK- / Handwerkskammer-Nr.</label>
+              <input value={m_ihk_hwk_nr} onChange={(e) => setM_ihk_hwk_nr(e.target.value)} style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>LUCID-Verpackungsregister-Nr.</label>
+              <input value={m_lucid_nr} onChange={(e) => setM_lucid_nr(e.target.value)} placeholder="z.B. DE1234567890123" style={inputStyle} />
+            </div>
+
+            {/* WZ-2008 BRANCHENKENNZAHL-AUSWAHL & SUCHHILFE */}
+            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '15px' }}>
+              <div>
+                <label style={labelStyle}>Branchenkennzahl (WZ 2008) per Stichwort ermitteln</label>
+                <input
+                  type="text"
+                  value={m_wz_search}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setM_wz_search(val);
+                    const matches = findMatchingBranches(val);
+                    if (matches.length > 0) {
+                      setM_wz_code(matches[0].code);
+                      if (matches[0].isSchwarzArbG) setM_is_hazardous_branch(true);
+                    }
+                  }}
+                  placeholder="Stichwort tippen (z.B. Handwerk, Elektro, IT, Bau, Gastro)..."
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Amtliche Branchenkennzahl (für Fördermittel & BG-Pflichten)</label>
+                <select
+                  value={m_wz_code}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    setM_wz_code(code);
+                    const found = WZ_BRANCHEN_KATALOG.find((b) => b.code === code);
+                    if (found && found.isSchwarzArbG) {
+                      setM_is_hazardous_branch(true);
+                    }
+                  }}
+                  style={inputStyle}
+                >
+                  {filteredBranches.map((b) => (
+                    <option key={b.code} value={b.code}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* 3. BANKVERBINDUNGEN (HAUPTKONTO + WEITERE KONTEN) */}
-          <div style={{ gridColumn: '1 / -1', marginTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px' }}>
-            <h4 style={{ margin: 0, color: theme.textMain, fontSize: '16px', fontWeight: '600' }}>
-              3. Bankverbindungen (Geschäftskonten)
-            </h4>
-            <button type="button" onClick={handleAddBankAccount} style={outlineAccentBtnStyle}>
-              + Weitere Bankverbindung hinzufügen
-            </button>
+          <div
+            data-help="tresor_banken_3"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px' }}
+          >
+            <div style={{ gridColumn: '1 / -1', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px' }}>
+              <h4 style={{ margin: 0, color: theme.textMain, fontSize: '16px', fontWeight: '600' }}>
+                3. Bankverbindungen (Geschäftskonten)
+              </h4>
+              <button type="button" onClick={handleAddBankAccount} style={outlineAccentBtnStyle}>
+                + Weitere Bankverbindung hinzufügen
+              </button>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Hauptbank (Name des Kreditinstituts)</label>
+              <input value={m_bank_name} onChange={(e) => setM_bank_name(e.target.value)} placeholder="z.B. Commerzbank / Sparkasse" style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Hauptkonto IBAN</label>
+              <input value={m_iban} onChange={(e) => setM_iban(e.target.value)} placeholder="DE..." style={inputStyle} />
+            </div>
+
+            {m_additional_banks.length > 0 && (
+              <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {m_additional_banks.map((bankRow, idx) => (
+                  <div
+                    key={idx}
+                    className="tresor-add-bank-grid"
+                    style={{
+                      padding: '12px',
+                      borderRadius: '8px',
+                      background: theme.inputBg,
+                      border: `1px solid ${theme.border}`
+                    }}
+                  >
+                    <div>
+                      <label style={labelStyle}>Bank {idx + 2} (Kreditinstitut)</label>
+                      <input
+                        value={bankRow.bank_name || ''}
+                        onChange={(e) => handleUpdateBankAccount(idx, 'bank_name', e.target.value)}
+                        placeholder="Name der Bank"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>IBAN {idx + 2}</label>
+                      <input
+                        value={bankRow.iban || ''}
+                        onChange={(e) => handleUpdateBankAccount(idx, 'iban', e.target.value)}
+                        placeholder="DE..."
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Bezeichnung / Zweck</label>
+                      <input
+                        value={bankRow.note || ''}
+                        onChange={(e) => handleUpdateBankAccount(idx, 'note', e.target.value)}
+                        placeholder="z.B. Tagesgeld / Steuerkonto"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveBankAccount(idx)}
+                      style={{ ...outlineDangerBtnStyle, height: '42px' }}
+                      title="Bankverbindung entfernen"
+                    >
+                      <Icon name="trash" size={14} /> Entfernen
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div>
-            <label style={labelStyle}>Hauptbank (Name des Kreditinstituts)</label>
-            <input value={m_bank_name} onChange={(e) => setM_bank_name(e.target.value)} placeholder="z.B. Commerzbank / Sparkasse" style={inputStyle} />
-          </div>
+          {/* 4. MITARBEITER-STRUKTUR & COMPLIANCE-PARAMETER */}
+          <div
+            data-help="tresor_mitarbeiter_4"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px' }}
+          >
+            <div style={{ gridColumn: '1 / -1', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px' }}>
+              <h4 style={{ margin: 0, color: theme.textMain, fontSize: '16px', fontWeight: '600' }}>
+                4. Mitarbeiter-Struktur & Compliance-Einstellungen
+              </h4>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer', fontWeight: 'bold' }}>
+                <input
+                  type="checkbox"
+                  checked={m_compliance_disabled}
+                  onChange={(e) => setM_compliance_disabled(e.target.checked)}
+                />
+                <span>Compliance-Überwachung für diesen Eintrag deaktivieren (z.B. für Privat)</span>
+              </label>
+            </div>
 
-          <div>
-            <label style={labelStyle}>Hauptkonto IBAN</label>
-            <input value={m_iban} onChange={(e) => setM_iban(e.target.value)} placeholder="DE..." style={inputStyle} />
-          </div>
+            {!m_compliance_disabled && m_rechtsform !== 'Privat' && (
+              <>
+                <div>
+                  <label style={labelStyle}>Teilzeit bis 20 Std./Woche (Zählfaktor 0,5)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={m_headcount_parttime_20}
+                    onChange={(e) => {
+                      const v = Math.max(0, parseInt(e.target.value || '0', 10));
+                      setM_headcount_parttime_20(v);
+                      const newSum = v + Number(m_headcount_parttime_30 || 0) + Number(m_headcount_fulltime || 0);
+                      if (newSum > Number(m_headcount_total || 0)) setM_headcount_total(newSum);
+                    }}
+                    style={inputStyle}
+                  />
+                </div>
 
-          {m_additional_banks.length > 0 && (
-            <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {m_additional_banks.map((bankRow, idx) => (
+                <div>
+                  <label style={labelStyle}>Teilzeit bis 30 Std./Woche (Zählfaktor 0,75)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={m_headcount_parttime_30}
+                    onChange={(e) => {
+                      const v = Math.max(0, parseInt(e.target.value || '0', 10));
+                      setM_headcount_parttime_30(v);
+                      const newSum = Number(m_headcount_parttime_20 || 0) + v + Number(m_headcount_fulltime || 0);
+                      if (newSum > Number(m_headcount_total || 0)) setM_headcount_total(newSum);
+                    }}
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Vollzeit über 30 Std./Woche (Zählfaktor 1,0)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={m_headcount_fulltime}
+                    onChange={(e) => {
+                      const v = Math.max(0, parseInt(e.target.value || '0', 10));
+                      setM_headcount_fulltime(v);
+                      const newSum = Number(m_headcount_parttime_20 || 0) + Number(m_headcount_parttime_30 || 0) + v;
+                      if (newSum > Number(m_headcount_total || 0)) setM_headcount_total(newSum);
+                    }}
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Gesamtkopfzahl Beschäftigte (inkl. Minijobs)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={m_headcount_total}
+                    onChange={(e) => setM_headcount_total(Math.max(0, parseInt(e.target.value || '0', 10)))}
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>
+                    Vollzeit-Richtwert nach Kündigungsschutzgesetz (§ 23 Abs. 1 Satz 4 KSchG – Grenze für Kleinbetriebe: max. 10,00)
+                  </label>
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '6px',
+                      fontWeight: 'bold',
+                      fontSize: '13px',
+                      backgroundColor: theme.inputBg,
+                      border: `1px solid ${isFormKSchGTriggered ? theme.warningBorder : theme.tresorAccent}`,
+                      color: isFormKSchGTriggered ? theme.warningBorder : theme.tresorAccent,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '10px'
+                    }}
+                  >
+                    <span>Berechneter Vollzeit-Richtwert: {currentFormKSchGRichtwert.toFixed(2)} von max. 10,00</span>
+                    <span>
+                      {isFormKSchGTriggered
+                        ? 'Achtung: Über 10,00 – Allgemeiner Kündigungsschutz (§ 1 KSchG) ist aktiv'
+                        : 'Bis 10,00 – Kleinbetriebs-Regelung (kein allgemeiner Kündigungsschutz nach § 23 KSchG)'}
+                    </span>
+                  </div>
+                </div>
+
                 <div
-                  key={idx}
                   style={{
+                    gridColumn: '1 / -1',
                     display: 'grid',
-                    gridTemplateColumns: '1.2fr 1.6fr 1fr auto',
-                    gap: '10px',
-                    alignItems: 'end',
-                    padding: '12px',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                    gap: '12px',
+                    padding: '14px',
                     borderRadius: '8px',
                     background: theme.inputBg,
                     border: `1px solid ${theme.border}`
                   }}
                 >
-                  <div>
-                    <label style={labelStyle}>Bank {idx + 2} (Kreditinstitut)</label>
-                    <input
-                      value={bankRow.bank_name || ''}
-                      onChange={(e) => handleUpdateBankAccount(idx, 'bank_name', e.target.value)}
-                      placeholder="Name der Bank"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>IBAN {idx + 2}</label>
-                    <input
-                      value={bankRow.iban || ''}
-                      onChange={(e) => handleUpdateBankAccount(idx, 'iban', e.target.value)}
-                      placeholder="DE..."
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Bezeichnung / Zweck</label>
-                    <input
-                      value={bankRow.note || ''}
-                      onChange={(e) => handleUpdateBankAccount(idx, 'note', e.target.value)}
-                      placeholder="z.B. Tagesgeld / Steuerkonto"
-                      style={inputStyle}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveBankAccount(idx)}
-                    style={{ ...outlineDangerBtnStyle, height: '42px' }}
-                    title="Bankverbindung entfernen"
-                  >
-                    <Icon name="trash" size={14} /> Entfernen
-                  </button>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={m_befreit_181_bgb} onChange={(e) => setM_befreit_181_bgb(e.target.checked)} />
+                    <span>Befreiung vom Selbstkontrahierungsverbot (§ 181 BGB) liegt vor</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={m_uses_external_creatives} onChange={(e) => setM_uses_external_creatives(e.target.checked)} />
+                    <span>Beauftragt externe Kreative / Agenturen (KSK-Meldung 31.03.)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={m_ships_physical_goods} onChange={(e) => setM_ships_physical_goods(e.target.checked)} />
+                    <span>Versendet physische Waren / Pakete (LUCID-Verpackungsregister)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={m_is_hazardous_branch} onChange={(e) => setM_is_hazardous_branch(e.target.checked)} />
+                    <span>Branche nach § 2a SchwarzArbG (Bau, Handwerk, Gastro, Logistik)</span>
+                  </label>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* 4. MITARBEITER-STRUKTUR & COMPLIANCE-PARAMETER */}
-          <div style={{ gridColumn: '1 / -1', marginTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px' }}>
-            <h4 style={{ margin: 0, color: theme.textMain, fontSize: '16px', fontWeight: '600' }}>
-              4. Mitarbeiter-Struktur & Compliance-Einstellungen
-            </h4>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer', fontWeight: 'bold' }}>
-              <input
-                type="checkbox"
-                checked={m_compliance_disabled}
-                onChange={(e) => setM_compliance_disabled(e.target.checked)}
-              />
-              <span>Compliance-Überwachung für diesen Eintrag deaktivieren (z.B. für Privat)</span>
-            </label>
+              </>
+            )}
           </div>
 
-          {!m_compliance_disabled && m_rechtsform !== 'Privat' && (
-            <>
-              <div>
-                <label style={labelStyle}>Teilzeit bis 20 Std./Woche (Zählfaktor 0,5)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={m_headcount_parttime_20}
-                  onChange={(e) => {
-                    const v = Math.max(0, parseInt(e.target.value || '0', 10));
-                    setM_headcount_parttime_20(v);
-                    const newSum = v + Number(m_headcount_parttime_30 || 0) + Number(m_headcount_fulltime || 0);
-                    if (newSum > Number(m_headcount_total || 0)) setM_headcount_total(newSum);
-                  }}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Teilzeit bis 30 Std./Woche (Zählfaktor 0,75)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={m_headcount_parttime_30}
-                  onChange={(e) => {
-                    const v = Math.max(0, parseInt(e.target.value || '0', 10));
-                    setM_headcount_parttime_30(v);
-                    const newSum = Number(m_headcount_parttime_20 || 0) + v + Number(m_headcount_fulltime || 0);
-                    if (newSum > Number(m_headcount_total || 0)) setM_headcount_total(newSum);
-                  }}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Vollzeit über 30 Std./Woche (Zählfaktor 1,0)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={m_headcount_fulltime}
-                  onChange={(e) => {
-                    const v = Math.max(0, parseInt(e.target.value || '0', 10));
-                    setM_headcount_fulltime(v);
-                    const newSum = Number(m_headcount_parttime_20 || 0) + Number(m_headcount_parttime_30 || 0) + v;
-                    if (newSum > Number(m_headcount_total || 0)) setM_headcount_total(newSum);
-                  }}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Gesamtkopfzahl Beschäftigte (inkl. Minijobs)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={m_headcount_total}
-                  onChange={(e) => setM_headcount_total(Math.max(0, parseInt(e.target.value || '0', 10)))}
-                  style={inputStyle}
-                />
-              </div>
-
-              {/* KLARTEXT-ANZEIGE OHNE ABKÜRZUNG FTE UND OHNE OPAZITÄTS-HINTERGRUND */}
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>
-                  Vollzeit-Richtwert nach Kündigungsschutzgesetz (§ 23 Abs. 1 Satz 4 KSchG – Grenze für Kleinbetriebe: max. 10,00)
-                </label>
-                <div
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: '6px',
-                    fontWeight: 'bold',
-                    fontSize: '13px',
-                    backgroundColor: theme.inputBg,
-                    border: `1px solid ${isFormKSchGTriggered ? theme.warningBorder : theme.tresorAccent}`,
-                    color: isFormKSchGTriggered ? theme.warningBorder : theme.tresorAccent,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '10px'
-                  }}
-                >
-                  <span>Berechneter Vollzeit-Richtwert: {currentFormKSchGRichtwert.toFixed(2)} von max. 10,00</span>
-                  <span>
-                    {isFormKSchGTriggered
-                      ? 'Achtung: Über 10,00 – Allgemeiner Kündigungsschutz (§ 1 KSchG) ist aktiv'
-                      : 'Bis 10,00 – Kleinbetriebs-Regelung (kein allgemeiner Kündigungsschutz nach § 23 KSchG)'}
+          {/* 5. PFLICHTDOKUMENTE & ALLGEMEINER STAMMDOKUMENTEN-UPLOAD */}
+          <div
+            data-help="tresor_dokumente_5"
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+          >
+            {!m_compliance_disabled && m_rechtsform !== 'Privat' && (
+              <div style={{ padding: '16px', borderRadius: '8px', border: `1px solid ${theme.border}`, background: theme.inputBg }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: theme.textMain }}>
+                      Fehlende Pflichtdokumente für „{m_rechtsform}“ ({currentFormVaultEval.missingList.length} offen)
+                    </div>
+                    <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '2px' }}>
+                      Klicke auf einen Button, um die gesetzliche Anforderung einzusehen und das Dokument direkt hochzuladen.
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      backgroundColor: 'transparent',
+                      color: currentFormVaultEval.allComplete ? theme.tresorAccent : theme.warningBorder,
+                      border: `1px solid ${currentFormVaultEval.allComplete ? theme.tresorAccent : theme.warningBorder}`
+                    }}
+                  >
+                    {currentFormVaultEval.presentCount} von {currentFormVaultEval.totalRequired} hinterlegt
                   </span>
                 </div>
-              </div>
 
-              <div
-                style={{
-                  gridColumn: '1 / -1',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-                  gap: '12px',
-                  padding: '14px',
-                  borderRadius: '8px',
-                  background: theme.inputBg,
-                  border: `1px solid ${theme.border}`
-                }}
-              >
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={m_befreit_181_bgb} onChange={(e) => setM_befreit_181_bgb(e.target.checked)} />
-                  <span>Befreiung vom Selbstkontrahierungsverbot (§ 181 BGB) liegt vor</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={m_uses_external_creatives} onChange={(e) => setM_uses_external_creatives(e.target.checked)} />
-                  <span>Beauftragt externe Kreative / Agenturen (KSK-Meldung 31.03.)</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={m_ships_physical_goods} onChange={(e) => setM_ships_physical_goods(e.target.checked)} />
-                  <span>Versendet physische Waren / Pakete (LUCID-Verpackungsregister)</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: theme.textMain, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={m_is_hazardous_branch} onChange={(e) => setM_is_hazardous_branch(e.target.checked)} />
-                  <span>Branche nach § 2a SchwarzArbG (Bau, Handwerk, Gastro, Logistik)</span>
-                </label>
-              </div>
-
-              {/* KOMPAKTE BUTTON-MATRIX DER FEHLENDEN PFLICHTDOKUMENTE (NUR ZWEIZEILIGE ZENTRIERTE BUTTONS, DETAILS ERST BEI KLICK) */}
-              <div style={{ gridColumn: '1 / -1', marginTop: '6px' }}>
-                <div style={{ padding: '16px', borderRadius: '8px', border: `1px solid ${theme.border}`, background: theme.inputBg }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: theme.textMain }}>
-                        Fehlende Pflichtdokumente für „{m_rechtsform}“ ({currentFormVaultEval.missingList.length} offen)
-                      </div>
-                      <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '2px' }}>
-                        Klicke auf einen Button, um die gesetzliche Anforderung einzusehen und das Dokument direkt hochzuladen.
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        backgroundColor: 'transparent',
-                        color: currentFormVaultEval.allComplete ? theme.tresorAccent : theme.warningBorder,
-                        border: `1px solid ${currentFormVaultEval.allComplete ? theme.tresorAccent : theme.warningBorder}`
-                      }}
-                    >
-                      {currentFormVaultEval.presentCount} von {currentFormVaultEval.totalRequired} hinterlegt
-                    </span>
+                {currentFormVaultEval.missingList.length === 0 ? (
+                  <div style={{ fontSize: '13px', color: theme.tresorAccent, fontWeight: 'bold' }}>
+                    Alle vorgesehenen Pflichtdokumente für diese Rechtsform sind vollständig im Tresor hinterlegt.
                   </div>
-
-                  {currentFormVaultEval.missingList.length === 0 ? (
-                    <div style={{ fontSize: '13px', color: theme.tresorAccent, fontWeight: 'bold' }}>
-                      Alle vorgesehenen Pflichtdokumente für diese Rechtsform sind vollständig im Tresor hinterlegt.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
-                      {currentFormVaultEval.missingList.map((missingDoc) => {
-                        const isSelected = selectedMissingDocId === missingDoc.id;
-                        const lines = (missingDoc.shortBtnTitle || missingDoc.title).split('\n');
-                        return (
-                          <button
-                            key={missingDoc.id}
-                            type="button"
-                            onClick={() => setSelectedMissingDocId(isSelected ? null : missingDoc.id)}
-                            style={{
-                              ...outlineDangerBtnStyle,
-                              width: '100%',
-                              minHeight: '54px',
-                              padding: '8px 12px',
-                              flexDirection: 'column',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                              lineHeight: '1.35',
-                              borderWidth: isSelected ? '2px' : '1px'
-                            }}
-                          >
-                            <span style={{ display: 'block', fontWeight: 'bold', fontSize: '12px' }}>{lines[0]}</span>
-                            <span style={{ display: 'block', fontSize: '11px', opacity: 0.85 }}>{lines[1] || `#${missingDoc.labelHash}`}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* AUFKLAPP-DETAILFENSTER FÜR DEN GEKLICKTEN BUTTON */}
-                  {selectedMissingDocObj && (
-                    <div
-                      style={{
-                        marginTop: '14px',
-                        padding: '14px 16px',
-                        borderRadius: '8px',
-                        border: `1px solid ${theme.warningBorder}`,
-                        background: theme.cardBg,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '14px'
-                      }}
-                    >
-                      <div style={{ flex: '1 1 320px' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 'bold', color: theme.textMain }}>
-                          {selectedMissingDocObj.title}
-                        </div>
-                        <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>
-                          Gesetzliche Grundlage: {selectedMissingDocObj.legalBasis} | Tresor-Kennzeichnung: #{selectedMissingDocObj.labelHash}
-                        </div>
-                        <div style={{ fontSize: '12px', color: theme.textMain, marginTop: '6px', lineHeight: '1.45' }}>
-                          Hinweis: {selectedMissingDocObj.riskWarning}
-                        </div>
-                      </div>
-
-                      <div>
-                        {editMandantId ? (
-                          <label style={{ ...outlineDangerBtnStyle, cursor: uploadingMandantId === editMandantId ? 'wait' : 'pointer' }}>
-                            <Icon name="paperclip" size={14} />
-                            <span>
-                              {uploadingMandantId === editMandantId
-                                ? 'Lädt hoch...'
-                                : `Datei für [${selectedMissingDocObj.labelHash}] hochladen`}
-                            </span>
-                            <input
-                              type="file"
-                              style={{ display: 'none' }}
-                              disabled={uploadingMandantId === editMandantId}
-                              onChange={(e) => {
-                                const currentRow = mandanten.find((x) => x.id === editMandantId);
-                                handleTargetedLabelUpload(
-                                  editMandantId,
-                                  currentRow?.dokument_url || '',
-                                  selectedMissingDocObj.labelHash,
-                                  e
-                                );
-                              }}
-                            />
-                          </label>
-                        ) : (
-                          <span style={{ fontSize: '12px', color: theme.textMuted }}>
-                            Bitte Mandant zuerst speichern oder Datei unten im Upload-Feld auswählen.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* 5. ALLGEMEINER STAMMDOKUMENTEN-UPLOAD & BEREITS HINTERLEGTE DOKUMENTE */}
-          <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
-            <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Icon name="paperclip" size={16} /> Weitere Stammdokumente hochladen & verwalten
-            </label>
-            <input
-              id="tresor-datei-upload"
-              type="file"
-              multiple
-              onChange={handleNeuerDateiUploadSelect}
-              style={{ ...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px' }}
-            />
-
-            {m_dateien.length > 0 && (
-              <div style={{ marginTop: '12px', padding: '12px', background: theme.inputBg, border: `1px solid ${theme.tresorAccent}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.tresorAccent, textTransform: 'uppercase' }}>
-                  Neue Datei(en) vor dem Speichern beschriften ({m_dateien.length}):
-                </div>
-                {m_dateien.map((fileObj, idx) => (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '10px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={fileObj.name}>
-                      Originaldatei: {fileObj.name}
-                    </span>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <select
-                        value=""
-                        onChange={(e) => {
-                          if (!e.target.value) return;
-                          const chosen = e.target.value;
-                          setM_dateien_labels((prev) => prev.map((lbl, i) => (i === idx ? chosen : lbl)));
-                        }}
-                        style={{ ...inputStyle, width: 'auto', flex: '0 0 200px', padding: '8px 10px', fontSize: '12px' }}
-                      >
-                        <option value="">-- Pflicht-Label wählen --</option>
-                        {REQUIRED_VAULT_DOCUMENTS.map((d) => (
-                          <option key={d.id} value={d.labelHash}>
-                            {d.labelHash}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        value={m_dateien_labels[idx] || ''}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setM_dateien_labels((prev) => prev.map((lbl, i) => (i === idx ? val : lbl)));
-                        }}
-                        placeholder="Bezeichnung eingeben..."
-                        style={{ ...inputStyle, flex: '1 1 200px', padding: '8px 10px', fontSize: '13px', borderColor: theme.tresorAccent }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {editMandantId && m_existing_docs.length > 0 && (
-              <div style={{ marginTop: '12px', padding: '12px', background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain, textTransform: 'uppercase' }}>
-                  Bereits hinterlegte Stammdokumente ({m_existing_docs.length}):
-                </div>
-                {m_existing_docs.map((docItem, idx) => {
-                  const lockedRule = findUnloeschbarRuleForDoc(docItem.label);
-                  return (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <select
-                        value=""
-                        onChange={(e) => {
-                          if (!e.target.value) return;
-                          const newLbl = e.target.value;
-                          setM_existing_docs((prev) => prev.map((item, i) => (i === idx ? { ...item, label: newLbl } : item)));
-                        }}
-                        style={{ ...inputStyle, width: 'auto', flex: '0 0 190px', padding: '8px 10px', fontSize: '12px' }}
-                      >
-                        <option value="">-- Pflicht-Label setzen --</option>
-                        {REQUIRED_VAULT_DOCUMENTS.map((d) => (
-                          <option key={d.id} value={d.labelHash}>
-                            {d.labelHash}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        value={docItem.label}
-                        onChange={(e) => {
-                          const newLbl = e.target.value;
-                          setM_existing_docs((prev) => prev.map((item, i) => (i === idx ? { ...item, label: newLbl } : item)));
-                        }}
-                        placeholder="Bezeichnung..."
-                        style={{ ...inputStyle, flex: '1 1 220px', padding: '8px 10px', fontSize: '13px' }}
-                      />
-                      {lockedRule && (
-                        <span
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))', gap: '10px' }}>
+                    {currentFormVaultEval.missingList.map((missingDoc) => {
+                      const isSelected = selectedMissingDocId === missingDoc.id;
+                      const lines = (missingDoc.shortBtnTitle || missingDoc.title).split('\n');
+                      return (
+                        <button
+                          key={missingDoc.id}
+                          type="button"
+                          onClick={() => setSelectedMissingDocId(isSelected ? null : missingDoc.id)}
                           style={{
-                            fontSize: '11px',
-                            padding: '6px 10px',
-                            borderRadius: '6px',
-                            border: `1px solid ${theme.border}`,
-                            color: theme.textMuted,
-                            fontWeight: 'bold'
+                            ...outlineDangerBtnStyle,
+                            width: '100%',
+                            minHeight: '54px',
+                            padding: '8px 12px',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            lineHeight: '1.35',
+                            borderWidth: isSelected ? '2px' : '1px'
                           }}
-                          title={lockedRule.riskWarning}
                         >
-                          Löschgeschützt
+                          <span style={{ display: 'block', fontWeight: 'bold', fontSize: '12px' }}>{lines[0]}</span>
+                          <span style={{ display: 'block', fontSize: '11px', opacity: 0.85 }}>{lines[1] || `#${missingDoc.labelHash}`}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* AUFKLAPP-DETAILFENSTER FÜR DEN GEKLICKTEN BUTTON */}
+                {selectedMissingDocObj && (
+                  <div
+                    style={{
+                      marginTop: '14px',
+                      padding: '14px 16px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.warningBorder}`,
+                      background: theme.cardBg,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '14px'
+                    }}
+                  >
+                    <div style={{ flex: '1 1 min(100%, 320px)' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: theme.textMain }}>
+                        {selectedMissingDocObj.title}
+                      </div>
+                      <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '4px' }}>
+                        Gesetzliche Grundlage: {selectedMissingDocObj.legalBasis} | Tresor-Kennzeichnung: #{selectedMissingDocObj.labelHash}
+                      </div>
+                      <div style={{ fontSize: '12px', color: theme.textMain, marginTop: '6px', lineHeight: '1.45' }}>
+                        Hinweis: {selectedMissingDocObj.riskWarning}
+                      </div>
+                    </div>
+
+                    <div>
+                      {editMandantId ? (
+                        <label style={{ ...outlineDangerBtnStyle, cursor: uploadingMandantId === editMandantId ? 'wait' : 'pointer' }}>
+                          <Icon name="paperclip" size={14} />
+                          <span>
+                            {uploadingMandantId === editMandantId
+                              ? 'Lädt hoch...'
+                              : `Datei für [${selectedMissingDocObj.labelHash}] hochladen`}
+                          </span>
+                          <input
+                            type="file"
+                            style={{ display: 'none' }}
+                            disabled={uploadingMandantId === editMandantId}
+                            onChange={(e) => {
+                              const currentRow = mandanten.find((x) => x.id === editMandantId);
+                              handleTargetedLabelUpload(
+                                editMandantId,
+                                currentRow?.dokument_url || '',
+                                selectedMissingDocObj.labelHash,
+                                e
+                              );
+                            }}
+                          />
+                        </label>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: theme.textMuted }}>
+                          Bitte Mandant zuerst speichern oder Datei unten im Upload-Feld auswählen.
                         </span>
                       )}
-                      <a
-                        href={docItem.cleanUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ ...outlineAccentBtnStyle, textDecoration: 'none', padding: '8px 12px' }}
-                        title={extractFilename(docItem.cleanUrl)}
-                      >
-                        <Icon name="file" size={14} /> Dokument öffnen
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentMandant = mandanten.find((x) => x.id === editMandantId);
-                          loescheDateiAusMandant(editMandantId, currentMandant?.dokument_url || '', docItem.cleanUrl);
-                        }}
-                        style={{ ...outlineDangerBtnStyle, padding: '8px 10px' }}
-                        title={lockedRule ? 'Geschütztes Pflichtdokument (erfordert LOESCHEN-Bestätigung)' : 'Dokument löschen'}
-                      >
-                        <Icon name="trash" size={13} />
-                      </button>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
             )}
+
+            <div>
+              <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="paperclip" size={16} /> Weitere Stammdokumente hochladen & verwalten
+              </label>
+              <input
+                id="tresor-datei-upload"
+                type="file"
+                multiple
+                onChange={handleNeuerDateiUploadSelect}
+                style={{ ...inputStyle, border: `1px dashed ${theme.tresorAccent}`, cursor: 'pointer', padding: '10px' }}
+              />
+
+              {m_dateien.length > 0 && (
+                <div style={{ marginTop: '12px', padding: '12px', background: theme.inputBg, border: `1px solid ${theme.tresorAccent}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.tresorAccent, textTransform: 'uppercase' }}>
+                    Neue Datei(en) vor dem Speichern beschriften ({m_dateien.length}):
+                  </div>
+                  {m_dateien.map((fileObj, idx) => (
+                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '10px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={fileObj.name}>
+                        Originaldatei: {fileObj.name}
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (!e.target.value) return;
+                            const chosen = e.target.value;
+                            setM_dateien_labels((prev) => prev.map((lbl, i) => (i === idx ? chosen : lbl)));
+                          }}
+                          style={{ ...inputStyle, width: 'auto', flex: '1 1 190px', padding: '8px 10px', fontSize: '12px' }}
+                        >
+                          <option value="">-- Pflicht-Label wählen --</option>
+                          {REQUIRED_VAULT_DOCUMENTS.map((d) => (
+                            <option key={d.id} value={d.labelHash}>
+                              {d.labelHash}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          value={m_dateien_labels[idx] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setM_dateien_labels((prev) => prev.map((lbl, i) => (i === idx ? val : lbl)));
+                          }}
+                          placeholder="Bezeichnung eingeben..."
+                          style={{ ...inputStyle, flex: '1 1 200px', padding: '8px 10px', fontSize: '13px', borderColor: theme.tresorAccent }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {editMandantId && m_existing_docs.length > 0 && (
+                <div style={{ marginTop: '12px', padding: '12px', background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain, textTransform: 'uppercase' }}>
+                    Bereits hinterlegte Stammdokumente ({m_existing_docs.length}):
+                  </div>
+                  {m_existing_docs.map((docItem, idx) => {
+                    const lockedRule = findUnloeschbarRuleForDoc(docItem.label);
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (!e.target.value) return;
+                            const newLbl = e.target.value;
+                            setM_existing_docs((prev) => prev.map((item, i) => (i === idx ? { ...item, label: newLbl } : item)));
+                          }}
+                          style={{ ...inputStyle, width: 'auto', flex: '1 1 190px', padding: '8px 10px', fontSize: '12px' }}
+                        >
+                          <option value="">-- Pflicht-Label setzen --</option>
+                          {REQUIRED_VAULT_DOCUMENTS.map((d) => (
+                            <option key={d.id} value={d.labelHash}>
+                              {d.labelHash}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          value={docItem.label}
+                          onChange={(e) => {
+                            const newLbl = e.target.value;
+                            setM_existing_docs((prev) => prev.map((item, i) => (i === idx ? { ...item, label: newLbl } : item)));
+                          }}
+                          placeholder="Bezeichnung..."
+                          style={{ ...inputStyle, flex: '1 1 220px', padding: '8px 10px', fontSize: '13px' }}
+                        />
+                        {lockedRule && (
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              border: `1px solid ${theme.border}`,
+                              color: theme.textMuted,
+                              fontWeight: 'bold'
+                            }}
+                            title={lockedRule.riskWarning}
+                          >
+                            Löschgeschützt
+                          </span>
+                        )}
+                        <a
+                          href={docItem.cleanUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ ...outlineAccentBtnStyle, textDecoration: 'none', padding: '8px 12px' }}
+                          title={extractFilename(docItem.cleanUrl)}
+                        >
+                          <Icon name="file" size={14} /> Dokument öffnen
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentMandant = mandanten.find((x) => x.id === editMandantId);
+                            loescheDateiAusMandant(editMandantId, currentMandant?.dokument_url || '', docItem.cleanUrl);
+                          }}
+                          style={{ ...outlineDangerBtnStyle, padding: '8px 10px' }}
+                          title={lockedRule ? 'Geschütztes Pflichtdokument (erfordert LOESCHEN-Bestätigung)' : 'Dokument löschen'}
+                        >
+                          <Icon name="trash" size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1503,7 +1532,10 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
         <Icon name="archive" size={20} style={{ color: theme.tresorAccent }} /> Gespeicherte Mandanten & Firmen
       </h3>
 
-      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
+      <div
+        data-help="tresor_liste_overview"
+        style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}
+      >
         <div style={{ width: '100%' }}>
           <div className="tresor-desktop-header" style={{ background: theme.inputBg, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted }}>
             <div>Firma / Mandant</div>
@@ -1611,7 +1643,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                     </span>
                   </div>
 
-                  {/* SPALTE 3: STEUERN, REGISTER & BANK (ALLE WICHTIGEN NUMMERN VORNE SICHTBAR) */}
+                  {/* SPALTE 3: STEUERN, REGISTER & BANK */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden' }}>
                     <span style={{ fontSize: '12px', color: theme.textMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       St-Nr: {cleanVal(m.steuernummer) || '-'} | USt-Id: {cleanVal(m.ust_id) || '-'}
@@ -1625,7 +1657,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                     </span>
                   </div>
 
-                  {/* SPALTE 4: DOKUMENTE & PFLICHT-STATUS OHNE BUNTEN HINTERGRUND */}
+                  {/* SPALTE 4: DOKUMENTE & PFLICHT-STATUS */}
                   <div style={{ fontSize: '12px', color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -1687,7 +1719,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
 
                       {/* SPALTE 2: ALLE NUMMERN & WEITERE BANKVERBINDUNGEN */}
                       <div style={{ fontSize: '11px', color: theme.textMain, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px' }}>
                           <div><span style={{ color: theme.textMuted }}>Steuernr.:</span> {cleanVal(m.steuernummer) || '-'}</div>
                           <div><span style={{ color: theme.textMuted }}>USt-IdNr.:</span> {cleanVal(m.ust_id) || '-'}</div>
                           <div><span style={{ color: theme.textMuted }}>W-IdNr.:</span> {cp.wirtschafts_id || '-'}</div>
@@ -1804,13 +1836,13 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                       </div>
                     </div>
 
-                    {/* FEHLENDE PFLICHTDOKUMENTE UNTEN IM AUFGEKLAPPTEN BEREICH: NUR ZENTRIERTE ZWEIZEILIGE OUTLINE-BUTTONS */}
+                    {/* FEHLENDE PFLICHTDOKUMENTE UNTEN IM AUFGEKLAPPTEN BEREICH */}
                     {!cp.compliance_disabled && cp.rechtsform !== 'Privat' && !vaultEval.allComplete && (
                       <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: `1px solid ${theme.border}` }}>
                         <div style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain, marginBottom: '10px' }}>
                           Fehlende Pflichtdokumente ({vaultEval.missingList.length}) – Klick auf Button öffnet Details & Direkt-Upload:
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '8px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 210px), 1fr))', gap: '8px' }}>
                           {vaultEval.missingList.map((missingDoc) => {
                             const isSelected = activeRowMissingId === missingDoc.id;
                             const lines = (missingDoc.shortBtnTitle || missingDoc.title).split('\n');
@@ -1858,7 +1890,7 @@ export default function FirmenTresor({ session, theme, mandanten, ladeDaten, sho
                               gap: '12px'
                             }}
                           >
-                            <div style={{ flex: '1 1 300px' }}>
+                            <div style={{ flex: '1 1 min(100%, 300px)' }}>
                               <div style={{ fontSize: '13px', fontWeight: 'bold', color: theme.textMain }}>
                                 {activeRowMissingObj.title} ({activeRowMissingObj.legalBasis})
                               </div>
