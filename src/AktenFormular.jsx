@@ -1209,9 +1209,19 @@ export default function AktenFormular({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}>
-          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} /><Icon name="folder" size={16} /> Neue Akte / Hülle anlegen</label>
-          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}><input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} /><Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen</label>
+        {/* --- MODUS-WAHL: NEUE AKTE VS. ZU BESTEHENDER AKTE HINZUFÜGEN --- */}
+        <div
+          data-help="akten_modus_wahl"
+          style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}
+        >
+          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} />
+            <Icon name="folder" size={16} /> Neue Akte / Hülle anlegen
+          </label>
+          <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'bestehend' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input type="radio" checked={modus === 'bestehend'} onChange={() => setModus('bestehend')} />
+            <Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen
+          </label>
           {modus === 'bestehend' && (
             <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
               <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
@@ -1222,121 +1232,156 @@ export default function AktenFormular({
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {modus === 'neu' && (
             <>
-              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                  <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
+              {/* --- 1. AKTEN-STAMMDATEN --- */}
+              <div
+                data-help="akten_stammdaten_1"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
+              >
+                <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                    <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
+                  </div>
                 </div>
+                <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
+                <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
               </div>
-              <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} /></div>
-              <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
 
-              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                  <h4 style={{margin: 0, color: theme.textMain}}>2. Gegenpartei / Behörde</h4>
-                  {gegnerListe.length > 0 && (
-                    <select onChange={handleGegnerAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
-                      <option value="">+ Aus Gegner-CRM laden...</option>
-                      {gegnerListe.map(g => {
-                        let ansList = [];
-                        try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
-                        if (ansList.length > 0) { return ansList.map((ans, idx) => ( <option key={`${g.id}-${idx}`} value={`${g.id}|${idx}`}>{g.name} — {ans.abteilung ? `${ans.abteilung}: ` : ''}{ans.name || 'Zentrale'}</option> )); }
-                        return <option key={g.id} value={`${g.id}|0`}>{g.name}</option>;
-                      })}
-                    </select>
-                  )}
+              {/* --- 2. GEGENPARTEI / BEHÖRDE --- */}
+              <div
+                data-help="akten_gegner_2"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
+              >
+                <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                    <h4 style={{margin: 0, color: theme.textMain}}>2. Gegenpartei / Behörde</h4>
+                    {gegnerListe.length > 0 && (
+                      <select onChange={handleGegnerAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                        <option value="">+ Aus Gegner-CRM laden...</option>
+                        {gegnerListe.map(g => {
+                          let ansList = [];
+                          try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
+                          if (ansList.length > 0) { return ansList.map((ans, idx) => ( <option key={`${g.id}-${idx}`} value={`${g.id}|${idx}`}>{g.name} — {ans.abteilung ? `${ans.abteilung}: ` : ''}{ans.name || 'Zentrale'}</option> )); }
+                          return <option key={g.id} value={`${g.id}|0`}>{g.name}</option>;
+                        })}
+                      </select>
+                    )}
+                  </div>
                 </div>
+                <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
+                <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} onBlur={(e) => setGegnerTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={inputStyle} /></div>
+                <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
               </div>
-              <div><label style={labelStyle}>Behörde / Gegner*</label><input type="text" value={gegnerName} onChange={(e) => setGegnerName(e.target.value)} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={gegnerAnsprechpartner} onChange={(e) => setGegnerAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Telefon</label><input type="text" value={gegnerTelefon} onChange={(e) => setGegnerTelefon(e.target.value)} onBlur={(e) => setGegnerTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Faxnummer</label><input type="text" value={gegnerFax} onChange={(e) => setGegnerFax(e.target.value)} onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))} style={inputStyle} /></div>
-              <div style={{ gridColumn: '1 / -1' }}><label style={labelStyle}>E-Mail</label><input type="email" value={gegnerEmail} onChange={(e) => setGegnerEmail(e.target.value)} style={inputStyle} /></div>
-              
-              <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                  <h4 style={{margin: 0, color: theme.textMain}}>3. Wir (Mandant)</h4>
-                  {mandanten.length > 0 && (
-                    <select onChange={handleTresorAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
-                      <option value="">+ Aus Firmen-Tresor laden...</option>
-                      {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
-                    </select>
-                  )}
+
+              {/* --- 3. WIR (MANDANT) --- */}
+              <div
+                data-help="akten_mandant_3"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
+              >
+                <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
+                    <h4 style={{margin: 0, color: theme.textMain}}>3. Wir (Mandant)</h4>
+                    {mandanten.length > 0 && (
+                      <select onChange={handleTresorAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                        <option value="">+ Aus Firmen-Tresor laden...</option>
+                        {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
+                      </select>
+                    )}
+                  </div>
                 </div>
+                <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
+                <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
+                <div><label style={labelStyle}>E-Mail (Mandant)</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} onBlur={(e) => setUnserTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
               </div>
-              <div><label style={labelStyle}>Firma / Person*</label><input type="text" value={unsereFirma} onChange={(e) => setUnsereFirma(e.target.value)} required style={inputStyle} /></div>
-              <div><label style={labelStyle}>Ansprechpartner</label><input type="text" value={unserAnsprechpartner} onChange={(e) => setUnserAnsprechpartner(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>E-Mail (Mandant)</label><input type="email" value={unserEmail} onChange={(e) => setUnserEmail(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Telefon (Mandant)</label><input type="text" value={unserTelefon} onChange={(e) => setUnserTelefon(e.target.value)} onBlur={(e) => setUnserTelefon(formatRufnummer(e.target.value))} style={inputStyle} /></div>
             </>
           )}
 
-          <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '10px' }}><h4 style={h4StyleAkten}>Dokument-Eintrag / Arbeitsanweisung</h4></div>
-          <div><label style={labelStyle}>Typ*</label><select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}><option value="Eingang">Eingang</option><option value="Ausgang">Ausgang</option><option value="Intern">Intern</option></select></div>
-          <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
-          
-          <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Vorgang / Betreff / Aktion</label>
-            <input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} placeholder="z.B. Rechnung Landesjustizkasse / Überweisung fällig" style={inputStyle} />
-          </div>
+          {/* --- DOKUMENT-EINTRAG, AKTION & BEZUG --- */}
+          <div
+            data-help="akten_vorgang_bezug"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
+          >
+            <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}><h4 style={h4StyleAkten}>Dokument-Eintrag / Arbeitsanweisung</h4></div>
+            <div><label style={labelStyle}>Typ*</label><select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}><option value="Eingang">Eingang</option><option value="Ausgang">Ausgang</option><option value="Intern">Intern</option></select></div>
+            <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
+            
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Vorgang / Betreff / Aktion</label>
+              <input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} placeholder="z.B. Rechnung Landesjustizkasse / Überweisung fällig" style={inputStyle} />
+            </div>
 
-          {activeAkteObj && activeAkteObj.akten_historie && activeAkteObj.akten_historie.length > 0 && (
-            <div style={{ gridColumn: '1 / -1', padding: '12px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label style={{...labelStyle, color: theme.textMain, margin: 0}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
-                {bezugId && (
-                  <span style={{ fontSize: '11px', background: '#0ea5e9', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                    ★ Bezug verknüpft
-                  </span>
-                )}
+            {activeAkteObj && activeAkteObj.akten_historie && activeAkteObj.akten_historie.length > 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: '12px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                  <label style={{...labelStyle, color: theme.textMain, margin: 0}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
+                  {bezugId && (
+                    <span style={{ fontSize: '11px', background: '#0ea5e9', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                      ★ Bezug verknüpft
+                    </span>
+                  )}
+                </div>
+                <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{...inputStyle, borderColor: '#0ea5e9'}}>
+                  <option value="">-- Kein direkter Bezug --</option>
+                  {activeAkteObj.akten_historie.map(h => {
+                    const briefSnippet = h.brief_entwurf ? ` | "${h.brief_entwurf.substring(0, 40).replace(/\n/g, ' ')}..."` : '';
+                    const aktionSnippet = h.aktion ? ` | ${h.aktion}` : '';
+                    const isSuggested = (h.id === bezugId);
+                    return (
+                      <option key={h.id} value={h.id}>
+                        {isSuggested ? '★ ' : ''}{formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
-              <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{...inputStyle, borderColor: '#0ea5e9'}}>
-                <option value="">-- Kein direkter Bezug --</option>
-                {activeAkteObj.akten_historie.map(h => {
-                  const briefSnippet = h.brief_entwurf ? ` | "${h.brief_entwurf.substring(0, 40).replace(/\n/g, ' ')}..."` : '';
-                  const aktionSnippet = h.aktion ? ` | ${h.aktion}` : '';
-                  const isSuggested = (h.id === bezugId);
-                  return (
-                    <option key={h.id} value={h.id}>
-                      {isSuggested ? '★ ' : ''}{formatDatum(h.datum)} | {h.typ}{briefSnippet}{aktionSnippet}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          )}
+            )}
+          </div>
 
-          <div>
-            <label style={labelStyle}>Frist (Behörde)</label>
-            <input type="date" value={fristExtern} onChange={(e) => handleFristChange(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>WV (Intern)</label>
-            <input type="date" value={wiedervorlage} onChange={(e) => handleWVChange(e.target.value)} style={inputStyle} />
-            <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => setzeWV(3)} style={quickBtnStyle}>+3T</button>
-              <button type="button" onClick={() => setzeWV(7)} style={quickBtnStyle}>+1W</button>
-              <button type="button" onClick={() => setzeWV(14)} style={quickBtnStyle}>+2W</button>
-              <button type="button" onClick={() => setzeWV(0, 1)} style={quickBtnStyle}>+1M</button>
+          {/* --- FRIST (BEHÖRDE) VS. WIEDERVORLAGE (INTERN) --- */}
+          <div
+            data-help="akten_fristen_wv"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
+          >
+            <div>
+              <label style={labelStyle}>Frist (Behörde)</label>
+              <input type="date" value={fristExtern} onChange={(e) => handleFristChange(e.target.value)} style={inputStyle} />
             </div>
-          </div>
-          
-          {modus === 'bestehend' && (
-            <div style={{ gridColumn: '1 / -1', marginTop: '5px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', borderRadius: '6px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
-                <input type="checkbox" checked={clearOldFristen} onChange={(e) => setClearOldFristen(e.target.checked)} style={{ accentColor: '#10b981', width: '16px', height: '16px' }} />
-                Alle bisherigen Fristen & Wiedervorlagen dieser Akte als erledigt markieren
-              </label>
+            <div>
+              <label style={labelStyle}>WV (Intern)</label>
+              <input type="date" value={wiedervorlage} onChange={(e) => handleWVChange(e.target.value)} style={inputStyle} />
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => setzeWV(3)} style={quickBtnStyle}>+3T</button>
+                <button type="button" onClick={() => setzeWV(7)} style={quickBtnStyle}>+1W</button>
+                <button type="button" onClick={() => setzeWV(14)} style={quickBtnStyle}>+2W</button>
+                <button type="button" onClick={() => setzeWV(0, 1)} style={quickBtnStyle}>+1M</button>
+              </div>
             </div>
-          )}
+            
+            {modus === 'bestehend' && (
+              <div style={{ gridColumn: '1 / -1', marginTop: '2px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', borderRadius: '6px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
+                  <input type="checkbox" checked={clearOldFristen} onChange={(e) => setClearOldFristen(e.target.checked)} style={{ accentColor: '#10b981', width: '16px', height: '16px', flexShrink: 0 }} />
+                  <span>Alle bisherigen Fristen & Wiedervorlagen dieser Akte als erledigt markieren</span>
+                </label>
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* --- VERSAND-COCKPIT & SCHREIBFENSTER --- */}
         <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>
+          {/* --- EMPFÄNGER-ROUTING (E-MAIL, FAX & Z. HD.) --- */}
+          <div
+            data-help="akten_versand_adressen"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}
+          >
             <div>
               <label style={{...labelStyle, color: theme.textMain}}>Versand-E-Mail (Gegner)</label>
               <input
@@ -1371,6 +1416,7 @@ export default function AktenFormular({
 
             {/* --- VERPFLICHTENDE CLICK-WRAP-CHECKBOX UNMITTELBAR VOR DEN VERSAND-BUTTONS --- */}
             <div
+              data-help="akten_clickwrap_confirm"
               style={{
                 width: '100%',
                 padding: '12px 14px',
@@ -1412,91 +1458,109 @@ export default function AktenFormular({
               </label>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px', width: '100%' }}>
-              <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
-              <button
-                type="button"
-                disabled={!isLegalConfirmed}
-                onClick={() => handleProtectedVersand('email')}
-                className={!isLegalConfirmed ? 'opacity-50 cursor-not-allowed' : ''}
-                style={{
-                  background: theme.accent,
-                  color: btnTextColor,
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '12px 14px',
-                  minHeight: '44px',
-                  fontSize: '13px',
-                  cursor: isLegalConfirmed ? 'pointer' : 'not-allowed',
-                  opacity: isLegalConfirmed ? 1 : 0.5,
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-                title={!isLegalConfirmed ? 'Bitte bestätigen Sie zuerst die eigenverantwortliche Prüfung des Entwurfs.' : 'Schreiben per E-Mail (Resend) versenden'}
-              >
-                <Icon name="send" size={16} /> E-Mail senden (Resend)
-              </button>
-              <button
-                type="button"
-                disabled={!isLegalConfirmed}
-                onClick={() => handleProtectedVersand('fax')}
-                className={!isLegalConfirmed ? 'opacity-50 cursor-not-allowed' : ''}
-                style={{
-                  background: theme.accent,
-                  color: btnTextColor,
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '12px 14px',
-                  minHeight: '44px',
-                  fontSize: '13px',
-                  cursor: isLegalConfirmed ? 'pointer' : 'not-allowed',
-                  opacity: isLegalConfirmed ? 1 : 0.5,
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-                title={!isLegalConfirmed ? 'Bitte bestätigen Sie zuerst die eigenverantwortliche Prüfung des Entwurfs.' : 'Schreiben per E-Fax (Simple-Fax) versenden'}
-              >
-                <Icon name="phone" size={16} /> E-Fax (Simple-Fax)
-              </button>
+            {/* --- DIE 5 AKTIONS- & VERSAND-BUTTONS (JEDER MIT EIGENEM LIVE-HILFE-ANKER) --- */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: '12px', width: '100%' }}>
+              <div data-help="akten_btn_versandhistorie" style={{ width: '100%' }}>
+                <button type="button" onClick={() => setShowVersandHistorie(true)} style={{ width: '100%', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Sendeliste und Nachweise einsehen"><Icon name="folder" size={16} /> Versandhistorie</button>
+              </div>
+
+              <div data-help="akten_btn_email_send" style={{ width: '100%' }}>
+                <button
+                  type="button"
+                  disabled={!isLegalConfirmed}
+                  onClick={() => handleProtectedVersand('email')}
+                  className={!isLegalConfirmed ? 'opacity-50 cursor-not-allowed' : ''}
+                  style={{
+                    width: '100%',
+                    background: theme.accent,
+                    color: btnTextColor,
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '12px 14px',
+                    minHeight: '44px',
+                    fontSize: '13px',
+                    cursor: isLegalConfirmed ? 'pointer' : 'not-allowed',
+                    opacity: isLegalConfirmed ? 1 : 0.5,
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                  title={!isLegalConfirmed ? 'Bitte bestätigen Sie zuerst die eigenverantwortliche Prüfung des Entwurfs.' : 'Schreiben per E-Mail (Resend) versenden'}
+                >
+                  <Icon name="send" size={16} /> E-Mail senden (Resend)
+                </button>
+              </div>
+
+              <div data-help="akten_btn_fax_send" style={{ width: '100%' }}>
+                <button
+                  type="button"
+                  disabled={!isLegalConfirmed}
+                  onClick={() => handleProtectedVersand('fax')}
+                  className={!isLegalConfirmed ? 'opacity-50 cursor-not-allowed' : ''}
+                  style={{
+                    width: '100%',
+                    background: theme.accent,
+                    color: btnTextColor,
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '12px 14px',
+                    minHeight: '44px',
+                    fontSize: '13px',
+                    cursor: isLegalConfirmed ? 'pointer' : 'not-allowed',
+                    opacity: isLegalConfirmed ? 1 : 0.5,
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                  title={!isLegalConfirmed ? 'Bitte bestätigen Sie zuerst die eigenverantwortliche Prüfung des Entwurfs.' : 'Schreiben per E-Fax (Simple-Fax) versenden'}
+                >
+                  <Icon name="phone" size={16} /> E-Fax (Simple-Fax)
+                </button>
+              </div>
               
               {/* KONSISTENTER BUTTON: DURCHGEHEND BLAU MIT DUNKLER SCHRIFT & SCHLICHTEM LINE-ICON */}
-              <button 
-                type="button" 
-                onClick={() => setShowTaskPanel(!showTaskPanel)} 
-                style={{ background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                title="Internen Termin, Zahlungsziel oder Aufgabe inkl. Google Kalender Push anlegen"
-              >
-                {renderCalendarIcon(16)} Termin / Zahlung
-              </button>
+              <div data-help="akten_btn_termin_zahlung" style={{ width: '100%' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowTaskPanel(!showTaskPanel)} 
+                  style={{ width: '100%', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  title="Internen Termin, Zahlungsziel oder Aufgabe inkl. Google Kalender Push anlegen"
+                >
+                  {renderCalendarIcon(16)} Termin / Zahlung
+                </button>
+              </div>
 
-              <button type="button" onClick={() => {
-                setActiveWarRoomDossier({
-                  akte_id: selectedAkteId,
-                  unsere_firma: unsereFirma,
-                  unser_ansprechpartner: unserAnsprechpartner,
-                  aktenzeichen: aktenzeichen,
-                  kontakt: gegnerName,
-                  thema: thema,
-                  frist_extern: fristExtern,
-                  brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
-                  raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." 
-                });
-                setIsWarRoomOpen(true);
-              }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur strategischen Analyse in den War-Room schicken">
-                <Icon name="alert" size={16} /> In War-Room senden
-              </button>
+              <div data-help="akten_btn_warroom" style={{ width: '100%' }}>
+                <button type="button" onClick={() => {
+                  setActiveWarRoomDossier({
+                    akte_id: selectedAkteId,
+                    unsere_firma: unsereFirma,
+                    unser_ansprechpartner: unserAnsprechpartner,
+                    aktenzeichen: aktenzeichen,
+                    kontakt: gegnerName,
+                    thema: thema,
+                    frist_extern: fristExtern,
+                    brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
+                    raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." 
+                  });
+                  setIsWarRoomOpen(true);
+                }} style={{ width: '100%', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur strategischen Analyse in den War-Room schicken">
+                  <Icon name="alert" size={16} /> In War-Room senden
+                </button>
+              </div>
             </div>
           </div>
 
           {/* --- AUFKLAPPBARES AUFGABEN-, ZAHLUNGS- & TERMIN-MODUL --- */}
           {showTaskPanel && (
-            <div style={{ marginBottom: '18px', padding: '16px', background: theme.cardBg, border: `1px solid ${theme.accent}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div
+              data-help="akten_btn_termin_zahlung"
+              style={{ marginBottom: '18px', padding: '16px', background: theme.cardBg, border: `1px solid ${theme.accent}`, borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px dashed ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                 <strong style={{ color: theme.accent, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {renderCalendarIcon(16)} Interne Aufgabe / Zahlung / Termin planen (Wiedervorlage & Google Kalender)
@@ -1572,7 +1636,11 @@ export default function AktenFormular({
             </div>
           )}
 
-          <div style={{ marginBottom: '15px', padding: '12px', background: theme.cardBg, border: `1px dashed ${theme.border}`, borderRadius: '6px' }}>
+          {/* --- VERSAND-DATEIANHÄNGE --- */}
+          <div
+            data-help="akten_versand_anhaenge"
+            style={{ marginBottom: '15px', padding: '12px', background: theme.cardBg, border: `1px dashed ${theme.border}`, borderRadius: '6px' }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <label style={{ ...labelStyle, margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Icon name="paperclip" size={14} /> Versand-Dateianhänge ({emailAnhaenge.length})
@@ -1625,6 +1693,7 @@ export default function AktenFormular({
 
           {/* TEXTAREA MIT DIAGONALEM MUSTER-WASSERZEICHEN & HARTEM KOPIER-/MARKIER-SCHUTZ FÜR DEMO-TESTER */}
           <div
+            data-help="akten_textentwurf_box"
             onCopy={handleDemoCopyBlock}
             onCut={handleDemoCopyBlock}
             onContextMenu={handleDemoCopyBlock}
@@ -1692,9 +1761,12 @@ export default function AktenFormular({
           {versandPdfUrl && typ !== 'Ausgang' && (<div style={{ marginTop: '15px', padding: '10px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', color: '#0ea5e9', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}><Icon name="check" size={16} /> Scan-PDF erfolgreich verknüpft! Bereit zum Abheften.</div>)}
         </div>
 
-        <button type="submit" style={{ padding: '15px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', marginTop: '25px' }}>
-          + In Akte abheften
-        </button>
+        {/* --- ABSCHLUSS-BUTTON: IN AKTE ABHEFTEN --- */}
+        <div data-help="akten_manuell_upload_save" style={{ marginTop: '25px', width: '100%' }}>
+          <button type="submit" style={{ padding: '15px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px' }}>
+            + In Akte abheften
+          </button>
+        </div>
       </form>
     </>
   );
