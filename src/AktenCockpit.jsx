@@ -94,6 +94,26 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   const btnTextColor = isDarkMode ? '#000' : '#ffffff';
   const formatDatum = (datum) => datum ? new Date(datum).toLocaleDateString('de-DE') : '-';
 
+  // Prüft sicher, ob ein vermeintlicher eigener Ansprechpartner in Wahrheit der Sachbearbeiter der Gegenseite ist
+  const sanitizeOwnContactName = (ownAp, oppAp, oppName) => {
+    const cleanOwn = (cleanVal(ownAp) || '').trim();
+    if (!cleanOwn) return '';
+    const lowOwn = cleanOwn.toLowerCase();
+    const lowOppAp = (cleanVal(oppAp) || '').trim().toLowerCase();
+    const lowOppName = (cleanVal(oppName) || '').trim().toLowerCase();
+    if (lowOppAp && lowOwn === lowOppAp) return '';
+    if (lowOppName && lowOwn === lowOppName) return '';
+    if (
+      lowOwn.includes('urkundsbeamt') ||
+      lowOwn.includes('geschäftsstelle') ||
+      lowOwn.includes('rechtspfleger') ||
+      lowOwn.includes('poststelle')
+    ) {
+      return '';
+    }
+    return cleanOwn;
+  };
+
   // --- SLUG-CLEANER ANALOG ZU AUTOCONVERT.PY ---
   const cleanSlugForFilename = (text) => {
     if (!text) return '';
@@ -537,7 +557,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
           setGegnerTelefon(formatRufnummer(a.gegner_telefon || ''));
           setGegnerEmail(a.gegner_email || '');
           setUnsereFirma(a.unsere_firma || '');
-          setUnserAnsprechpartner(a.unser_ansprechpartner || '');
+          setUnserAnsprechpartner(sanitizeOwnContactName(a.unser_ansprechpartner, a.gegner_ansprechpartner, a.gegner_name));
           setUnserTelefon(formatRufnummer(a.unser_telefon || ''));
           setUnserEmail(a.unser_email || '');
           setThema(a.thema || '');
@@ -600,7 +620,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setGegnerTelefon(formatRufnummer(akte.gegner_telefon || ''));
     setGegnerEmail(akte.gegner_email || '');
     setUnsereFirma(akte.unsere_firma || '');
-    setUnserAnsprechpartner(akte.unser_ansprechpartner || '');
+    setUnserAnsprechpartner(sanitizeOwnContactName(akte.unser_ansprechpartner, akte.gegner_ansprechpartner, akte.gegner_name));
     setUnserTelefon(formatRufnummer(akte.unser_telefon || ''));
     setUnserEmail(akte.unser_email || '');
     setThema(akte.thema || '');
@@ -635,6 +655,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const akte = akten.find(a => a.id === akteId);
     if (!akte) return;
 
+    const safeOwnAp = sanitizeOwnContactName(akte.unser_ansprechpartner, akte.gegner_ansprechpartner, akte.gegner_name);
+
     setSelectedAkteId(akteId);
     setModus('bestehend');
     setBezugId('');
@@ -645,7 +667,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setGegnerTelefon(formatRufnummer(akte.gegner_telefon || ''));
     setGegnerEmail(akte.gegner_email || '');
     setUnsereFirma(akte.unsere_firma || '');
-    setUnserAnsprechpartner(akte.unser_ansprechpartner || '');
+    setUnserAnsprechpartner(safeOwnAp);
     setUnserTelefon(formatRufnummer(akte.unser_telefon || ''));
     setUnserEmail(akte.unser_email || '');
     setThema(akte.thema || '');
@@ -663,7 +685,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     }
 
     const defaultSenderName = isOwnerAccount ? 'Jens Wilsdorf' : (akte.unsere_firma || 'Geschäftsführung');
-    const template = `Sehr geehrte Damen und Herren,\n\nbezugnehmend auf unsere bisherige Korrespondenz in der obigen Angelegenheit bitten wir höflich um einen kurzen Sachstandsbericht, da wir bislang noch keine Rückmeldung erhalten haben.\n\nSollten Ihnen noch Unterlagen zur Bearbeitung fehlen, lassen Sie es uns bitte wissen.\n\nMit freundlichen Grüßen\n\n${akte.unser_ansprechpartner || defaultSenderName}`;
+    const template = `Sehr geehrte Damen und Herren,\n\nbezugnehmend auf unsere bisherige Korrespondenz in der obigen Angelegenheit bitten wir höflich um einen kurzen Sachstandsbericht, da wir bislang noch keine Rückmeldung erhalten haben.\n\nSollten Ihnen noch Unterlagen zur Bearbeitung fehlen, lassen Sie es uns bitte wissen.\n\nMit freundlichen Grüßen\n\n${safeOwnAp || defaultSenderName}`;
     setBriefEntwurf(template);
 
     setOpenMenuId(null);
@@ -920,12 +942,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setBezugId('');
       }
 
-      // --- INTELLIGENTE TRESOR-PRÜFUNG ---
+      // --- INTELLIGENTE TRESOR-PRÜFUNG (STRIKT OHNE GEGNER-ANSPRECHPARTNER-FALLBACK!) ---
       if (fallbackUnsereFirma) {
-        const parsedAnsprechpartner = cleanVal(obj.unser_ansprechpartner) || cleanVal(obj.ansprechpartner) || (obj.absender ? obj.absender.name : '') || '';
-        const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || cleanVal(obj.telefon) || '');
-        const parsedEmail = cleanVal(obj.unser_email) || cleanVal(obj.email) || '';
-        const parsedAdresse = cleanVal(obj.unsere_adresse) || cleanVal(obj.adresse) || (obj.absender ? `${obj.absender.strasse || ''}, ${obj.absender.plz_ort || ''}` : '') || '';
+        const rawOwnAp = cleanVal(obj.unser_ansprechpartner) || (obj.absender ? cleanVal(obj.absender.ansprechpartner || obj.absender.name) : '') || '';
+        const parsedAnsprechpartner = sanitizeOwnContactName(rawOwnAp, fallbackGegnerAnsprechpartner, fallbackGegnerName);
+        const parsedTelefon = formatRufnummer(cleanVal(obj.unser_telefon) || '');
+        const parsedEmail = cleanVal(obj.unser_email) || '';
+        const parsedAdresse = cleanVal(obj.unsere_adresse) || (obj.absender ? `${obj.absender.strasse || ''}, ${obj.absender.plz_ort || ''}` : '') || '';
 
         const fuzzyMandanten = mandanten.filter(m => fuzzyMatch(m.firmenname, fallbackUnsereFirma));
 
@@ -936,7 +959,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
         if (fuzzyMandanten.length === 1 && cleanOrgName(fuzzyMandanten[0].firmenname) === cleanOrgName(fallbackUnsereFirma)) {
           setUnsereFirma(fuzzyMandanten[0].firmenname); 
-          setUnserAnsprechpartner(parsedAnsprechpartner || cleanVal(fuzzyMandanten[0].ansprechpartner) || '');
+          setUnserAnsprechpartner(
+            parsedAnsprechpartner ||
+            sanitizeOwnContactName(fuzzyMandanten[0].ansprechpartner, fallbackGegnerAnsprechpartner, fallbackGegnerName)
+          );
           setUnserTelefon(parsedTelefon || cleanVal(fuzzyMandanten[0].telefon) || ''); 
           setUnserEmail(parsedEmail || cleanVal(fuzzyMandanten[0].email) || '');
           setTresorPrompt(null);
@@ -957,7 +983,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     
     if (actionType === 'neu') {
       const { data, error } = await supabase.from('mandanten').insert([{
-        user_id: session.user.id, firmenname: tresorPrompt.obj.unsere_firma, ansprechpartner: cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '',
+        user_id: session.user.id, firmenname: tresorPrompt.obj.unsere_firma, ansprechpartner: sanitizeOwnContactName(tresorPrompt.obj.unser_ansprechpartner, gegnerAnsprechpartner, gegnerName),
         telefon: formatRufnummer(cleanVal(tresorPrompt.obj.unser_telefon) || ''), email: cleanVal(tresorPrompt.obj.unser_email) || '', adresse: cleanVal(tresorPrompt.obj.unsere_adresse) || '',
         steuernummer: cleanVal(tresorPrompt.obj.unsere_steuernummer) || '', ust_id: cleanVal(tresorPrompt.obj.unsere_ust_id) || '', betriebsnummer: cleanVal(tresorPrompt.obj.unsere_betriebsnummer) || '',
         vbg_nummer: cleanVal(tresorPrompt.obj.unsere_vbg_nummer) || '', handelsregister: cleanVal(tresorPrompt.obj.unsere_handelsregister) || '', iban: cleanVal(tresorPrompt.obj.unsere_iban) || ''
@@ -968,7 +994,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const existing = mandanten.find(m => m.id === targetId);
       if (existing) {
         setUnsereFirma(existing.firmenname);
-        setUnserAnsprechpartner(cleanVal(existing.ansprechpartner) || cleanVal(tresorPrompt.obj.unser_ansprechpartner) || '');
+        setUnserAnsprechpartner(
+          sanitizeOwnContactName(existing.ansprechpartner, gegnerAnsprechpartner, gegnerName) ||
+          sanitizeOwnContactName(tresorPrompt.obj.unser_ansprechpartner, gegnerAnsprechpartner, gegnerName)
+        );
         if (existing.telefon && !unserTelefon) setUnserTelefon(formatRufnummer(existing.telefon));
         if (existing.email && !unserEmail) setUnserEmail(existing.email);
         showToast(`Zuweisung zu Mandant "${existing.firmenname}" erfolgreich!`, 'success');
@@ -1295,6 +1324,8 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       const targetAddress = versandArt === 'email' ? gegnerEmail : `${rawFax}@simple-fax.de`; 
       const betreff = `Unser Zeichen: ${unserZeichen || 'Neu'} / AZ: ${aktenzeichen || 'Neu'} — ${thema || 'Schreiben'}`;
 
+      const safeUnserAnsprechpartner = sanitizeOwnContactName(unserAnsprechpartner, faxZhd || gegnerAnsprechpartner, gegnerName);
+
       const firmaSearch = (unsereFirma || '').toLowerCase().trim();
       const matchedMandant = mandanten.find(m => {
         if (fuzzyMatch(m.firmenname, unsereFirma)) return true;
@@ -1312,10 +1343,13 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         ? {
             ...matchedMandant,
             email: matchedMandant.email || unserEmail || null,
-            ansprechpartner: matchedMandant.ansprechpartner || unserAnsprechpartner || null
+            ansprechpartner:
+              sanitizeOwnContactName(matchedMandant.ansprechpartner, faxZhd || gegnerAnsprechpartner, gegnerName) ||
+              safeUnserAnsprechpartner ||
+              null
           }
-        : (unserEmail || unserAnsprechpartner
-            ? { firmenname: unsereFirma || null, email: unserEmail || null, ansprechpartner: unserAnsprechpartner || null }
+        : (unserEmail || safeUnserAnsprechpartner
+            ? { firmenname: unsereFirma || null, email: unserEmail || null, ansprechpartner: safeUnserAnsprechpartner || null }
             : null);
 
       // WICHTIG: Niemals interne .md-Zwillingsdateien als E-Mail- oder Fax-Anhang nach außen schicken!
@@ -1339,7 +1373,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         .replace(/🔴/g, '***')
         .replace(/\*\*(.*?)\*\*/g, '$1');
 
-      const defaultFirmaName = isOwnerAccount ? 'Jens Wilsdorf' : (unserAnsprechpartner || 'Mandant');
+      const defaultFirmaName = isOwnerAccount ? 'Jens Wilsdorf' : (safeUnserAnsprechpartner || 'Mandant');
       const userLoginEmail = session?.user?.email ? String(session.user.email).trim() : '';
 
       const response = await fetch("https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email", {
@@ -1561,9 +1595,10 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
     const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
     let aktuelleAkteId = selectedAkteId;
+    const cleanedOwnApForDb = sanitizeOwnContactName(unserAnsprechpartner, gegnerAnsprechpartner, gegnerName) || null;
 
     if (modus === 'neu') {
-      const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, unser_zeichen: unserZeichen || null, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: unserAnsprechpartner || null, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select();
+      const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, unser_zeichen: unserZeichen || null, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: cleanedOwnApForDb, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select();
       if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); setLaedt(false); return; }
       aktuelleAkteId = neueAkte[0].id;
     } else {
@@ -1601,7 +1636,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
         setActiveWarRoomDossier({
           akte_id: aktuelleAkteId,
           unsere_firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : ''),
-          unser_ansprechpartner: unserAnsprechpartner,
+          unser_ansprechpartner: cleanedOwnApForDb || '',
           aktenzeichen: aktenzeichen,
           kontakt: gegnerName,
           thema: thema,
