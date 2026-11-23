@@ -24,6 +24,7 @@ const Icon = ({ name, size = 18, style }) => {
     down: <path d="m6 9 6 6 6-6"/>,
     right: <path d="m9 18 6-6-6-6"/>,
     user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+    support: <><circle cx="8.5" cy="8.5" r="3.5"/><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h3a4.5 4.5 0 0 1 4.5 4.5V20"/><path d="M16 3h4a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1.5L16 12.5V10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></>,
     check: <path d="M20 6 9 17l-5-5"/>,
     refresh: <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></>,
     trash: <><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>,
