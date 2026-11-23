@@ -1,6 +1,6 @@
 // src/config/sonarHelpCatalog.js
 // ZENTRALER, FEINGRANULARER HILFE- & TOUR-KATALOG FÜR DIE INTERAKTIVE SONAR LIVE-BEDIENHILFE
-// Erklärt jedes einzelne Arbeitsfeld, jeden Button und jedes Modul nach dem 3-Fragen-Prinzip:
+// Erklärt jedes einzelne Arbeitsfeld, jeden Button und jedes Modul in ALLEN Reitern nach dem 3-Fragen-Prinzip:
 // 1. Was ist das? | 2. Was passiert hier? | 3. Worauf muss ich achten?
 
 export const SONAR_HELP_CATALOG = {
@@ -12,9 +12,9 @@ export const SONAR_HELP_CATALOG = {
       module: 'SONAR Live-Inspektor',
       title: 'Interaktive Feld-für-Feld-Hilfe aktiv',
       whatIsIt:
-        'Ihr mitarbeitender Echtzeit-Begleiter für jedes einzelne Feld, jeden Scanner-Bereich und jeden Button im SONAR Cockpit.',
+        'Ihr mitarbeitender Echtzeit-Begleiter für jedes einzelne Feld, jeden Scanner-Bereich und jeden Button in allen Reitern des SONAR Cockpits.',
       whatHappens:
-        'Sobald Sie links in irgendein Eingabefeld klicken (z. B. Magic Import, Web-Scanner, Frist oder Schreibfenster), springt diese Anzeige automatisch auf genau dieses Feld. Ein Klick auf eines der kleinen „i“-Symbole an den Kanten pinnt das Thema fest (bzw. öffnet auf dem Smartphone die Info-Karte).',
+        'Sobald Sie links in irgendein Eingabefeld klicken (egal ob Akten, Tresor, Behörden-CRM, Compliance oder Wissen), springt diese Anzeige automatisch auf genau dieses Feld. Ein Klick auf eines der kleinen „i“-Symbole an den Kanten pinnt das Thema fest (bzw. öffnet auf dem Smartphone die Info-Karte).',
       watchOut:
         'Schalten Sie oben rechts „Live-Hilfe“ wieder aus, verschwinden sämtliche „i“-Symbole auf Desktop und Smartphone sofort wieder restlos.'
     },
@@ -39,11 +39,11 @@ export const SONAR_HELP_CATALOG = {
       module: 'Globale Suche & Web-Scraper',
       title: 'Volltextsuche & Direkt-Abruf von Webseiten',
       whatIsIt:
-        'Ein kombiniertes Suchfeld für Akten, Behörden und Urteile – gleichzeitig ein Live-Webseiten-Leser.',
+        'Ein kombiniertes Suchfeld für Akten, Mandanten, Behörden und Urteile – gleichzeitig ein Live-Webseiten-Leser.',
       whatHappens:
-        'Normale Suchbegriffe filtern sofort die aktuelle Ansicht. Fügen Sie eine komplette Webadresse (https://...) ein, liest das System den Text der Webseite aus und legt ihn direkt in Ihr Schreibfenster.',
+        'Normale Suchbegriffe filtern sofort die Liste des jeweils aktiven Reiters. Fügen Sie eine komplette Webadresse (https://...) ein, liest das System den Text der Webseite aus und legt ihn direkt in Ihr Schreibfenster.',
       watchOut:
-        'Falls in Ihrer Akten- oder Wissensliste plötzlich Einträge fehlen, prüfen Sie kurz, ob hier noch ein Suchwort steht (Klick auf „✕“ leert den Filter).'
+        'Falls in einer Liste plötzlich Einträge fehlen, prüfen Sie kurz, ob hier oben noch ein Suchwort steht (Klick auf „✕“ leert den Filter).'
     },
   
     header_theme_toggle: {
@@ -71,7 +71,7 @@ export const SONAR_HELP_CATALOG = {
     },
   
     // =========================================================================
-    // 2. FRISTEN- & UST-RADAR + EINGANGS-PIPELINE (AktenAlarme.jsx & AktenCockpit.jsx)
+    // 2. AKTEN-COCKPIT: RADAR, SCANNER & MAGIC IMPORT (AktenCockpit.jsx)
     // =========================================================================
     akten_alarme_panel: {
       id: 'akten_alarme_panel',
@@ -94,7 +94,7 @@ export const SONAR_HELP_CATALOG = {
       whatHappens:
         'Wählen Sie ein Bescheid- oder Vertrags-PDF aus und starten Sie den KI-Web-Scan: Das System extrahiert den Volltext, legt synchron PDF + .md-Textzwilling im Cloud-Bucket an, erkennt Bestandsakten und füllt unten sämtliche Felder samt Ersteinschätzung automatisch aus.',
       watchOut:
-        'Nach dem Scan sind die Felder bereits fertig befüllt – prüfen Sie kurz Mandant, Gegner und Fristdatum und klicken Sie unten auf Speichern, um die Akte anzulegen bzw. direkt in den War-Room zu starten.'
+        'Nach dem Scan sind die Felder bereits fertig befüllt – prüfen Sie kurz Mandant, Gegner und Fristdatum und klicken Sie unten auf „+ In Akte abheften“.'
     },
   
     akten_magic_import: {
@@ -110,7 +110,7 @@ export const SONAR_HELP_CATALOG = {
     },
   
     // =========================================================================
-    // 3. AKTEN-ERFASSUNGSFORMULAR IM DETAIL (AktenFormular.jsx)
+    // 3. AKTEN-FORMULAR & VERSAND (AktenFormular.jsx)
     // =========================================================================
     akten_modus_wahl: {
       id: 'akten_modus_wahl',
@@ -184,9 +184,6 @@ export const SONAR_HELP_CATALOG = {
         'Tragen Sie echte Rechtsbehelfs- oder Zahlungsfristen der Gegenseite immer in „Frist (Behörde)“ ein, damit die dreistufige Alarm-Eskalation rechtzeitig ab 7 Tagen Restlaufzeit anschlägt.'
     },
   
-    // =========================================================================
-    // 4. VERSAND-COCKPIT, SCHREIBFENSTER & SPEICHERN (AktenFormular.jsx)
-    // =========================================================================
     akten_versand_adressen: {
       id: 'akten_versand_adressen',
       module: 'Empfänger-Routing',
@@ -298,17 +295,17 @@ export const SONAR_HELP_CATALOG = {
     akten_manuell_upload_save: {
       id: 'akten_manuell_upload_save',
       module: 'Archivierung & Abschluss',
-      title: 'Akten-Dokumente beifügen & Eintrag speichern',
+      title: 'In Akte abheften & speichern',
       whatIsIt:
-        'Der untere Abschlussbereich zum Anhängen von Eingangs-/Akten-PDFs (ohne sofortigen Außenversand) und zum endgültigen Speichern des Vorgangs.',
+        'Speichert den aktuellen Posteingang, Ausgang oder internen Vermerk samt ausgewählten Dokumenten dauerhaft in der Akte.',
       whatHappens:
-        'Speichert Akte und Historieneintrag in Supabase, erzeugt für jedes hochgeladene PDF automatisch den durchsuchbaren .md-Zwilling im Wissensspeicher und fragt bei Eingängen, ob Sie sofort im War-Room antworten oder eine Wiedervorlage setzen möchten.',
+        'Sichert Akte und Historieneintrag in Supabase, erzeugt für jedes hochgeladene PDF automatisch den durchsuchbaren .md-Zwilling im Wissensspeicher und fragt bei Eingängen, ob Sie sofort im War-Room antworten oder eine Wiedervorlage setzen möchten.',
       watchOut:
-        'Falls Sie versehentlich ohne Datei auf Speichern klicken, warnt Sie ein kurzer Sicherheits-Dialog vorab („Dateien vergessen?“).'
+        'Falls Sie versehentlich ohne Datei auf Speichern klicken, erinnert Sie ein kurzer Sicherheits-Dialog vorab („Dateien vergessen?“).'
     },
   
     // =========================================================================
-    // 5. AKTEN-ÜBERSICHT & MUSTERAKTEN (AktenListe.jsx)
+    // 4. AKTEN-ÜBERSICHT & WAR-ROOM (AktenListe.jsx & MegaLegalModal.jsx)
     // =========================================================================
     akten_liste_overview: {
       id: 'akten_liste_overview',
@@ -322,9 +319,6 @@ export const SONAR_HELP_CATALOG = {
         'Über den Button „Erledigte einblenden“ rechts oben machen Sie geschlossene und versiegelte Akten jederzeit wieder sichtbar.'
     },
   
-    // =========================================================================
-    // 6. STRATEGISCHER KANZLEI-WAR-ROOM (MegaLegalModal.jsx)
-    // =========================================================================
     warroom_stations: {
       id: 'warroom_stations',
       module: 'War-Room Prüfkette',
@@ -362,58 +356,283 @@ export const SONAR_HELP_CATALOG = {
     },
   
     // =========================================================================
-    // 7. TRESOR, GEGNER-CRM, COMPLIANCE & WISSEN
+    // 5. REITER „WIR“ – FIRMEN-TRESOR IM DETAIL (FirmenTresor.jsx)
     // =========================================================================
     tresor_main: {
       id: 'tresor_main',
       module: 'WIR – Firmen-Tresor',
       title: 'Mandanten-, Steuer-, Bank- & Gesellschafts-Tresor',
       whatIsIt:
-        'Verwaltet alle eigenen Gesellschaften und Privatpersonen inklusive Rechtsform, WZ-2008-Branchenschlüssel, Steuernummern, HRB, Transparenzregister, mehreren Bankkonten und Gesellschaftsverträgen.',
+        'Das zentrale Stammdaten-Herz für alle eigenen Firmen und Privatprofile.',
       whatHappens:
-        'Versorgt Akten-Cockpit, Briefköpfe, USt-Radar und Compliance-Radar zentral mit allen Stammdaten und prüft automatisch, welche Pflichtdokumente im Tresor noch fehlen.',
+        'Alle hier gepflegten Angaben speisen automatisch Ihre Briefköpfe, das USt-Voranmeldungs-Radar sowie das Compliance-Radar.',
       watchOut:
-        'Stellen Sie bei Privatpersonen die Rechtsform auf „Privat“ (oder aktivieren Sie „Gewerbliche Compliance deaktivieren“), damit keine unpassenden Arbeitgeber- oder USt-Alarme ausgelöst werden.'
+        'Klicken Sie unten in der Liste auf eine bestehende Firma, um deren Stammdaten und Dokumente oben im Formular zu bearbeiten.'
     },
   
+    tresor_stammdaten_1: {
+      id: 'tresor_stammdaten_1',
+      module: 'Tresor – 1. Kontaktdaten & Rechtsform',
+      title: 'Firmenname, Rechtsform, Vertretungsorgan & Rückfax',
+      whatIsIt:
+        'Erfasst die juristische Einheit (GmbH, UG, GmbH & Co. KG, Einzelunternehmen, Privat usw.), den Geschäftsführer/Inhaber sowie Anschrift, Telefon, Fax und E-Mail.',
+      whatHappens:
+        'Die gewählte Rechtsform steuert automatisch die korrekte Organbezeichnung (z. B. Geschäftsführer vs. Vorstand vs. Privatperson) in Schriftsätzen und Gesellschafterbeschlüssen. Bei Auswahl von „Privat“ werden gewerbliche Warnungen automatisch abgeschaltet.',
+      watchOut:
+        'Hinterlegen Sie hier Ihre offizielle Kanzlei-/Unternehmens-Faxnummer, damit Empfängerbehörden Rückantworten sauber zuordnen können.'
+    },
+  
+    tresor_steuern_wz_2: {
+      id: 'tresor_steuern_wz_2',
+      module: 'Tresor – 2. Steuern, Register & WZ-2008',
+      title: 'Steuernummern, USt-Turnus, Register & Branchenkennzahl',
+      whatIsIt:
+        'Bündelt Steuernummer, USt-IdNr., Wirtschafts-IdNr. (§ 139c AO), HRB, Transparenzregister, Betriebsnummer, BG-Nummer, IHK/HWK, LUCID sowie die amtliche WZ-2008-Branchenkennzahl.',
+      whatHappens:
+        'USt-Intervall und Dauerfristverlängerung (DFV) berechnen im Akten-Cockpit vollautomatisch Ihre monatlichen bzw. vierteljährlichen USt-Alarme zum 10. des Monats. Die Stichwortsuche findet sofort den passenden WZ-2008-Code.',
+      watchOut:
+        'Branchen nach § 2a SchwarzArbG (z. B. Bau, Handwerk, Gastronomie, Logistik) aktivieren automatisch die passenden Sofortmelde- und Prüfhinweise im Compliance-Radar.'
+    },
+  
+    tresor_banken_3: {
+      id: 'tresor_banken_3',
+      module: 'Tresor – 3. Geschäftskonten',
+      title: 'Hauptbankverbindung & Zusatzkonten',
+      whatIsIt:
+        'Verwaltet Ihr Hauptgeschäftskonto sowie beliebig viele weitere Bankkonten inklusive Verwendungszweck (z. B. Steuerkonto, Tagesgeld, Rücklagenkonto).',
+      whatHappens:
+        'Über „+ Weitere Bankverbindung hinzufügen“ legen Sie zusätzliche IBAN-Zeilen an, die sofort übersichtlich im Tresor-Auszug erscheinen.',
+      watchOut:
+        'Besonders hilfreich bei Erstattungs- und Guthabenauskehrungsanträgen (§ 37 Abs. 2 AO), damit dem Finanzamt sofort das richtige Zielkonto genannt wird.'
+    },
+  
+    tresor_mitarbeiter_4: {
+      id: 'tresor_mitarbeiter_4',
+      module: 'Tresor – 4. Mitarbeiter & § 23 KSchG',
+      title: 'Teilzeit-/Vollzeit-Rechner & Compliance-Schalter',
+      whatIsIt:
+        'Berechnet live aus Teilzeitkräften (Faktor 0,5 bis 20 Std. / Faktor 0,75 bis 30 Std.) und Vollzeitkräften (Faktor 1,0) den exakten Richtwert nach § 23 Abs. 1 Satz 4 KSchG sowie die Gesamtkopfzahl.',
+      whatHappens:
+        'Zeigt sofort im Klartext an, ob noch die Kleinbetriebsregelung (<= 10,00) greift oder das Kündigungsschutzgesetz aktiv ist, und steuert die Zusatzpflichten (§ 181 BGB-Befreiung, KSK-Abgabe, LUCID, § 2a SchwarzArbG).',
+      watchOut:
+        'Für reine Holding-Hüllen ohne operativen Betrieb oder Privatprofile können Sie die Compliance-Überwachung rechts oben mit einem Haken komplett stummschalten.'
+    },
+  
+    tresor_dokumente_5: {
+      id: 'tresor_dokumente_5',
+      module: 'Tresor – 5. Pflicht- & Stammdokumente',
+      title: 'Soll/Ist-Pflichtdokumente & #label-Tresor-Upload',
+      whatIsIt:
+        'Prüft anhand der Rechtsform automatisch, welche Gesellschaftsdokumente vorliegen müssen (z. B. Gesellschaftsvertrag, HR-Auszug, GF-Anstellungsvertrag, Transparenzregister) und verwaltet alle Uploads.',
+      whatHappens:
+        'Klicken Sie auf ein rot markiertes fehlendes Pflichtdokument, sehen Sie die gesetzliche Grundlage samt Haftungshinweis und können die Datei passgenau mit `#label=...` hochladen. Kritische Organdokumente erhalten automatisch einen Löschschutz.',
+      watchOut:
+        'Auch im Boardroom erzeugte Gesellschafterbeschlüsse landen mit passendem `#label` direkt hier im Tresor.'
+    },
+  
+    tresor_liste_overview: {
+      id: 'tresor_liste_overview',
+      module: 'Tresor-Verzeichnis',
+      title: 'Gespeicherte Mandanten, Gesellschaften & Schnellansicht',
+      whatIsIt:
+        'Die kompakte Übersicht aller angelegten Firmen und Personen mit Sofortblick auf Steuernummer, HRB, IBAN und den Status der Pflichtdokumente.',
+      whatHappens:
+        'Ein Klick auf eine Zeile klappt sämtliche Registerdaten, Bankkonten und Direkt-Links zu den hinterlegten Dokumenten auf und lädt den Datensatz gleichzeitig oben zur Bearbeitung.',
+      watchOut:
+        'Geschützte Organdokumente (z. B. GF-Vertrag, Gesellschafterbeschluss) verlangen vor dem Entfernen bewusst die Sicherheitsbestätigung `LOESCHEN`.'
+    },
+  
+    // =========================================================================
+    // 6. REITER „GEGNER“ – BEHÖRDEN- & GEGNER-CRM IM DETAIL (GegnerCrm.jsx)
+    // =========================================================================
     gegner_crm_main: {
       id: 'gegner_crm_main',
       module: 'GEGNER – Behörden-CRM',
-      title: 'Zentrales Behörden-, Gerichts- & Ansprechpartner-Verzeichnis',
+      title: 'Zentrales Behörden-, Gerichts- & Gegner-CRM',
       whatIsIt:
-        'Ihre strukturierte Kontaktdatenbank für Ämter, Finanzämter, Gerichte, Kassen und Gegner – inklusive beliebig vieler Unterabteilungen und Sachbearbeiter pro Behörde.',
+        'Ihre strukturierte Adress-, Fax- und Durchwahldatenbank für sämtliche Ämter, Gerichte und Gegenseiten.',
       whatHappens:
-        'Hier gespeicherte Faxnummern, Durchwahlen und Abteilungs-E-Mails stehen sofort in jeder neuen und bestehenden Akte per 1-Klick-Dropdown bereit.',
+        'Einmal erfasste Behörden stehen sofort im Aktenformular und beim automatischen Scanner-Abgleich zur Verfügung.',
       watchOut:
-        'Hinterlegen Sie unterschiedliche Stellen eines Amts (z. B. Veranlagung vs. Erhebungs-/Vollstreckungsstelle) einfach als eigene Ansprechpartner-Zeilen unter derselben Behörde.'
+        'Über das globale Suchfeld oben finden Sie hier auch einzelne Sachbearbeiternamen oder Abteilungen innerhalb Sekunden.'
     },
   
+    gegner_hauptdaten_1: {
+      id: 'gegner_hauptdaten_1',
+      module: 'Gegner-CRM – 1. Behörden-Stammdaten',
+      title: 'Behördenname, Postanschrift, Zentral-Fax & Zentral-Mail',
+      whatIsIt:
+        'Erfasst die übergeordneten Stammdaten der Behörde, des Gerichts oder des Unternehmens (z. B. Finanzamt Dresden-Süd, Hauptpoststelle).',
+      whatHappens:
+        'Die zentrale Faxnummer und zentrale E-Mail dienen im Akten-Cockpit automatisch als verlässlicher Fallback, falls ein einzelner Sachbearbeiter keine eigene Durchwahl/Mail hat.',
+      watchOut:
+        'Achten Sie auf eine saubere Schreibweise des Behördennamens, damit die Fuzzy-Erkennung beim KI-Scan neue Bescheide sofort diesem CRM-Eintrag zuordnet.'
+    },
+  
+    gegner_abteilungen_2: {
+      id: 'gegner_abteilungen_2',
+      module: 'Gegner-CRM – 2. Abteilungen & Sachbearbeiter',
+      title: 'Beliebig viele Stellen & Durchwahlen unter einer Behörde',
+      whatIsIt:
+        'Ermöglicht das Anlegen beliebig vieler Fachabteilungen (z. B. Veranlagung, Erhebungsstelle, Vollstreckungsstelle, Rechtsbehelfsstelle) samt konkretem Bearbeiter, Durchwahl und E-Mail.',
+      whatHappens:
+        'Im Aktenformular erscheint später jede Abteilung einzeln auswählbar im Dropdown (z. B. „Finanzamt — Erhebungsstelle: Frau Müller“) und setzt das `z. Hd.`-Deckblatt automatisch passend.',
+      watchOut:
+        'Legen Sie keine doppelten Behörden für verschiedene Abteilungen an – hängen Sie neue Sachbearbeiter einfach per „+ Ansprechpartner / Abteilung hinzufügen“ an die bestehende Behörde an.'
+    },
+  
+    gegner_liste_overview: {
+      id: 'gegner_liste_overview',
+      module: 'Behörden-Register',
+      title: 'Gespeicherte Behörden & Aufklappbare Abteilungsliste',
+      whatIsIt:
+        'Das alphabetische Register aller hinterlegten Ämter, Gerichte, Kassen und Gegner.',
+      whatHappens:
+        'Ein Klick auf eine Zeile lädt die Behörde oben ins Bearbeitungsformular und klappt darunter sofort die Hausanschrift sowie sämtliche gespeicherten Abteilungen und Durchwahlen auf.',
+      watchOut:
+        'Auch neue Kontakte, die Sie direkt aus einem gescannten Bescheid im Akten-Cockpit übernehmen, erscheinen sofort dauerhaft hier in der aufgeklappten Liste.'
+    },
+  
+    // =========================================================================
+    // 7. REITER „COMPLIANCE“ – RADAR & BOARDROOM IM DETAIL (ComplianceRadar.jsx & BeschlussGenerator.jsx)
+    // =========================================================================
     compliance_radar_main: {
       id: 'compliance_radar_main',
       module: 'COMPLIANCE – Radar & Boardroom',
-      title: 'Schwellenwert-Überwachung & Gesellschafterbeschluss-Generator',
+      title: 'Organhaftungs-Prävention & Gesellschaftsrecht',
       whatIsIt:
-        'Prüft anhand Ihrer Mitarbeiterstruktur (§ 23 KSchG Teilzeit-/Vollzeit-Rechner) und Branche alle gesetzlichen Arbeitgeberpflichten und generiert fertige GmbH-/UG-Beschlüsse.',
+        'Das Frühwarn- und Dokumentationssystem für Geschäftsführer und Inhaber zur Vermeidung persönlicher Haftungsfallen.',
       whatHappens:
-        'Mit einem Klick wandeln Sie fällige Pflichten (z. B. DGUV, KSK bis 31.03., LUCID bis 15.05.) in eine echte Wiedervorlage-Akte um oder erstellen vorausgefüllte Gesellschafter-Einladungen samt Versand-Option.',
+        'Kombiniert Branchenpflichten, Mitarbeiter-Schwellenwerte, gesetzliche Meldetermine und den 1-Klick-Beschlussgenerator.',
       watchOut:
-        'Nutzen Sie den „90-Tage-Pulse-Check“, sobald sich Mitarbeiterzahlen, Teilzeitquoten oder Geschäftsmodell ändern.'
+        'Wählen Sie zuerst ganz oben die gewünschte Gesellschaft aus dem Dropdown aus.'
     },
   
+    compliance_header_puls: {
+      id: 'compliance_header_puls',
+      module: 'Compliance-Steuerung',
+      title: 'Mandanten-Umschalter & 90-Tage-Quartals-Puls-Check',
+      whatIsIt:
+        'Zeigt auf einen Blick Rechtsform, WZ-2008-Branche, Beschäftigtenzahl, § 23 KSchG-Richtwert und das Datum der letzten Parameter-Prüfung.',
+      whatHappens:
+        'Über „Mitarbeiter & Puls-Check anpassen“ öffnen Sie das Schnell-Modal, um geänderte Mitarbeiterzahlen oder Branchen zu aktualisieren und für weitere 90 Tage zu bestätigen.',
+      watchOut:
+        'Nach Ablauf von 90 Tagen färbt sich der Button dezent als Erinnerung ein, ohne Sie durch ungefragte Pop-ups bei der Arbeit zu unterbrechen.'
+    },
+  
+    compliance_branchen_1: {
+      id: 'compliance_branchen_1',
+      module: 'Compliance – 1. Betriebssicherheit & BG',
+      title: 'Branchenspezifische Prüfpflichten (DGUV, BetrSichV, SchwarzArbG)',
+      whatIsIt:
+        'Listet anhand des hinterlegten WZ-2008-Codes die zuständige Berufsgenossenschaft sowie konkrete Prüfpflichten auf (z. B. DGUV Vorschrift 3 Elektroprüfung, UVV-Fahrzeugprüfung, Angebotsvorsorge oder § 2a SchwarzArbG).',
+      whatHappens:
+        'Mit Klick auf „+ Branchen-Prüfliste als Wiedervorlage-Akte anlegen“ erzeugt das System automatisch eine echte Akte im Akten-Cockpit samt Frist-Erinnerung.',
+      watchOut:
+        'Dokumentierte Prüfprotokolle schützen die Geschäftsführung im Schadens- oder Betriebsprüfungsfall vor dem Vorwurf des Organisationsverschuldens (§ 43 GmbHG / § 130 OWiG).'
+    },
+  
+    compliance_schwellen_2: {
+      id: 'compliance_schwellen_2',
+      module: 'Compliance – 2. Arbeitgeber-Schwellenwerte',
+      title: 'Gesetzliche Schwellenwerte von 1 bis 50+ Mitarbeitern',
+      whatIsIt:
+        'Überwacht alle kritischen Personal-Stufen (z. B. ab 1 MA Arbeitsschutz/Gefährdungsbeurteilung, > 10,00 Vollzeit-Richtwert KSchG, ab 20 MA Datenschutzbeauftragter/Schwerbehindertenabgabe, ab 50 MA HinSchG-Meldestelle).',
+      whatHappens:
+        'Bereits erreichte Schwellen werden farblich hervorgehoben und lassen sich per 1-Klick direkt als Wiedervorlage-Akte ins Tagesgeschäft übernehmen.',
+      watchOut:
+        'Prüfen Sie diese Liste vor jeder geplanten Neueinstellung oder Stundenerhöhung, um nicht unbeabsichtigt über die 10,00-Schwelle des KSchG oder die 20-Köpfe-Grenze zu rutschen.'
+    },
+  
+    compliance_ticker_3: {
+      id: 'compliance_ticker_3',
+      module: 'Compliance – 3. Gesetzlicher Fristen-Ticker',
+      title: 'Unterjährige Abgaben-, Register- & Meldetermine',
+      whatIsIt:
+        'Zeigt alle für diese Rechtsform geltenden Monats- und Jahresfristen mit Live-Tages-Countdown (z. B. SV-Beitragsnachweis, UStVA/LSt, UV-Jahresmeldung BG, KSK bis 31.03., LUCID bis 15.05., Offenlegung Jahresabschluss).',
+      whatHappens:
+        'Termine mit <= 30 Tagen Restlaufzeit werden rot markiert; jeder Termin kann mit einem Klick samt Rechtsgrundlage als Wiedervorlage-Akte angelegt werden.',
+      watchOut:
+        'Sozialversicherungsbeiträge (drittletzter Bankarbeitstag) und Lohnsteuer sind besonders haftungsscharf (§ 266a StGB / § 69 AO) und genießen höchste Priorität.'
+    },
+  
+    compliance_boardroom_4: {
+      id: 'compliance_boardroom_4',
+      module: 'Compliance – 4. Boardroom & Beschluss-Generator',
+      title: 'Vorausgefüllte Gesellschafterbeschlüsse & Einladungen',
+      whatIsIt:
+        'Generiert rechtssicher formulierte GmbH-/UG-Einladungen (inkl. automatischer +10-Tage-Ladungsfrist nach § 51 GmbHG), Jahresabschluss-Feststellungen, Gewinnverwendungen und vGA-sichere GF-Vergütungsbeschlüsse.',
+      whatHappens:
+        'Setzt Firmenname, Sitz, HRB und Geschäftsführer automatisch aus dem Tresor ein. Sie können das Dokument als unterschriftsreifes DIN-A4-PDF drucken, vorab per E-Mail versenden oder direkt mit passendem `#label` löschgeschützt im Firmen-Tresor archivieren.',
+      watchOut:
+        'Ergänzen Sie vor dem Archivieren lediglich die konkreten Euro-Beträge oder individuellen Eckdaten in den spitzen Klammern `<...>` direkt im Editorfeld.'
+    },
+  
+    // =========================================================================
+    // 8. REITER „WISSEN“ – GERICHTS-STREAMS & ARCHIV IM DETAIL (Wissensspeicher.jsx)
+    // =========================================================================
     wissen_main: {
       id: 'wissen_main',
       module: 'WISSEN – Rechtsdatenbank & Streams',
-      title: 'Gerichts-Streams (RSS-Monitor), Bulk-Upload & Volltext-Archiv',
+      title: 'Volltext-Wissensbasis & Höchstgerichts-Archiv',
       whatIsIt:
-        'Das juristische Langzeitgedächtnis des Systems: Überwacht live 25 Gerichts- und Behörden-Feeds (BFH, BGH, BVerwG, BAG, BSG, BVerfG, BMF u. a.) und speichert alle Akten-Volltexte.',
+        'Das zentrale juristische Gedächtnis des gesamten SONAR Cockpits.',
       whatHappens:
-        'Über das Auge-Symbol öffnen Sie den ungekürzten Original-Volltext aus dem Storage; im Hintergrund zieht sich der KI-War-Room passende Entscheidungen bei jedem Rechtsfall vollautomatisch heran.',
+        'Vereint 25 überwachte Gerichts-/Behörden-Feeds mit sämtlichen eigenen Akten-Volltexten für die automatische Live-Recherche im War-Room.',
       watchOut:
-        'Über die Umschalter filtern Sie gezielt nach Mandant oder Gegner; der RSS-Health-Monitor oben zeigt sofort an, falls eine behördliche Feed-URL gewartet werden muss.'
+        'Demo-Tester haben hier vollen Lesezugriff auf alle echten Gerichtsentscheidungen, sehen jedoch keine privaten Dokumente fremder Mandanten.'
+    },
+  
+    wissen_rss_monitor: {
+      id: 'wissen_rss_monitor',
+      module: 'Feed-Überwachung (Self-Healing)',
+      title: 'RSS-Quellen-Monitor (25 Gerichts- & Behörden-Feeds)',
+      whatIsIt:
+        'Überwacht den Gesundheitsstatus aller angebundenen Rechtsquellen (Gerichte, Steuern/Zoll, Aufsichtsbehörden, Gesetzgebung, EU-Ticker).',
+      whatHappens:
+        'Klappen Sie den Monitor auf, sehen Sie den Live-Status jeder Quelle. Als Owner können Sie geänderte Behörden-URLs direkt eintragen, live testen oder neue RSS-Quellen hinzufügen.',
+      watchOut:
+        'Falls ein behördlicher Server ausfällt, meldet sich das System automatisch und hält bestehende Urteile im Archiv uneingeschränkt verfügbar.'
+    },
+  
+    wissen_court_sync: {
+      id: 'wissen_court_sync',
+      module: 'Live-Rechtsprechung',
+      title: 'Höchstrichterliche Gerichts-Streams abrufen',
+      whatIsIt:
+        'Die Direkt-Steuerung für den Volltext-Scraper der obersten Gerichte (BVerfG, BFH, BGH, BVerwG, BSG, BAG, EuGH, EGMR, BMF, BaFin).',
+      whatHappens:
+        'Als System-Owner können Sie gezielt ein einzelnes Gericht oder alle Quellen gleichzeitig abrufen; neue Entscheidungen werden bis 85.000 Zeichen Volltext inkl. Paragraphen-Index im Bucket gespeichert.',
+      watchOut:
+        'Der KI-War-Room durchsucht diese Urteile bei jeder Lagebesprechung vollautomatisch nach passenden Paragraphen und dreht sie für Ihre Argumentation ein.'
+    },
+  
+    wissen_bulk_upload: {
+      id: 'wissen_bulk_upload',
+      module: 'Massen-Import (Twin-Storage)',
+      title: 'Alt-Dokumente, Verträge & Fachliteratur hochladen',
+      whatIsIt:
+        'Der Sammel-Uploader für bestehende PDF- und Markdown-Bestände (z. B. aus Ihrer lokalen ScanSuite, Musterverträgen oder BMF-Schreiben).',
+      whatHappens:
+        'Liest hochgeladene PDFs lokal im Browser aus, erzeugt fehlende `.md`-Textzwillinge vollautomatisch im Cloud-Speicher und ordnet sie optional einer konkreten Firma aus dem Tresor zu.',
+      watchOut:
+        'Wenn Sie aus der ScanSuite bereits gepaarte `.pdf`- und `.md`-Dateien gemeinsam auswählen, erkennt der Importer das Paar automatisch und spart den doppelten OCR-Lauf.'
+    },
+  
+    wissen_filter_list: {
+      id: 'wissen_filter_list',
+      module: 'Volltext-Datenbank',
+      title: 'MD- / PDF-Umschalter, Quellenfilter & Volltext-Ansicht',
+      whatIsIt:
+        'Die durchsuchbare Dokumenten- und Urteilsliste, sauber getrennt nach KI-lesbaren `.md`-Volltexten und Original-`.pdf`-Dokumenten.',
+      whatHappens:
+        'Filtern Sie gezielt nach „Allgemein (Gerichte/Behörden - RSS)“, einzelnen Mandanten oder Behörden. Ein Klick auf den Dateinamen öffnet das Original-PDF bzw. den ungekürzten Volltext in einem neuen Tab.',
+      watchOut:
+        'Über den Button „Weitere Entscheidungen anzeigen (+50)“ am unteren Ende blättern Sie schnell und ressourcenschonend auch durch sehr große Urteilsbestände.'
     }
   };
   
-  // Geführte 8-Stationen-Schnelltour quer durch die wichtigsten Arbeitsfelder
+  // Geführte 8-Stationen-Schnelltour quer durch das gesamte System
   export const SONAR_GUIDED_TOUR = [
     {
       step: 1,
@@ -442,25 +661,25 @@ export const SONAR_HELP_CATALOG = {
     {
       step: 5,
       tab: 'akten',
-      helpId: 'akten_modus_wahl',
-      label: '5. Akten-Maske & Zuordnung'
+      helpId: 'akten_btn_warroom',
+      label: '5. Strategischer Kanzlei-War-Room'
     },
     {
       step: 6,
-      tab: 'akten',
-      helpId: 'akten_btn_warroom',
-      label: '6. Strategischer Kanzlei-War-Room'
+      tab: 'tresor',
+      helpId: 'tresor_dokumente_5',
+      label: '6. Firmen-Tresor & Pflichtdokumente'
     },
     {
       step: 7,
-      tab: 'akten',
-      helpId: 'akten_btn_fax_send',
-      label: '7. Direkt-Versand (E-Mail & Telefax)'
+      tab: 'compliance',
+      helpId: 'compliance_boardroom_4',
+      label: '7. Compliance-Radar & Boardroom'
     },
     {
       step: 8,
-      tab: 'akten',
-      helpId: 'akten_liste_overview',
-      label: '8. Akten-Register & Musterakten'
+      tab: 'wissen',
+      helpId: 'wissen_filter_list',
+      label: '8. Gerichts-Streams & Volltexte'
     }
   ];
