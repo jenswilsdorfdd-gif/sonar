@@ -1,6 +1,6 @@
 // src/InteractiveHelpDock.jsx
-// ADAPTIVE LIVE-BEDIENHILFE FÜR SONAR COCKPIT
-// - Desktop & großes Tablet (> 1024px): Festes 1/3-Kontext-Dock rechts neben dem 2/3-Cockpit (Elementor-Prinzip)
+// ADAPTIVE FELD-FÜR-FELD LIVE-BEDIENHILFE FÜR SONAR COCKPIT
+// - Desktop & großes Tablet (> 1024px): 1/3-Kontext-Dock rechts + "i"-Badges an allen [data-help]-Feldern + automatisches Mitlaufen bei Feldklick/Fokus
 // - Smartphone & kompakte Screens (<= 1024px): 100 % Cockpit-Breite + antippbare "i"-Badges + kompaktes 1-Ebenen-Pop-up
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -22,10 +22,16 @@ export default function InteractiveHelpDock({
 
   const hoverTimerRef = useRef(null);
   const pinnedRef = useRef(null);
+  const compactRef = useRef(isCompactViewport);
+  const dockAsideRef = useRef(null);
 
   useEffect(() => {
     pinnedRef.current = pinnedHelpId;
   }, [pinnedHelpId]);
+
+  useEffect(() => {
+    compactRef.current = isCompactViewport;
+  }, [isCompactViewport]);
 
   // Beim Ausschalten der Live-Hilfe alle temporären Overlays & Pins sauber zurücksetzen
   useEffect(() => {
@@ -37,7 +43,14 @@ export default function InteractiveHelpDock({
     }
   }, [isOpen]);
 
-  // ESC-Taste schließt auf Mobilgeräten zuerst das Info-Pop-up (ohne den darunterliegenden War-Room zu blockieren)
+  // Scrollt das rechte Desktop-Dock sanft nach oben, sobald ein neues Feld fokussiert/angeklickt wird
+  const scrollDockToTop = useCallback(() => {
+    if (dockAsideRef.current) {
+      dockAsideRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  // ESC-Taste schließt auf Mobilgeräten zuerst das Info-Pop-up (ohne den darunterliegenden War-Room zu schließen)
   useEffect(() => {
     if (!isOpen || !mobilePopupHelpId) return;
     const handleKeyDown = (e) => {
@@ -51,14 +64,13 @@ export default function InteractiveHelpDock({
   }, [isOpen, mobilePopupHelpId]);
 
   // =========================================================================
-  // DESKTOP (> 1024px): GLOBALE EVENT-DELEGATION MIT DEBOUNCE & PIN-SCHUTZ
+  // DESKTOP (> 1024px): LIVE-MITLAUFEN BEI HOVER, FOKUS & KLICK INS FELD
   // =========================================================================
   useEffect(() => {
     if (!isOpen || isCompactViewport) return;
 
     const findHelpKeyFromTarget = (target) => {
       if (!target || typeof target.closest !== 'function') return null;
-      // Ignoriere Events innerhalb des Hilfe-Docks selbst
       if (target.closest('[data-sonar-help-ignore="true"]')) return null;
       const el = target.closest('[data-help]');
       if (!el) return null;
@@ -66,6 +78,7 @@ export default function InteractiveHelpDock({
       return key && SONAR_HELP_CATALOG[key] ? key : null;
     };
 
+    // Maus-Hover wechselt live mit, solange der Nutzer kein Thema fest gepinnt hat
     const handleMouseOver = (e) => {
       if (pinnedRef.current) return;
       const key = findHelpKeyFromTarget(e.target);
@@ -75,15 +88,19 @@ export default function InteractiveHelpDock({
         if (!pinnedRef.current) {
           setActiveHelpId(key);
         }
-      }, 90);
+      }, 80);
     };
 
+    // Sobald der Nutzer aktiv in ein Eingabefeld / Select / Textarea klickt oder per Tab hineinspringt ->
+    // arbeitet das rechte Hilfe-Dock IMMER sofort mit (löst ggf. einen alten Pin auf das neue Arbeitsfeld um!)
     const handleFocusIn = (e) => {
-      if (pinnedRef.current) return;
       const key = findHelpKeyFromTarget(e.target);
-      if (key) {
-        setActiveHelpId(key);
+      if (!key) return;
+      setActiveHelpId(key);
+      if (pinnedRef.current && pinnedRef.current !== key) {
+        setPinnedHelpId(null);
       }
+      scrollDockToTop();
     };
 
     const handleClickCapture = (e) => {
@@ -91,9 +108,12 @@ export default function InteractiveHelpDock({
         if (e.target.closest('[data-sonar-help-ignore="true"]')) return;
       }
       const key = findHelpKeyFromTarget(e.target);
-      if (key && !pinnedRef.current) {
-        setActiveHelpId(key);
+      if (!key) return;
+      setActiveHelpId(key);
+      if (pinnedRef.current && pinnedRef.current !== key) {
+        setPinnedHelpId(null);
       }
+      scrollDockToTop();
     };
 
     document.addEventListener('mouseover', handleMouseOver, true);
@@ -106,23 +126,23 @@ export default function InteractiveHelpDock({
       document.removeEventListener('focusin', handleFocusIn, true);
       document.removeEventListener('click', handleClickCapture, true);
     };
-  }, [isOpen, isCompactViewport]);
+  }, [isOpen, isCompactViewport, scrollDockToTop]);
 
   // =========================================================================
-  // SMARTPHONE / KOMPAKT (<= 1024px): AUTOMATISCHE "i"-BADGES AN [data-help]
+  // UNIVERSELLE "i"-BADGES AN ALLEN [data-help]-BEREICHEN (DESKTOP & MOBIL)
   // =========================================================================
-  const syncMobileBadges = useCallback(() => {
-    const cleanupBadges = () => {
-      if (typeof document === 'undefined') return;
-      document.querySelectorAll('.sonar-mobile-help-badge').forEach((btn) => btn.remove());
-      document.querySelectorAll('[data-sonar-pos-patched="true"]').forEach((el) => {
-        el.style.position = '';
-        el.removeAttribute('data-sonar-pos-patched');
-      });
-    };
+  const removeAllHelpBadges = useCallback(() => {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('.sonar-help-corner-badge').forEach((btn) => btn.remove());
+    document.querySelectorAll('[data-sonar-pos-patched="true"]').forEach((el) => {
+      el.style.position = '';
+      el.removeAttribute('data-sonar-pos-patched');
+    });
+  }, []);
 
-    if (!isOpen || !isCompactViewport || typeof document === 'undefined') {
-      cleanupBadges();
+  const syncHelpBadges = useCallback(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      removeAllHelpBadges();
       return;
     }
 
@@ -134,8 +154,7 @@ export default function InteractiveHelpDock({
       if (!key || !SONAR_HELP_CATALOG[key]) return;
       validNodes.add(node);
 
-      // Falls noch kein Badge in diesem Container steckt, sauber einhängen
-      let existingBadge = node.querySelector(`:scope > .sonar-mobile-help-badge[data-badge-for="${key}"]`);
+      let existingBadge = node.querySelector(`:scope > .sonar-help-corner-badge[data-badge-for="${key}"]`);
       if (!existingBadge) {
         const computedPos = window.getComputedStyle(node).position;
         if (computedPos === 'static') {
@@ -145,47 +164,69 @@ export default function InteractiveHelpDock({
 
         const badgeBtn = document.createElement('button');
         badgeBtn.type = 'button';
-        badgeBtn.className = 'sonar-mobile-help-badge';
+        badgeBtn.className = 'sonar-help-corner-badge';
         badgeBtn.setAttribute('data-badge-for', key);
         badgeBtn.setAttribute('data-sonar-help-ignore', 'true');
+        badgeBtn.setAttribute('title', `Hilfe anzeigen: ${SONAR_HELP_CATALOG[key].title}`);
         badgeBtn.setAttribute('aria-label', `Erklärung öffnen: ${SONAR_HELP_CATALOG[key].title}`);
         badgeBtn.textContent = 'i';
 
         badgeBtn.addEventListener('click', (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          setMobilePopupHelpId(key);
+          if (compactRef.current) {
+            setMobilePopupHelpId(key);
+          } else {
+            setActiveHelpId(key);
+            setPinnedHelpId((prev) => (prev === key ? null : key));
+            scrollDockToTop();
+          }
         });
 
         node.appendChild(badgeBtn);
       }
     });
 
-    // Verwaiste Badges entfernen
-    document.querySelectorAll('.sonar-mobile-help-badge').forEach((btn) => {
+    // Verwaiste Badges entfernen, falls ein Bereich ausgeblendet wurde
+    document.querySelectorAll('.sonar-help-corner-badge').forEach((btn) => {
       if (!btn.parentElement || !validNodes.has(btn.parentElement)) {
         btn.remove();
       }
     });
-  }, [isOpen, isCompactViewport]);
+  }, [isOpen, removeAllHelpBadges, scrollDockToTop]);
+
+  // Markiert das aktuell im Desktop-Dock aktive "i"-Badge optisch (Gold/Grün bei Pin)
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') return;
+    const currentKey = isCompactViewport
+      ? mobilePopupHelpId
+      : (pinnedHelpId || activeHelpId);
+
+    document.querySelectorAll('.sonar-help-corner-badge').forEach((btn) => {
+      const bKey = btn.getAttribute('data-badge-for');
+      if (bKey && bKey === currentKey) {
+        btn.classList.add('sonar-help-badge-active');
+      } else {
+        btn.classList.remove('sonar-help-badge-active');
+      }
+    });
+  }, [isOpen, isCompactViewport, activeHelpId, pinnedHelpId, mobilePopupHelpId, activeTab]);
 
   useEffect(() => {
-    if (!isOpen || !isCompactViewport) {
-      if (typeof document !== 'undefined') {
-        document.querySelectorAll('.sonar-mobile-help-badge').forEach((btn) => btn.remove());
-        document.querySelectorAll('[data-sonar-pos-patched="true"]').forEach((el) => {
-          el.style.position = '';
-          el.removeAttribute('data-sonar-pos-patched');
-        });
-      }
+    if (!isOpen) {
+      removeAllHelpBadges();
       return;
     }
 
-    syncMobileBadges();
+    syncHelpBadges();
 
-    // MutationObserver erkennt sofort, wenn z. B. der War-Room aufgeht oder Akten aufgeklappt werden
+    // MutationObserver hängt "i"-Badges sofort auch an dynamisch aufgeklappte Panels & Modals (z. B. War-Room)
+    let rafId = null;
     const observer = new MutationObserver(() => {
-      syncMobileBadges();
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        syncHelpBadges();
+      });
     });
 
     observer.observe(document.body, {
@@ -194,17 +235,14 @@ export default function InteractiveHelpDock({
     });
 
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       observer.disconnect();
-      document.querySelectorAll('.sonar-mobile-help-badge').forEach((btn) => btn.remove());
-      document.querySelectorAll('[data-sonar-pos-patched="true"]').forEach((el) => {
-        el.style.position = '';
-        el.removeAttribute('data-sonar-pos-patched');
-      });
+      removeAllHelpBadges();
     };
-  }, [isOpen, isCompactViewport, activeTab, syncMobileBadges]);
+  }, [isOpen, activeTab, isCompactViewport, syncHelpBadges, removeAllHelpBadges]);
 
   // =========================================================================
-  // GEFÜHRTE SCHRITT-FÜR-SCHRITT-TOUR (FÜR DESKTOP & SMARTPHONE)
+  // GEFÜHRTE 8-SCHRITTE-SCHNELLTOUR (FÜR DESKTOP & SMARTPHONE)
   // =========================================================================
   const jumpToTourStep = (idx) => {
     if (idx < 0 || idx >= SONAR_GUIDED_TOUR.length) {
@@ -224,9 +262,9 @@ export default function InteractiveHelpDock({
     } else {
       setActiveHelpId(stepObj.helpId);
       setPinnedHelpId(stepObj.helpId);
+      scrollDockToTop();
     }
 
-    // Sanft zum Ziel-Element scrollen und kurz optisch markieren
     setTimeout(() => {
       if (typeof document === 'undefined') return;
       const targetEl = document.querySelector(`[data-help="${stepObj.helpId}"]`);
@@ -235,20 +273,20 @@ export default function InteractiveHelpDock({
         targetEl.classList.add('sonar-help-pulse-target');
         setTimeout(() => {
           targetEl.classList.remove('sonar-help-pulse-target');
-        }, 1600);
+        }, 1700);
       }
-    }, 140);
+    }, 150);
   };
 
   if (!isOpen) return null;
 
-  // Farbschema des Hilfe-Systems (klar vom Cockpit abgesetzt in Smaragd/Cyan-Akzentik)
   const helpAccent = '#06b6d4';
   const dockBg = isDarkMode ? '#081226' : '#f0f9ff';
   const dockCardBg = isDarkMode ? '#0f1d36' : '#ffffff';
   const dockBorder = isDarkMode ? '#1e3a5f' : '#bae6fd';
   const textMain = theme?.textMain || (isDarkMode ? '#f8fafc' : '#0f172a');
   const textMuted = theme?.textMuted || (isDarkMode ? '#94a3b8' : '#475569');
+  const badgeBorderColor = isDarkMode ? '#020617' : '#ffffff';
 
   const displayedKey = isCompactViewport
     ? (mobilePopupHelpId || 'default_welcome')
@@ -259,14 +297,15 @@ export default function InteractiveHelpDock({
 
   return (
     <>
-      {/* Globale Styles für dezente Hover-Markierung & Smartphone-"i"-Badges */}
+      {/* Styles für die universellen "i"-Kanten-Badges (Light- & Dark-Mode fest) und Fokus-Rahmen */}
       <style>{`
         [data-help] {
           transition: outline-color 0.15s ease, box-shadow 0.15s ease;
         }
         @media (min-width: 1025px) {
-          body.sonar-live-help-desktop [data-help]:hover {
-            outline: 1.5px dashed rgba(6, 182, 212, 0.65);
+          body.sonar-live-help-desktop [data-help]:hover,
+          body.sonar-live-help-desktop [data-help]:focus-within {
+            outline: 1.5px dashed rgba(6, 182, 212, 0.75);
             outline-offset: 3px;
             border-radius: 8px;
           }
@@ -274,20 +313,20 @@ export default function InteractiveHelpDock({
         .sonar-help-pulse-target {
           outline: 2.5px solid #06b6d4 !important;
           outline-offset: 4px !important;
-          box-shadow: 0 0 0 6px rgba(6, 182, 212, 0.22) !important;
+          box-shadow: 0 0 0 6px rgba(6, 182, 212, 0.24) !important;
           border-radius: 8px;
         }
-        .sonar-mobile-help-badge {
+        .sonar-help-corner-badge {
           position: absolute;
-          top: -7px;
-          right: -7px;
-          width: 22px;
-          height: 22px;
+          top: -8px;
+          right: -8px;
+          width: 21px;
+          height: 21px;
           border-radius: 9999px;
           background: #06b6d4;
           color: #020617;
-          border: 2px solid #0f172a;
-          font-family: ui-sans-serif, system-ui, sans-serif;
+          border: 2px solid ${badgeBorderColor};
+          font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
           font-size: 12px;
           font-weight: 900;
           font-style: italic;
@@ -296,13 +335,21 @@ export default function InteractiveHelpDock({
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          z-index: 45;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+          z-index: 48;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
           padding: 0;
           user-select: none;
+          transition: transform 0.15s ease, background-color 0.15s ease;
         }
-        .sonar-mobile-help-badge:active {
-          transform: scale(0.92);
+        .sonar-help-corner-badge:hover {
+          transform: scale(1.12);
+          background: #22d3ee;
+        }
+        .sonar-help-corner-badge.sonar-help-badge-active {
+          background: #fbbf24;
+          color: #020617;
+          transform: scale(1.14);
+          box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.35), 0 2px 8px rgba(0, 0, 0, 0.4);
         }
       `}</style>
 
@@ -311,6 +358,7 @@ export default function InteractiveHelpDock({
       {/* =================================================================== */}
       {!isCompactViewport && (
         <aside
+          ref={dockAsideRef}
           data-sonar-help-ignore="true"
           style={{
             width: '33.333%',
@@ -354,10 +402,10 @@ export default function InteractiveHelpDock({
                   color: helpAccent
                 }}
               >
-                LIVE-INSPEKTOR (ELEMENTOR-MODUS)
+                LIVE-HILFE (ARBEITET AUTOMATISCH MIT)
               </div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: textMain, marginTop: '2px' }}>
-                Kontext-Erklärung in Echtzeit
+              <div style={{ fontSize: '13px', fontWeight: 700, color: textMuted, marginTop: '2px' }}>
+                Ins Feld klicken oder kleines „i“ wählen
               </div>
             </div>
 
@@ -366,16 +414,16 @@ export default function InteractiveHelpDock({
                 type="button"
                 onClick={() => setPinnedHelpId(isPinned ? null : entry.id)}
                 style={{
-                  background: isPinned ? helpAccent : 'transparent',
+                  background: isPinned ? '#fbbf24' : 'transparent',
                   color: isPinned ? '#020617' : helpAccent,
-                  border: `1px solid ${helpAccent}`,
+                  border: `1px solid ${isPinned ? '#fbbf24' : helpAccent}`,
                   borderRadius: '6px',
                   padding: '5px 9px',
                   fontSize: '11px',
                   fontWeight: 800,
                   cursor: 'pointer'
                 }}
-                title="Aktuelle Erklärung festpinnen, damit sie beim Mausbewegen stehen bleibt"
+                title="Aktuelle Erklärung festpinnen (wird bei Klick in ein neues Eingabefeld automatisch aktualisiert)"
               >
                 {isPinned ? 'Gepinnt' : 'Anpinnen'}
               </button>
@@ -393,18 +441,18 @@ export default function InteractiveHelpDock({
                   fontWeight: 800,
                   cursor: 'pointer'
                 }}
-                title="Live-Bedienhilfe schließen"
+                title="Live-Bedienhilfe ausschalten"
               >
                 ✕
               </button>
             </div>
           </div>
 
-          {/* Aktives Modul & Element-Titel */}
+          {/* Aktives Feld / Element */}
           <div
             style={{
               backgroundColor: dockCardBg,
-              border: `1px solid ${dockBorder}`,
+              border: `1px solid ${isPinned ? '#fbbf24' : dockBorder}`,
               borderRadius: '10px',
               padding: '14px',
               display: 'flex',
@@ -450,7 +498,7 @@ export default function InteractiveHelpDock({
               </div>
             </div>
 
-            {/* Sektion 2: Was passiert beim Klick? */}
+            {/* Sektion 2: Was passiert hier? */}
             <div
               style={{
                 padding: '10px 12px',
@@ -485,7 +533,7 @@ export default function InteractiveHelpDock({
             </div>
           </div>
 
-          {/* Geführte 6-Schritte-Schnelltour */}
+          {/* Geführte 8-Schritte-Schnelltour */}
           <div
             style={{
               backgroundColor: dockCardBg,
@@ -499,7 +547,7 @@ export default function InteractiveHelpDock({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: textMuted }}>
-                Geführter Cockpit-Rundgang (6 Stationen)
+                Schnelltour durch die wichtigsten Felder
               </span>
               {tourIndex !== null && (
                 <button
@@ -518,14 +566,14 @@ export default function InteractiveHelpDock({
                     padding: 0
                   }}
                 >
-                  Tour beenden
+                  Tour lösen
                 </button>
               )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               {SONAR_GUIDED_TOUR.map((t, idx) => {
-                const activeStep = tourIndex === idx;
+                const activeStep = tourIndex === idx || entry.id === t.helpId;
                 return (
                   <button
                     key={t.step}
@@ -533,7 +581,7 @@ export default function InteractiveHelpDock({
                     onClick={() => jumpToTourStep(idx)}
                     style={{
                       textAlign: 'left',
-                      padding: '8px 10px',
+                      padding: '7px 10px',
                       borderRadius: '6px',
                       fontSize: '12px',
                       fontWeight: activeStep ? 800 : 600,
@@ -584,7 +632,7 @@ export default function InteractiveHelpDock({
                   cursor: 'pointer'
                 }}
               >
-                {tourIndex === null ? 'Rundgang starten' : 'Nächster Punkt'}
+                {tourIndex === null ? 'Rundgang starten' : 'Weiter'}
               </button>
             </div>
           </div>
