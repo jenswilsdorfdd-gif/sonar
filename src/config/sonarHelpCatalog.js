@@ -1,290 +1,425 @@
 // src/config/sonarHelpCatalog.js
-// ZENTRALER HILFE- & TOUR-KATALOG FÜR DIE INTERAKTIVE SONAR LIVE-BEDIENHILFE
-// Erklärt jedes markierte UI-Element nach dem 3-Fragen-Prinzip:
-// 1. Was ist das? | 2. Was passiert beim Klick / Eingeben? | 3. Worauf muss ich achten?
+// ZENTRALER, FEINGRANULARER HILFE- & TOUR-KATALOG FÜR DIE INTERAKTIVE SONAR LIVE-BEDIENHILFE
+// Erklärt jedes einzelne Arbeitsfeld, jeden Button und jedes Modul nach dem 3-Fragen-Prinzip:
+// 1. Was ist das? | 2. Was passiert hier? | 3. Worauf muss ich achten?
 
 export const SONAR_HELP_CATALOG = {
     // =========================================================================
-    // 0. DEFAULT / STARTZUSTAND WENN NOCH KEIN ELEMENT GEWÄHLT IST
+    // 0. DEFAULT / STARTZUSTAND
     // =========================================================================
     default_welcome: {
       id: 'default_welcome',
       module: 'SONAR Live-Inspektor',
-      title: 'Interaktive Bedienhilfe aktiv',
+      title: 'Interaktive Feld-für-Feld-Hilfe aktiv',
       whatIsIt:
-        'Dies ist Ihr persönlicher Echtzeit-Erklärbegleiter für das gesamte SONAR Cockpit.',
+        'Ihr mitarbeitender Echtzeit-Begleiter für jedes einzelne Feld, jeden Scanner-Bereich und jeden Button im SONAR Cockpit.',
       whatHappens:
-        'Auf großem Bildschirm (Desktop / Tablet quer) fahren Sie einfach links mit der Maus über einen Bereich oder klicken ein Feld an – hier rechts erscheint sofort die passende Erklärung. Auf dem Smartphone tippen Sie einfach auf eines der kleinen „i“-Symbole.',
+        'Sobald Sie links in irgendein Eingabefeld klicken (z. B. Magic Import, Web-Scanner, Frist oder Schreibfenster), springt diese Anzeige automatisch auf genau dieses Feld. Ein Klick auf eines der kleinen „i“-Symbole an den Kanten pinnt das Thema fest (bzw. öffnet auf dem Smartphone die Info-Karte).',
       watchOut:
-        'Mit dem Pin-Button können Sie eine Erklärung feststellen. Sobald Sie die Live-Hilfe oben in der Kopfleiste ausschalten, verschwinden alle Hilfe-Symbole wieder restlos.'
+        'Schalten Sie oben rechts „Live-Hilfe“ wieder aus, verschwinden sämtliche „i“-Symbole auf Desktop und Smartphone sofort wieder restlos.'
     },
   
     // =========================================================================
-    // 1. GLOBALE STEUERLEISTE & NAVIGATION (Dashboard.jsx)
+    // 1. HEADER, NAVIGATION & GLOBALE SUCHE (Dashboard.jsx)
     // =========================================================================
     nav_tabs: {
       id: 'nav_tabs',
-      module: 'Navigation',
-      title: 'Hauptmodule des Cockpits',
+      module: 'Hauptnavigation',
+      title: 'Die 5 Kern-Abteilungen des Cockpits',
       whatIsIt:
-        'Die zentrale Umschaltleiste zwischen Ihren 6 Arbeitsbereichen: Akten-Cockpit, Firmen-Tresor, Behörden-CRM, Compliance-Radar, Wissensspeicher und System-Handbuch.',
+        'Die zentrale Umschaltleiste zwischen AKTEN (Tagesgeschäft & Versand), WIR (Firmen-Tresor), GEGNER (Behörden-CRM), COMPLIANCE (Schwellenwerte & Beschlüsse) und WISSEN (Gerichts-Streams & Volltexte).',
       whatHappens:
-        'Ein Klick wechselt sofort die Ansicht, ohne dass ungespeicherte Filter oder Ihre laufende Sitzung verloren gehen.',
+        'Ein Klick wechselt sofort den Arbeitsbereich, ohne dass Ihre Sitzung oder laufende Hintergrunddaten verloren gehen.',
       watchOut:
-        'Legen Sie neue eigene Gesellschaften zuerst im Reiter „TRESOR“ an, damit Ihre Stammdaten, Steuernummern und Faxnummern später in allen Akten und Schriftsätzen automatisch bereitstehen.'
+        'Pflegen Sie eigene Firmen und Privatprofile einmal sauber unter „WIR“, damit alle Briefköpfe, Steuernummern und USt-Fristen im gesamten System automatisch sitzen.'
     },
   
     global_search: {
       id: 'global_search',
-      module: 'Globale Suche & Live-Web-Abruf',
-      title: 'Universelles Such- & URL-Feld',
+      module: 'Globale Suche & Web-Scraper',
+      title: 'Volltextsuche & Direkt-Abruf von Webseiten',
       whatIsIt:
-        'Ein kombiniertes Such- und Web-Importfeld für das gesamte System.',
+        'Ein kombiniertes Suchfeld für Akten, Behörden und Urteile – gleichzeitig ein Live-Webseiten-Leser.',
       whatHappens:
-        'Tippen Sie ein Aktenzeichen, einen Behördennamen oder ein Stichwort ein, um sofort die aktuelle Liste zu filtern. Fügen Sie eine Internetadresse (https://...) ein und bestätigen Sie, lädt das System den Webseiten-Text direkt in Ihr Schreibfenster.',
+        'Normale Suchbegriffe filtern sofort die aktuelle Ansicht. Fügen Sie eine komplette Webadresse (https://...) ein, liest das System den Text der Webseite aus und legt ihn direkt in Ihr Schreibfenster.',
       watchOut:
-        'Wenn in einer Liste scheinbar Einträge fehlen, prüfen Sie kurz, ob hier oben noch ein alter Suchbegriff eingetragen ist.'
+        'Falls in Ihrer Akten- oder Wissensliste plötzlich Einträge fehlen, prüfen Sie kurz, ob hier noch ein Suchwort steht (Klick auf „✕“ leert den Filter).'
     },
   
     header_theme_toggle: {
       id: 'header_theme_toggle',
-      module: 'Oberfläche',
-      title: 'Hell- / Dunkel-Modus',
+      module: 'Anzeige',
+      title: 'Umschalter Dark Mode / Light Mode',
       whatIsIt:
-        'Schaltet das gesamte Cockpit inklusive KI-War-Room zwischen abgedunkeltem Fokus-Design und tageslichtfreundlichem Hell-Modus um.',
+        'Wechselt das gesamte Cockpit inklusive Kanzlei-War-Room zwischen dunklem Kontrast-Modus und hellem Tageslicht-Design.',
       whatHappens:
-        'Alle Karten, Kontraste, Rahmen und der Kanzlei-War-Room passen sich augenblicklich an.',
+        'Alle Hintergründe, Rahmen, Textfarben und Statuskarten schalten verzögerungsfrei um.',
       watchOut:
-        'Für lange Lese-Sessions bei Tageslicht oder vor dem Drucken empfiehlt sich oft der Hell-Modus.'
+        'Die kleinen „i“-Hilfesymbole und alle roten RDG-/Fristen-Warnungen passen ihren Kontrast in beiden Modi automatisch an.'
     },
   
     header_demo_reset: {
       id: 'header_demo_reset',
-      module: 'Datenschutz (Demo)',
-      title: ' Eigene Testdaten restlos löschen',
+      module: 'Datenschutz (Demo-Zugang)',
+      title: 'Eigene Testdaten & Uploads restlos löschen',
       whatIsIt:
-        'Ein Ein-Klick-Datenschutz-Reset speziell für Gäste und Demo-Tester.',
+        'Der Selbstreinigungs-Schalter für Demo-Tester zum Abschluss einer Test-Session.',
       whatHappens:
-        'Löscht nach Sicherheitsabfrage unwiderruflich alle von Ihnen selbst hochgeladenen Test-PDFs, Textzwillinge, Testakten, Mandanten und Gegner aus Datenbank und Cloud-Speicher.',
+        'Entfernt nach Bestätigung alle selbst hochgeladenen PDFs, .md-Textzwillinge, Testakten, Mandanten und Gegner rückstandslos aus Datenbank und Storage.',
       watchOut:
-        'Die 3 schreibgeschützten Musterakten (MUSTER-01 bis MUSTER-03) sowie die globalen Gerichts-Streams bleiben für weitere Tests unberührt erhalten.'
+        'Die 3 schreibgeschützten Showcase-Musterakten (MUSTER-01 bis MUSTER-03) und die globalen Gerichts-Streams bleiben erhalten; das verbrauchte 10er-Testkontingent wird durch das Löschen nicht zurückgesetzt.'
     },
   
     // =========================================================================
-    // 2. FRISTEN- & COMPLIANCE-ALARME (AktenAlarme.jsx)
+    // 2. FRISTEN- & UST-RADAR + EINGANGS-PIPELINE (AktenAlarme.jsx & AktenCockpit.jsx)
     // =========================================================================
     akten_alarme_panel: {
       id: 'akten_alarme_panel',
-      module: 'Fristen- & USt-Radar',
-      title: 'Dreistufiges Frühwarnsystem',
+      module: 'Frühwarnsystem',
+      title: 'Fristen-, Wiedervorlage- & USt-Radar',
       whatIsIt:
-        'Überwacht vollautomatisch alle offenen Behördenfristen, internen Wiedervorlagen, Umsatzsteuer-Voranmeldungen (inkl. Dauerfristverlängerung) und gesetzlichen Meldetermine.',
+        'Ihre tägliche Kommandozentrale oben im Akten-Cockpit: Zeigt fällige Wiedervorlagen, kritische Behördenfristen (<= 7 Tage), anstehende USt-Voranmeldungen und gesetzliche Compliance-Termine.',
       whatHappens:
-        'Ein Klick auf einen Alarmeintrag lädt die zugehörige Akte direkt in Ihre Bearbeitungsmaske und hebt sie unten in der Akten-Übersicht hervor.',
+        'Klicken Sie auf den Namen eines Alarms, klappt unten sofort die passende Akte auf. Über das Aktionsmenü am Eintrag können Sie den Vorgang direkt in die Maske laden, nachhaken oder Termine verschieben.',
       watchOut:
-        'Kritische Fristen ab 2 Tagen Restlaufzeit springen auf „ALARM“. Über das Schnellmenü rechts am Eintrag können Sie Wiedervorlagen verschieben oder direkt nachhaken.'
+        'Behördliche Notfristen niemals kommentarlos verschieben – nutzen Sie lieber den War-Room für einen fristwahrenden Verlängerungs- oder Aussetzungsantrag.'
+    },
+  
+    akten_web_scanner: {
+      id: 'akten_web_scanner',
+      module: 'KI-Posteingang (Twin-Storage)',
+      title: 'KI-Web-Scanner & Automatische Dokumenten-Triage',
+      whatIsIt:
+        'Der vollautomatische PDF-/Dokumentenscanner direkt im Browser (inklusive Vision-OCR-Fallback für reine Bild-Scans ohne Textschicht).',
+      whatHappens:
+        'Wählen Sie ein Bescheid- oder Vertrags-PDF aus und starten Sie den KI-Web-Scan: Das System extrahiert den Volltext, legt synchron PDF + .md-Textzwilling im Cloud-Bucket an, erkennt Bestandsakten und füllt unten sämtliche Felder samt Ersteinschätzung automatisch aus.',
+      watchOut:
+        'Nach dem Scan sind die Felder bereits fertig befüllt – prüfen Sie kurz Mandant, Gegner und Fristdatum und klicken Sie unten auf Speichern, um die Akte anzulegen bzw. direkt in den War-Room zu starten.'
+    },
+  
+    akten_magic_import: {
+      id: 'akten_magic_import',
+      module: 'Schnittstelle & Schnell-Import',
+      title: 'Magic Import (JSON / ScanSuite / Rechtskanzlei-Übergabe)',
+      whatIsIt:
+        'Die Hochgeschwindigkeits-Datenschleuse für strukturierte JSON-Pakete aus Ihrer lokalen Python-ScanSuite (Prüftisch), externen KI-Vorprüfungen oder Bulk-Behördenlisten.',
+      whatHappens:
+        'Sobald Sie ein gültiges SONAR-JSON in dieses Feld einfügen, zerlegt das Cockpit in Millisekunden alle Felder (Unser Zeichen, Aktenzeichen, Gegner, Frist, Volltext, Entwurf), ordnet passende Bestandsakten samt Vorläufer-Bezug zu und gleicht Tresor & Gegner-CRM ab.',
+      watchOut:
+        'Auch Sammel-Importe für das Behörden-CRM (`typ: "Bulk-Gegner"`) können direkt hier hineinkopiert werden und legen fehlende Ämter automatisch an.'
     },
   
     // =========================================================================
-    // 3. AKTEN-FORMULAR, SCANNER & VERSAND (AktenFormular.jsx)
+    // 3. AKTEN-ERFASSUNGSFORMULAR IM DETAIL (AktenFormular.jsx)
     // =========================================================================
     akten_modus_wahl: {
       id: 'akten_modus_wahl',
-      module: 'Akten-Erfassung',
-      title: 'Neue Akte anlegen vs. Bestehende Akte ergänzen',
+      module: 'Akten-Zuordnung',
+      title: 'Neue Akte anlegen vs. Zu bestehender Akte hinzufügen',
       whatIsIt:
-        'Steuert, ob das aktuelle Dokument einen komplett neuen Fall eröffnet oder als weiterer Vorgang (z. B. Antwort, Einspruchsentscheidung, Nachschreiben) an eine laufende Akte angehängt wird.',
+        'Entscheidet, ob ein neuer Aktenordner mit neuer laufender Nummer eröffnet wird oder das Schriftstück in eine bereits existierende Akte wandert.',
       whatHappens:
-        'Bei Auswahl einer bestehenden Akte übernimmt das Cockpit automatisch Aktenzeichen, Unser Zeichen, Mandant und Behörde.',
+        'Bei „Zu bestehender Akte hinzufügen“ wählen Sie rechts die Ziel-Akte aus – alle Stammdaten (Unser Zeichen, Gegner, Mandant, Aktenzeichen) werden sofort geladen.',
       watchOut:
-        'Hängen Sie Folgeschreiben zum selben Streitgegenstand immer an die bestehende Akte an – nur so kennt der KI-War-Room später die lückenlose Vorgeschichte.'
+        'Führen Sie zusammengehörige Verfahren (z. B. Bescheid -> Einspruch -> Einspruchsentscheidung) immer in derselben Akte, damit der War-Room sämtliche Vorläufer-Dokumente gemeinsam analysiert.'
     },
   
-    akten_scanner_upload: {
-      id: 'akten_scanner_upload',
-      module: 'KI-Dokumentenscanner (Twin-Storage)',
-      title: 'PDF-Upload & Automatische KI-Triage',
+    akten_stammdaten_1: {
+      id: 'akten_stammdaten_1',
+      module: '1. Akten-Stammdaten',
+      title: 'Unser Zeichen, Gegenstand & Behörden-Aktenzeichen',
       whatIsIt:
-        'Der intelligente Posteingang des Cockpits für Bescheide, Behördenpost, Verträge und Gerichtsschreiben.',
+        'Die eindeutige Kennung Ihrer Akte nach innen („Unser Zeichen“) und gegenüber der Behörde („Aktenzeichen / Steuernummer“).',
       whatHappens:
-        'Liest den PDF-Text direkt im Browser aus, legt synchron einen durchsuchbaren .md-Textzwilling im Tresor-Speicher an und füllt Aktenzeichen, Behörde, Frist, Zusammenfassung und Erst-Einschätzung automatisch vor.',
+        'Sobald unten Mandant und Gegner eingetragen sind, generiert das System „Unser Zeichen“ automatisch fortlaufend (z. B. `0042-WUS-Finanzamt`), sofern Sie kein eigenes Zeichen vergeben.',
       watchOut:
-        'Prüfen Sie das automatisch erkannte Fristdatum kurz gegen das Zustelldatum auf dem Briefumschlag, bevor Sie speichern.'
+        'Tragen Sie das behördliche Aktenzeichen bzw. die Steuernummer möglichst exakt ein – daran erkennt die Automatik spätere Folgeschreiben vollautomatisch wieder.'
     },
   
-    akten_stammdaten_block: {
-      id: 'akten_stammdaten_block',
-      module: 'Akten-Stammdaten',
-      title: 'Mandant (Tresor) & Gegenpartei (Behörden-CRM)',
+    akten_gegner_2: {
+      id: 'akten_gegner_2',
+      module: '2. Gegenpartei / Behörde',
+      title: 'Behörden-Auswahl & Sachbearbeiter-Daten',
       whatIsIt:
-        'Verknüpft den Fall mit Ihrer eigenen Gesellschaft/Person und dem Empfänger (Finanzamt, Behörde, Gericht, Inkasso oder Vertragspartner).',
+        'Alle Kontaktdaten der Gegenseite (Finanzamt, Gericht, Stadtkasse, Krankenkasse, Inkasso oder Vertragspartner).',
       whatHappens:
-        'Wählen Sie per Dropdown einen gespeicherten Mandanten oder Gegner aus, werden Anschrift, Ansprechpartner, E-Mail und Faxnummer sofort übernommen.',
+        'Über das Dropdown „+ Aus Gegner-CRM laden...“ übernehmen Sie gespeicherte Behörden samt konkreter Abteilung, Sachbearbeiter, Durchwahl, E-Mail und Faxnummer mit einem Klick.',
       watchOut:
-        'Für den späteren Direktversand per Telefax oder E-Mail muss beim Gegner entweder eine gültige Faxnummer oder E-Mail-Adresse eingetragen sein.'
+        'Erkennt der Scanner einen neuen Sachbearbeiter zu einer bekannten Behörde, erscheint oben automatisch ein roter Zuweisungs-Dialog zur dauerhaften Speicherung im CRM.'
+    },
+  
+    akten_mandant_3: {
+      id: 'akten_mandant_3',
+      module: '3. Wir (Mandant)',
+      title: 'Eigene Gesellschaft / Privatperson aus dem Tresor',
+      whatIsIt:
+        'Legt fest, in wessen Namen die Akte geführt und spätere Schriftsätze im Briefkopf sowie in der Vertretungsformel verfasst werden.',
+      whatHappens:
+        'Ein Klick auf „+ Aus Firmen-Tresor laden...“ füllt Firmenname, Geschäftsführer/Ansprechpartner, E-Mail und Telefon sofort aus.',
+      watchOut:
+        'Im War-Room steuert diese Auswahl automatisch die korrekte Gesellschafts-Vertretungsformel (z. B. GmbH durch den Geschäftsführer vs. Privatperson).'
+    },
+  
+    akten_vorgang_bezug: {
+      id: 'akten_vorgang_bezug',
+      module: 'Dokument-Eintrag & Verlauf',
+      title: 'Typ (Eingang/Ausgang/Intern), Aktion & Vorläufer-Bezug',
+      whatIsIt:
+        'Klassifiziert den konkreten Vorgang nach Richtung, Datum, Kurzbeschreibung und verknüpft ihn bei bestehenden Akten mit dem vorherigen Schreiben.',
+      whatHappens:
+        'Wählen Sie „Eingang“, bietet Ihnen das Cockpit beim Speichern direkt den Sprung in den Kanzlei-War-Room an. Setzen Sie einen „Bezug“, wird die alte Frist des beantworteten Schreibens beim Speichern automatisch erledigt („Auto-Kill Frist“).',
+      watchOut:
+        'Nutzen Sie den Typ „Intern“ für Aktennotizen, Telefonvermerke oder Zahlungsanweisungen, die nicht nach außen versendet werden.'
     },
   
     akten_fristen_wv: {
       id: 'akten_fristen_wv',
-      module: 'Fristen-Steuerung',
-      title: 'Externe Notfrist & Interne Wiedervorlage',
+      module: 'Fristen-Kontrolle',
+      title: 'Frist (Behörde) vs. Wiedervorlage (Intern)',
       whatIsIt:
-        'Trennt scharf zwischen der harten behördlichen/gesetzlichen Frist („Frist Extern“) und Ihrem internen Kontrolltermin („Wiedervorlage“).',
+        'Steuert die Terminüberwachung im Fristen-Radar: Links harte gesetzliche/behördliche Fristen, rechts Ihre eigene Wiedervorlage inklusive Schnellwahltasten (+3T, +1W, +2W, +1M).',
       whatHappens:
-        'Mit den Schnellbuttons (+7 Tage, +14 Tage, +1 Monat) setzen Sie Wiedervorlagen mit einem Klick. Ist „Alte Fristen der Akte erledigen“ aktiv, werden überholte Alarme beim Speichern sauber bereinigt.',
+        'Beide Felder schließen sich gegenseitig sauber aus, damit pro Vorgang ein eindeutiger Kontrolltermin im Alarm-Radar aktiv ist. Der grüne Haken darunter erledigt bei Folgeeinträgen veraltete Alarme derselben Akte.',
       watchOut:
-        'Setzen Sie bei eigenen Ausgangsschreiben immer eine Wiedervorlage (z. B. +14 Tage), damit keine ausbleibende Behördenreaktion untergeht.'
-    },
-  
-    akten_warroom_button: {
-      id: 'akten_warroom_button',
-      module: 'Überkanzlei-Engine',
-      title: 'Strategischen Kanzlei-War-Room öffnen',
-      whatIsIt:
-        'Startet das mehrstufige juristische Analyse- und Schriftsatz-System (Chefabteilungs-Lagebesprechung, Kanzlei Alpha, Spiegel-Kanzlei Omega und Revisionssenat).',
-      whatHappens:
-        'Lädt vollautomatisch alle bisherigen Schreiben und .md-Volltexte dieser Akte sowie passende Höchstgerichts-Urteile aus dem Wissensspeicher und präsentiert Ihnen bis zu 4 kombinierbare Strategie-Optionen.',
-      watchOut:
-        'Speichern Sie neu hochgeladene Dokumente idealerweise zuerst zur Akte oder laden Sie den Vorgang aus der Aktenliste, damit alle historischen Zwillinge vollständig verknüpft sind.'
-    },
-  
-    akten_entwurf_versand: {
-      id: 'akten_entwurf_versand',
-      module: 'Schriftsatz & Direkt-Versand',
-      title: 'Schreibfenster, E-Mail- & Telefax-Dispatch',
-      whatIsIt:
-        'Hier liegt Ihr versandfertiger Schriftsatz-Text (aus dem War-Room übernommen oder frei bearbeitet) inklusive Anhang-Auswahl und Versandsteuerung.',
-      whatHappens:
-        'Beim Versand per E-Mail oder Telefax erzeugt das Backend automatisch ein mehrseitiges DIN-A4-Schreiben als PDF (inkl. Briefkopf & hinterlegter Signatur), versendet es und archiviert das Ausgangs-PDF direkt in der Akte.',
-      watchOut:
-        'Vor dem echten Versand muss die Prüf-Bestätigung (Human-in-the-Loop) abgehakt sein. Im Demo-Modus greift eine zweistufige Sicherheitssperre samt Muster-Kennzeichnung.'
-    },
-  
-    akten_speichern_button: {
-      id: 'akten_speichern_button',
-      module: 'Aktenführung',
-      title: 'Vorgang rechtssicher in der Akte speichern',
-      whatIsIt:
-        'Sichert den aktuellen Posteingang, Aktenvermerk oder Schriftsatz dauerhaft in der Datenbank und lädt angehängte Dateien in den geschützten Cloud-Speicher.',
-      whatHappens:
-        'Legt die Akte bzw. den neuen Historien-Eintrag an, aktualisiert das Fristen-Radar und schließt neue Vorgänge zum Schutz vor versehentlichem Überschreiben ab.',
-      watchOut:
-        'Falls das System erkennt, dass Mandant oder Behörde noch nicht im Tresor/CRM stehen, bietet es Ihnen direkt nach dem Speichern die 1-Klick-Übernahme an.'
+        'Tragen Sie echte Rechtsbehelfs- oder Zahlungsfristen der Gegenseite immer in „Frist (Behörde)“ ein, damit die dreistufige Alarm-Eskalation rechtzeitig ab 7 Tagen Restlaufzeit anschlägt.'
     },
   
     // =========================================================================
-    // 4. AKTEN-ÜBERSICHT & MUSTERAKTEN (AktenListe.jsx)
+    // 4. VERSAND-COCKPIT, SCHREIBFENSTER & SPEICHERN (AktenFormular.jsx)
+    // =========================================================================
+    akten_versand_adressen: {
+      id: 'akten_versand_adressen',
+      module: 'Empfänger-Routing',
+      title: 'Versand-E-Mail, Versand-Faxnummer & z. Hd. (Deckblatt)',
+      whatIsIt:
+        'Die Zieladressen, an die der E-Mail- oder E-Fax-Versand dieses konkreten Schreibens technisch übermittelt wird.',
+      whatHappens:
+        'Das Feld „z. Hd. (Fax-Deckblatt)“ steuert gezielt den Empfängervermerk auf dem generierten PDF-Briefkopf/Telefax, ohne Ihren allgemeinen Stammdatensatz im Behörden-CRM zu überschreiben.',
+      watchOut:
+        'Im E-Mail-Feld können Sie bei Bedarf mehrere Empfänger durch Komma oder Semikolon trennen (1. Adresse = Hauptempfänger, weitere = CC).'
+    },
+  
+    akten_clickwrap_confirm: {
+      id: 'akten_clickwrap_confirm',
+      module: 'Rechtssicherheit (Human-in-the-Loop)',
+      title: 'Pflicht-Bestätigung vor dem Außenversand',
+      whatIsIt:
+        'Die gesetzlich und vertraglich verankerte Freigabe-Schranke gemäß KI-Verordnung und RDG/StBerG vor jedem echten Versand per E-Mail oder Telefax.',
+      whatHappens:
+        'Solange dieses Häkchen bei Gast-/Mandanten-Accounts nicht aktiv gesetzt ist, bleiben die Buttons „E-Mail senden“ und „E-Fax“ technisch gesperrt.',
+      watchOut:
+        'Prüfen Sie vor dem Setzen des Hakens insbesondere Aktenzeichen, Beträge, Anträge, Datumsangaben und die Ziel-Faxnummer bzw. Ziel-E-Mail.'
+    },
+  
+    akten_btn_versandhistorie: {
+      id: 'akten_btn_versandhistorie',
+      module: 'Ausgangsnachweise',
+      title: 'Versandhistorie & Sendeberichte drucken',
+      whatIsIt:
+        'Öffnet das Protokoll aller bisherigen E-Mail- und Telefax-Ausgänge (gefiltert auf die gewählte Akte oder global über alle Akten).',
+      whatHappens:
+        'Sie sehen jedes versendete Schreiben im Volltext samt verknüpftem Ausgangs-PDF, können direkt in die Akte springen oder einen formellen DIN-A4-Sendebericht ausdrucken.',
+      watchOut:
+        'Perfekt als schneller Zustell- und Ausgangsnachweis gegenüber Finanzämtern, Gerichten oder der eigenen Buchhaltung.'
+    },
+  
+    akten_btn_email_send: {
+      id: 'akten_btn_email_send',
+      module: 'Direkt-Versand (E-Mail)',
+      title: 'Schreiben per E-Mail senden (inkl. Auto-PDF)',
+      whatIsIt:
+        'Versendet Ihren Textentwurf über die Resend-Schnittstelle inklusive automatisch generiertem, mehrseitigem Geschäftsbrief-PDF.',
+      whatHappens:
+        'Erzeugt im Backend ein sauberes DIN-A4-PDF (mit Absender, Empfänger, Datum, Betreff und im Vollbetrieb Ihrer Unterschrift), hängt ausgewählte Anlagen an, verschickt die E-Mail und speichert den Ausgang samt PDF automatisch in der Akte.',
+      watchOut:
+        'Interne `.md`-Zwillingsdateien werden beim Außenversand automatisch herausgefiltert, sodass niemals Rohdaten nach außen gehen.'
+    },
+  
+    akten_btn_fax_send: {
+      id: 'akten_btn_fax_send',
+      module: 'Direkt-Versand (Telefax)',
+      title: 'Schreiben als E-Fax übermitteln (Simple-Fax)',
+      whatIsIt:
+        'Übermittelt Ihren Schriftsatz als vollwertiges, mehrseitiges Telefax direkt an die eingetragene Behörden- oder Gerichts-Faxnummer.',
+      whatHappens:
+        'Baut ein formelles Telefax-PDF im DIN-A4-Format, sendet es über das Fax-Gateway, legt das versendete PDF im Storage ab und protokolliert den Ausgang automatisch in der Aktenhistorie.',
+      watchOut:
+        'Gerade bei fristgebundenen Einsprüchen und Anträgen gegenüber Behörden liefert das Fax vorab den schnellsten formellen Zugangsnachweis.'
+    },
+  
+    akten_btn_termin_zahlung: {
+      id: 'akten_btn_termin_zahlung',
+      module: 'Aufgaben- & Zahlungs-Planer',
+      title: 'Internen Termin / Überweisung planen & Google Kalender',
+      whatIsIt:
+        'Ein aufklappbares Planungsmodul für Zahlungsziele (mit Betrag, IBAN, Verwendungszweck), Telefonate oder interne Prüfaufträge.',
+      whatHappens:
+        'Übernimmt alle Zahlungs- oder Termindaten formatiert als internen Vorgang samt Wiedervorlage in die Maske – oder öffnet mit einem Klick direkt einen fertig ausgefüllten Termin in Ihrem Google Kalender.',
+      watchOut:
+        'Ideal, wenn eine Zahlung erst unter einer Bedingung ausgelöst werden soll (z. B. „In 10 Tagen prüfen, ob Aussetzungsbescheid da ist, sonst überweisen“).'
+    },
+  
+    akten_btn_warroom: {
+      id: 'akten_btn_warroom',
+      module: 'Überkanzlei-Engine',
+      title: 'Vorgang in den Kanzlei-War-Room senden',
+      whatIsIt:
+        'Öffnet den strategischen KI-War-Room (Chefabteilungs-Lagebesprechung, Kanzlei Alpha, Spiegel-Kanzlei Omega & Revisionssenat) für den aktuellen Fall.',
+      whatHappens:
+        'Zieht sämtliche historischen Dokumente (.md-Zwillinge) der Akte sowie einschlägige Volltext-Urteile zusammen, kalkuliert 4 wähl-/kombinierbare Rechtsstrategien und fertigt nach Ihrer Auswahl den revisionsgeprüften Schriftsatz.',
+      watchOut:
+        'Wenn Sie eine bestehende Akte bearbeiten, wählen Sie diese vorher oben aus (oder klicken Sie unten in der Aktenliste auf „Laden“), damit der War-Room die gesamte Aktenhistorie mitliest.'
+    },
+  
+    akten_versand_anhaenge: {
+      id: 'akten_versand_anhaenge',
+      module: 'Anlagen-Management',
+      title: 'Versand-Dateianhänge für E-Mail & Fax',
+      whatIsIt:
+        'Hier hängen Sie zusätzliche Belege, Vollmachten, Kontoauszüge oder Verträge an, die zusammen mit Ihrem Hauptschreiben versendet werden sollen.',
+      whatHappens:
+        'Alle hier ausgewählten Dateien (außer internen .md-Dateien) werden beim Klick auf E-Mail oder E-Fax automatisch mitübertragen und gleichzeitig zur Akte gespeichert.',
+      watchOut:
+        'Einzelne versehentlich gewählte Anhänge können Sie vor dem Senden jederzeit über das kleine „✕“ am Dateinamen wieder entfernen.'
+    },
+  
+    akten_textentwurf_box: {
+      id: 'akten_textentwurf_box',
+      module: 'Schreibfenster',
+      title: 'Textentwurf / Schriftsatz / Aktenvermerk',
+      whatIsIt:
+        'Das zentrale Editor-Feld für Ihren ausgehenden Brieftext (z. B. direkt aus dem War-Room übergeben) oder für ausführliche Eingangs-Zusammenfassungen und Aktennotizen.',
+      whatHappens:
+        'Der exakte Inhalt dieses Feldes bildet beim E-Mail- und Fax-Versand den gedruckten Brieftext im generierten DIN-A4-PDF.',
+      watchOut:
+        'Im kostenfreien Demo-Modus ist dieses Feld durch ein Wasserzeichen sowie eine Kopier- und Markiersperre geschützt; im Vollbetrieb stehen Ihnen alle Bearbeitungsfunktionen uneingeschränkt offen.'
+    },
+  
+    akten_manuell_upload_save: {
+      id: 'akten_manuell_upload_save',
+      module: 'Archivierung & Abschluss',
+      title: 'Akten-Dokumente beifügen & Eintrag speichern',
+      whatIsIt:
+        'Der untere Abschlussbereich zum Anhängen von Eingangs-/Akten-PDFs (ohne sofortigen Außenversand) und zum endgültigen Speichern des Vorgangs.',
+      whatHappens:
+        'Speichert Akte und Historieneintrag in Supabase, erzeugt für jedes hochgeladene PDF automatisch den durchsuchbaren .md-Zwilling im Wissensspeicher und fragt bei Eingängen, ob Sie sofort im War-Room antworten oder eine Wiedervorlage setzen möchten.',
+      watchOut:
+        'Falls Sie versehentlich ohne Datei auf Speichern klicken, warnt Sie ein kurzer Sicherheits-Dialog vorab („Dateien vergessen?“).'
+    },
+  
+    // =========================================================================
+    // 5. AKTEN-ÜBERSICHT & MUSTERAKTEN (AktenListe.jsx)
     // =========================================================================
     akten_liste_overview: {
       id: 'akten_liste_overview',
-      module: 'Akten-Übersicht',
-      title: 'Laufende Akten, Historie & Showcase-Musterakten',
+      module: 'Akten-Register',
+      title: 'Akten-Übersicht, Verlaufshistorie & Musterakten',
       whatIsIt:
-        'Das zentrale Aktenregister mit Aufklapp-Historie, Schloss-Schutz, Akten-Zusammenführung (Merge), Druckansicht und den 3 schreibgeschützten Demo-Musterakten.',
+        'Ihre gesamte Kanzlei- und Unternehmensregistratur – inklusive Inline-Bearbeitung, Akten-Schloss, Akten-Zusammenführung (Merge), Druckauszug und den 3 Demo-Musterakten.',
       whatHappens:
-        'Ein Klick auf eine Zeile klappt sämtliche historischen Eingänge und Ausgänge auf. Mit „Laden“ holen Sie jeden Vorgang samt fertigem Schriftsatz oben in die Bearbeitungsmaske und in den War-Room.',
+        'Klicken Sie auf eine Akte, klappt die gesamte Dokumenten- und Versandhistorie auf. Mit „Laden“ holen Sie jeden Vorgang samt gespeichertem War-Room-Schriftsatz sofort nach oben in die Bearbeitungsmaske.',
       watchOut:
-        'Gesperrte Akten (Schloss-Symbol) schützen vor versehentlichen Tippfehlern. Eigene Akten können Sie per Klick auf das Schloss jederzeit entriegeln; „MUSTER“-Akten sind dauerhaft schreibgeschützt.'
+        'Über den Button „Erledigte einblenden“ rechts oben machen Sie geschlossene und versiegelte Akten jederzeit wieder sichtbar.'
     },
   
     // =========================================================================
-    // 5. STRATEGISCHER KANZLEI-WAR-ROOM (MegaLegalModal.jsx)
+    // 6. STRATEGISCHER KANZLEI-WAR-ROOM (MegaLegalModal.jsx)
     // =========================================================================
     warroom_stations: {
       id: 'warroom_stations',
-      module: 'War-Room Qualitätskontrolle',
-      title: 'Die 4 Pflicht-Stationen (Alpha • Omega • Senat)',
+      module: 'War-Room Prüfkette',
+      title: 'Die 4 Pflicht-Stationen (Alpha • Omega • Delta • Senat)',
       whatIsIt:
-        'Live-Fortschrittsanzeige der gedoppelten Kanzlei-Prüfkette: 1. Kanzlei Alpha (Entwurf), 2. Spiegel-Kanzlei Omega (Gegenprüfung), 3. Delta-Patch, 4. Revisionssenat.',
+        'Die Echtzeit-Qualitätskontrolle Ihrer gedoppelten Kanzlei-Architektur: Erstentwurf durch Kanzlei Alpha, kontradiktorische Gegenprüfung durch Spiegel-Kanzlei Omega, deterministischer Delta-Patch und Endabnahme durch den Revisionssenat.',
       whatHappens:
-        'Erst wenn alle 4 Stationen fehlerfrei durchlaufen und grün abgenommen sind, wird die Übergabe des Schriftsatzes an das Cockpit freigeschaltet.',
+        'Zeigt live an, an welcher Station gerade gearbeitet wird. Erst bei „4x GRÜN“ wird die Übergabe ans Cockpit entsperrt.',
       watchOut:
-        'Auf kleinen Bildschirmen können Sie die Kopf- und Stationsleiste kompakt einklappen, damit Sie maximalen Platz zum Lesen der Strategie-Optionen und des Schriftsatzes haben.'
+        'Auf dem Smartphone können Sie diese Leiste oben rechts über „Stationen ▼ / Kompakt ▲“ ein- und ausklappen, um maximalen Leseraum zu gewinnen.'
     },
   
     warroom_briefing_options: {
       id: 'warroom_briefing_options',
       module: 'Phase A: Chefabteilungs-Lagebesprechung',
-      title: 'Strategie-Karten wählen & kombinieren',
+      title: 'Sachverhalts-Analyse & 4 kombinierbare Strategie-Optionen',
       whatIsIt:
-        'Ihre juristische und wirtschaftliche Entscheidungsvorlage vor dem Schreiben – inklusive Kostenrisiko, Verfahrensdauer, Erfolgschance und Prüfung auf gesetzlichen Anwalts-/Steuerberaterzwang.',
+        'Ihre strukturierte SCQA-Entscheidungsvorlage mit Schwachstellen-Analyse, Vertretungszwang-Prüfung sowie Kosten-, Dauer- und Erfolgsbewertung je Strategie.',
       whatHappens:
-        'Klicken Sie eine oder mehrere passende Optionen gleichzeitig an (Mehrfachauswahl möglich), ergänzen Sie optional einen eigenen Hinweis und starten Sie über den gelben Button die Ausarbeitung.',
+        'Tippen Sie eine oder mehrere Strategie-Karten gleichzeitig an, tragen Sie optional eigene Hinweise ein und starten Sie über den gelben Button die vollständige Schriftsatz-Ausarbeitung.',
       watchOut:
-        'Achten Sie auf die grüne Empfehlung des Leitenden Chefpartners: Oft ist eine zweigleisige Kombination (z. B. Vollstreckungsschutz + sachlicher Erlassantrag) der stärkste Hebel.'
+        'Die grün markierte Empfehlung zeigt Ihnen sofort, welche Einzeloption oder Kombination wirtschaftlich und prozessual die höchste Schlagkraft hat.'
     },
   
     warroom_footer_transfer: {
       id: 'warroom_footer_transfer',
-      module: 'Phase B: Korrektur & Übergabe',
-      title: 'Nachschärfen, Datei nachreichen & Übergabe',
+      module: 'Phase B: Nachschärfen & Übergabe',
+      title: 'Korrektur-Anweisung, Dokument-Nachreichung & Cockpit-Transfer',
       whatIsIt:
-        'Die Steuerleiste für eigene Zusatzanweisungen, nachgereichte PDF-Anlagen (Büroklammer) und den finalen Transfer ins Akten-Cockpit.',
+        'Die untere Kommandozeile des War-Rooms für nachträgliche Änderungswünsche, fehlende PDF-Anlagen (Büroklammer) und den finalen Export.',
       whatHappens:
-        'Jede Zusatzanweisung wird sofort eingearbeitet und erneut durch Spiegel-Kanzlei Omega geprüft. „Ins Cockpit übergeben“ überträgt den reinen, druckfertigen Brieftext direkt in Ihr Versandfenster.',
+        'Jede Nachanweisung durchläuft erneut die Qualitätskontrolle von Spiegel-Kanzlei Omega. „Ins Cockpit übergeben“ trägt den sauberen Brieftext samt +14-Tage-Wiedervorlage direkt in Ihr Versandformular ein.',
       watchOut:
-        'Sie können den War-Room jederzeit über „Schließen“ verlassen – ein bereits abgenommener Schriftsatz bleibt in der Akte gespeichert und ist beim nächsten Öffnen sofort wieder da.'
+        'Wenn Sie auf „Schließen“ klicken, geht nichts verloren: Der abgenommene Schriftsatz bleibt dauerhaft an der Akte gespeichert.'
     },
   
     // =========================================================================
-    // 6. WEITERE HAUPTMODULE (Tresor, CRM, Compliance, Wissensspeicher)
+    // 7. TRESOR, GEGNER-CRM, COMPLIANCE & WISSEN
     // =========================================================================
     tresor_main: {
       id: 'tresor_main',
-      module: 'Firmen-Tresor',
-      title: 'Gesellschafts-, Steuer-, Bank- & Pflichtdokumenten-Tresor',
+      module: 'WIR – Firmen-Tresor',
+      title: 'Mandanten-, Steuer-, Bank- & Gesellschafts-Tresor',
       whatIsIt:
-        'Verwaltet alle eigenen Firmen und Privatprofile inklusive Rechtsform, WZ-2008-Branche, Steuernummern, HRB, Transparenzregister, Bankkonten und Gesellschaftsdokumenten.',
+        'Verwaltet alle eigenen Gesellschaften und Privatpersonen inklusive Rechtsform, WZ-2008-Branchenschlüssel, Steuernummern, HRB, Transparenzregister, mehreren Bankkonten und Gesellschaftsverträgen.',
       whatHappens:
-        'Hier hinterlegte Daten speisen automatisch die Briefköpfe, das USt-Radar sowie die Schwellenwert-Berechnungen im Compliance-Radar.',
+        'Versorgt Akten-Cockpit, Briefköpfe, USt-Radar und Compliance-Radar zentral mit allen Stammdaten und prüft automatisch, welche Pflichtdokumente im Tresor noch fehlen.',
       watchOut:
-        'Wählen Sie bei Privatpersonen die Rechtsform „Privat“, damit gewerbliche IHK-, USt- und Arbeitgeber-Warnungen für dieses Profil automatisch stummgeschaltet bleiben.'
+        'Stellen Sie bei Privatpersonen die Rechtsform auf „Privat“ (oder aktivieren Sie „Gewerbliche Compliance deaktivieren“), damit keine unpassenden Arbeitgeber- oder USt-Alarme ausgelöst werden.'
     },
   
     gegner_crm_main: {
       id: 'gegner_crm_main',
-      module: 'Behörden- & Gegner-CRM',
-      title: 'Zentrales Adress-, Fax- & Abteilungsregister',
+      module: 'GEGNER – Behörden-CRM',
+      title: 'Zentrales Behörden-, Gerichts- & Ansprechpartner-Verzeichnis',
       whatIsIt:
-        'Speichert Finanzämter, Gerichte, Krankenkassen, Behörden und Vertragspartner inklusive beliebig vieler Abteilungen und Durchwahlen.',
+        'Ihre strukturierte Kontaktdatenbank für Ämter, Finanzämter, Gerichte, Kassen und Gegner – inklusive beliebig vieler Unterabteilungen und Sachbearbeiter pro Behörde.',
       whatHappens:
-        'Einmal angelegte Behörden stehen sofort in jeder Akte per Schnellauswahl bereit – inklusive direkter Fax- und E-Mail-Übergabe.',
+        'Hier gespeicherte Faxnummern, Durchwahlen und Abteilungs-E-Mails stehen sofort in jeder neuen und bestehenden Akte per 1-Klick-Dropdown bereit.',
       watchOut:
-        'Pflegen Sie bei Behörden besonders die direkte Telefaxnummer der zuständigen Stelle (z. B. Erhebungsstelle vs. Rechtsbehelfsstelle), um Zustellnachweise per Faxprotokoll zu sichern.'
+        'Hinterlegen Sie unterschiedliche Stellen eines Amts (z. B. Veranlagung vs. Erhebungs-/Vollstreckungsstelle) einfach als eigene Ansprechpartner-Zeilen unter derselben Behörde.'
     },
   
     compliance_radar_main: {
       id: 'compliance_radar_main',
-      module: 'Compliance-Radar & Boardroom',
-      title: 'Arbeitgeber-Schwellenwerte & Beschluss-Generator',
+      module: 'COMPLIANCE – Radar & Boardroom',
+      title: 'Schwellenwert-Überwachung & Gesellschafterbeschluss-Generator',
       whatIsIt:
-        'Überwacht gesetzliche Mitarbeiter-Schwellenwerte (z. B. § 23 KSchG Vollzeit-Richtwert, BetrVG, HinSchG, DGUV, KSK, LUCID) und erstellt fertige Gesellschafterbeschlüsse.',
+        'Prüft anhand Ihrer Mitarbeiterstruktur (§ 23 KSchG Teilzeit-/Vollzeit-Rechner) und Branche alle gesetzlichen Arbeitgeberpflichten und generiert fertige GmbH-/UG-Beschlüsse.',
       whatHappens:
-        'Erzeugt auf Knopfdruck mit Ihren echten Tresor-Daten vorausgefüllte Einladungen und GmbH-/UG-Beschlüsse oder legt fällige Prüfpflichten direkt als Wiedervorlage-Akte an.',
+        'Mit einem Klick wandeln Sie fällige Pflichten (z. B. DGUV, KSK bis 31.03., LUCID bis 15.05.) in eine echte Wiedervorlage-Akte um oder erstellen vorausgefüllte Gesellschafter-Einladungen samt Versand-Option.',
       watchOut:
-        'Halten Sie die Teilzeit- und Vollzeit-Kopfzahlen im 90-Tage-Check aktuell, damit Schwellenwerte rechtzeitig vor Neueinstellungen erkannt werden.'
+        'Nutzen Sie den „90-Tage-Pulse-Check“, sobald sich Mitarbeiterzahlen, Teilzeitquoten oder Geschäftsmodell ändern.'
     },
   
     wissen_main: {
       id: 'wissen_main',
-      module: 'Wissensspeicher & Gerichts-Streams',
-      title: 'Volltext-Rechtsdatenbank & Höchstgerichts-Ticker',
+      module: 'WISSEN – Rechtsdatenbank & Streams',
+      title: 'Gerichts-Streams (RSS-Monitor), Bulk-Upload & Volltext-Archiv',
       whatIsIt:
-        'Ihr zentrales Rechts- und Dokumentengedächtnis mit laufend synchronisierten Entscheidungen der obersten Bundesgerichte (BFH, BGH, BVerwG, BAG, BSG, BVerfG) und Behörden-Streams.',
+        'Das juristische Langzeitgedächtnis des Systems: Überwacht live 25 Gerichts- und Behörden-Feeds (BFH, BGH, BVerwG, BAG, BSG, BVerfG, BMF u. a.) und speichert alle Akten-Volltexte.',
       whatHappens:
-        'Über das Auge-Symbol lesen Sie den ungekürzten Original-Volltext; der KI-War-Room greift bei passenden Paragraphen vollautomatisch auf diese Entscheidungen zu.',
+        'Über das Auge-Symbol öffnen Sie den ungekürzten Original-Volltext aus dem Storage; im Hintergrund zieht sich der KI-War-Room passende Entscheidungen bei jedem Rechtsfall vollautomatisch heran.',
       watchOut:
-        'Nutzen Sie die oberen Filter nach Mandant, Behörde oder Stichwort sowie den Button „Weitere Entscheidungen anzeigen (+50)“ am Listenende zum schnellen Durchblättern.'
+        'Über die Umschalter filtern Sie gezielt nach Mandant oder Gegner; der RSS-Health-Monitor oben zeigt sofort an, falls eine behördliche Feed-URL gewartet werden muss.'
     }
   };
   
-  // Geführte 6-Stationen-Schnelltour für neue Nutzer & Demo-Tester
+  // Geführte 8-Stationen-Schnelltour quer durch die wichtigsten Arbeitsfelder
   export const SONAR_GUIDED_TOUR = [
     {
       step: 1,
       tab: 'akten',
       helpId: 'nav_tabs',
-      label: '1. Überblick & Module'
+      label: '1. Hauptmodule & Navigation'
     },
     {
       step: 2,
@@ -295,25 +430,37 @@ export const SONAR_HELP_CATALOG = {
     {
       step: 3,
       tab: 'akten',
-      helpId: 'akten_scanner_upload',
-      label: '3. KI-Scanner & Posteingang'
+      helpId: 'akten_web_scanner',
+      label: '3. KI-Web-Scanner (Posteingang)'
     },
     {
       step: 4,
       tab: 'akten',
-      helpId: 'akten_warroom_button',
-      label: '4. Kanzlei-War-Room (Alpha/Omega)'
+      helpId: 'akten_magic_import',
+      label: '4. Magic Import (JSON-Schleuse)'
     },
     {
       step: 5,
       tab: 'akten',
-      helpId: 'akten_liste_overview',
-      label: '5. Aktenregister & Musterakten'
+      helpId: 'akten_modus_wahl',
+      label: '5. Akten-Maske & Zuordnung'
     },
     {
       step: 6,
-      tab: 'wissen',
-      helpId: 'wissen_main',
-      label: '6. Gerichts-Streams & Volltexte'
+      tab: 'akten',
+      helpId: 'akten_btn_warroom',
+      label: '6. Strategischer Kanzlei-War-Room'
+    },
+    {
+      step: 7,
+      tab: 'akten',
+      helpId: 'akten_btn_fax_send',
+      label: '7. Direkt-Versand (E-Mail & Telefax)'
+    },
+    {
+      step: 8,
+      tab: 'akten',
+      helpId: 'akten_liste_overview',
+      label: '8. Akten-Register & Musterakten'
     }
   ];
