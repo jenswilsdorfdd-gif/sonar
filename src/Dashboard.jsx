@@ -9,11 +9,16 @@ import Handbuch from './Handbuch';
 import ComplianceRadar from './ComplianceRadar';
 import RssFeedHealthAlert from './RssFeedHealthAlert';
 import InteractiveHelpDock from './InteractiveHelpDock';
+import DemoAccessAlert from './DemoAccessAlert';
 
 export default function Dashboard({ session }) {
   // Haupt-Mandant (Owner) ID zum Schutz vor versehentlichem Demo-Reset
   const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
   const isDemoUser = session?.user?.id && session.user.id !== OWNER_USER_ID;
+
+  // --- ZWEITE SICHERHEITS-SCHRANKE FÜR DEMO-ZUGÄNGE ---
+  const [approvalChecking, setApprovalChecking] = useState(Boolean(isDemoUser));
+  const [approvalDenied, setApprovalDenied] = useState(false);
 
   // --- GLOBALES ROUTING & THEME ---
   const [activeTab, setActiveTab] = useState('akten');
@@ -39,6 +44,38 @@ export default function Dashboard({ session }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Prüft für jeden eingeloggten Nicht-Owner, ob seine E-Mail tatsächlich in demo_access_requests freigegeben ('approved') ist
+  useEffect(() => {
+    const checkDemoGate = async () => {
+      if (!session?.user?.id) return;
+      if (session.user.id === OWNER_USER_ID) {
+        setApprovalChecking(false);
+        setApprovalDenied(false);
+        return;
+      }
+
+      setApprovalChecking(true);
+      try {
+        const { data: isApproved, error } = await supabase.rpc('verify_my_demo_approval');
+        if (!error && isApproved === false) {
+          setApprovalDenied(true);
+          setTimeout(async () => {
+            await supabase.auth.signOut();
+            window.location.reload();
+          }, 3200);
+          return;
+        }
+        setApprovalDenied(false);
+      } catch (err) {
+        console.warn('Hinweis bei Demo-Freigabeprüfung:', err);
+      } finally {
+        setApprovalChecking(false);
+      }
+    };
+
+    checkDemoGate();
+  }, [session?.user?.id]);
 
   // Setzt eine Body-Klasse für die dezente Hover-Markierung im Desktop-2/3-Modus
   useEffect(() => {
@@ -215,7 +252,6 @@ export default function Dashboard({ session }) {
       styleTag.id = styleId;
       document.head.appendChild(styleTag);
     }
-    // --- CSS-MEDIA-QUERIES FÜR DAS HEADER-MENÜ ---
     styleTag.innerHTML = `
       html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100vh !important; background-color: ${theme.bg} !important; overflow-x: hidden !important; }
       * { box-sizing: border-box !important; }
@@ -320,7 +356,33 @@ export default function Dashboard({ session }) {
     }
   };
 
-  useEffect(() => { ladeDaten(); }, [session?.user?.id]);
+  useEffect(() => {
+    if (!approvalChecking && !approvalDenied) {
+      ladeDaten();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, approvalChecking, approvalDenied]);
+
+  if (approvalChecking) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#020617', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
+        Prüfe Zugangs-Freigabe...
+      </div>
+    );
+  }
+
+  if (approvalDenied) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#020617', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center' }}>
+        <div style={{ maxWidth: '460px', background: '#0f172a', border: '1px solid #f43f5e', borderRadius: '14px', padding: '28px' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#fda4af' }}>Testzugang noch nicht freigeschaltet</h3>
+          <p style={{ margin: 0, fontSize: '13.5px', color: '#cbd5e1', lineHeight: '1.5' }}>
+            Für diese E-Mail-Adresse liegt aktuell keine aktive Freischaltung vor. Sie werden zur Anmeldeseite zurückgeleitet.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const desktopSplitActive = isHelpOpen && !isCompactViewport;
 
@@ -712,7 +774,7 @@ export default function Dashboard({ session }) {
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
 
-            {/* --- NEUER LIVE-BEDIENHILFE SCHALTER (2/3 DESKTOP-DOCK ODER SMARTPHONE "i"-MODUS) --- */}
+            {/* --- LIVE-BEDIENHILFE SCHALTER (2/3 DESKTOP-DOCK ODER SMARTPHONE "i"-MODUS) --- */}
             <button
               type="button"
               data-sonar-help-ignore="true"
@@ -832,7 +894,7 @@ export default function Dashboard({ session }) {
         {/* --- DYNAMISCHE VOLLTEXT-SUCHLEISTE (GLOBAL) --- */}
         <div
           data-help="global_search"
-          style={{ background: theme.cardBg, borderRadius: '12px', padding: '12px 18px', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${activeColor}`, transition: 'border-color 0.3s ease' }}
+          style={{ background: theme.cardBg, borderRadius: '12px', padding: '12px 18px', marginBottom: '22px', display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${activeColor}`, transition: 'border-color 0.3s ease' }}
         >
           <Icon name="search" size={20} style={{ color: activeColor, transition: 'color 0.3s ease', flexShrink: 0 }} />
           <input
@@ -855,6 +917,13 @@ export default function Dashboard({ session }) {
             </button>
           )}
         </div>
+
+        {/* --- PROMINENTE TÜRSTEHER-ERINNERUNG FÜR NEUE DEMO-ZUGANGSANFRAGEN (NUR FÜR OWNER SICHTBAR) --- */}
+        <DemoAccessAlert
+          session={session}
+          theme={theme}
+          showToast={showToast}
+        />
 
         {/* --- VIEWS ROUTING --- */}
         <div style={{ flex: '1 0 auto', minWidth: 0 }}>
