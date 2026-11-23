@@ -44,6 +44,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   // --- Übernahme des Hell-/Dunkel-Modus aus dem Cockpit (ohne eigenen Umschalt-Button) ---
   const [isDark, setIsDark] = useState(true);
 
+  // --- Responsive & Kompakt-Steuerung gegen überfüllte Smartphone-Screens ---
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+  const [mobileHeaderExpanded, setMobileHeaderExpanded] = useState(false);
+  const [mobileCorrectionOpen, setMobileCorrectionOpen] = useState(false);
+  const [desktopHelpSplitActive, setDesktopHelpSplitActive] = useState(false);
+
   // --- Strikte Owner-Erkennung anhand der Login-Session ---
   const [isOwnerUser, setIsOwnerUser] = useState(false);
 
@@ -72,6 +78,38 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const abortRunRef = useRef(0);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Überwacht Bildschirmgröße sowie ein ggf. aktives 1/3-Desktop-Hilfe-Dock
+  useEffect(() => {
+    const checkViewportAndHelp = () => {
+      if (typeof window === "undefined") return;
+      const mob = window.innerWidth <= 768;
+      setIsMobileScreen(mob);
+      if (!mob) {
+        setMobileHeaderExpanded(true);
+        setMobileCorrectionOpen(true);
+      }
+      if (typeof document !== "undefined") {
+        setDesktopHelpSplitActive(
+          window.innerWidth > 1024 && document.body.classList.contains("sonar-live-help-desktop")
+        );
+      }
+    };
+
+    checkViewportAndHelp();
+    window.addEventListener("resize", checkViewportAndHelp);
+
+    let bodyObserver = null;
+    if (typeof document !== "undefined" && document.body) {
+      bodyObserver = new MutationObserver(checkViewportAndHelp);
+      bodyObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    }
+
+    return () => {
+      window.removeEventListener("resize", checkViewportAndHelp);
+      if (bodyObserver) bodyObserver.disconnect();
+    };
+  }, [isOpen]);
 
   // Erkennt automatisch, ob das vordere Cockpit im Hell- oder Dunkel-Modus steht
   useEffect(() => {
@@ -504,6 +542,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setLiveStage(1);
     setLiveRound(1);
     setLiveLogEntries([]);
+    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+      setMobileHeaderExpanded(false);
+      setMobileCorrectionOpen(false);
+    }
     setLoadingPhaseText("Vorprüfung: Chefabteilung analysiert Akten-Dossier & lädt Volltext-Urteile aus dem Storage...");
     setErrorMsg(null);
 
@@ -701,6 +743,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
     await callMegaLegal(apiHistory, true, isOwnerUser, currentRunId, displayHistory, rawContextToUse);
   };
+
   // Initialer Start beim Öffnen des Modals
   useEffect(() => {
     const initChatOrRestoreMemory = async () => {
@@ -713,6 +756,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         setStrategyBriefing(null);
         setSelectedOptionIds([]);
         setBriefingCustomNote("");
+        if (typeof window !== "undefined" && window.innerWidth <= 768) {
+          setMobileHeaderExpanded(false);
+          setMobileCorrectionOpen(false);
+        }
 
         let ownerDetected = false;
         try {
@@ -1006,7 +1053,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   // Schlichte, einheitliche Farbpalette exakt passend zum vorderen SONAR Cockpit
   const bgModal = isDark ? "bg-slate-900" : "bg-white";
-  const borderModal = isDark ? "bg-slate-700" : "border-slate-300";
+  const borderModal = isDark ? "border-slate-700" : "border-slate-300";
   const bgHeader = isDark ? "bg-slate-950" : "bg-slate-100";
   const borderHeader = isDark ? "border-slate-800" : "border-slate-300";
   const textTitle = isDark ? "text-white" : "text-slate-900";
@@ -1019,7 +1066,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     : "bg-white border-slate-300 text-slate-900 placeholder-slate-500";
 
   // Einheitlicher Standard-Button-Stil für die Kopfzeile (gleiche Höhe, gleiche Schriftgröße, keine bunten Emojis)
-  const headerBtnBase = "h-[34px] px-3 rounded-md text-xs font-bold border transition flex items-center justify-center gap-1.5 whitespace-nowrap";
+  const headerBtnBase = "h-[32px] sm:h-[34px] px-2.5 sm:px-3 rounded-md text-[11px] sm:text-xs font-bold border transition flex items-center justify-center gap-1.5 whitespace-nowrap";
   const headerBtnInactive = isDark
     ? "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-200";
@@ -1029,14 +1076,15 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
   // Die 4 Pflicht-Stationen mit dezenter neuer Kanzlei-Nomenklatur (Kanzlei Alpha / Spiegel-Kanzlei Omega / Revisionssenat)
   const kanzleiStations = [
-    { id: 1, title: "1. Kanzlei Alpha (Entwurf)", desc: "Minto-BLUF & Spezialisten-Board" },
-    { id: 2, title: "2. Spiegel-Kanzlei Omega", desc: `Gegenprüfung & In-Memory-Patch (Runde ${liveRound}/${liveMaxRounds})` },
-    { id: 3, title: "3. Delta-Zusammenführung", desc: "Deterministischer Patch-Einbau" },
-    { id: 4, title: "4. Revisionssenat", desc: "Richterliche Endabnahme & Freigabe" }
+    { id: 1, title: "1. Kanzlei Alpha (Entwurf)", shortTitle: "1. Alpha", desc: "Minto-BLUF & Spezialisten-Board" },
+    { id: 2, title: "2. Spiegel-Kanzlei Omega", shortTitle: "2. Omega", desc: `Gegenprüfung & In-Memory-Patch (Runde ${liveRound}/${liveMaxRounds})` },
+    { id: 3, title: "3. Delta-Zusammenführung", shortTitle: "3. Delta", desc: "Deterministischer Patch-Einbau" },
+    { id: 4, title: "4. Revisionssenat", shortTitle: "4. Senat", desc: "Richterliche Endabnahme & Freigabe" }
   ];
 
   const allFourGreen = !isLoading && liveStage === 5 && isJudgeApproved;
   const visibleChatMessages = messages.filter((m, idx) => !(idx === 0 && m.role === "user" && m.content.includes("Analysiere dieses vollständige Akten-Dossier")));
+  const hasDraftMessages = visibleChatMessages.some((m) => m.role === "assistant");
 
   const counselBadgeLabel = strategyBriefing?.counsel_type === "STEUERBERATER"
     ? "STEUERBERATER-PFLICHT / DRINGENDE MANDATIERUNG"
@@ -1045,83 +1093,105 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     : "GESETZLICHER ANWALTSZWANG / BERUFSTRÄGER-PFLICHT";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className={`flex flex-col w-full max-w-6xl h-[94vh] ${bgModal} border ${borderModal} rounded-xl shadow-2xl overflow-hidden`}>
+    <div
+      style={desktopHelpSplitActive ? { right: "33.333%" } : undefined}
+      className="fixed inset-y-0 left-0 right-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-1.5 sm:p-4"
+    >
+      <div className={`flex flex-col w-full max-w-6xl h-[96dvh] sm:h-[94vh] max-h-[96dvh] ${bgModal} border ${borderModal} rounded-xl shadow-2xl overflow-hidden`}>
 
-        {/* 1. HEADER: Titel + Demo-Badge direkt daneben + einheitliche Steuer-Buttons */}
-        <div className={`flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-b ${borderHeader} ${bgHeader}`}>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3 flex-wrap">
+        {/* 1. HEADER: Titel + auf Smartphone kompakte Steuerung + Details-Toggle */}
+        <div className={`flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-b ${borderHeader} ${bgHeader} flex-shrink-0`}>
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
               <span
                 className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{
                   backgroundColor: isLoading ? "#f59e0b" : (allFourGreen ? "#10b981" : "#0ea5e9")
                 }}
               />
-              <h2 className={`text-base sm:text-lg font-extrabold ${textTitle} tracking-wide uppercase`}>
-                SMARTSONAR – STRATEGISCHER KANZLEI-WAR-ROOM
+              <h2 className={`text-sm sm:text-lg font-extrabold ${textTitle} tracking-wide uppercase truncate`}>
+                {isMobileScreen ? "KANZLEI-WAR-ROOM" : "SMARTSONAR – STRATEGISCHER KANZLEI-WAR-ROOM"}
               </h2>
-              {!isOwnerUser && (
+              {!isOwnerUser && !isMobileScreen && (
                 <span className="px-2.5 py-1 rounded text-[11px] font-extrabold bg-slate-800 text-amber-400 border border-amber-500/50 whitespace-nowrap">
                   DEMO-MODUS (Max. 10 Test-Akten • Kopier- & Muster-Branding aktiv)
                 </span>
               )}
             </div>
-            <p className={`text-xs ${textSub}`}>
-              Akte: {dossier?.aktenzeichen || "Neu"} | Gegenpartei: {dossier?.kontakt || "Behörde"} | Mandant: {displayMandantName} | Geladene Quellen/Volltexte: {loadedDocsCount}
-            </p>
+            {(!isMobileScreen || mobileHeaderExpanded) && (
+              <p className={`text-[11px] sm:text-xs ${textSub} truncate`}>
+                Akte: {dossier?.aktenzeichen || "Neu"} | Gegenpartei: {dossier?.kontakt || "Behörde"} | Mandant: {displayMandantName} | Quellen: {loadedDocsCount}
+              </p>
+            )}
           </div>
 
-          {/* Einheitliche Button-Leiste rechts */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setSelectedEngine("gemini")}
-              className={`${headerBtnBase} ${selectedEngine === "gemini" ? headerBtnActive : headerBtnInactive} cursor-pointer`}
-            >
-              <span>Gemini Pro</span>
-            </button>
+          {/* Steuer-Buttons rechts */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+            {isMobileScreen && (
+              <button
+                type="button"
+                onClick={() => setMobileHeaderExpanded(!mobileHeaderExpanded)}
+                className={`${headerBtnBase} ${headerBtnInactive} cursor-pointer`}
+                title="Kopf- & Stationsdetails ein-/ausklappen"
+              >
+                <span>{mobileHeaderExpanded ? "Kompakt ▲" : "Stationen ▼"}</span>
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => {
-                if (!isOwnerUser) return;
-                setSelectedEngine("claude");
-              }}
-              disabled={!isOwnerUser}
-              className={`${headerBtnBase} ${
-                !isOwnerUser
-                  ? "bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed opacity-70"
-                  : selectedEngine === "claude"
-                  ? headerBtnActive
-                  : headerBtnInactive
-              }`}
-              title={!isOwnerUser ? "Claude Sonnet ist exklusiv in der Vollversion freigeschaltet" : "Anthropic Claude Sonnet verwenden"}
-            >
-              <span>Claude Sonnet {!isOwnerUser ? "(Pro)" : ""}</span>
-            </button>
+            {(!isMobileScreen || mobileHeaderExpanded) && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEngine("gemini")}
+                  className={`${headerBtnBase} ${selectedEngine === "gemini" ? headerBtnActive : headerBtnInactive} cursor-pointer`}
+                >
+                  <span>Gemini Pro</span>
+                </button>
 
-            <div
-              className={`${headerBtnBase} ${
-                isDark ? "bg-slate-900 border-slate-700 text-slate-300" : "bg-white border-slate-300 text-slate-700"
-              } select-none`}
-            >
-              <span>Kanzlei Alpha vs. Omega AKTIV</span>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isOwnerUser) return;
+                    setSelectedEngine("claude");
+                  }}
+                  disabled={!isOwnerUser}
+                  className={`${headerBtnBase} ${
+                    !isOwnerUser
+                      ? "bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed opacity-70"
+                      : selectedEngine === "claude"
+                      ? headerBtnActive
+                      : headerBtnInactive
+                  }`}
+                  title={!isOwnerUser ? "Claude Sonnet ist exklusiv in der Vollversion freigeschaltet" : "Anthropic Claude Sonnet verwenden"}
+                >
+                  <span>Claude Sonnet {!isOwnerUser ? "(Pro)" : ""}</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={handleResetChatMemory}
-              disabled={isLoading}
-              className={`${headerBtnBase} ${headerBtnInactive} cursor-pointer disabled:opacity-50`}
-            >
-              <span>Neu starten</span>
-            </button>
+                {!isMobileScreen && (
+                  <div
+                    className={`${headerBtnBase} ${
+                      isDark ? "bg-slate-900 border-slate-700 text-slate-300" : "bg-white border-slate-300 text-slate-700"
+                    } select-none`}
+                  >
+                    <span>Kanzlei Alpha vs. Omega AKTIV</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleResetChatMemory}
+                  disabled={isLoading}
+                  className={`${headerBtnBase} ${headerBtnInactive} cursor-pointer disabled:opacity-50`}
+                >
+                  <span>Neu starten</span>
+                </button>
+              </>
+            )}
 
             <button
               type="button"
               onClick={onClose}
-              className={`${headerBtnBase} ${headerBtnInactive} cursor-pointer px-3`}
+              className={`${headerBtnBase} ${headerBtnInactive} cursor-pointer px-2.5 sm:px-3`}
               title="Schließen"
             >
               <span>✕</span>
@@ -1129,118 +1199,159 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           </div>
         </div>
 
-        {/* 2. KNALLROTER, NICHT AUSBLENDBARER RDG- & StBG-WARNHINWEIS (Weiße Schrift auf Rot – für Hell & Dunkel identisch) */}
+        {/* 2. KNALLROTER RDG- & StBG-WARNHINWEIS (Mobil kompakt zweizeilig, jederzeit voll lesbar) */}
         <div
           style={{ backgroundColor: "#dc2626", color: "#ffffff" }}
-          className="px-6 py-2.5 border-b border-red-800 text-xs sm:text-[13px] font-bold leading-snug text-left shadow-sm flex-shrink-0"
+          className="px-3.5 sm:px-6 py-1.5 sm:py-2.5 border-b border-red-800 text-[11px] sm:text-[13px] font-bold leading-snug text-left shadow-sm flex-shrink-0"
         >
-          WICHTIGER HINWEIS GEMÄSS RDG & StBG: Dieses System ist ein technisches KI-Assistenz- und Textanalyse-Werkzeug für Unternehmen. Die generierten Analysen, Lagebesprechungen und Textmuster stellen KEINE Rechts- oder Steuerberatung dar und ersetzen keine Prüfung durch einen zugelassenen Rechtsanwalt oder Steuerberater.
+          {isMobileScreen && !mobileHeaderExpanded
+            ? "HINWEIS GEMÄSS RDG & StBG: Technisches KI-Assistenzwerkzeug – KEINE Rechts- oder Steuerberatung (Eigenprüfung Pflicht)."
+            : "WICHTIGER HINWEIS GEMÄSS RDG & StBG: Dieses System ist ein technisches KI-Assistenz- und Textanalyse-Werkzeug für Unternehmen. Die generierten Analysen, Lagebesprechungen und Textmuster stellen KEINE Rechts- oder Steuerberatung dar und ersetzen keine Prüfung durch einen zugelassenen Rechtsanwalt oder Steuerberater."}
         </div>
 
         {/* TOAST-WARNUNG BEI KOPIERVERSUCH IM DEMO-MODUS */}
         {copyWarningToast && (
-          <div style={{ backgroundColor: "#b91c1c", color: "#ffffff" }} className="px-6 py-2 text-xs font-extrabold text-center">
+          <div style={{ backgroundColor: "#b91c1c", color: "#ffffff" }} className="px-4 py-1.5 text-xs font-extrabold text-center flex-shrink-0">
             Kopieren, Markieren und Ausschneiden ist in der kostenfreien Demo-Version gesperrt. In der Vollversion sind alle Texte frei nutzbar.
           </div>
         )}
 
-        {/* 3. DIE 4 PFLICHT-STATIONEN (Schlichtes Cockpit-Design ohne Ticker-Box darunter) */}
-        <div className={`px-6 py-3 border-b ${borderHeader} ${bgHeader} flex-shrink-0`}>
-          <div className="mb-2 text-left">
+        {/* 3. DIE 4 PFLICHT-STATIONEN (Auf Mobilgeräten als platzsparende 4er-Kompaktleiste, aufgeklappt mit vollen Details) */}
+        <div
+          data-help="warroom_stations"
+          className={`px-3.5 sm:px-6 py-2 sm:py-3 border-b ${borderHeader} ${bgHeader} flex-shrink-0`}
+        >
+          <div className="mb-1.5 text-left">
             {isLoading ? (
-              <span style={{ color: "#f59e0b" }} className="text-xs font-extrabold uppercase tracking-wider">
-                KANZLEI ALPHA, SPIEGEL-KANZLEI OMEGA & REVISIONSSENAT ARBEITEN – ÜBERGABE WIRD NACH FREIGABE (4X GRÜN) AKTIVIERT...
+              <span style={{ color: "#f59e0b" }} className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider">
+                {isMobileScreen
+                  ? `PRÜFKETTE LÄUFT (STATION ${liveStage}/4)...`
+                  : "KANZLEI ALPHA, SPIEGEL-KANZLEI OMEGA & REVISIONSSENAT ARBEITEN – ÜBERGABE WIRD NACH FREIGABE (4X GRÜN) AKTIVIERT..."}
               </span>
             ) : allFourGreen ? (
-              <span style={{ color: "#10b981" }} className="text-xs font-extrabold uppercase tracking-wider">
-                ALLE 4 STATIONEN GRÜN & VOM REVISIONSSENAT ABGENOMMEN – ÜBERGABE ANS COCKPIT IST FREIGESCHALTET!
+              <span style={{ color: "#10b981" }} className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider">
+                {isMobileScreen
+                  ? "4/4 GRÜN – FREIGABE ERTEILT!"
+                  : "ALLE 4 STATIONEN GRÜN & VOM REVISIONSSENAT ABGENOMMEN – ÜBERGABE ANS COCKPIT IST FREIGESCHALTET!"}
               </span>
             ) : (
-              <span className={`text-xs font-extrabold uppercase tracking-wider ${textTitle}`}>
-                SCHRITT 1: BITTE WÄHLEN SIE UNTEN IN DER LAGEBESPRECHUNG IHRE STRATEGIE (ODER KOMBINATION) AUS!
+              <span className={`text-[11px] sm:text-xs font-extrabold uppercase tracking-wider ${textTitle}`}>
+                {isMobileScreen
+                  ? "SCHRITT 1: UNTEN STRATEGIE-OPTION(EN) WÄHLEN:"
+                  : "SCHRITT 1: BITTE WÄHLEN SIE UNTEN IN DER LAGEBESPRECHUNG IHRE STRATEGIE (ODER KOMBINATION) AUS!"}
               </span>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-            {kanzleiStations.map((st) => {
-              const isActive = isLoading && liveStage === st.id;
-              const isDone = allFourGreen || (isLoading && liveStage > st.id);
-
-              let boxStyle = {
-                borderColor: isDark ? "#334155" : "#cbd5e1",
-                backgroundColor: isDark ? "#0f172a" : "#ffffff",
-                opacity: 0.65
-              };
-
-              if (isActive) {
-                boxStyle = {
-                  borderColor: "#f59e0b",
-                  backgroundColor: isDark ? "rgba(245, 158, 11, 0.12)" : "rgba(245, 158, 11, 0.1)",
-                  opacity: 1
-                };
-              } else if (isDone) {
-                boxStyle = {
-                  borderColor: "#10b981",
-                  backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(16, 185, 129, 0.12)",
-                  opacity: 1
-                };
-              }
-
-              return (
-                <div
-                  key={st.id}
-                  style={boxStyle}
-                  className="p-2.5 rounded-lg border transition-all flex flex-col justify-between gap-1 text-left"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className={`text-xs font-extrabold truncate ${textTitle}`}>{st.title}</div>
-                    {isActive && (
-                      <span
-                        style={{ backgroundColor: "#f59e0b", color: "#000000" }}
-                        className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase flex-shrink-0"
-                      >
-                        PRÜFT...
-                      </span>
-                    )}
-                    {isDone && !isActive && (
-                      <span
-                        style={{ backgroundColor: "#10b981", color: "#000000" }}
-                        className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase flex-shrink-0"
-                      >
-                        GRÜN
-                      </span>
-                    )}
+          {isMobileScreen && !mobileHeaderExpanded ? (
+            <div className="grid grid-cols-4 gap-1.5">
+              {kanzleiStations.map((st) => {
+                const isActive = isLoading && liveStage === st.id;
+                const isDone = allFourGreen || (isLoading && liveStage > st.id);
+                return (
+                  <div
+                    key={st.id}
+                    style={{
+                      borderColor: isActive ? "#f59e0b" : isDone ? "#10b981" : (isDark ? "#334155" : "#cbd5e1"),
+                      backgroundColor: isActive
+                        ? "rgba(245, 158, 11, 0.16)"
+                        : isDone
+                        ? "rgba(16, 185, 129, 0.16)"
+                        : (isDark ? "#0f172a" : "#ffffff"),
+                      opacity: isActive || isDone ? 1 : 0.7
+                    }}
+                    className="px-2 py-1 rounded border text-[10px] font-extrabold text-center truncate"
+                  >
+                    <span className={textTitle}>{st.shortTitle}</span>
                   </div>
-                  <div className={`text-[11px] truncate ${textSub}`}>{st.desc}</div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+              {kanzleiStations.map((st) => {
+                const isActive = isLoading && liveStage === st.id;
+                const isDone = allFourGreen || (isLoading && liveStage > st.id);
+
+                let boxStyle = {
+                  borderColor: isDark ? "#334155" : "#cbd5e1",
+                  backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                  opacity: 0.65
+                };
+
+                if (isActive) {
+                  boxStyle = {
+                    borderColor: "#f59e0b",
+                    backgroundColor: isDark ? "rgba(245, 158, 11, 0.12)" : "rgba(245, 158, 11, 0.1)",
+                    opacity: 1
+                  };
+                } else if (isDone) {
+                  boxStyle = {
+                    borderColor: "#10b981",
+                    backgroundColor: isDark ? "rgba(16, 185, 129, 0.14)" : "rgba(16, 185, 129, 0.12)",
+                    opacity: 1
+                  };
+                }
+
+                return (
+                  <div
+                    key={st.id}
+                    style={boxStyle}
+                    className="p-2 sm:p-2.5 rounded-lg border transition-all flex flex-col justify-between gap-1 text-left"
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className={`text-[11px] sm:text-xs font-extrabold truncate ${textTitle}`}>{st.title}</div>
+                      {isActive && (
+                        <span
+                          style={{ backgroundColor: "#f59e0b", color: "#000000" }}
+                          className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold uppercase flex-shrink-0"
+                        >
+                          PRÜFT...
+                        </span>
+                      )}
+                      {isDone && !isActive && (
+                        <span
+                          style={{ backgroundColor: "#10b981", color: "#000000" }}
+                          className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold uppercase flex-shrink-0"
+                        >
+                          GRÜN
+                        </span>
+                      )}
+                    </div>
+                    <div className={`text-[10px] sm:text-[11px] truncate ${textSub}`}>{st.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* 4. HAUPTBEREICH: LAGEBESPRECHUNG (STARTET GANZ OBEN) & SCHRIFTSATZ */}
+        {/* 4. HAUPTBEREICH MIT GARANTIERTEM SCROLLRAUM (min-h-0 verhindert jegliches Zerquetschen auf dem Smartphone!) */}
         <div
           ref={scrollContainerRef}
           onCopy={handleProtectedCopyAttempt}
           onCut={handleProtectedCopyAttempt}
           onContextMenu={handleProtectedCopyAttempt}
           onDragStart={handleProtectedCopyAttempt}
-          className={`flex-1 overflow-y-auto p-6 space-y-6 text-sm font-sans ${bgChatArea} ${!isOwnerUser ? "select-none" : ""}`}
+          style={{ WebkitOverflowScrolling: "touch" }}
+          className={`flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6 space-y-5 text-sm font-sans ${bgChatArea} ${!isOwnerUser ? "select-none" : ""}`}
         >
-          {/* INTERAKTIVE KANZLEI-LAGEBESPRECHUNG (UNTEREINANDER IN VOLLER BREITE OHNE ABSCHNEIDEN) */}
+          {/* INTERAKTIVE KANZLEI-LAGEBESPRECHUNG */}
           {strategyBriefing && (
-            <div className={`rounded-xl border p-5 text-left space-y-4 ${bgCard}`}>
+            <div
+              data-help="warroom_briefing_options"
+              className={`rounded-xl border p-3.5 sm:p-5 text-left space-y-4 ${bgCard}`}
+            >
               <div className={`flex items-center justify-between flex-wrap gap-2 border-b pb-3 ${borderHeader}`}>
                 <div>
-                  <h3 className={`text-base font-extrabold uppercase tracking-wide ${textTitle}`}>
+                  <h3 className={`text-sm sm:text-base font-extrabold uppercase tracking-wide ${textTitle}`}>
                     CHEFABTEILUNGS-LAGEBESPRECHUNG & STRATEGIE-WAHL
                   </h3>
                   <p className={`text-xs ${textSub}`}>
                     Vorprüfung durch das einberufene Spezialisten-Board (Mehrfachauswahl / Kombination möglich)
                   </p>
                 </div>
-                <span className={`px-3 py-1 rounded text-xs font-bold border ${borderModal} ${textSub}`}>
+                <span className={`px-2.5 py-1 rounded text-xs font-bold border ${borderModal} ${textSub}`}>
                   Auswahl aktiv: {selectedOptionIds.length}
                 </span>
               </div>
@@ -1252,7 +1363,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                     borderColor: "#dc2626",
                     backgroundColor: isDark ? "rgba(220, 38, 38, 0.16)" : "rgba(220, 38, 38, 0.1)"
                   }}
-                  className="p-4 rounded-lg border-2 space-y-2 text-left"
+                  className="p-3.5 sm:p-4 rounded-lg border-2 space-y-2 text-left"
                 >
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <span
@@ -1272,9 +1383,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 </div>
               )}
 
-              {/* Punkt 1 & Punkt 2 untereinander über die volle Breite für 100 % Lesbarkeit ohne Scrollbalken */}
-              <div className="flex flex-col gap-4">
-                <div className={`w-full p-4 rounded-lg border ${borderModal} ${isDark ? "bg-slate-900" : "bg-slate-50"} space-y-2`}>
+              {/* Punkt 1 & Punkt 2 untereinander über die volle Breite */}
+              <div className="flex flex-col gap-3.5">
+                <div className={`w-full p-3.5 sm:p-4 rounded-lg border ${borderModal} ${isDark ? "bg-slate-900" : "bg-slate-50"} space-y-2`}>
                   <div className={`text-xs font-extrabold uppercase tracking-wide ${textTitle}`}>
                     1. Sachverhalt & Aktenlage auf den Punkt:
                   </div>
@@ -1283,7 +1394,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   </p>
                 </div>
 
-                <div className={`w-full p-4 rounded-lg border ${borderModal} ${isDark ? "bg-slate-900" : "bg-slate-50"} space-y-2`}>
+                <div className={`w-full p-3.5 sm:p-4 rounded-lg border ${borderModal} ${isDark ? "bg-slate-900" : "bg-slate-50"} space-y-2`}>
                   <div className={`text-xs font-extrabold uppercase tracking-wide ${textTitle}`}>
                     2. Gefundene Hebel & Wirtschaftlichkeits-Check:
                   </div>
@@ -1310,10 +1421,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 </div>
               )}
 
-              {/* Die 4 anklickbaren Handlungsoptionen (ohne Text-Abschneiden in den Info-Feldern) */}
+              {/* Die 4 anklickbaren Handlungsoptionen */}
               <div>
                 <div className={`text-xs font-bold uppercase tracking-wider mb-2.5 ${textSub}`}>
-                  Wählen Sie 1 Option oder eine Kombination aus mehreren Optionen durch Anklicken aus:
+                  Wählen Sie 1 Option oder eine Kombination aus mehreren Optionen durch Antippen/Anklicken aus:
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -1329,18 +1440,18 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                             ? (isDark ? "rgba(251, 191, 36, 0.12)" : "rgba(251, 191, 36, 0.08)")
                             : (isDark ? "#0f172a" : "#ffffff")
                         }}
-                        className="p-4 rounded-lg border-2 cursor-pointer transition-all select-none flex flex-col justify-between gap-3"
+                        className="p-3.5 sm:p-4 rounded-lg border-2 cursor-pointer transition-all select-none flex flex-col justify-between gap-3"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => {}}
                                 className="w-4 h-4 accent-[#fbbf24] cursor-pointer flex-shrink-0"
                               />
-                              <span className={`font-extrabold text-sm ${textTitle}`}>{opt.title}</span>
+                              <span className={`font-extrabold text-sm break-words ${textTitle}`}>{opt.title}</span>
                             </div>
                             {opt.is_recommended && (
                               <span
@@ -1352,23 +1463,23 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                             )}
                           </div>
                           {opt.subtitle && (
-                            <div className={`text-xs font-bold pl-6 ${textSub}`}>{opt.subtitle}</div>
+                            <div className={`text-xs font-bold sm:pl-6 break-words ${textSub}`}>{opt.subtitle}</div>
                           )}
-                          <p className={`text-xs leading-relaxed pl-6 break-words ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                          <p className={`text-xs leading-relaxed sm:pl-6 break-words ${isDark ? "text-slate-200" : "text-slate-700"}`}>
                             {opt.impact}
                           </p>
                         </div>
 
-                        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2.5 border-t ${borderHeader} text-[11px] pl-6`}>
-                          <div className={`p-2.5 rounded border ${borderModal} ${isDark ? "bg-slate-950" : "bg-slate-50"}`}>
+                        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2.5 border-t ${borderHeader} text-[11px] sm:pl-6`}>
+                          <div className={`p-2 rounded border ${borderModal} ${isDark ? "bg-slate-950" : "bg-slate-50"}`}>
                             <span className={`block text-[10px] uppercase font-bold mb-0.5 ${textSub}`}>Kostenrisiko</span>
                             <span className={`font-bold leading-snug break-words block ${textTitle}`}>{opt.costs || "-"}</span>
                           </div>
-                          <div className={`p-2.5 rounded border ${borderModal} ${isDark ? "bg-slate-950" : "bg-slate-50"}`}>
+                          <div className={`p-2 rounded border ${borderModal} ${isDark ? "bg-slate-950" : "bg-slate-50"}`}>
                             <span className={`block text-[10px] uppercase font-bold mb-0.5 ${textSub}`}>Dauer</span>
                             <span className={`font-bold leading-snug break-words block ${textTitle}`}>{opt.duration || "-"}</span>
                           </div>
-                          <div className={`p-2.5 rounded border ${borderModal} ${isDark ? "bg-slate-950" : "bg-slate-50"}`}>
+                          <div className={`p-2 rounded border ${borderModal} ${isDark ? "bg-slate-950" : "bg-slate-50"}`}>
                             <span className={`block text-[10px] uppercase font-bold mb-0.5 ${textSub}`}>Bewertung</span>
                             <span className={`font-bold leading-snug break-words block ${textTitle}`}>{opt.success_chance || "-"}</span>
                           </div>
@@ -1400,7 +1511,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                     border: "2px solid #f59e0b",
                     boxShadow: "0 4px 14px rgba(245, 158, 11, 0.35)"
                   }}
-                  className="w-full py-3.5 px-5 rounded-lg font-extrabold text-sm hover:opacity-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center uppercase tracking-wide"
+                  className="w-full py-3.5 px-4 sm:px-5 rounded-lg font-extrabold text-xs sm:text-sm hover:opacity-95 transition disabled:opacity-50 cursor-pointer flex items-center justify-center uppercase tracking-wide text-center"
                 >
                   {selectedOptionIds.length > 1
                     ? `Ausgewählte Optionen (${selectedOptionIds.length}) durch Kanzlei Alpha & Omega ausarbeiten`
@@ -1421,12 +1532,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                     : `Kanzlei Alpha • Spiegel-Kanzlei Omega • Revisionssenat (${isOwnerUser && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
                 </div>
                 <div
-                  className={`w-full text-left rounded-lg px-6 py-5 whitespace-pre-wrap leading-relaxed border relative overflow-hidden ${bgCard}`}
+                  className={`w-full text-left rounded-lg px-4 sm:px-6 py-4 sm:py-5 whitespace-pre-wrap break-words leading-relaxed border relative overflow-hidden ${bgCard}`}
                 >
                   {/* Diagonales rotes MUSTER-Wasserzeichen für Demo-Tester */}
                   {!isOwnerUser && !isUser && (
                     <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center opacity-15">
-                      <div className="transform -rotate-12 border-4 border-red-600 text-red-600 font-black text-2xl sm:text-4xl px-6 py-3 uppercase tracking-widest text-center">
+                      <div className="transform -rotate-12 border-4 border-red-600 text-red-600 font-black text-xl sm:text-4xl px-4 sm:px-6 py-3 uppercase tracking-widest text-center">
                         MUSTER • DEMO-ANSICHT • KEINE RECHTSBERATUNG
                       </div>
                     </div>
@@ -1444,7 +1555,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 backgroundColor: isDark ? "rgba(245, 158, 11, 0.1)" : "rgba(245, 158, 11, 0.08)",
                 color: isDark ? "#fcd34d" : "#b45309"
               }}
-              className="p-4 rounded-lg border flex items-center space-x-3 text-xs sm:text-sm font-extrabold uppercase tracking-wider text-left"
+              className="p-3.5 sm:p-4 rounded-lg border flex items-center space-x-3 text-xs sm:text-sm font-extrabold uppercase tracking-wider text-left"
             >
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#f59e0b] animate-ping flex-shrink-0" />
               <span>{loadingPhaseText}</span>
@@ -1458,7 +1569,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 borderColor: "#10b981",
                 backgroundColor: isDark ? "rgba(16, 185, 129, 0.1)" : "rgba(16, 185, 129, 0.08)"
               }}
-              className="p-5 rounded-xl border-2 text-left space-y-3"
+              className="p-4 sm:p-5 rounded-xl border-2 text-left space-y-3"
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 style={{ color: "#10b981" }} className="text-sm sm:text-base font-extrabold uppercase tracking-wide">
@@ -1476,7 +1587,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 Ihr Schriftsatz wurde durch Kanzlei Alpha ausgearbeitet, von der Spiegel-Kanzlei Omega kontradiktorisch geprüft und vom Revisionssenat abgenommen. Klicken Sie jetzt auf „Ins Cockpit übergeben“, um den Entwurf in die Aktenansicht zu übernehmen.
               </p>
 
-              <div className="flex flex-wrap gap-3 pt-1">
+              <div className="flex flex-wrap gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={handleExtractAndApplyJSON}
@@ -1488,7 +1599,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
                 <button
                   type="button"
-                  onClick={() => inputFieldRef.current?.focus()}
+                  onClick={() => {
+                    if (isMobileScreen) setMobileCorrectionOpen(true);
+                    setTimeout(() => inputFieldRef.current?.focus(), 60);
+                  }}
                   className={`px-4 py-3 rounded-lg border font-bold text-xs sm:text-sm transition cursor-pointer ${headerBtnInactive}`}
                 >
                   Noch eine Änderung anweisen (startet Nachprüfung)
@@ -1505,52 +1619,73 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           <div ref={chatBottomRef} />
         </div>
 
-        {/* 5. SCHLICHTER FOOTER: Korrektur-Eingabe + Schließen + 1 klarer Übergabe-Button */}
-        <div className={`p-4 border-t ${borderHeader} ${bgFooter} space-y-3 flex-shrink-0`}>
-          <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
-            <label
-              className={`flex items-center justify-center h-[42px] w-[42px] rounded-lg cursor-pointer border transition flex-shrink-0 ${headerBtnInactive}`}
-              title="Fehlendes Dokument (PDF/MD) nachladen (löst automatisch erneute Prüfung aus)"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-              </svg>
+        {/* 5. FOOTER (Auf Smartphone schmal & aufklappbar, damit die Lagebesprechung nie verdeckt wird) */}
+        <div
+          data-help="warroom_footer_transfer"
+          className={`p-3 sm:p-4 border-t ${borderHeader} ${bgFooter} space-y-2.5 flex-shrink-0`}
+        >
+          {(!isMobileScreen || mobileCorrectionOpen || hasDraftMessages) && (
+            <form onSubmit={handleSendMessage} className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+              <label
+                className={`flex items-center justify-center h-[38px] sm:h-[42px] w-[38px] sm:w-[42px] rounded-lg cursor-pointer border transition flex-shrink-0 ${headerBtnInactive}`}
+                title="Fehlendes Dokument (PDF/MD) nachladen (löst automatisch erneute Prüfung aus)"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+                <input
+                  type="file"
+                  accept=".pdf,.md,.txt"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={isLoading}
+                />
+              </label>
+
               <input
-                type="file"
-                accept=".pdf,.md,.txt"
-                className="hidden"
-                onChange={handleFileUpload}
+                ref={inputFieldRef}
+                type="text"
+                value={inputPrompt}
+                onChange={(e) => setInputPrompt(e.target.value)}
+                placeholder={
+                  isMobileScreen
+                    ? "Korrektur-Anweisung eingeben..."
+                    : "Optionaler Eingriff / Korrektur-Anweisung zum Schriftsatz (löst erneute Prüfung durch Spiegel-Kanzlei Omega aus)..."
+                }
                 disabled={isLoading}
+                className={`flex-1 min-w-[160px] rounded-lg px-3.5 h-[38px] sm:h-[42px] text-xs sm:text-sm border focus:outline-none focus:border-[#fbbf24] transition disabled:opacity-50 ${inputBg}`}
               />
-            </label>
+              <button
+                type="submit"
+                disabled={isLoading || !inputPrompt.trim()}
+                style={{ backgroundColor: "#fbbf24", color: "#000000" }}
+                className="font-extrabold px-3.5 sm:px-5 h-[38px] sm:h-[42px] rounded-lg text-xs sm:text-sm hover:opacity-90 transition disabled:opacity-50 flex-shrink-0 cursor-pointer"
+              >
+                {isMobileScreen ? "Senden" : "Anweisung senden & neu prüfen"}
+              </button>
+            </form>
+          )}
 
-            <input
-              ref={inputFieldRef}
-              type="text"
-              value={inputPrompt}
-              onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder="Optionaler Eingriff / Korrektur-Anweisung zum Schriftsatz (löst erneute Prüfung durch Spiegel-Kanzlei Omega aus)..."
-              disabled={isLoading}
-              className={`flex-1 rounded-lg px-4 h-[42px] text-xs sm:text-sm border focus:outline-none focus:border-[#fbbf24] transition disabled:opacity-50 ${inputBg}`}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !inputPrompt.trim()}
-              style={{ backgroundColor: "#fbbf24", color: "#000000" }}
-              className="font-extrabold px-5 h-[42px] rounded-lg text-xs sm:text-sm hover:opacity-90 transition disabled:opacity-50 flex-shrink-0 cursor-pointer"
-            >
-              Anweisung senden & neu prüfen
-            </button>
-          </form>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className={`text-xs px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg border font-bold cursor-pointer ${headerBtnInactive}`}
+              >
+                {isMobileScreen ? "Schließen" : "Schließen (Verlauf bleibt gespeichert)"}
+              </button>
 
-          <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`text-xs px-4 py-2.5 rounded-lg border font-bold cursor-pointer ${headerBtnInactive}`}
-            >
-              Schließen (Verlauf bleibt gespeichert)
-            </button>
+              {isMobileScreen && !hasDraftMessages && (
+                <button
+                  type="button"
+                  onClick={() => setMobileCorrectionOpen(!mobileCorrectionOpen)}
+                  className={`text-xs px-3 py-2 rounded-lg border font-bold cursor-pointer ${headerBtnInactive}`}
+                >
+                  {mobileCorrectionOpen ? "Eingabe ausblenden" : "+ Anlage / Korrektur"}
+                </button>
+              )}
+            </div>
 
             <button
               type="button"
@@ -1561,7 +1696,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   ? { backgroundColor: "#10b981", color: "#000000" }
                   : undefined
               }
-              className={`font-extrabold px-6 py-2.5 rounded-lg text-sm transition flex items-center justify-center ${
+              className={`font-extrabold px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition flex items-center justify-center ${
                 allFourGreen
                   ? "cursor-pointer hover:opacity-90 shadow"
                   : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60"
@@ -1573,8 +1708,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               }
             >
               {allFourGreen
-                ? "Ins Cockpit übergeben (Freigegeben)"
-                : "Ins Cockpit übergeben (Erst Lagebesprechung & 4x Grün)"}
+                ? "Ins Cockpit übergeben"
+                : (isMobileScreen ? "Erst 4x Grün abwarten" : "Ins Cockpit übergeben (Erst Lagebesprechung & 4x Grün)")}
             </button>
           </div>
         </div>
