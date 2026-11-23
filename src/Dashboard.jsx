@@ -248,14 +248,30 @@ export default function Dashboard({ session }) {
 
   const activeColor = getLogoColor();
 
-  // --- EINHEITLICHES HEADER-BUTTON-DESIGN (WIE LIVE-HILFE: TRANSPARENT + BLAU -> BEI AKTIVIERUNG INVERTIERT) ---
-  const headerPrimaryBlue = isDarkMode ? '#06b6d4' : '#0284c7';
-  const headerActiveText = '#020617';
+  // --- DYNAMISCHE REITER-FARBE FÜR DIE HEADER-FUNKTIONSBUTTONS ---
+  // Auf AKTEN (Cyan), WIR (Türkis-Grün), COMPLIANCE (Orange-Pfirsich), WISSEN (Lila) & HANDBUCH (Smaragd)
+  // übernehmen die Header-Buttons exakt die aktive Reiter-Farbe.
+  // Auf GEGNER weichen sie bewusst auf das edle Schiefergrau aus, damit nur "Abmelden" rot bleibt!
+  const headerActionColor = activeTab === 'gegner'
+    ? (isDarkMode ? '#94a3b8' : '#64748b')
+    : activeColor;
 
-  const getHeaderBluePillStyle = (isActive) => ({
-    background: isActive ? headerPrimaryBlue : 'transparent',
-    color: isActive ? headerActiveText : headerPrimaryBlue,
-    border: `1px solid ${headerPrimaryBlue}`,
+  // Kontrastsichere Text-/Iconfarbe, wenn ein Header-Button aktiv gefüllt (invertiert) ist
+  const getInvertedTextForFill = () => {
+    if (activeTab === 'gegner') {
+      return isDarkMode ? '#020617' : '#ffffff';
+    }
+    if (!isDarkMode) {
+      return '#ffffff';
+    }
+    // Im Dark Mode leuchten Cyan, Türkis, Orange-Pfirsich, Lila & Smaragd hell -> dunkle Schrift #020617
+    return '#020617';
+  };
+
+  const getHeaderActionPillStyle = (isActive) => ({
+    background: isActive ? headerActionColor : 'transparent',
+    color: isActive ? getInvertedTextForFill() : headerActionColor,
+    border: `1px solid ${headerActionColor}`,
     padding: isMobile ? '8px 12px' : '8px 16px',
     borderRadius: '30px',
     cursor: 'pointer',
@@ -265,7 +281,7 @@ export default function Dashboard({ session }) {
     fontWeight: 'bold',
     fontSize: '13px',
     lineHeight: 1.2,
-    transition: 'all 0.18s ease'
+    transition: 'all 0.22s ease'
   });
 
   const getHeaderDangerPillStyle = (isBusy = false) => ({
@@ -281,8 +297,21 @@ export default function Dashboard({ session }) {
     fontWeight: 'bold',
     fontSize: '13px',
     lineHeight: 1.2,
-    transition: 'all 0.18s ease'
+    transition: 'all 0.22s ease'
   });
+
+  // Einheitlicher Stil für alle Footer-Links (übernimmt dynamisch die aktive Reiter-Farbe!)
+  const footerLinkStyle = {
+    background: 'transparent',
+    border: 'none',
+    color: activeColor,
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    padding: 0,
+    textDecoration: 'underline',
+    transition: 'color 0.25s ease'
+  };
 
   useEffect(() => {
     const styleId = 'sonar-global-styles';
@@ -545,7 +574,7 @@ export default function Dashboard({ session }) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                 <strong style={{ color: theme.textMain, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Icon name="shield" size={20} style={{ color: theme.accent }} />
+                  <Icon name="shield" size={20} style={{ color: activeColor }} />
                   Rechtliche Hinweise, Datenschutz & Lizenzbedingungen (SMART SONAR COCKPIT)
                 </strong>
                 <button
@@ -576,8 +605,8 @@ export default function Dashboard({ session }) {
                     fontSize: '12px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    border: legalModalTab === 'impressum' ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                    background: legalModalTab === 'impressum' ? theme.accent : theme.cardBg,
+                    border: legalModalTab === 'impressum' ? `1px solid ${activeColor}` : `1px solid ${theme.border}`,
+                    background: legalModalTab === 'impressum' ? activeColor : theme.cardBg,
                     color: legalModalTab === 'impressum' ? (isDarkMode ? '#000' : '#fff') : theme.textMain
                   }}
                 >
@@ -592,8 +621,8 @@ export default function Dashboard({ session }) {
                     fontSize: '12px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    border: legalModalTab === 'datenschutz' ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                    background: legalModalTab === 'datenschutz' ? theme.accent : theme.cardBg,
+                    border: legalModalTab === 'datenschutz' ? `1px solid ${activeColor}` : `1px solid ${theme.border}`,
+                    background: legalModalTab === 'datenschutz' ? activeColor : theme.cardBg,
                     color: legalModalTab === 'datenschutz' ? (isDarkMode ? '#000' : '#fff') : theme.textMain
                   }}
                 >
@@ -608,8 +637,8 @@ export default function Dashboard({ session }) {
                     fontSize: '12px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    border: legalModalTab === 'haftung' ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                    background: legalModalTab === 'haftung' ? theme.accent : theme.cardBg,
+                    border: legalModalTab === 'haftung' ? `1px solid ${activeColor}` : `1px solid ${theme.border}`,
+                    background: legalModalTab === 'haftung' ? activeColor : theme.cardBg,
                     color: legalModalTab === 'haftung' ? (isDarkMode ? '#000' : '#fff') : theme.textMain
                   }}
                 >
@@ -633,7 +662,7 @@ export default function Dashboard({ session }) {
             >
               {legalModalTab === 'impressum' && (
                 <>
-                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '16px', textTransform: 'uppercase' }}>
+                  <h3 style={{ margin: 0, color: activeColor, fontSize: '16px', textTransform: 'uppercase' }}>
                     ANBIETERKENNZEICHNUNG & IMPRESSUM GEMÄSS § 5 DIGITALE-DIENSTE-GESETZ (DDG)
                   </h3>
 
@@ -670,7 +699,7 @@ export default function Dashboard({ session }) {
 
               {legalModalTab === 'datenschutz' && (
                 <>
-                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '16px', textTransform: 'uppercase' }}>
+                  <h3 style={{ margin: 0, color: activeColor, fontSize: '16px', textTransform: 'uppercase' }}>
                     DATENSCHUTZ-, CLOUD-ARCHITEKTUR- & KI-TRANSPARENZHINWEISE (DSGVO & EU-KI-VO)
                   </h3>
 
@@ -722,7 +751,7 @@ export default function Dashboard({ session }) {
 
               {legalModalTab === 'haftung' && (
                 <>
-                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '16px', textTransform: 'uppercase' }}>
+                  <h3 style={{ margin: 0, color: activeColor, fontSize: '16px', textTransform: 'uppercase' }}>
                     NUTZUNGS-, LIZENZ-, HAFTUNGS- UND SCHUTZRECHTSBEDINGUNGEN (B2B)
                   </h3>
 
@@ -785,7 +814,7 @@ export default function Dashboard({ session }) {
                 type="button"
                 onClick={() => setLegalModalTab(null)}
                 style={{
-                  background: theme.accent,
+                  background: activeColor,
                   color: isDarkMode ? '#000' : '#fff',
                   border: 'none',
                   borderRadius: '6px',
@@ -817,7 +846,7 @@ export default function Dashboard({ session }) {
         }}
       >
 
-        {/* --- HEADER: DURCHGÄNGIG EINHEITLICHES OUTLINE-/AKTIV-PANEL --- */}
+        {/* --- HEADER: DURCHGÄNGIG REITER-KONSISTENTES OUTLINE-/AKTIV-PANEL --- */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
           <h1 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '20px' : '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="signal" size={24} style={{ color: activeColor, transition: 'color 0.3s ease' }} /> SONAR COCKPIT
@@ -825,13 +854,13 @@ export default function Dashboard({ session }) {
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
 
-            {/* 1. LIVE-BEDIENHILFE (INAKTIV: BLAU OUTLINE | AKTIV: BLAU GEFÜLLT + DUNKLE SCHRIFT/ICON) */}
+            {/* 1. LIVE-BEDIENHILFE (ÜBERNIMMT REITER-FARBE | BEI GEGNER SCHIEFERGRAU | AKTIV INVERTIERT) */}
             <button
               type="button"
               data-sonar-help-ignore="true"
               title={isHelpOpen ? 'Interaktive Live-Bedienhilfe ausschalten' : 'Interaktive Live-Bedienhilfe einschalten'}
               onClick={() => setIsHelpOpen(!isHelpOpen)}
-              style={getHeaderBluePillStyle(isHelpOpen)}
+              style={getHeaderActionPillStyle(isHelpOpen)}
             >
               <Icon name="bulb" size={18} />
               <span>{isMobile ? (isHelpOpen ? 'Hilfe AN' : 'Hilfe') : (isHelpOpen ? 'Live-Hilfe aktiv' : 'Live-Hilfe')}</span>
@@ -852,7 +881,7 @@ export default function Dashboard({ session }) {
               </button>
             )}
 
-            {/* 2. SUPPORT (EXAKT WIE LIVE-HILFE: BLAU OUTLINE | BEIM ÖFFNEN BLAU GEFÜLLT + ROTER BADGE-PIN) */}
+            {/* 2. SUPPORT MIT NEUEM PERSONEN-SPRECHBLASEN-ICON & LIVE-BADGE */}
             <button
               type="button"
               data-sonar-help-ignore="true"
@@ -863,12 +892,12 @@ export default function Dashboard({ session }) {
               }
               onClick={() => setIsSupportOpen(!isSupportOpen)}
               style={{
-                ...getHeaderBluePillStyle(isSupportOpen),
+                ...getHeaderActionPillStyle(isSupportOpen),
                 position: 'relative',
                 gap: isMobile ? '0' : '8px'
               }}
             >
-              <Icon name="mail" size={18} />
+              <Icon name="support" size={18} />
               {!isMobile && <span>Support</span>}
               {supportUnreadCount > 0 && (
                 <span
@@ -896,14 +925,14 @@ export default function Dashboard({ session }) {
               )}
             </button>
 
-            {/* 3. LIGHT / DARK MODE (EXAKT WIE LIVE-HILFE: TRANSPARENT + BLAU | IM AKTIVEN LIGHT MODE INVERTIERT GEFÜLLT) */}
+            {/* 3. LIGHT / DARK MODE (ÜBERNIMMT REITER-FARBE | BEI GEGNER SCHIEFERGRAU | AKTIV INVERTIERT) */}
             <button
               type="button"
               data-help="header_theme_toggle"
               title={isDarkMode ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
               onClick={() => setIsDarkMode(!isDarkMode)}
               style={{
-                ...getHeaderBluePillStyle(!isDarkMode),
+                ...getHeaderActionPillStyle(!isDarkMode),
                 gap: isMobile ? '0' : '8px'
               }}
             >
@@ -911,7 +940,7 @@ export default function Dashboard({ session }) {
               {!isMobile && <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>}
             </button>
 
-            {/* 4. ABMELDEN (EINHEITLICHER ROTER OUTLINE-STIL) */}
+            {/* 4. ABMELDEN (BLEIBT AUF ALLEN REITERN KLAR IM ROTEN GEFAHREN-OUTLINE) */}
             <button
               type="button"
               title="Abmelden"
@@ -1065,7 +1094,7 @@ export default function Dashboard({ session }) {
           )}
         </div>
 
-        {/* --- DURCHGÄNGIGER RECHTS-, URHEBERRECHTS- & COMPLIANCE-FOOTER (INKL. ADMIN-EXKLUSIVEM TECH-HANDBUCH-LINK) --- */}
+        {/* --- DURCHGÄNGIGER RECHTS-, URHEBERRECHTS- & COMPLIANCE-FOOTER (ALLE LINKS ÜBERNEHMEN REITER-FARBE) --- */}
         <footer
           style={{
             marginTop: '48px',
@@ -1089,16 +1118,7 @@ export default function Dashboard({ session }) {
             <button
               type="button"
               onClick={() => setLegalModalTab('impressum')}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: theme.accent,
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                padding: 0,
-                textDecoration: 'underline'
-              }}
+              style={footerLinkStyle}
             >
               Impressum (§ 5 DDG)
             </button>
@@ -1106,16 +1126,7 @@ export default function Dashboard({ session }) {
             <button
               type="button"
               onClick={() => setLegalModalTab('datenschutz')}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: theme.accent,
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                padding: 0,
-                textDecoration: 'underline'
-              }}
+              style={footerLinkStyle}
             >
               Datenschutz & Cloud-Architektur (DSGVO / KI-VO)
             </button>
@@ -1123,16 +1134,7 @@ export default function Dashboard({ session }) {
             <button
               type="button"
               onClick={() => setLegalModalTab('haftung')}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: theme.accent,
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                padding: 0,
-                textDecoration: 'underline'
-              }}
+              style={footerLinkStyle}
             >
               Lizenz-, Haftungs- & RDG/StBerG-Bedingungen
             </button>
@@ -1146,14 +1148,7 @@ export default function Dashboard({ session }) {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: activeTab === 'handbuch' ? theme.handbuchAccent : theme.accent,
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  padding: 0,
-                  textDecoration: 'underline',
+                  ...footerLinkStyle,
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '5px'
