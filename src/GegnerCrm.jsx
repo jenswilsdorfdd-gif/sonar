@@ -30,9 +30,9 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
     
     let notizenStr = '';
     if (typeof g.notizen === 'string') {
-        notizenStr = g.notizen.toLowerCase();
+      notizenStr = g.notizen.toLowerCase();
     } else if (g.notizen) {
-        notizenStr = JSON.stringify(g.notizen).toLowerCase();
+      notizenStr = JSON.stringify(g.notizen).toLowerCase();
     }
 
     return gName.includes(s) || adr.includes(s) || mail.includes(s) || notizenStr.includes(s);
@@ -204,18 +204,26 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
       </h2>
 
       <form onSubmit={speichereGegner} style={{ ...panelStyle, marginBottom: '20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', textAlign: 'left' }}>
-          <div style={{ gridColumn: '1 / -1' }}>
-            <h4 style={{ margin: 0, color: theme.gegnerAccent, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Icon name="building" size={16} /> 1. Hauptdaten der Behörde / Gegners
-            </h4>
-          </div>
-          <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
-          <div><label style={labelStyle}>Zentrale Postadresse</label><input value={g_adresse} onChange={e=>setG_adresse(e.target.value)} style={inputStyle}/></div>
-          <div><label style={labelStyle}>Zentrale Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
-          <div><label style={labelStyle}>Zentrale E-Mail</label><input type="email" value={g_email} onChange={e=>setG_email(e.target.value)} placeholder="z.B. poststelle@fa-dresden.de" style={inputStyle}/></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left' }}>
 
-          <div style={{ gridColumn: '1 / -1', marginTop: '15px' }}>
+          {/* 1. HAUPTDATEN DER BEHÖRDE / GEGNERS */}
+          <div
+            data-help="gegner_hauptdaten_1"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px' }}
+          >
+            <div style={{ gridColumn: '1 / -1' }}>
+              <h4 style={{ margin: 0, color: theme.gegnerAccent, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="building" size={16} /> 1. Hauptdaten der Behörde / Gegners
+              </h4>
+            </div>
+            <div><label style={labelStyle}>Behörde / Gegner Name*</label><input required value={g_name} onChange={e=>setG_name(e.target.value)} placeholder="z.B. Finanzamt Dresden-Süd" style={inputStyle}/></div>
+            <div><label style={labelStyle}>Zentrale Postadresse</label><input value={g_adresse} onChange={e=>setG_adresse(e.target.value)} style={inputStyle}/></div>
+            <div><label style={labelStyle}>Zentrale Faxnummer</label><input value={g_fax} onChange={e=>setG_fax(e.target.value)} style={inputStyle}/></div>
+            <div><label style={labelStyle}>Zentrale E-Mail</label><input type="email" value={g_email} onChange={e=>setG_email(e.target.value)} placeholder="z.B. poststelle@fa-dresden.de" style={inputStyle}/></div>
+          </div>
+
+          {/* 2. ABTEILUNGEN & ANSPRECHPARTNER */}
+          <div data-help="gegner_abteilungen_2" style={{ marginTop: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
               <h4 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Icon name="users" size={16} /> 2. Abteilungen & Ansprechpartner
@@ -227,10 +235,10 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
 
             {g_ansprechpartnerListe.map((item, idx) => (
               <div key={idx} style={{ background: theme.inputBg, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, marginBottom: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'end' }}>
-                <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>Abteilung</label><input value={item.abteilung} onChange={e => updateAnsprechpartnerRow(idx, 'abteilung', e.target.value)} placeholder="z.B. Gewerbesteuer" style={{ ...inputStyle, padding: '8px' }}/></div>
-                <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>Name Bearbeiter</label><input value={item.name} onChange={e => updateAnsprechpartnerRow(idx, 'name', e.target.value)} placeholder="z.B. Herr Müller" style={{ ...inputStyle, padding: '8px' }}/></div>
-                <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>Durchwahl / Tel</label><input value={item.telefon} onChange={e => updateAnsprechpartnerRow(idx, 'telefon', e.target.value)} placeholder="z.B. 0351/12345" style={{ ...inputStyle, padding: '8px' }}/></div>
-                <div style={{ flex: '1 1 min(100%, 120px)' }}><label style={labelStyle}>E-Mail</label><input value={item.email} onChange={e => updateAnsprechpartnerRow(idx, 'email', e.target.value)} placeholder="z.B. mueller@fa.de" style={{ ...inputStyle, padding: '8px' }}/></div>
+                <div style={{ flex: '1 1 min(100%, 140px)' }}><label style={labelStyle}>Abteilung</label><input value={item.abteilung} onChange={e => updateAnsprechpartnerRow(idx, 'abteilung', e.target.value)} placeholder="z.B. Gewerbesteuer" style={{ ...inputStyle, padding: '8px' }}/></div>
+                <div style={{ flex: '1 1 min(100%, 140px)' }}><label style={labelStyle}>Name Bearbeiter</label><input value={item.name} onChange={e => updateAnsprechpartnerRow(idx, 'name', e.target.value)} placeholder="z.B. Herr Müller" style={{ ...inputStyle, padding: '8px' }}/></div>
+                <div style={{ flex: '1 1 min(100%, 140px)' }}><label style={labelStyle}>Durchwahl / Tel</label><input value={item.telefon} onChange={e => updateAnsprechpartnerRow(idx, 'telefon', e.target.value)} placeholder="z.B. 0351/12345" style={{ ...inputStyle, padding: '8px' }}/></div>
+                <div style={{ flex: '1 1 min(100%, 160px)' }}><label style={labelStyle}>E-Mail</label><input value={item.email} onChange={e => updateAnsprechpartnerRow(idx, 'email', e.target.value)} placeholder="z.B. mueller@fa.de" style={{ ...inputStyle, padding: '8px' }}/></div>
                 <div>
                   {g_ansprechpartnerListe.length > 1 && (
                     <button type="button" onClick={() => removeAnsprechpartnerRow(idx)} style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '8px', width: '100%' }} title="Zeile entfernen">
@@ -260,7 +268,10 @@ export default function GegnerCrm({ session, theme, gegnerListe, ladeDaten, show
       </h3>
 
       {/* GESPEICHERTE BEHÖRDEN */}
-      <div style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}>
+      <div
+        data-help="gegner_liste_overview"
+        style={{ borderRadius: '12px', border: `1px solid ${theme.border}`, overflow: 'hidden', background: theme.cardBg, width: '100%', boxSizing: 'border-box' }}
+      >
         <div style={{ width: '100%' }}>
           
           {/* DESKTOP HEADER */}
