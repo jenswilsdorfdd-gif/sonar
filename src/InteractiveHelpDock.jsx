@@ -2,6 +2,7 @@
 // ADAPTIVE FELD-FÜR-FELD LIVE-BEDIENHILFE FÜR SONAR COCKPIT
 // - Desktop & großes Tablet (> 1024px): Feststehendes (position: fixed) 1/3-Kontext-Dock rechts, das beim Scrollen immer sichtbar mitläuft + "i"-Badges
 // - Smartphone & kompakte Screens (<= 1024px): 100 % Cockpit-Breite + antippbare "i"-Badges + kompaktes 1-Ebenen-Pop-up
+// - Mitlaufender Schnellstart-Trigger: Ab leichtem Scrollen jederzeit unten rechts klickbar -> öffnet sofort das passende Feld im Sichtbereich!
 // - Automatische Overflow-Erkennung: Container mit overflow: hidden schneiden das "i"-Badge niemals ab (.sonar-help-badge-inset)
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -9,6 +10,7 @@ import { SONAR_HELP_CATALOG, SONAR_GUIDED_TOUR } from './config/sonarHelpCatalog
 
 export default function InteractiveHelpDock({
   isOpen,
+  onOpen,
   onClose,
   theme,
   isDarkMode,
@@ -20,11 +22,14 @@ export default function InteractiveHelpDock({
   const [pinnedHelpId, setPinnedHelpId] = useState(null);
   const [mobilePopupHelpId, setMobilePopupHelpId] = useState(null);
   const [tourIndex, setTourIndex] = useState(null);
+  const [isScrolledDown, setIsScrolledDown] = useState(false);
 
   const hoverTimerRef = useRef(null);
   const pinnedRef = useRef(null);
   const compactRef = useRef(isCompactViewport);
   const dockAsideRef = useRef(null);
+  const lastInteractedHelpRef = useRef(null);
+  const pendingInitialHelpRef = useRef(null);
 
   useEffect(() => {
     pinnedRef.current = pinnedHelpId;
@@ -34,15 +39,132 @@ export default function InteractiveHelpDock({
     compactRef.current = isCompactViewport;
   }, [isCompactViewport]);
 
-  // Beim Ausschalten der Live-Hilfe alle temporären Overlays & Pins sauber zurücksetzen
+  // Überwacht die Scroll-Position, damit beim Runterscrollen in lange Listen (z. B. Akten) ein mitlaufender Hilfe-Trigger bereitsteht
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleScroll = () => {
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      setIsScrolledDown(y > 160);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Merkt sich auch bei ausgeschalteter Hilfe lautlos das zuletzt fokussierte/angeklickte [data-help]-Feld
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const trackLastField = (e) => {
+      const target = e.target;
+      if (!target || typeof target.closest !== 'function') return;
+      if (target.closest('[data-sonar-help-ignore="true"]')) return;
+      const el = target.closest('[data-help]');
+      if (!el) return;
+      const key = el.getAttribute('data-help');
+      if (key && SONAR_HELP_CATALOG[key]) {
+        lastInteractedHelpRef.current = { key, el };
+      }
+    };
+
+    document.addEventListener('focusin', trackLastField, true);
+    document.addEventListener('pointerdown', trackLastField, true);
+    return () => {
+      document.removeEventListener('focusin', trackLastField, true);
+      document.removeEventListener('pointerdown', trackLastField, true);
+    };
+  }, []);
+
+  // Ermittelt intelligent das [data-help]-Feld, an dem der Nutzer gerade arbeitet bzw. das aktuell im Sichtbereich liegt
+  const detectVisibleContextHelpKey = useCallback(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return 'default_welcome';
+    }
+
+    const vh = window.innerHeight || 800;
+
+    // 1. Direkt fokussiertes Element prüfen
+    if (document.activeElement && typeof document.activeElement.closest === 'function') {
+      const activeHelpEl = document.activeElement.closest('[data-help]');
+      if (activeHelpEl) {
+        const activeKey = activeHelpEl.getAttribute('data-help');
+        if (activeKey && SONAR_HELP_CATALOG[activeKey]) return activeKey;
+      }
+    }
+
+    // 2. Zuletzt angeklicktes Feld prüfen, sofern es noch im aktuellen Sichtbereich liegt
+    const last = lastInteractedHelpRef.current;
+    if (last && last.el && document.body.contains(last.el) && SONAR_HELP_CATALOG[last.key]) {
+      const rect = last.el.getBoundingClientRect();
+      if (rect.height > 0 && rect.bottom > 40 && rect.top < vh - 40) {
+        return last.key;
+      }
+    }
+
+    // 3. Bestes sichtbares [data-help]-Element im aktuellen Viewport bestimmen (Spezifischere Felder vor großen Wrappern)
+    const centerY = vh * 0.42;
+    let bestKey = null;
+    let bestScore = Infinity;
+
+    document.querySelectorAll('[data-help]').forEach((el) => {
+      const key = el.getAttribute('data-help');
+      if (!key || !SONAR_HELP_CATALOG[key]) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      if (rect.bottom < 60 || rect.top > vh - 60) return;
+
+      const containsCenter = rect.top <= centerY && rect.bottom >= centerY;
+      const distToCenter = containsCenter
+        ? 0
+        : Math.min(Math.abs(rect.top - centerY), Math.abs(rect.bottom - centerY));
+
+      // Kleinere/spezifischere Boxen erhalten bei Überlappung Vorrang vor riesigen Gesamt-Containern
+      const sizePenalty = Math.min(rect.height, 1400) * 0.12;
+      const score = distToCenter + sizePenalty;
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestKey = key;
+      }
+    });
+
+    return bestKey || 'default_welcome';
+  }, []);
+
+  // Öffnet die Live-Hilfe von jeder beliebigen Scroll-Stelle aus und lädt rechts sofort das passende Thema
+  const handleFloatingOpen = () => {
+    const contextKey = detectVisibleContextHelpKey();
+    pendingInitialHelpRef.current = contextKey;
+
+    if (isCompactViewport) {
+      setMobilePopupHelpId(contextKey);
+    } else {
+      setActiveHelpId(contextKey);
+    }
+
+    if (typeof onOpen === 'function') {
+      onOpen();
+    } else if (typeof document !== 'undefined') {
+      // Sicherheits-Fallback, falls onOpen noch nicht als Prop übergeben wurde
+      const headerHelpBtn = document.querySelector('button[title*="Live-Bedienhilfe"]');
+      if (headerHelpBtn) headerHelpBtn.click();
+    }
+  };
+
+  // Beim Ein- und Ausschalten der Live-Hilfe Zustände sauber setzen
   useEffect(() => {
     if (!isOpen) {
       setPinnedHelpId(null);
       setMobilePopupHelpId(null);
       setTourIndex(null);
       setActiveHelpId('default_welcome');
+    } else {
+      const targetKey = pendingInitialHelpRef.current || detectVisibleContextHelpKey();
+      pendingInitialHelpRef.current = null;
+      if (targetKey && SONAR_HELP_CATALOG[targetKey]) {
+        setActiveHelpId(targetKey);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, detectVisibleContextHelpKey]);
 
   // Scrollt den Inhalt innerhalb des rechten Desktop-Docks nach oben, sobald ein neues Feld gewählt wird
   const scrollDockToTop = useCallback(() => {
@@ -288,7 +410,88 @@ export default function InteractiveHelpDock({
     }, 150);
   };
 
-  if (!isOpen) return null;
+  // Dynamische Reiterfarbe für den mitlaufenden Hilfe-Button (konsistent zur Header-Logik)
+  const getFloatingAccentColor = () => {
+    if (!theme) return '#06b6d4';
+    switch (activeTab) {
+      case 'tresor':
+        return theme.tresorAccent || '#2dd4bf';
+      case 'compliance':
+        return theme.complianceAccent || '#f59e0b';
+      case 'wissen':
+        return theme.wissenAccent || '#a855f7';
+      case 'handbuch':
+        return theme.handbuchAccent || '#10b981';
+      case 'gegner':
+        return isDarkMode ? '#94a3b8' : '#64748b';
+      default:
+        return theme.accent || '#06b6d4';
+    }
+  };
+
+  // =========================================================================
+  // WENN LIVE-HILFE AUS IST: MITLAUFENDER SCHNELLSTART-BUTTON BEIM SCROLLEN
+  // =========================================================================
+  if (!isOpen) {
+    if (!isScrolledDown) return null;
+
+    const floatColor = getFloatingAccentColor();
+    const floatBg = isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)';
+
+    return (
+      <button
+        type="button"
+        data-sonar-help-ignore="true"
+        onClick={handleFloatingOpen}
+        title="Live-Bedienhilfe direkt an dieser Stelle öffnen"
+        aria-label="Live-Bedienhilfe direkt an dieser Stelle öffnen"
+        style={{
+          position: 'fixed',
+          bottom: isCompactViewport ? '18px' : '24px',
+          right: isCompactViewport ? '16px' : '24px',
+          zIndex: 85,
+          background: floatBg,
+          color: floatColor,
+          border: `1.5px solid ${floatColor}`,
+          borderRadius: '9999px',
+          padding: isCompactViewport ? '9px 14px' : '10px 18px',
+          fontSize: '13px',
+          fontWeight: 800,
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: isDarkMode
+            ? '0 8px 24px rgba(0, 0, 0, 0.55)'
+            : '0 8px 24px rgba(15, 23, 42, 0.16)',
+          backdropFilter: 'blur(8px)',
+          transition: 'transform 0.18s ease, box-shadow 0.18s ease'
+        }}
+      >
+        <span
+          style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '9999px',
+            background: floatColor,
+            color: isDarkMode ? '#020617' : '#ffffff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
+            fontSize: '12px',
+            fontWeight: 900,
+            fontStyle: 'italic',
+            lineHeight: 1,
+            flexShrink: 0
+          }}
+        >
+          i
+        </span>
+        <span>{isCompactViewport ? 'Hilfe' : 'Live-Hilfe hier starten'}</span>
+      </button>
+    );
+  }
 
   const helpAccent = '#06b6d4';
   const dockBg = isDarkMode ? '#081226' : '#f0f9ff';
@@ -782,7 +985,10 @@ export default function InteractiveHelpDock({
 
             <button
               type="button"
-              onClick={() => setMobilePopupHelpId(null)}
+              onClick={() => {
+                setMobilePopupHelpId(null);
+                onClose();
+              }}
               style={{
                 width: '100%',
                 marginTop: '4px',
