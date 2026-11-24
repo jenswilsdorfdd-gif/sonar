@@ -3,10 +3,12 @@
 // - Echtzeit-Badge-Berechnung via Supabase Realtime (demo_access_requests + support_tickets)
 // - Admin: 1-Klick-E-Mail-Freigabe, Zugangs-Verwaltung & direktes Beantworten/Schließen von Tickets inkl. Auto-E-Mail
 // - Kunde/Tester: Eigene Inbox (Antworten & Freischalt-Status) + Neues Ticket stellen (Support / Lizenz- & Sales-Anfrage)
+// - Außenauftritt & E-Mail-Signaturen dynamisch gesteuert über src/config/sonarLegalConfig.js
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
+import { getActiveLegalOperator } from './config/sonarLegalConfig';
 
 const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
 
@@ -22,6 +24,7 @@ export default function SupportCenterModal({
   const userId = session?.user?.id || null;
   const userEmail = (session?.user?.email || '').trim().toLowerCase();
   const isOwner = userId === OWNER_USER_ID;
+  const op = getActiveLegalOperator();
 
   // Navigation im Modal
   const [adminTab, setAdminTab] = useState('access'); // 'access' | 'tickets'
@@ -250,8 +253,7 @@ export default function SupportCenterModal({
 
       if (dbErr) throw new Error(dbErr.message);
 
-      // 2. Freischalt-Bestätigung auch als Willkommens-Nachricht ins In-App Support-Center legen,
-      //    damit der Tester beim ersten Login oben am Support-Knopf direkt seine Begrüßungsmeldung sieht!
+      // 2. Freischalt-Bestätigung als Willkommens-Nachricht ins In-App Support-Center legen
       const cleanReqEmail = String(reqItem.email || '').trim().toLowerCase();
       const existingWelcome = tickets.find(
         (t) =>
@@ -262,7 +264,7 @@ export default function SupportCenterModal({
       const welcomeMsgObj = {
         id: 'msg_' + Date.now(),
         sender: 'admin',
-        sender_name: 'SONAR Support (Jens Wilsdorf)',
+        sender_name: op.supportSenderName,
         text: `Herzlich willkommen im SMART SONAR COCKPIT! Ihre E-Mail-Adresse (${cleanReqEmail}) wurde erfolgreich freigeschaltet. Falls Sie während Ihres Tests technische Fragen haben oder eine individuelle Unternehmens-Einrichtung wünschen, können Sie uns jederzeit direkt hier über diesen Support-Bereich schreiben.`,
         created_at: nowIso
       };
@@ -286,7 +288,7 @@ export default function SupportCenterModal({
         ]);
       }
 
-      // 3. Einladungs-E-Mail (ohne PDF-Anhang) an die Anmelde-E-Mail senden
+      // 3. Einladungs-E-Mail (ohne PDF-Anhang) mit dynamischer Betreiber-Signatur senden
       const cockpitUrl = window.location.origin;
       const salutation = reqItem.name ? `Guten Tag ${reqItem.name},` : 'Guten Tag,';
 
@@ -304,8 +306,8 @@ export default function SupportCenterModal({
         'Für Rückfragen steht Ihnen ab sofort direkt oben rechts im Cockpit der Button „Support“ zur Verfügung.',
         '',
         'Mit freundlichen Grüßen',
-        'Jens Wilsdorf',
-        'Wilsdorf & Sommer GmbH'
+        op.supportMailSignOffName,
+        op.supportMailSignOffCompany
       ].join('\n');
 
       const mailHtml = `
@@ -328,7 +330,7 @@ export default function SupportCenterModal({
           <p style="font-size: 12.5px; color: #475569;">
             Bei Fragen erreichen Sie uns jederzeit direkt im Cockpit über den Button <strong>„Support“</strong> oben rechts.
           </p>
-          <p>Mit freundlichen Grüßen<br/><strong>Jens Wilsdorf</strong><br/>Wilsdorf &amp; Sommer GmbH</p>
+          <p>Mit freundlichen Grüßen<br/><strong>${escapeHtml(op.supportMailSignOffName)}</strong><br/>${escapeHtml(op.supportMailSignOffCompany)}</p>
         </div>
       `;
 
@@ -339,7 +341,11 @@ export default function SupportCenterModal({
           text: mailText,
           html: mailHtml,
           isOwnerAccount: true,
-          unsereFirma: 'Wilsdorf & Sommer GmbH',
+          unsereFirma: op.supportMailSignOffCompany,
+          mandantProfil: {
+            firmenname: op.supportMailSignOffCompany,
+            email: op.contactEmail
+          },
           skipPdfAttachment: true,
           skipOwnerCc: true
         }
@@ -449,15 +455,15 @@ export default function SupportCenterModal({
 
       if (error) throw new Error(error.message);
 
-      // Optionaler E-Mail-Hinweis an dich als Admin, falls du gerade nicht im offenen Tab sitzt
+      // E-Mail-Benachrichtigung an die konfigurierte Betreiber-/Vertriebsadresse
       try {
         await supabase.functions.invoke('sonar-send-email', {
           body: {
-            to: 'post@wilsdorf.org',
+            to: op.adminNotifyEmail || op.contactEmail,
             subject: `[SONAR Support-Ticket] ${newSubject.trim()} (${userEmail})`,
             text: `Neues Ticket im SONAR Cockpit:\n\nVon: ${newName.trim() || '-'} (${userEmail})\nFirma: ${newFirma.trim() || '-'}\nKategorie: ${newTicketType === 'sales_upgrade' ? 'Vollversion / Einrichtung (Sales)' : 'Technischer Support'}\nBetreff: ${newSubject.trim()}\n\nNachricht:\n${newMessage.trim()}`,
             isOwnerAccount: true,
-            unsereFirma: 'SMART SONAR COCKPIT',
+            unsereFirma: op.supportMailSignOffCompany,
             skipPdfAttachment: true,
             skipOwnerCc: true
           }
@@ -496,7 +502,7 @@ export default function SupportCenterModal({
         id: 'msg_' + Date.now(),
         sender: isOwner ? 'admin' : 'user',
         sender_name: isOwner
-          ? 'SONAR Support (Jens Wilsdorf)'
+          ? op.supportSenderName
           : activeTicket.user_name || userEmail,
         text: cleanReply,
         created_at: nowIso
@@ -546,8 +552,8 @@ export default function SupportCenterModal({
           `Sie können direkt im Cockpit oben rechts über den Button „Support“ antworten: ${cockpitUrl}`,
           '',
           'Mit freundlichen Grüßen',
-          'Jens Wilsdorf',
-          'Wilsdorf & Sommer GmbH'
+          op.supportMailSignOffName,
+          op.supportMailSignOffCompany
         ].join('\n');
 
         const mailHtml = `
@@ -563,7 +569,7 @@ export default function SupportCenterModal({
             <p style="font-size: 12px; color: #64748b;">
               Öffnen Sie nach der Anmeldung einfach oben rechts den Button <strong>„Support“</strong>.
             </p>
-            <p>Mit freundlichen Grüßen<br/><strong>Jens Wilsdorf</strong><br/>Wilsdorf &amp; Sommer GmbH</p>
+            <p>Mit freundlichen Grüßen<br/><strong>${escapeHtml(op.supportMailSignOffName)}</strong><br/>${escapeHtml(op.supportMailSignOffCompany)}</p>
           </div>
         `;
 
@@ -574,7 +580,11 @@ export default function SupportCenterModal({
             text: mailText,
             html: mailHtml,
             isOwnerAccount: true,
-            unsereFirma: 'Wilsdorf & Sommer GmbH',
+            unsereFirma: op.supportMailSignOffCompany,
+            mandantProfil: {
+              firmenname: op.supportMailSignOffCompany,
+              email: op.contactEmail
+            },
             skipPdfAttachment: true,
             skipOwnerCc: true
           }
@@ -793,7 +803,7 @@ export default function SupportCenterModal({
                 }}
               >
                 <Icon name="in" size={15} />
-                <span>Support- & Kunden-Tickets ({tickets.length})</span>
+                <span>Support- &amp; Kunden-Tickets ({tickets.length})</span>
                 {unreadTicketsOwnerCount > 0 && (
                   <span
                     style={{
@@ -1047,7 +1057,7 @@ export default function SupportCenterModal({
                                 cursor: 'pointer'
                               }}
                             >
-                              Freigeben & Mail senden
+                              Freigeben &amp; Mail senden
                             </button>
                           )}
 
@@ -1308,7 +1318,7 @@ export default function SupportCenterModal({
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '11px', marginBottom: '5px', color: fromAdmin ? '#06b6d4' : theme.textMuted, fontWeight: 'bold' }}>
-                            <span>{msg.sender_name || (fromAdmin ? 'SONAR Support' : activeTicket.user_email)}</span>
+                            <span>{fromAdmin ? op.supportSenderName : (msg.sender_name || activeTicket.user_email)}</span>
                             <span>{formatTs(msg.created_at)}</span>
                           </div>
                           <div style={{ fontSize: '13.5px', color: theme.textMain, whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
@@ -1366,8 +1376,8 @@ export default function SupportCenterModal({
                             {busyAction
                               ? 'Sende...'
                               : isOwner
-                              ? 'Antwort senden & E-Mail verschicken'
-                              : 'Antwort absenden'}
+                                ? 'Antwort senden & E-Mail verschicken'
+                                : 'Antwort absenden'}
                           </span>
                         </button>
                       </div>
@@ -1457,7 +1467,7 @@ export default function SupportCenterModal({
                                   maxWidth: '620px'
                                 }}
                               >
-                                {lastMsg.sender === 'admin' ? 'SONAR Support: ' : 'Nachricht: '}
+                                {lastMsg.sender === 'admin' ? `${op.supportSenderName}: ` : 'Nachricht: '}
                                 {lastMsg.text}
                               </div>
                             )}
