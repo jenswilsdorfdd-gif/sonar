@@ -80,6 +80,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
   const [isWarRoomOpen, setIsWarRoomOpen] = useState(false);
   const [activeWarRoomDossier, setActiveWarRoomDossier] = useState(null);
+  const [duplikatNummerFilter, setDuplikatNummerFilter] = useState(null);
 
   const autoGenRef = useRef('');
 
@@ -197,16 +198,23 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const cleanUZ = cleanZeichenString(inUnserZeichen);
     const cleanAZ = cleanZeichenString(inAktenzeichen);
 
-    // STUFE 1A: Abgleich über Unser Zeichen
+    // STUFE 1A: Abgleich über Unser Zeichen (exakter Voll-Treffer hat immer Vorrang; Nummern-Präfix nur wenn eindeutig!)
     if (cleanUZ.length >= 4) {
-      const exactUzAkte = akten.find(a => cleanZeichenString(a.unser_zeichen) === cleanUZ);
-      if (exactUzAkte) return { akte: exactUzAkte, reason: 'Unser Zeichen erkannt' };
+      const exactUzMatches = akten.filter(a => !a.is_demo_showcase && cleanZeichenString(a.unser_zeichen) === cleanUZ);
+      if (exactUzMatches.length === 1) {
+        return { akte: exactUzMatches[0], reason: 'Unser Zeichen eindeutig erkannt' };
+      }
 
       const numMatch = String(inUnserZeichen).match(/^(\d{4})-/);
       if (numMatch) {
         const prefixNum = numMatch[1];
-        const prefixAkte = akten.find(a => a.unser_zeichen && a.unser_zeichen.startsWith(`${prefixNum}-`));
-        if (prefixAkte) return { akte: prefixAkte, reason: `Aktennummer ${prefixNum} erkannt` };
+        const prefixMatches = akten.filter(
+          a => !a.is_demo_showcase && a.unser_zeichen && a.unser_zeichen.startsWith(`${prefixNum}-`)
+        );
+        // Nur direkt zuordnen, wenn diese 4-stellige Aktennummer im Bestand wirklich nur 1x existiert!
+        if (prefixMatches.length === 1) {
+          return { akte: prefixMatches[0], reason: `Eindeutige Aktennummer ${prefixNum} erkannt` };
+        }
       }
     }
 
@@ -1240,6 +1248,27 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
       }
     }
 
+    // Zukunftsschutz gegen doppelte Aktennummern beim händischen Ändern in der Liste
+    if (feld === 'unser_zeichen' && wert && String(wert).trim() !== '') {
+      const trimmedZeichen = String(wert).trim();
+      const candidateNum = parseAktenNummer(trimmedZeichen);
+      const konfligierendeAkte = akten.find(a => {
+        if (a.id === akteId || a.is_demo_showcase) return false;
+        if (cleanZeichenString(a.unser_zeichen) === cleanZeichenString(trimmedZeichen)) return true;
+        if (candidateNum !== null && parseAktenNummer(a.unser_zeichen) === candidateNum) return true;
+        return false;
+      });
+
+      if (konfligierendeAkte) {
+        showToast(
+          `Speichern blockiert: Die Aktennummer / das Zeichen kollidiert mit der bestehenden Akte [${konfligierendeAkte.unser_zeichen}] (${konfligierendeAkte.gegner_name || 'Unbekannt'}).`,
+          'error'
+        );
+        ladeDaten(); // Setzt das Eingabefeld optisch sauber auf den gespeicherten Originalwert zurück
+        return;
+      }
+    }
+
     const dbWert = (typeof wert === 'boolean') ? wert : (wert !== '' ? wert : null);
     const { error } = await supabase.from('akten').update({ [feld]: dbWert }).eq('id', akteId);
     if (!error) {
@@ -1660,7 +1689,45 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const cleanedOwnApForDb = sanitizeOwnContactName(unserAnsprechpartner, gegnerAnsprechpartner, gegnerName) || null;
 
     if (modus === 'neu') {
-      const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, unser_zeichen: unserZeichen || null, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: cleanedOwnApForDb, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select();
+      let finalesUnserZeichen = unserZeichen ? String(unserZeichen).trim() : '';
+      if (finalesUnserZeichen) {
+        const gepruefteNummer = parseAktenNummer(finalesUnserZeichen);
+        const duplikatAkte = akten.find(a => {
+          if (a.is_demo_showcase) return false;
+          if (cleanZeichenString(a.unser_zeichen) === cleanZeichenString(finalesUnserZeichen)) return true;
+          if (gepruefteNummer !== null && parseAktenNummer(a.unser_zeichen) === gepruefteNummer) return true;
+          return false;
+        });
+
+        if (duplikatAkte) {
+          let maxFreieNum = 0;
+          akten.forEach(a => {
+            if (a.is_demo_showcase) return;
+            const n = parseAktenNummer(a.unser_zeichen);
+            if (n !== null && n > maxFreieNum) maxFreieNum = n;
+          });
+          const naechsteFreieStr = String(maxFreieNum + 1).padStart(4, '0');
+          const vorgeschlagenesZeichen = finalesUnserZeichen.match(/^\d+-/)
+            ? finalesUnserZeichen.replace(/^\d+-/, `${naechsteFreieStr}-`)
+            : `${naechsteFreieStr}-${finalesUnserZeichen}`;
+
+          const autoKorrekturOk = window.confirm(
+            `ACHTUNG – Doppelte Aktennummer verhindert!\n\n` +
+            `Die Nummer aus "${finalesUnserZeichen}" ist bereits bei der Akte [${duplikatAkte.unser_zeichen}] (${duplikatAkte.gegner_name || 'Unbekannt'}) vergeben.\n\n` +
+            `Soll diese neue Akte stattdessen automatisch mit der nächsten freien Nummer "${vorgeschlagenesZeichen}" angelegt werden?`
+          );
+
+          if (!autoKorrekturOk) {
+            setLaedt(false);
+            showToast('Speichern abgebrochen – bitte ein freies Aktenzeichen wählen.', 'warning');
+            return;
+          }
+          finalesUnserZeichen = vorgeschlagenesZeichen;
+          setUnserZeichen(vorgeschlagenesZeichen);
+        }
+      }
+
+      const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, unser_zeichen: finalesUnserZeichen || null, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: cleanedOwnApForDb, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select();
       if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); setLaedt(false); return; }
       aktuelleAkteId = neueAkte[0].id;
     } else {
@@ -1785,7 +1852,28 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return null;
   };
 
+  // Ermittelt alle Alt-Aktennummern, die im Bestand mehrfach vorkommen (z. B. 0028) – ohne Umhängen!
+  const aktenNummernGruppen = {};
+  akten.forEach((a) => {
+    if (a.is_demo_showcase) return;
+    const num = parseAktenNummer(a.unser_zeichen);
+    if (num !== null) {
+      const paddedKey = String(num).padStart(4, '0');
+      if (!aktenNummernGruppen[paddedKey]) aktenNummernGruppen[paddedKey] = [];
+      aktenNummernGruppen[paddedKey].push(a);
+    }
+  });
+  const doppelteNummernListe = Object.entries(aktenNummernGruppen)
+    .filter(([, list]) => list.length > 1)
+    .sort((a, b) => Number(a[0]) - Number(b[0]));
+
   const gefilterteAkten = akten.filter((akte) => {
+    // Wenn oben im Hinweis-Banner auf eine doppelte Nummer (z. B. 0028) geklickt wurde -> zeige alle zugehörigen Akten (auch erledigte!) untereinander
+    if (duplikatNummerFilter) {
+      if (akte.is_demo_showcase) return false;
+      const num = parseAktenNummer(akte.unser_zeichen);
+      return num !== null && String(num).padStart(4, '0') === duplikatNummerFilter;
+    }
     if (!zeigeErledigte && akte.status === 'Erledigt') return false; 
     if (!suchbegriff.trim()) return true;
     const s = suchbegriff.toLowerCase(); 
@@ -2550,6 +2638,76 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
 
       {/* --- AKTEN-ÜBERSICHT & SHOWCASE-MUSTERAKTEN --- */}
       <div data-help="akten_liste_overview" style={{ width: '100%' }}>
+        {doppelteNummernListe.length > 0 && (
+          <div
+            style={{
+              marginTop: '24px',
+              marginBottom: '-20px',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: theme.hintBg,
+              border: `1px solid ${theme.hintBorder}`,
+              color: theme.textMain,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px',
+              textAlign: 'left',
+              fontSize: '13px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <Icon name="alert" size={16} style={{ color: theme.hintBorder, flexShrink: 0 }} />
+              <span>
+                <strong>Bestands-Hinweis (Alte Nummern-Zwillinge):</strong> Folgende Führungsnummern existieren mehrfach – bitte beim Prüfen auf Firmenkürzel &amp; Gegner achten (Klick filtert die Paare):
+              </span>
+              {doppelteNummernListe.map(([numStr, gruppe]) => {
+                const isSelected = duplikatNummerFilter === numStr;
+                return (
+                  <button
+                    key={numStr}
+                    type="button"
+                    onClick={() => setDuplikatNummerFilter(isSelected ? null : numStr)}
+                    title={gruppe.map(g => `${g.unser_zeichen} (${g.gegner_name || '-'})`).join(' | ')}
+                    style={{
+                      background: isSelected ? theme.hintBorder : 'transparent',
+                      color: isSelected ? '#020617' : theme.textMain,
+                      border: `1px solid ${theme.hintBorder}`,
+                      borderRadius: '999px',
+                      padding: '3px 10px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    #{numStr} ({gruppe.length}x)
+                  </button>
+                );
+              })}
+            </div>
+
+            {duplikatNummerFilter && (
+              <button
+                type="button"
+                onClick={() => setDuplikatNummerFilter(null)}
+                style={{
+                  background: 'transparent',
+                  color: theme.textMain,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Filter #{duplikatNummerFilter} aufheben
+              </button>
+            )}
+          </div>
+        )}
+
         <AktenListe
           theme={theme}
           isDarkMode={isDarkMode}
