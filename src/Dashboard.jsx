@@ -5,7 +5,6 @@ import AktenCockpit from './AktenCockpit';
 import Wissensspeicher from './Wissensspeicher';
 import FirmenTresor from './FirmenTresor';
 import GegnerCrm from './GegnerCrm';
-import Handbuch from './Handbuch';
 import ComplianceRadar from './ComplianceRadar';
 import RssFeedHealthAlert from './RssFeedHealthAlert';
 import InteractiveHelpDock from './InteractiveHelpDock';
@@ -219,7 +218,6 @@ export default function Dashboard({ session }) {
     complianceAccent: '#f59e0b', complianceBg: 'rgba(245, 158, 11, 0.1)',
     wissenAccent: '#a855f7', wissenBg: 'rgba(168, 85, 247, 0.1)',
     gegnerAccent: '#f43f5e', gegnerBg: 'rgba(244, 63, 94, 0.1)',
-    handbuchAccent: '#10b981', handbuchBg: 'rgba(16, 185, 129, 0.1)',
     inputBg: '#020617', inputBorder: '#334155', warningBg: 'rgba(244, 63, 94, 0.1)', warningBorder: '#f43f5e',
     warningText: '#fda4af', hintBg: 'rgba(250, 204, 21, 0.1)', hintBorder: '#facc15', hintText: '#fef08a',
     cardItemBg: 'rgba(15, 23, 42, 0.7)'
@@ -229,7 +227,6 @@ export default function Dashboard({ session }) {
     complianceAccent: '#d97706', complianceBg: '#fffbeb',
     wissenAccent: '#7e22ce', wissenBg: '#faf5ff',
     gegnerAccent: '#e11d48', gegnerBg: '#fff1f2',
-    handbuchAccent: '#059669', handbuchBg: '#d1fae5',
     inputBg: '#f8fafc', inputBorder: '#cbd5e1', warningBg: '#fff1f2', warningBorder: '#e11d48',
     warningText: '#be123c', hintBg: '#fefce8', hintBorder: '#fde047', hintText: '#854d0e',
     cardItemBg: '#ffffff'
@@ -241,7 +238,6 @@ export default function Dashboard({ session }) {
       case 'tresor': return theme.tresorAccent;
       case 'compliance': return theme.complianceAccent;
       case 'gegner': return theme.gegnerAccent;
-      case 'handbuch': return theme.handbuchAccent;
       default: return theme.accent;
     }
   };
@@ -249,7 +245,7 @@ export default function Dashboard({ session }) {
   const activeColor = getLogoColor();
 
   // --- DYNAMISCHE REITER-FARBE FÜR DIE HEADER-FUNKTIONSBUTTONS ---
-  // Auf AKTEN (Cyan), WIR (Türkis-Grün), COMPLIANCE (Orange-Pfirsich), WISSEN (Lila) & HANDBUCH (Smaragd)
+  // Auf AKTEN (Cyan), WIR (Türkis-Grün), COMPLIANCE (Orange-Pfirsich) & WISSEN (Lila)
   // übernehmen die Header-Buttons exakt die aktive Reiter-Farbe.
   // Auf GEGNER weichen sie bewusst auf das edle Schiefergrau aus, damit nur "Abmelden" rot bleibt!
   const headerActionColor = activeTab === 'gegner'
@@ -264,7 +260,7 @@ export default function Dashboard({ session }) {
     if (!isDarkMode) {
       return '#ffffff';
     }
-    // Im Dark Mode leuchten Cyan, Türkis, Orange-Pfirsich, Lila & Smaragd hell -> dunkle Schrift #020617
+    // Im Dark Mode leuchten Cyan, Türkis, Orange-Pfirsich & Lila hell -> dunkle Schrift #020617
     return '#020617';
   };
 
@@ -1087,11 +1083,6 @@ export default function Dashboard({ session }) {
               />
             </div>
           )}
-
-          {/* --- HANDBUCH VIEW (STRIKT NUR FÜR OWNER) --- */}
-          {!isDemoUser && activeTab === 'handbuch' && (
-            <Handbuch theme={theme} />
-          )}
         </div>
 
         {/* --- DURCHGÄNGIGER RECHTS-, URHEBERRECHTS- & COMPLIANCE-FOOTER (ALLE LINKS ÜBERNEHMEN REITER-FARBE) --- */}
@@ -1138,26 +1129,6 @@ export default function Dashboard({ session }) {
             >
               Lizenz-, Haftungs- & RDG/StBerG-Bedingungen
             </button>
-
-            {/* --- TECH-HANDBUCH LINK UNTEN IM FOOTER (STRIKT NUR FÜR OWNER / ADMIN SICHTBAR) --- */}
-            {!isDemoUser && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('handbuch');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                style={{
-                  ...footerLinkStyle,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-              >
-                <Icon name="book" size={13} />
-                <span>Tech-Handbuch</span>
-              </button>
-            )}
           </div>
         </footer>
 
@@ -1166,6 +1137,7 @@ export default function Dashboard({ session }) {
       {/* --- RECHTES 1/3 LIVE-INSPEKTOR-DOCK (> 1024px) BZW. SMARTPHONE-POPUP-CONTROLLER (<= 1024px) --- */}
       <InteractiveHelpDock
         isOpen={isHelpOpen}
+        onOpen={() => setIsHelpOpen(true)}
         onClose={() => setIsHelpOpen(false)}
         theme={theme}
         isDarkMode={isDarkMode}
