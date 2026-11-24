@@ -2,27 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 // @ts-ignore
 import Dashboard from './Dashboard'
-// Handbuch importieren (mit ts-ignore für Vercel Build)
-// @ts-ignore
-import Handbuch from './Handbuch'
 
 export default function App() {
-  // Prüfen, ob die URL den Parameter ?public=handbuch enthält
-  const urlParams = new URLSearchParams(window.location.search);
-  const isPublicHandbuch = urlParams.get('public') === 'handbuch';
-
-  // Standard-Theme für die öffentliche Handbuch-Ansicht (Dark Mode orientiert)
-  const publicTheme = {
-    bg: '#0f172a',
-    cardBg: '#1e293b',
-    border: '#334155',
-    textMain: '#ffffff',
-    textMuted: '#94a3b8',
-    accent: '#10b981',
-    handbuchBg: 'rgba(16, 185, 129, 0.1)',
-    handbuchAccent: '#10b981'
-  };
-
   const [session, setSession] = useState<any>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,71 +16,27 @@ export default function App() {
   const [authNotice, setAuthNotice] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
 
-  // Responsive State für den Public Wrapper & Login-Box
-  const [isMobile, setIsMobile] = useState(false);
+  // Responsive State für die Login-Box
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    handleResize(); // Initialer Check
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    handleResize() // Initialer Check
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
-    // Auth-Listener nur starten, wenn wir nicht im öffentlichen Handbuch sind
-    if (!isPublicHandbuch) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session)
-      })
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session)
-      })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
 
-      return () => subscription.unsubscribe()
-    }
-  }, [isPublicHandbuch])
-
-  // Wenn die öffentliche URL aufgerufen wurde, zeige Header + Handbuch
-  if (isPublicHandbuch) {
-    return (
-      <div style={{ backgroundColor: publicTheme.bg, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        {/* Header-Leiste für das öffentliche Handbuch */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: isMobile ? '12px 15px' : '15px 30px',
-          backgroundColor: publicTheme.cardBg,
-          borderBottom: `1px solid ${publicTheme.border}`,
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          gap: isMobile ? '10px' : '0'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', color: publicTheme.accent, letterSpacing: '1px' }}>
-              ((o))
-            </span>
-            <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '20px', fontWeight: '500', color: publicTheme.textMain, letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
-              SONAR COCKPIT
-            </h1>
-          </div>
-          <div style={{
-            fontSize: isMobile ? '11px' : '14px',
-            color: publicTheme.textMuted,
-            fontWeight: '500',
-            textAlign: 'right',
-            lineHeight: '1.2'
-          }}>
-            Technisches Handbuch{isMobile ? <br /> : ' '}zur System-Einrichtung
-          </div>
-        </div>
-
-        <div style={{ padding: isMobile ? '10px' : '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <Handbuch theme={publicTheme} />
-        </div>
-      </div>
-    )
-  }
+    return () => subscription.unsubscribe()
+  }, [])
 
   // Klassischer Passwort-Login (Owner / Vollzugang)
   const handleLogin = async (e: any) => {
@@ -403,8 +340,8 @@ export default function App() {
             {loading
               ? 'Prüfe Zugang...'
               : loginMode === 'password'
-              ? 'Im Cockpit anmelden'
-              : 'Testzugang anfordern / Magic Link senden'}
+                ? 'Im Cockpit anmelden'
+                : 'Testzugang anfordern / Magic Link senden'}
           </button>
         </form>
 
