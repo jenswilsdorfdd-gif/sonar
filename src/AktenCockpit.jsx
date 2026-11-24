@@ -281,15 +281,32 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     return null;
   };
 
-  const checkAdminAuth = () => {
-    const pw = window.prompt("Admin-Sicherheit: Bitte Passwort eingeben, um die Sperre aufzuheben.");
+  // Echte Admin-Passwortprüfung über die aktive Supabase-Session (kein festes Frontend-Secret)
+  const checkAdminAuth = async (promptText = "Admin-Sicherheit: Bitte Passwort eingeben, um die Sperre aufzuheben.") => {
+    const userEmail = String(session?.user?.email || '').trim();
+    if (!isOwnerAccount || !userEmail) {
+      showToast("Nur der Administrator kann versiegelte Akten oder Sperren öffnen.", "error");
+      return false;
+    }
+
+    const pw = window.prompt(promptText);
     if (pw === null) return false;
-    if (pw.trim() === import.meta.env.VITE_ADMIN_PASSWORD) {
-      return true;
-    } else {
+    if (!pw.trim()) {
+      showToast("Bitte ein Passwort eingeben.", "error");
+      return false;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: pw.trim(),
+    });
+
+    if (error || !data?.user || data.user.id !== OWNER_USER_ID) {
       showToast("Passwort inkorrekt! Aktion blockiert.", "error");
       return false;
     }
+
+    return true;
   };
 
   useEffect(() => {
@@ -1122,6 +1139,12 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
   };
 
   const handleInlineEdit = async (histId, feld, wert) => {
+    // Beim Entsperren eines gesperrten Vorgangs dieselbe Admin-Passwortprüfung erzwingen
+    if (feld === 'is_locked' && wert === false) {
+      const ok = await checkAdminAuth("Admin-Sicherheit: Vorgang entsperren? Bitte Admin-Passwort eingeben.");
+      if (!ok) return;
+    }
+
     const dbWert = (typeof wert === 'boolean') ? wert : (wert !== '' ? wert : null);
     let updates = { [feld]: dbWert };
     
@@ -1168,7 +1191,55 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     setOpenMenuId(null);
   };
 
+  // Gemeinsame Wiedereröffnung für Status-Wechsel auf 'Offen' und Klick aufs Schloss bei erledigten Akten
+  const reopenErledigteAkte = async (akteId) => {
+    const bestaetigung = window.confirm(
+      "Diese Akte ist als 'Erledigt' archiviert & versiegelt. Wollen Sie die Akte wirklich wieder öffnen und alle Vorgänge entsperren?"
+    );
+    if (!bestaetigung) return;
+
+    const ok = await checkAdminAuth("Admin-Sicherheit: Bitte Passwort eingeben, um die Akte wieder zu öffnen.");
+    if (!ok) return;
+
+    const { error } = await supabase.from('akten').update({ status: 'Offen', is_locked: false }).eq('id', akteId);
+    if (!error) {
+      await supabase.from('akten_historie').update({ is_locked: false }).eq('akte_id', akteId);
+      await supabase.from('akten_historie').insert([{
+        akte_id: akteId,
+        user_id: session.user.id,
+        typ: 'Intern',
+        datum: new Date().toISOString().split('T')[0],
+        aktion: 'Akte durch Admin wiedereröffnet & entsperrt.'
+      }]);
+      ladeDaten();
+      showToast("Akte wurde wieder geöffnet und alle Vorgänge entsperrt.", "success");
+    } else {
+      showToast("Fehler beim Wiederöffnen der Akte: " + error.message, "error");
+    }
+  };
+
   const handleAkteStammdatenEdit = async (akteId, feld, wert) => {
+    const aktuelleAkte = akten.find(a => a.id === akteId);
+
+    // Schloss-Logik exakt mit Status & Passwortabfrage synchronisieren
+    if (feld === 'is_locked') {
+      if (wert === false) {
+        if (aktuelleAkte?.status === 'Erledigt') {
+          await reopenErledigteAkte(akteId);
+          return;
+        }
+        const ok = await checkAdminAuth("Admin-Sicherheit: Wollen Sie die Sperre dieser Akte öffnen? Bitte Passwort eingeben.");
+        if (!ok) return;
+      } else if (wert === true && aktuelleAkte?.status !== 'Erledigt') {
+        const alsErledigtSchliessen = window.confirm(
+          "Akte versiegeln und direkt auf 'Erledigt' setzen? (OK = Auf 'Erledigt' setzen & versiegeln, Abbrechen = Vorgang abbrechen)"
+        );
+        if (!alsErledigtSchliessen) return;
+        await toggleAkteStatus(akteId, aktuelleAkte?.status || 'Offen');
+        return;
+      }
+    }
+
     const dbWert = (typeof wert === 'boolean') ? wert : (wert !== '' ? wert : null);
     const { error } = await supabase.from('akten').update({ [feld]: dbWert }).eq('id', akteId);
     if (!error) {
@@ -1200,16 +1271,7 @@ export default function AktenCockpit({ session, theme, akten, mandanten, gegnerL
     const neuerStatus = currentStatus === 'Erledigt' ? 'Offen' : 'Erledigt';
     
     if (neuerStatus === 'Offen') {
-      if (!checkAdminAuth()) return;
-      
-      const { error } = await supabase.from('akten').update({ status: neuerStatus, is_locked: false }).eq('id', akteId);
-      if (!error) {
-        await supabase.from('akten_historie').update({ is_locked: false }).eq('akte_id', akteId);
-
-        await supabase.from('akten_historie').insert([{ akte_id: akteId, user_id: session.user.id, typ: 'Intern', datum: new Date().toISOString().split('T')[0], aktion: 'Akte durch Admin wiedereröffnet & entsperrt.' }]);
-        ladeDaten(); showToast(`Akte wurde wieder geöffnet und alle Vorgänge entsperrt.`, 'success');
-      } else { showToast("Fehler beim Ändern des Akten-Status: " + error.message, 'error'); }
-      
+      await reopenErledigteAkte(akteId);
     } else {
       const bestaetigung = window.confirm("Akte auf 'Erledigt' setzen? Die Akte und alle Vorgänge werden dadurch versiegelt. Einsicht und Downloads bleiben weiterhin möglich, aber eine Wiedereröffnung zur Bearbeitung erfordert zwingend Administrator-Rechte. Fortfahren?");
       if (!bestaetigung) return;
