@@ -4,7 +4,7 @@
 // - Umschaltbar: Chronologisch (Tag 1 -> Heute) vs. Neueste zuerst | Filter: Alle / Eingang / Ausgang / Intern + Live-Suche
 // - Direktes Aufklappen aller Schriftsätze & Notizen (inkl. Nachladen von .md-Zwillingen bei Bedarf), OHNE das Formular oben zu überschreiben
 // - 1-Klick-Export der KI-Fallakte (.md) in Zwischenablage oder als Download, Direkt-Druck & manueller Storage-/Wissensspeicher-Sync
-// - Voller Demo-Kopierschutz für Nicht-Owner (!isOwnerAccount) & Berücksichtigung des 1/3-Desktop-Hilfe-Docks
+// - Volle Live-Bedienhilfe-Integration (data-help Anker + 2/3-Desktop-Split) & Kopierschutz für Demo-Accounts
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Icon from './Icon';
@@ -72,7 +72,7 @@ export default function FallakteModal({
     }
   }, [isOpen, akte?.id]);
 
-  // ESC-Taste schließt die Fallakte
+  // ESC-Taste schließt die Fallakte (sofern nicht gerade auf dem Smartphone ein Hilfe-Pop-up offen ist)
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -210,7 +210,7 @@ export default function FallakteModal({
     }
   };
 
-  // 1-Klick Kopieren des gesamten Markdown-Dossiers für KI-Chats (nur Owner)
+  // 1-Klick Kopieren des gesamten Markdown-Dossiers für KI-Chats (nur Vollzugang)
   const handleCopyMarkdownForAi = async () => {
     if (!isOwnerAccount) {
       if (typeof showToast === 'function') {
@@ -236,7 +236,7 @@ export default function FallakteModal({
     }
   };
 
-  // Download als lokale FALLAKTE_<Zeichen>.md Datei (nur Owner)
+  // Download als lokale FALLAKTE_<Zeichen>.md Datei (nur Vollzugang)
   const handleDownloadMarkdown = () => {
     if (!isOwnerAccount) {
       if (typeof showToast === 'function') {
@@ -321,7 +321,7 @@ export default function FallakteModal({
       onClick={onClose}
     >
       <div
-        data-help="akten_fallakte_modal"
+        data-sonar-modal-root="true"
         style={{
           background: theme.cardBg,
           border: `1px solid ${theme.border}`,
@@ -342,7 +342,7 @@ export default function FallakteModal({
         onCut={handleDemoCopyGuard}
         onContextMenu={handleDemoCopyGuard}
       >
-        {/* 1. KOPFBEREICH: AKTEN-STECKBRIEF & EXPORT-/WAR-ROOM-AKTIONEN */}
+        {/* 1. KOPFBEREICH MIT LIVE-HILFE-ANKER 1 & 2 */}
         <div
           style={{
             padding: '16px 20px',
@@ -354,259 +354,272 @@ export default function FallakteModal({
             flexShrink: 0
           }}
         >
+          {/* HILFE-BEREICH 1: STECKBRIEF, WAR-ROOM-ÜBERGABE & KI-EXPORT */}
           <div
+            data-help="fallakte_header_export"
             style={{
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              gap: '12px',
-              flexWrap: 'wrap'
+              flexDirection: 'column',
+              gap: '10px'
             }}
           >
-            <div style={{ minWidth: 0, flex: '1 1 320px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <Icon name="cabinet" size={20} style={{ color: theme.accent, flexShrink: 0 }} />
-                <span
-                  style={{
-                    color: meta.status === 'Erledigt' ? '#f59e0b' : theme.accent,
-                    fontWeight: 900,
-                    fontSize: '16px',
-                    letterSpacing: '0.3px'
-                  }}
-                >
-                  FALLAKTE [{meta.unserZeichen}]
-                </span>
-                <span
-                  style={{
-                    background: meta.status === 'Erledigt' ? '#f59e0b' : theme.accent,
-                    color: meta.status === 'Erledigt' ? '#000000' : btnTextColor,
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase'
-                  }}
-                >
-                  {meta.status}
-                </span>
-                {meta.isShowcase && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <Icon name="cabinet" size={20} style={{ color: theme.accent, flexShrink: 0 }} />
                   <span
                     style={{
-                      border: `1px solid ${theme.wissenAccent || '#a855f7'}`,
-                      color: theme.wissenAccent || '#a855f7',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      fontSize: '10.5px',
-                      fontWeight: 'bold'
+                      color: meta.status === 'Erledigt' ? '#f59e0b' : theme.accent,
+                      fontWeight: 900,
+                      fontSize: '16px',
+                      letterSpacing: '0.3px'
                     }}
                   >
-                    MUSTERAKTE
+                    FALLAKTE [{meta.unserZeichen}]
                   </span>
+                  <span
+                    style={{
+                      background: meta.status === 'Erledigt' ? '#f59e0b' : theme.accent,
+                      color: meta.status === 'Erledigt' ? '#000000' : btnTextColor,
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    {meta.status}
+                  </span>
+                  {meta.isShowcase && (
+                    <span
+                      style={{
+                        border: `1px solid ${theme.wissenAccent || '#a855f7'}`,
+                        color: theme.wissenAccent || '#a855f7',
+                        padding: '2px 7px',
+                        borderRadius: '4px',
+                        fontSize: '10.5px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      MUSTERAKTE
+                    </span>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    color: theme.textMain,
+                    fontSize: '15px',
+                    fontWeight: 'bold',
+                    marginTop: '4px',
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  {meta.gegnerName} — {meta.thema}
+                </div>
+
+                <div
+                  style={{
+                    color: theme.textMuted,
+                    fontSize: '12px',
+                    marginTop: '4px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                  }}
+                >
+                  <span>
+                    <strong>Mandant:</strong> {meta.unsereFirma} ({meta.unserAnsprechpartner})
+                  </span>
+                  <span>
+                    <strong>Fremd-AZ:</strong> {meta.aktenzeichenGegner}
+                  </span>
+                  <span>
+                    <strong>AP Gegenseite:</strong> {meta.gegnerAnsprechpartner}
+                  </span>
+                  <span>
+                    <strong>Zeitraum:</strong> {meta.ersterVorgangAm} – {meta.letzterVorgangAm}
+                  </span>
+                </div>
+              </div>
+
+              {/* Aktions-Leiste oben rechts */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', paddingRight: '18px' }}>
+                {typeof onOpenWarRoom === 'function' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenWarRoom(akte);
+                    }}
+                    style={{
+                      background: '#fbbf24',
+                      color: '#000000',
+                      border: '1px solid #f59e0b',
+                      borderRadius: '6px',
+                      padding: '7px 12px',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    title="Komplette Fallakte direkt im Kanzlei-War-Room öffnen"
+                  >
+                    <Icon name="brain" size={15} />
+                    War-Room mit Fallakte öffnen
+                  </button>
                 )}
-              </div>
 
-              <div
-                style={{
-                  color: theme.textMain,
-                  fontSize: '15px',
-                  fontWeight: 'bold',
-                  marginTop: '4px',
-                  wordBreak: 'break-word'
-                }}
-              >
-                {meta.gegnerName} — {meta.thema}
-              </div>
+                {isOwnerAccount && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCopyMarkdownForAi}
+                      style={pillBtnStyle(false)}
+                      title="Gesamte Fallakte inkl. Ablaufplan & allen Schriftsätzen für KI-Skills in die Zwischenablage kopieren"
+                    >
+                      <Icon name="file" size={14} />
+                      KI-Fallakte kopieren (.md)
+                    </button>
 
-              <div
-                style={{
-                  color: theme.textMuted,
-                  fontSize: '12px',
-                  marginTop: '4px',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '12px'
-                }}
-              >
-                <span>
-                  <strong>Mandant:</strong> {meta.unsereFirma} ({meta.unserAnsprechpartner})
-                </span>
-                <span>
-                  <strong>Fremd-AZ:</strong> {meta.aktenzeichenGegner}
-                </span>
-                <span>
-                  <strong>AP Gegenseite:</strong> {meta.gegnerAnsprechpartner}
-                </span>
-                <span>
-                  <strong>Zeitraum:</strong> {meta.ersterVorgangAm} – {meta.letzterVorgangAm}
-                </span>
+                    <button
+                      type="button"
+                      onClick={handleDownloadMarkdown}
+                      style={pillBtnStyle(false)}
+                      title={`Als ${storageFilename} herunterladen`}
+                    >
+                      <Icon name="in" size={14} />
+                      .md Download
+                    </button>
+
+                    {!meta.isShowcase && typeof onSyncFallakte === 'function' && (
+                      <button
+                        type="button"
+                        disabled={syncingNow}
+                        onClick={handleManualSyncClick}
+                        style={pillBtnStyle(false, '#10b981')}
+                        title="FALLAKTE im Supabase Storage, Wissensspeicher und Backup aktualisieren"
+                      >
+                        <Icon name="refresh" size={14} />
+                        {syncingNow ? 'Sync...' : 'Sync in Wissen'}
+                      </button>
+                    )}
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => druckeFallakteKomplett(akte, true)}
+                  style={pillBtnStyle(false)}
+                  title="Komplette Fallakte inkl. Ablaufplan & Brieftexten drucken / als PDF speichern"
+                >
+                  <Icon name="print" size={14} />
+                  Drucken
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${theme.border}`,
+                    color: theme.textMuted,
+                    borderRadius: '6px',
+                    padding: '6px 11px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                  title="Fallakte schließen (ESC)"
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
-            {/* Aktions-Leiste oben rechts */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {typeof onOpenWarRoom === 'function' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenWarRoom(akte);
-                  }}
+            {/* Aktive Fristen- & Wiedervorlage-Warnleiste (sofern vorhanden) */}
+            {activeDeadlines.length > 0 && (
+              <div
+                style={{
+                  background: isDarkMode ? 'rgba(244, 63, 94, 0.12)' : '#fff1f2',
+                  border: `1px solid ${theme.warningBorder}`,
+                  borderRadius: '8px',
+                  padding: '9px 14px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontSize: '12.5px'
+                }}
+              >
+                <strong
                   style={{
-                    background: '#fbbf24',
-                    color: '#000000',
-                    border: '1px solid #f59e0b',
-                    borderRadius: '6px',
-                    padding: '7px 12px',
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    cursor: 'pointer',
+                    color: theme.warningBorder,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px'
                   }}
-                  title="Komplette Fallakte direkt im Kanzlei-War-Room öffnen"
                 >
-                  <Icon name="brain" size={15} />
-                  War-Room mit Fallakte öffnen
-                </button>
-              )}
-
-              {isOwnerAccount && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCopyMarkdownForAi}
-                    style={pillBtnStyle(false)}
-                    title="Gesamte Fallakte inkl. Ablaufplan & allen Schriftsätzen für KI-Skills in die Zwischenablage kopieren"
-                  >
-                    <Icon name="file" size={14} />
-                    KI-Fallakte kopieren (.md)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDownloadMarkdown}
-                    style={pillBtnStyle(false)}
-                    title={`Als ${storageFilename} herunterladen`}
-                  >
-                    <Icon name="in" size={14} />
-                    .md Download
-                  </button>
-
-                  {!meta.isShowcase && typeof onSyncFallakte === 'function' && (
+                  <Icon name="alert" size={15} />
+                  Offene Fristen / WV:
+                </strong>
+                {activeDeadlines.map((dl) => {
+                  const restBadge =
+                    dl.daysLeft === null
+                      ? ''
+                      : dl.daysLeft < 0
+                      ? ` (überfällig seit ${Math.abs(dl.daysLeft)} T.)`
+                      : dl.daysLeft === 0
+                      ? ' (HEUTE!)'
+                      : ` (in ${dl.daysLeft} T.)`;
+                  return (
                     <button
+                      key={`${dl.histId}-${dl.kind}`}
                       type="button"
-                      disabled={syncingNow}
-                      onClick={handleManualSyncClick}
-                      style={pillBtnStyle(false, '#10b981')}
-                      title="FALLAKTE im Supabase Storage, Wissensspeicher und Backup aktualisieren"
+                      onClick={() => jumpToStepCard(dl.histId)}
+                      style={{
+                        background: isDarkMode ? 'rgba(15, 23, 42, 0.8)' : '#ffffff',
+                        border: `1px solid ${theme.warningBorder}`,
+                        color: theme.textMain,
+                        borderRadius: '999px',
+                        padding: '3px 10px',
+                        fontSize: '11.5px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                      }}
+                      title="Zum auslösenden Vorgang springen"
                     >
-                      <Icon name="refresh" size={14} />
-                      {syncingNow ? 'Sync...' : 'Sync in Wissen'}
+                      {dl.kind === 'BEHÖRDEN-/GERICHTSFRIST' ? 'Frist' : 'WV'}: {dl.formattedDate}
+                      {restBadge} • {dl.stepCode}
                     </button>
-                  )}
-                </>
-              )}
-
-              <button
-                type="button"
-                onClick={() => druckeFallakteKomplett(akte, true)}
-                style={pillBtnStyle(false)}
-                title="Komplette Fallakte inkl. Ablaufplan & Brieftexten drucken / als PDF speichern"
-              >
-                <Icon name="print" size={14} />
-                Drucken
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  background: 'transparent',
-                  border: `1px solid ${theme.border}`,
-                  color: theme.textMuted,
-                  borderRadius: '6px',
-                  padding: '6px 11px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-                title="Fallakte schließen (ESC)"
-              >
-                ✕
-              </button>
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Aktive Fristen- & Wiedervorlage-Warnleiste (sofern vorhanden) */}
-          {activeDeadlines.length > 0 && (
-            <div
-              style={{
-                background: isDarkMode ? 'rgba(244, 63, 94, 0.12)' : '#fff1f2',
-                border: `1px solid ${theme.warningBorder}`,
-                borderRadius: '8px',
-                padding: '9px 14px',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: '10px',
-                fontSize: '12.5px'
-              }}
-            >
-              <strong
-                style={{
-                  color: theme.warningBorder,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <Icon name="alert" size={15} />
-                Offene Fristen / WV:
-              </strong>
-              {activeDeadlines.map((dl) => {
-                const restBadge =
-                  dl.daysLeft === null
-                    ? ''
-                    : dl.daysLeft < 0
-                    ? ` (überfällig seit ${Math.abs(dl.daysLeft)} T.)`
-                    : dl.daysLeft === 0
-                    ? ' (HEUTE!)'
-                    : ` (in ${dl.daysLeft} T.)`;
-                return (
-                  <button
-                    key={`${dl.histId}-${dl.kind}`}
-                    type="button"
-                    onClick={() => jumpToStepCard(dl.histId)}
-                    style={{
-                      background: isDarkMode ? 'rgba(15, 23, 42, 0.8)' : '#ffffff',
-                      border: `1px solid ${theme.warningBorder}`,
-                      color: theme.textMain,
-                      borderRadius: '999px',
-                      padding: '3px 10px',
-                      fontSize: '11.5px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
-                    title="Zum auslösenden Vorgang springen"
-                  >
-                    {dl.kind === 'BEHÖRDEN-/GERICHTSFRIST' ? 'Frist' : 'WV'}: {dl.formattedDate}
-                    {restBadge} • {dl.stepCode}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* 2. FILTER-, SORTIER- & SUCHLEISTE */}
+          {/* HILFE-BEREICH 2: FILTER-, SORTIER- & SUCHLEISTE */}
           <div
+            data-help="fallakte_filter_sort"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               gap: '10px',
               flexWrap: 'wrap',
-              paddingTop: '4px'
+              paddingTop: '6px',
+              paddingRight: '18px',
+              borderTop: `1px dashed ${theme.border}`
             }}
           >
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -707,8 +720,9 @@ export default function FallakteModal({
           </div>
         </div>
 
-        {/* 3. HAUPTBEREICH: CHRONOLOGISCHE VERFAHRENS-TIMELINE */}
+        {/* 3. HAUPTBEREICH MIT LIVE-HILFE-ANKER 3: CHRONOLOGISCHE VERFAHRENS-TIMELINE */}
         <div
+          data-help="fallakte_timeline_list"
           style={{
             flex: 1,
             minHeight: 0,
