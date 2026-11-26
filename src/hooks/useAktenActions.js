@@ -1,6 +1,6 @@
 // src/hooks/useAktenActions.js
 // KAPSELT SPEICHERN (TWIN-STORAGE + AUTO-FALLAKTE), RESEND-VERSAND (E-MAIL/FAX), ADMIN-SCHLOSS-LOGIK, DUPLIKAT-SCHUTZ, MERGE & NACHTRAGS-UPLOADS
-// 100 % verlustfreie Auslagerung aus AktenCockpit.jsx inkl. automatischer Pflege von FALLAKTE_<Unser_Zeichen>.md.
+// Saubere Isolierung zwischen primärem Owner (Jens) und Partner-Vollzugang (Nico).
 
 import { supabase } from '../supabaseClient';
 import { syncToGithub } from '../utils';
@@ -22,7 +22,8 @@ import {
 export function useAktenActions({
   session,
   OWNER_USER_ID,
-  isOwnerAccount,
+  isOwnerAccount, // true NUR für Jens Wilsdorf (für private Signatur, Kürzel & GitHub-Backup)
+  hasFullAccess,  // true für Jens UND Partner-Vollzugang Nico
   SIGNATUR_URL,
   akten,
   mandanten,
@@ -108,13 +109,16 @@ export function useAktenActions({
   setIsWarRoomOpen,
   autoGenRef
 }) {
-  // Echte Admin-Passwortprüfung über die aktive Supabase-Session (kein festes Frontend-Secret)
+  const effectiveFullAccess = Boolean(hasFullAccess || isOwnerAccount);
+
+  // Passwortprüfung über die aktive Supabase-Session für Vollzugangs-Accounts (jeder prüft sein eigenes Passwort für seine eigenen Akten)
   const checkAdminAuth = async (
-    promptText = 'Admin-Sicherheit: Bitte Passwort eingeben, um die Sperre aufzuheben.'
+    promptText = 'Sicherheit: Bitte Ihr Login-Passwort eingeben, um die Akten-Sperre aufzuheben.'
   ) => {
     const userEmail = String(session?.user?.email || '').trim();
-    if (!isOwnerAccount || !userEmail) {
-      showToast('Nur der Administrator kann versiegelte Akten oder Sperren öffnen.', 'error');
+    const currentUid = String(session?.user?.id || '').trim();
+    if (!effectiveFullAccess || !userEmail || !currentUid) {
+      showToast('Nur Vollzugangs-Administratoren können versiegelte Akten oder Sperren öffnen.', 'error');
       return false;
     }
 
@@ -130,7 +134,7 @@ export function useAktenActions({
       password: pw.trim()
     });
 
-    if (error || !data?.user || data.user.id !== OWNER_USER_ID) {
+    if (error || !data?.user || data.user.id !== currentUid) {
       showToast('Passwort inkorrekt! Aktion blockiert.', 'error');
       return false;
     }
@@ -138,7 +142,7 @@ export function useAktenActions({
     return true;
   };
 
-  // --- AUTOMATISCHER & MANUELLER FALLAKTEN-GENERATOR (STORAGE + WISSENSDATENBANK + GITHUB/DRIVE) ---
+  // --- AUTOMATISCHER & MANUELLER FALLAKTEN-GENERATOR (STORAGE + WISSENSDATENBANK + OPTIONAL GITHUB FÜR OWNER) ---
   const syncFallakteById = async (targetAkteId) => {
     if (!targetAkteId || !session?.user?.id) return null;
     try {
@@ -150,7 +154,12 @@ export function useAktenActions({
 
       if (fetchErr || !freshAkte || freshAkte.is_demo_showcase) return null;
 
-      const fallakteFileName = getFallakteStorageFilename(freshAkte);
+      const baseFallakteName = getFallakteStorageFilename(freshAkte);
+      // Für Nicht-Primary-Owner wird ein kurzer User-Präfix im Storage-Key genutzt, damit im Bucket niemals Namenskollisionen bei "0001-..." entstehen
+      const storageObjectKey = isOwnerAccount
+        ? baseFallakteName
+        : `u_${String(session.user.id).slice(0, 8)}_${baseFallakteName}`;
+
       const mdContent = buildFallakteMarkdown(freshAkte, freshAkte.akten_historie || [], {
         includeFullTexts: true
       });
@@ -158,23 +167,22 @@ export function useAktenActions({
       const mdBlob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
       const { error: upErr } = await supabase.storage
         .from('dokumente')
-        .upload(fallakteFileName, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+        .upload(storageObjectKey, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
 
       let pubUrl = null;
       if (!upErr) {
-        const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(fallakteFileName);
+        const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(storageObjectKey);
         pubUrl = linkData?.publicUrl || null;
       }
 
       const firmaLabel = freshAkte.unsere_firma || 'Allgemein';
       const previewDbText = mdContent.substring(0, 7500);
 
-      // Prüfen, ob bereits ein Fallakten-Eintrag für diesen Dateinamen & User in wissensdatenbank existiert (Upsert ohne Duplikate)
       const { data: existingRows } = await supabase
         .from('wissensdatenbank')
         .select('id')
         .eq('user_id', session.user.id)
-        .eq('datei_name', fallakteFileName)
+        .eq('datei_name', baseFallakteName)
         .limit(1);
 
       if (Array.isArray(existingRows) && existingRows.length > 0) {
@@ -191,7 +199,7 @@ export function useAktenActions({
         await supabase.from('wissensdatenbank').insert([
           {
             user_id: session.user.id,
-            datei_name: fallakteFileName,
+            datei_name: baseFallakteName,
             firma: firmaLabel,
             kategorie: 'Fallakte',
             inhalt_text: previewDbText,
@@ -200,7 +208,9 @@ export function useAktenActions({
         ]);
       }
 
-      await syncToGithub(fallakteFileName, mdContent, pubUrl, 'fallakte_sync', showToast);
+      if (isOwnerAccount) {
+        await syncToGithub(baseFallakteName, mdContent, pubUrl, 'fallakte_sync', showToast);
+      }
       return pubUrl;
     } catch (err) {
       console.warn('Hintergrund-Sync der Fallakte Hinweis:', err);
@@ -360,7 +370,9 @@ export function useAktenActions({
       }
     }
 
-    const defaultSenderName = isOwnerAccount ? 'Jens Wilsdorf' : akte.unsere_firma || 'Geschäftsführung';
+    const defaultSenderName = isOwnerAccount
+      ? 'Jens Wilsdorf'
+      : akte.unsere_firma || mandanten[0]?.ansprechpartner || mandanten[0]?.firmenname || 'Geschäftsführung';
     const template = `Sehr geehrte Damen und Herren,\n\nbezugnehmend auf unsere bisherige Korrespondenz in der obigen Angelegenheit bitten wir höflich um einen kurzen Sachstandsbericht, da wir bislang noch keine Rückmeldung erhalten haben.\n\nSollten Ihnen noch Unterlagen zur Bearbeitung fehlen, lassen Sie es uns bitte wissen.\n\nMit freundlichen Grüßen\n\n${safeOwnAp || defaultSenderName}`;
     setBriefEntwurf(template);
 
@@ -432,7 +444,7 @@ export function useAktenActions({
   // --- INLINE-EDITS, FRISTEN, SCHLOSS-LOGIK & DUPLIKAT-SCHUTZ ---
   const handleInlineEdit = async (histId, feld, wert) => {
     if (feld === 'is_locked' && wert === false) {
-      const ok = await checkAdminAuth('Admin-Sicherheit: Vorgang entsperren? Bitte Admin-Passwort eingeben.');
+      const ok = await checkAdminAuth('Sicherheit: Vorgang entsperren? Bitte Ihr Passwort eingeben.');
       if (!ok) return;
     }
 
@@ -501,7 +513,7 @@ export function useAktenActions({
     );
     if (!bestaetigung) return;
 
-    const ok = await checkAdminAuth('Admin-Sicherheit: Bitte Passwort eingeben, um die Akte wieder zu öffnen.');
+    const ok = await checkAdminAuth('Sicherheit: Bitte Ihr Passwort eingeben, um die Akte wieder zu öffnen.');
     if (!ok) return;
 
     const { error } = await supabase.from('akten').update({ status: 'Offen', is_locked: false }).eq('id', akteId);
@@ -513,7 +525,7 @@ export function useAktenActions({
           user_id: session.user.id,
           typ: 'Intern',
           datum: new Date().toISOString().split('T')[0],
-          aktion: 'Akte durch Admin wiedereröffnet & entsperrt.'
+          aktion: 'Akte wiedereröffnet & entsperrt.'
         }
       ]);
       await syncFallakteById(akteId);
@@ -531,7 +543,7 @@ export function useAktenActions({
       await reopenErledigteAkte(akteId);
     } else {
       const bestaetigung = window.confirm(
-        "Akte auf 'Erledigt' setzen? Die Akte und alle Vorgänge werden dadurch versiegelt. Einsicht und Downloads bleiben weiterhin möglich, aber eine Wiedereröffnung zur Bearbeitung erfordert zwingend Administrator-Rechte. Fortfahren?"
+        "Akte auf 'Erledigt' setzen? Die Akte und alle Vorgänge werden dadurch versiegelt. Einsicht und Downloads bleiben weiterhin möglich, aber eine Wiedereröffnung zur Bearbeitung erfordert Ihre Passwort-Bestätigung. Fortfahren?"
       );
       if (!bestaetigung) return;
 
@@ -575,7 +587,7 @@ export function useAktenActions({
           return;
         }
         const ok = await checkAdminAuth(
-          'Admin-Sicherheit: Wollen Sie die Sperre dieser Akte öffnen? Bitte Passwort eingeben.'
+          'Sicherheit: Wollen Sie die Sperre dieser Akte öffnen? Bitte Passwort eingeben.'
         );
         if (!ok) return;
       } else if (wert === true && aktuelleAkte?.status !== 'Erledigt') {
@@ -588,7 +600,6 @@ export function useAktenActions({
       }
     }
 
-    // Zukunftsschutz gegen doppelte Aktennummern beim händischen Ändern in der Liste
     if (feld === 'unser_zeichen' && wert && String(wert).trim() !== '') {
       const trimmedZeichen = String(wert).trim();
       const candidateNum = parseAktenNummer(trimmedZeichen);
@@ -627,13 +638,14 @@ export function useAktenActions({
 
     if (zielAkte && !zielAkte.is_demo_showcase) {
       try {
-        const fallakteName = getFallakteStorageFilename(zielAkte);
-        await supabase.storage.from('dokumente').remove([fallakteName]);
+        const baseName = getFallakteStorageFilename(zielAkte);
+        const storageKey = isOwnerAccount ? baseName : `u_${String(session.user.id).slice(0, 8)}_${baseName}`;
+        await supabase.storage.from('dokumente').remove([storageKey]);
         await supabase
           .from('wissensdatenbank')
           .delete()
           .eq('user_id', session.user.id)
-          .eq('datei_name', fallakteName);
+          .eq('datei_name', baseName);
       } catch (_e) {}
     }
 
@@ -756,7 +768,9 @@ export function useAktenActions({
           dokument_url: mdPubUrl
         }
       ]);
-      await syncToGithub(file.name, mdInhalt, null, null, showToast);
+      if (isOwnerAccount) {
+        await syncToGithub(file.name, mdInhalt, null, null, showToast);
+      }
       ladeDaten();
       showToast('MD-Dokument im Wissensspeicher hinterlegt!', 'success');
     } else {
@@ -811,8 +825,10 @@ export function useAktenActions({
               dokument_url: twinPubUrl
             }
           ]);
-          await syncToGithub(mdDisplayName, extrahierterText, newUrl, 'nachtrag_upload', showToast);
-        } else {
+          if (isOwnerAccount) {
+            await syncToGithub(mdDisplayName, extrahierterText, newUrl, 'nachtrag_upload', showToast);
+          }
+        } else if (isOwnerAccount) {
           await syncToGithub(file.name.replace(/\.[^/.]+$/, '') + '.md', infoTxt, newUrl, 'nachtrag_upload', showToast);
         }
 
@@ -870,7 +886,9 @@ export function useAktenActions({
               dokument_url: mdPubUrl
             }
           ]);
-          await syncToGithub(f.name, fileInhalt, null, null, showToast);
+          if (isOwnerAccount) {
+            await syncToGithub(f.name, fileInhalt, null, null, showToast);
+          }
         } else {
           const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_');
           const dateiName = `${Date.now()}_${sichererDateiname}`;
@@ -935,7 +953,9 @@ export function useAktenActions({
                   dokument_url: mdPubUrl
                 }
               ]);
-              await syncToGithub(mdFileName, mdInhalt, pdfPubUrl, null, showToast);
+              if (isOwnerAccount) {
+                await syncToGithub(mdFileName, mdInhalt, pdfPubUrl, null, showToast);
+              }
             }
           }
         }
@@ -980,7 +1000,9 @@ export function useAktenActions({
       ]);
 
       const mdInhalt = `${activeTyp}-Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${volltextQuelle}`;
-      await syncToGithub(finalMdDbName, mdInhalt, activeVersandPdfUrl, null, showToast);
+      if (isOwnerAccount) {
+        await syncToGithub(finalMdDbName, mdInhalt, activeVersandPdfUrl, null, showToast);
+      }
 
       let twinMdPublicUrl = activeVersandPdfUrl.replace(/\.pdf(\?.*)?$/i, '.md');
       try {
@@ -1016,7 +1038,9 @@ export function useAktenActions({
         fileContent += `\n\n--- ORIGINAL VOLLTEXT (OCR) ---\n${rawText}`;
       }
 
-      await syncToGithub(fileName, fileContent, null, null, showToast);
+      if (isOwnerAccount) {
+        await syncToGithub(fileName, fileContent, null, null, showToast);
+      }
 
       const entBlob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
       const { error: entError } = await supabase.storage
@@ -1144,7 +1168,6 @@ export function useAktenActions({
         await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('id', bezugId);
       }
 
-      // Automatischer Hintergrund-Update der durchgängigen FALLAKTE_<Zeichen>.md
       if (aktuelleAkteId) {
         syncFallakteById(aktuelleAkteId);
       }
@@ -1267,7 +1290,7 @@ export function useAktenActions({
             if (firmaSearch === 'jw' && mLow.includes('jens wilsdorf')) return true;
           }
           return false;
-        }) || null;
+        }) || (mandanten.length === 1 && !unsereFirma ? mandanten[0] : null);
 
       const mandantProfil = matchedMandant
         ? {
@@ -1310,7 +1333,9 @@ export function useAktenActions({
         .replace(/🔴/g, '***')
         .replace(/\*\*(.*?)\*\*/g, '$1');
 
-      const defaultFirmaName = isOwnerAccount ? 'Jens Wilsdorf' : safeUnserAnsprechpartner || 'Mandant';
+      const defaultFirmaName = isOwnerAccount
+        ? 'Jens Wilsdorf'
+        : matchedMandant?.firmenname || safeUnserAnsprechpartner || 'Mandant';
       const userLoginEmail = session?.user?.email ? String(session.user.email).trim() : '';
 
       const response = await fetch('https://loyzfkxkuyypgteskxkm.supabase.co/functions/v1/sonar-send-email', {
@@ -1323,7 +1348,8 @@ export function useAktenActions({
           to: targetAddress,
           subject: betreff,
           text: cleanTextForPdf,
-          isOwnerAccount: isOwnerAccount,
+          isOwnerAccount: isOwnerAccount,           // true NUR für Jens (blaue Signatur & W&S/SBS-Footer)
+          isFullAccessAccount: effectiveFullAccess, // true für Jens & Nico (echter Versand ohne Demo-Musterstempel)
           userLoginEmail: userLoginEmail,
           signatureUrl: SIGNATUR_URL,
           unsereFirma: unsereFirma || matchedMandant?.firmenname || defaultFirmaName,
