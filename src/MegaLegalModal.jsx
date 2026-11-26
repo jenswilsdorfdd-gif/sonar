@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
 import { buildCompactWarRoomIndex } from "./utils/fallakteBuilder";
+import { PRIMARY_OWNER_USER_ID, isFullAccessIdentity } from "./config/authRoles";
 
 // --- PDF.js Import für die clientseitige Extraktion im Modal ---
 import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
-const OWNER_USER_ID = "ea175141-2c03-4f93-ba1b-392570229cb2";
 const OWNER_DEFAULT_FAX = "0351 85074535";
 
 // STUFE 2 HELPER: Lädt den ungekürzten Original-Volltext (bis 85.000 Zeichen) eines Urteils aus dem Supabase Storage Bucket 'dokumente'
@@ -51,8 +51,10 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   const [mobileCorrectionOpen, setMobileCorrectionOpen] = useState(false);
   const [desktopHelpSplitActive, setDesktopHelpSplitActive] = useState(false);
 
-  // --- Strikte Owner-Erkennung anhand der Login-Session ---
-  const [isOwnerUser, setIsOwnerUser] = useState(false);
+  // --- Strikte Trennung: Vollzugang (Jens + Nico) vs. Primärer Owner (exklusiv Jens für Fax-/Namens-Defaults) ---
+  const [hasFullAccess, setHasFullAccess] = useState(false);
+  const [isPrimaryOwner, setIsPrimaryOwner] = useState(false);
+  const [sessionUserMeta, setSessionUserMeta] = useState({ name: "", firma: "" });
 
   // --- Engine-Wahl & Revisions-Zweitmeinung ---
   const [selectedEngine, setSelectedEngine] = useState("gemini");
@@ -167,7 +169,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         }
 
         if (data?.error) {
-          // Falls das Demo-Kontingent erschöpft ist, sofort zurückgeben und nicht wiederholen
           if (String(data.error).includes("Demo-Testkontingent")) {
             return { data, error: null };
           }
@@ -183,9 +184,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return { data: null, error: lastError || new Error("Verbindungsfehler zur KI-Engine.") };
   };
 
-  // Blockiert Kopieren / Ausschneiden / Rechtsklick für Demo-Nutzer
+  // Blockiert Kopieren / Ausschneiden / Rechtsklick NUR für reine Demo-Nutzer (!hasFullAccess)
   const handleProtectedCopyAttempt = (e) => {
-    if (!isOwnerUser) {
+    if (!hasFullAccess) {
       e.preventDefault();
       e.stopPropagation();
       setCopyWarningToast(true);
@@ -236,20 +237,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
   };
 
-  // 2-STUFEN-RECHTSDATENBANK-LOADER:
-  // Stufe 1: Schnelle Suche in public.wissensdatenbank (8.000-Zeichen-Vorschau & indexierte §§-Header)
-  // Stufe 2: Automatisches Nachladen des ungekürzten Original-Volltextes (bis 85.000 Zeichen) aus dem Bucket 'dokumente'
+  // 2-STUFEN-RECHTSDATENBANK-LOADER
   const fetchRelevantDecisionsWithFullText = async (dossierText, dossierThema, dossierKontakt) => {
     try {
       const combinedSearchInput = `${dossierThema || ""} ${dossierKontakt || ""} ${(dossierText || "").substring(0, 15000)}`;
 
-      // Extrahiere genannte Paragraphen (z.B. "§ 129 AO", "§ 361", "Art. 19") oder relevante Fachbegriffe
       const normMatches = combinedSearchInput.match(/(?:§§?\s*\d+[a-z]?|Art\.\s*\d+)/gi) || [];
       const uniqueNorms = Array.from(new Set(normMatches.map(n => n.replace(/\s+/g, " ").trim()))).slice(0, 5);
 
       const candidateMap = new Map();
 
-      // 1. Gezielte Suche über erkannte Rechtsnormen (§§) in inhalt_text (exkl. eigene Fallakten, da diese bereits im Master-Index stecken)
       for (const norm of uniqueNorms) {
         const { data: normRows } = await supabase
           .from("wissensdatenbank")
@@ -270,7 +267,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         }
       }
 
-      // 2. Ergänzende Suche über Thema-Stichworte, falls noch weniger als 3 Treffer vorliegen
       if (candidateMap.size < 3 && dossierThema) {
         const words = String(dossierThema)
           .split(/[^a-zA-ZäöüÄÖÜß0-9]+/)
@@ -298,7 +294,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       if (candidateMap.size === 0) return { decisionsFullTextBlock: "", matchedCount: 0 };
 
-      // Top-3 einschlägige Entscheidungen auswählen und über Stufe 2 den echten Volltext aus dem Bucket 'dokumente' nachladen
       const topCandidates = Array.from(candidateMap.values())
         .sort((a, b) => b.score - a.score)
         .slice(0, 3)
@@ -342,7 +337,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       ]);
 
       if (!error && histList && histList.length > 0) {
-        // 1. Strukturierter chronologischer Fallakten-Masterindex (#01 .. #NN) ganz oben für sofortigen KI-Überblick
         const effectiveAkteMeta = akteMetaRow || {
           id: akteId,
           unser_zeichen: dossier?.unser_zeichen || '',
@@ -357,7 +351,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         };
         masterFallakteHeader = buildCompactWarRoomIndex(effectiveAkteMeta, histList) + "\n";
 
-        // 2. Chronologische Einzelvorgänge samt .md-Volltext-Zwillingen
         for (let i = 0; i < histList.length; i++) {
           const h = histList[i];
           const stepCode = `#${String(i + 1).padStart(2, '0')}`;
@@ -388,7 +381,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                     }
                   }
                 } catch (_fetchErr) {
-                  // Stilles Ignorieren, falls für eine ältere PDF noch keine .md existiert
+                  // Stilles Ignorieren
                 }
               }
             }
@@ -418,15 +411,15 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return { fullContextText: fallbackBestText, docsCount: 1 };
   };
 
-  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline: Kanzlei Alpha <-> Spiegel-Kanzlei Omega & Revisionssenat (mit 250.000 Zeichen Volltext-Kapazität)
+  // Hochgeschwindigkeits-Prüf- & In-Memory-Patch-Pipeline
   const runAutomatedRedTeamLoop = async (
     initialDraft,
     historyContext,
-    ownerFlag = isOwnerUser,
+    fullAccessFlag = hasFullAccess,
     runId = abortRunRef.current,
     rawFullText = fullDossierContextCache
   ) => {
-    const maxRounds = ownerFlag ? 2 : 2;
+    const maxRounds = 2;
     setLiveMaxRounds(maxRounds);
     let currentDraft = extractCleanLetterBody(initialDraft);
     let auditProtocolLines = [];
@@ -448,7 +441,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       const { data: checkData, error: checkErr } = await invokeTriageWithRetry({
         mode: "red_team_check",
-        engine: ownerFlag ? selectedEngine : "gemini",
+        engine: fullAccessFlag ? selectedEngine : "gemini",
         draft_text: currentDraft,
         context_summary: contextSummary,
         raw_text: (rawFullText || dossier?.raw_text || dossier?.brief_entwurf || "").substring(0, 250000),
@@ -457,7 +450,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       if (runId !== abortRunRef.current) return null;
 
-      // Falls das Backend bereits einen deterministisch gepatchten Entwurf (patched_draft) zurückliefert -> sofort übernehmen!
       if (checkData?.patched_draft && typeof checkData.patched_draft === "string" && checkData.patched_draft.trim().length > 100) {
         currentDraft = extractCleanLetterBody(checkData.patched_draft);
       } else if (checkData?.audit?.patched_draft && typeof checkData.audit.patched_draft === "string" && checkData.audit.patched_draft.trim().length > 100) {
@@ -513,7 +505,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       const { data: revData, error: revErr } = await invokeTriageWithRetry({
         mode: "sokrates_revision",
-        engine: ownerFlag ? selectedEngine : "gemini",
+        engine: fullAccessFlag ? selectedEngine : "gemini",
         draft_text: currentDraft,
         context_summary: contextSummary,
         raw_text: (rawFullText || dossier?.raw_text || dossier?.brief_entwurf || "").substring(0, 250000),
@@ -552,7 +544,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   };
 
   // PHASE A: Startet die Akten-Analyse und erstellt die interaktive Kanzlei-Lagebesprechung auf Basis der kompletten Fallakte
-  const startFreshAnalysis = async (ownerFlag = isOwnerUser) => {
+  const startFreshAnalysis = async (
+    fullAccessFlag = hasFullAccess,
+    primaryOwnerFlag = isPrimaryOwner,
+    userMeta = sessionUserMeta
+  ) => {
     if (!dossier) return;
     const currentRunId = ++abortRunRef.current;
 
@@ -573,11 +569,17 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setErrorMsg(null);
 
     const today = new Date().toLocaleDateString('de-DE');
-    const defaultFirma = ownerFlag ? "Jens Wilsdorf" : "Mandant / Unternehmensführung";
-    const defaultAP = ownerFlag ? "Jens Wilsdorf" : "Geschäftsführung";
+    const defaultFirma = primaryOwnerFlag
+      ? "Jens Wilsdorf"
+      : (userMeta?.firma || "Mandant / Unternehmensführung");
+    const defaultAP = primaryOwnerFlag
+      ? "Jens Wilsdorf"
+      : (userMeta?.name || "Geschäftsführung");
+
     const mandantFirma = dossier.unsere_firma || defaultFirma;
     const mandantAP = dossier.unser_ansprechpartner || defaultAP;
-    const mandantFax = dossier.unser_fax || (ownerFlag ? OWNER_DEFAULT_FAX : "");
+    // Dresdner Default-Faxnummer strikt NUR für den primären Owner Jens Wilsdorf!
+    const mandantFax = dossier.unser_fax || (primaryOwnerFlag ? OWNER_DEFAULT_FAX : "");
 
     let bestText = (dossier.raw_text && dossier.raw_text.trim() !== "")
       ? dossier.raw_text
@@ -659,7 +661,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         mode: "strategy_briefing",
         messages: [{ role: "user", content: briefingPrompt }],
         raw_text: enrichedContextText.substring(0, 250000),
-        engine: ownerFlag ? selectedEngine : "gemini"
+        engine: fullAccessFlag ? selectedEngine : "gemini"
       });
 
       if (currentRunId !== abortRunRef.current) return;
@@ -676,7 +678,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       const baseHistory = [{ role: "user", content: briefingPrompt }];
       setMessages(baseHistory);
 
-      // SCROLL-FIX: Nach dem Laden der Lagebesprechung garantiert ganz oben bei Punkt 1 / Option 1 bleiben!
       setTimeout(() => {
         if (scrollContainerRef.current) {
           scrollContainerRef.current.scrollTop = 0;
@@ -713,11 +714,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     if (chosenOptions.length === 0) return;
 
     const today = new Date().toLocaleDateString('de-DE');
-    const defaultFirma = isOwnerUser ? "Jens Wilsdorf" : "Mandant / Unternehmensführung";
-    const defaultAP = isOwnerUser ? "Jens Wilsdorf" : "Geschäftsführung";
+    const defaultFirma = isPrimaryOwner
+      ? "Jens Wilsdorf"
+      : (sessionUserMeta?.firma || "Mandant / Unternehmensführung");
+    const defaultAP = isPrimaryOwner
+      ? "Jens Wilsdorf"
+      : (sessionUserMeta?.name || "Geschäftsführung");
+
     const mandantFirma = dossier?.unsere_firma || defaultFirma;
     const mandantAP = dossier?.unser_ansprechpartner || defaultAP;
-    const mandantFax = dossier?.unser_fax || (isOwnerUser ? OWNER_DEFAULT_FAX : "");
+    const mandantFax = dossier?.unser_fax || (isPrimaryOwner ? OWNER_DEFAULT_FAX : "");
 
     const chosenTitles = chosenOptions.map(o => `• ${o.title} (${o.subtitle})`).join("\n");
     const chosenInstructions = chosenOptions.map(o => `(Anweisung zu ${o.title}): ${o.draft_instruction}`).join("\n\n");
@@ -764,7 +770,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const apiHistory = [{ role: "user", content: fullDraftCommand }];
     setMessages(displayHistory);
 
-    await callMegaLegal(apiHistory, true, isOwnerUser, currentRunId, displayHistory, rawContextToUse);
+    await callMegaLegal(apiHistory, true, hasFullAccess, currentRunId, displayHistory, rawContextToUse);
   };
 
   // Initialer Start beim Öffnen des Modals
@@ -784,19 +790,33 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           setMobileCorrectionOpen(false);
         }
 
-        let ownerDetected = false;
+        let detectedPrimaryOwner = false;
+        let detectedFullAccess = false;
+        let detectedMeta = { name: "", firma: "" };
+
         try {
           const { data: authData } = await supabase.auth.getUser();
           const currentUid = authData?.user?.id || "";
-          ownerDetected = currentUid === OWNER_USER_ID;
-          setIsOwnerUser(ownerDetected);
+          const currentEmail = authData?.user?.email || "";
+          const rawMeta = authData?.user?.user_metadata || {};
+
+          detectedPrimaryOwner = currentUid === PRIMARY_OWNER_USER_ID;
+          detectedFullAccess = isFullAccessIdentity(currentUid, currentEmail);
+          detectedMeta = {
+            name: rawMeta.full_name || "",
+            firma: rawMeta.firma || ""
+          };
+
+          setIsPrimaryOwner(detectedPrimaryOwner);
+          setHasFullAccess(detectedFullAccess);
+          setSessionUserMeta(detectedMeta);
           setLiveMaxRounds(2);
-          if (!ownerDetected) {
+          if (!detectedFullAccess) {
             setSelectedEngine("gemini");
           }
         } catch (_e) {
-          setIsOwnerUser(false);
-          ownerDetected = false;
+          setIsPrimaryOwner(false);
+          setHasFullAccess(false);
           setSelectedEngine("gemini");
         }
 
@@ -820,7 +840,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   lastAiMsg.content.includes("SPIEGEL-KANZLEI OMEGA")
                 )
               ) {
-                // Auch beim Wiederherstellen des Chats laden wir im Hintergrund die aktuelle Fallakte in den Cache (für Folge-Anweisungen)
                 fetchFullAkteContext(dossier.akte_id, dossier.raw_text || dossier.brief_entwurf || "").then((res) => {
                   setFullDossierContextCache(res.fullContextText || "");
                   setLoadedDocsCount(res.docsCount || 1);
@@ -838,7 +857,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           }
         }
 
-        await startFreshAnalysis(ownerDetected);
+        await startFreshAnalysis(detectedFullAccess, detectedPrimaryOwner, detectedMeta);
       } else {
         abortRunRef.current++;
         setMessages([]);
@@ -856,7 +875,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Scrollt NUR dann nach unten, wenn tatsächlich ein neuer Schriftsatz oder Ladebalken unterhalb der Lagebesprechung erzeugt wird
   useEffect(() => {
     const hasAssistantReply = messages.some(m => m.role === "assistant");
     if (hasAssistantReply || (isLoading && liveStage >= 1 && messages.length > 0 && !strategyBriefing)) {
@@ -864,11 +882,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
   }, [messages, isLoading, liveStage, strategyBriefing]);
 
-  // Hauptfunktion: Führt Station 1 (Kanzlei Alpha) + automatisch Station 2-4 (Spiegel-Kanzlei Omega & Revisionssenat In-Memory-Patching) aus
+  // Hauptfunktion: Station 1 + Station 2-4
   const callMegaLegal = async (
     historyForApi,
     runFullJudgePipeline = true,
-    ownerFlag = isOwnerUser,
+    fullAccessFlag = hasFullAccess,
     runId = abortRunRef.current,
     historyForDisplay = null,
     rawTextOverride = null
@@ -890,7 +908,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         mode: "megalegal_chat",
         messages: historyForApi,
         raw_text: effectiveRawText,
-        engine: ownerFlag ? selectedEngine : "gemini",
+        engine: fullAccessFlag ? selectedEngine : "gemini",
         enable_second_opinion: false,
       });
 
@@ -901,7 +919,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       let reply = data?.reply || "Keine Antwort vom Board erhalten.";
 
       if (runFullJudgePipeline && reply) {
-        const auditedReply = await runAutomatedRedTeamLoop(reply, historyForApi, ownerFlag, runId, effectiveRawText);
+        const auditedReply = await runAutomatedRedTeamLoop(reply, historyForApi, fullAccessFlag, runId, effectiveRawText);
         if (runId !== abortRunRef.current || !auditedReply) return;
         reply = auditedReply;
       } else {
@@ -926,7 +944,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
   };
 
-  // Wenn der Nutzer zwischendurch eine eigene Anweisung eingibt -> Sperre aktivieren & erneut durch Spiegel-Kanzlei Omega & Revisionssenat prüfen!
+  // Zusatz-Anweisung zwischendurch
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     if (!inputPrompt.trim() || isLoading) return;
@@ -949,7 +967,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     if (dossier?.akte_id) {
       await saveChatToDatabase(dossier.akte_id, updatedHistory);
     }
-    await callMegaLegal(updatedHistory, true, isOwnerUser, currentRunId);
+    await callMegaLegal(updatedHistory, true, hasFullAccess, currentRunId);
   };
 
   const handleFileUpload = async (e) => {
@@ -993,7 +1011,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       if (dossier?.akte_id) {
         await saveChatToDatabase(dossier.akte_id, updatedHistory);
       }
-      await callMegaLegal(updatedHistory, true, isOwnerUser, currentRunId, null, combinedRaw);
+      await callMegaLegal(updatedHistory, true, hasFullAccess, currentRunId, null, combinedRaw);
 
     } catch (err) {
       console.error("Upload Error:", err);
@@ -1004,7 +1022,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     e.target.value = "";
   };
 
-  // SOFORT-ÜBERGABE INS COCKPIT (Nur bedienbar, wenn alle 4 Stationen grün sind & Revisions-Freigabe vorliegt!)
+  // SOFORT-ÜBERGABE INS COCKPIT
   const handleExtractAndApplyJSON = () => {
     if (!isJudgeApproved || isLoading) return;
 
@@ -1027,8 +1045,8 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           .join(" + ")
       : "Revisions-geprüft";
 
-    // Für fremde Demo-Nutzer (!isOwnerUser) brennen wir einen reinen ASCII-MUSTER-Stempel (ohne Emojis, damit jsPDF kein Ø=Y4 erzeugt!) ein
-    const finalExportText = isOwnerUser
+    // Für Vollzugänge (Jens & Nico): Reiner, ungestempelter Schriftsatz! Nur für reine Demo-Tester (!hasFullAccess) der Muster-Stempel.
+    const finalExportText = hasFullAccess
       ? rawContent.trim()
       : [
           "==========================================================================",
@@ -1074,12 +1092,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     if (!window.confirm("Gespeicherten War-Room-Verlauf dieser Akte löschen und Lagebesprechung mit der aktuellen Fallakte komplett neu starten?")) {
       return;
     }
-    await startFreshAnalysis(isOwnerUser);
+    await startFreshAnalysis(hasFullAccess, isPrimaryOwner, sessionUserMeta);
   };
 
   if (!isOpen) return null;
 
-  // Schlichte, einheitliche Farbpalette exakt passend zum vorderen SONAR Cockpit
   const bgModal = isDark ? "bg-slate-900" : "bg-white";
   const borderModal = isDark ? "border-slate-700" : "border-slate-300";
   const bgHeader = isDark ? "bg-slate-950" : "bg-slate-100";
@@ -1093,16 +1110,16 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     ? "bg-slate-900 border-slate-700 text-white placeholder-slate-400"
     : "bg-white border-slate-300 text-slate-900 placeholder-slate-500";
 
-  // Einheitlicher Standard-Button-Stil für die Kopfzeile (gleiche Höhe, gleiche Schriftgröße, keine bunten Emojis)
   const headerBtnBase = "h-[32px] sm:h-[34px] px-2.5 sm:px-3 rounded-md text-[11px] sm:text-xs font-bold border transition flex items-center justify-center gap-1.5 whitespace-nowrap";
   const headerBtnInactive = isDark
     ? "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
     : "bg-white border-slate-300 text-slate-700 hover:bg-slate-200";
   const headerBtnActive = "bg-[#0ea5e9] border-[#0ea5e9] text-slate-950 font-extrabold";
 
-  const displayMandantName = dossier?.unsere_firma || (isOwnerUser ? "Jens Wilsdorf" : "Mandant");
+  const displayMandantName =
+    dossier?.unsere_firma ||
+    (isPrimaryOwner ? "Jens Wilsdorf" : sessionUserMeta?.firma || "Mandant");
 
-  // Die 4 Pflicht-Stationen mit dezenter neuer Kanzlei-Nomenklatur (Kanzlei Alpha / Spiegel-Kanzlei Omega / Revisionssenat)
   const kanzleiStations = [
     { id: 1, title: "1. Kanzlei Alpha (Entwurf)", shortTitle: "1. Alpha", desc: "Minto-BLUF & Spezialisten-Board" },
     { id: 2, title: "2. Spiegel-Kanzlei Omega", shortTitle: "2. Omega", desc: `Gegenprüfung & In-Memory-Patch (Runde ${liveRound}/${liveMaxRounds})` },
@@ -1127,7 +1144,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     >
       <div className={`flex flex-col w-full max-w-6xl h-[96dvh] sm:h-[94vh] max-h-[96dvh] ${bgModal} border ${borderModal} rounded-xl shadow-2xl overflow-hidden`}>
 
-        {/* 1. HEADER: Titel + auf Smartphone kompakte Steuerung + Details-Toggle */}
+        {/* 1. HEADER */}
         <div className={`flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-b ${borderHeader} ${bgHeader} flex-shrink-0`}>
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1140,7 +1157,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               <h2 className={`text-sm sm:text-lg font-extrabold ${textTitle} tracking-wide uppercase truncate`}>
                 {isMobileScreen ? "KANZLEI-WAR-ROOM" : "SMARTSONAR – STRATEGISCHER KANZLEI-WAR-ROOM"}
               </h2>
-              {!isOwnerUser && !isMobileScreen && (
+              {!hasFullAccess && !isMobileScreen && (
                 <span className="px-2.5 py-1 rounded text-[11px] font-extrabold bg-slate-800 text-amber-400 border border-amber-500/50 whitespace-nowrap">
                   DEMO-MODUS (Max. 10 Test-Akten • Kopier- & Muster-Branding aktiv)
                 </span>
@@ -1179,20 +1196,20 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 <button
                   type="button"
                   onClick={() => {
-                    if (!isOwnerUser) return;
+                    if (!hasFullAccess) return;
                     setSelectedEngine("claude");
                   }}
-                  disabled={!isOwnerUser}
+                  disabled={!hasFullAccess}
                   className={`${headerBtnBase} ${
-                    !isOwnerUser
+                    !hasFullAccess
                       ? "bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed opacity-70"
                       : selectedEngine === "claude"
                       ? headerBtnActive
                       : headerBtnInactive
                   }`}
-                  title={!isOwnerUser ? "Claude Sonnet ist exklusiv in der Vollversion freigeschaltet" : "Anthropic Claude Sonnet verwenden"}
+                  title={!hasFullAccess ? "Claude Sonnet ist exklusiv in der Vollversion freigeschaltet" : "Anthropic Claude Sonnet verwenden"}
                 >
-                  <span>Claude Sonnet {!isOwnerUser ? "(Pro)" : ""}</span>
+                  <span>Claude Sonnet {!hasFullAccess ? "(Pro)" : ""}</span>
                 </button>
 
                 {!isMobileScreen && (
@@ -1227,7 +1244,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           </div>
         </div>
 
-        {/* 2. KNALLROTER RDG- & StBG-WARNHINWEIS (Mobil kompakt zweizeilig, jederzeit voll lesbar) */}
+        {/* 2. KNALLROTER RDG- & StBG-WARNHINWEIS */}
         <div
           style={{ backgroundColor: "#dc2626", color: "#ffffff" }}
           className="px-3.5 sm:px-6 py-1.5 sm:py-2.5 border-b border-red-800 text-[11px] sm:text-[13px] font-bold leading-snug text-left shadow-sm flex-shrink-0"
@@ -1244,7 +1261,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           </div>
         )}
 
-        {/* 3. DIE 4 PFLICHT-STATIONEN (Auf Mobilgeräten als platzsparende 4er-Kompaktleiste, aufgeklappt mit vollen Details) */}
+        {/* 3. DIE 4 PFLICHT-STATIONEN */}
         <div
           data-help="warroom_stations"
           className={`px-3.5 sm:px-6 py-2 sm:py-3 border-b ${borderHeader} ${bgHeader} flex-shrink-0`}
@@ -1354,7 +1371,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           )}
         </div>
 
-        {/* 4. HAUPTBEREICH MIT GARANTIERTEM SCROLLRAUM (min-h-0 verhindert jegliches Zerquetschen auf dem Smartphone!) */}
+        {/* 4. HAUPTBEREICH */}
         <div
           ref={scrollContainerRef}
           onCopy={handleProtectedCopyAttempt}
@@ -1362,7 +1379,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           onContextMenu={handleProtectedCopyAttempt}
           onDragStart={handleProtectedCopyAttempt}
           style={{ WebkitOverflowScrolling: "touch" }}
-          className={`flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6 space-y-5 text-sm font-sans ${bgChatArea} ${!isOwnerUser ? "select-none" : ""}`}
+          className={`flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-6 space-y-5 text-sm font-sans ${bgChatArea} ${!hasFullAccess ? "select-none" : ""}`}
         >
           {/* INTERAKTIVE KANZLEI-LAGEBESPRECHUNG */}
           {strategyBriefing && (
@@ -1384,7 +1401,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 </span>
               </div>
 
-              {/* GESETZLICHE VERTRETUNGSZWANG- & BERUFSTRÄGER-WARNBOX (FALLS ERKANNT) */}
+              {/* GESETZLICHE VERTRETUNGSZWANG- & BERUFSTRÄGER-WARNBOX */}
               {Boolean(strategyBriefing.mandatory_counsel_required) && (
                 <div
                   style={{
@@ -1411,7 +1428,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 </div>
               )}
 
-              {/* Punkt 1 & Punkt 2 untereinander über die volle Breite */}
               <div className="flex flex-col gap-3.5">
                 <div className={`w-full p-3.5 sm:p-4 rounded-lg border ${borderModal} ${isDark ? "bg-slate-900" : "bg-slate-50"} space-y-2`}>
                   <div className={`text-xs font-extrabold uppercase tracking-wide ${textTitle}`}>
@@ -1449,7 +1465,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 </div>
               )}
 
-              {/* Die 4 anklickbaren Handlungsoptionen */}
               <div>
                 <div className={`text-xs font-bold uppercase tracking-wider mb-2.5 ${textSub}`}>
                   Wählen Sie 1 Option oder eine Kombination aus mehreren Optionen durch Antippen/Anklicken aus:
@@ -1518,7 +1533,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 </div>
               </div>
 
-              {/* Optionale Zusatznotiz & GELBER PRÜF-BUTTON */}
               <div className="pt-2 space-y-2.5">
                 <input
                   type="text"
@@ -1557,13 +1571,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                 <div className={`text-xs font-bold ${textSub} mb-1.5 px-1 uppercase tracking-wider text-left`}>
                   {isUser
                     ? "Mandant / Beschluss aus der Lagebesprechung"
-                    : `Kanzlei Alpha • Spiegel-Kanzlei Omega • Revisionssenat (${isOwnerUser && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
+                    : `Kanzlei Alpha • Spiegel-Kanzlei Omega • Revisionssenat (${hasFullAccess && selectedEngine === "claude" ? "Claude Sonnet" : "Gemini Pro"})`}
                 </div>
                 <div
                   className={`w-full text-left rounded-lg px-4 sm:px-6 py-4 sm:py-5 whitespace-pre-wrap break-words leading-relaxed border relative overflow-hidden ${bgCard}`}
                 >
-                  {/* Diagonales rotes MUSTER-Wasserzeichen für Demo-Tester */}
-                  {!isOwnerUser && !isUser && (
+                  {!hasFullAccess && !isUser && (
                     <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center opacity-15">
                       <div className="transform -rotate-12 border-4 border-red-600 text-red-600 font-black text-xl sm:text-4xl px-4 sm:px-6 py-3 uppercase tracking-widest text-center">
                         MUSTER • DEMO-ANSICHT • KEINE RECHTSBERATUNG
@@ -1590,7 +1603,6 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             </div>
           )}
 
-          {/* FREIGABE-BOX SOBALD ALLE 4 STATIONEN GRÜN SIND */}
           {allFourGreen && (
             <div
               style={{
@@ -1647,7 +1659,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           <div ref={chatBottomRef} />
         </div>
 
-        {/* 5. FOOTER (Auf Smartphone schmal & aufklappbar, damit die Lagebesprechung nie verdeckt wird) */}
+        {/* 5. FOOTER */}
         <div
           data-help="warroom_footer_transfer"
           className={`p-3 sm:p-4 border-t ${borderHeader} ${bgFooter} space-y-2.5 flex-shrink-0`}
