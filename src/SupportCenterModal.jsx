@@ -1,7 +1,7 @@
 // src/SupportCenterModal.jsx
-// ZENTRALES SUPPORT-, FREIGABE- & TICKET-CENTER (FÜR OWNER/ADMIN & DEMO-/KUNDEN-ACCOUNTS)
+// ZENTRALES SUPPORT-, FREIGABE- & TICKET-CENTER (FÜR OWNER/PARTNER-ADMIN & DEMO-/KUNDEN-ACCOUNTS)
 // - Echtzeit-Badge-Berechnung via Supabase Realtime (demo_access_requests + support_tickets)
-// - Admin: 1-Klick-E-Mail-Freigabe, Zugangs-Verwaltung & direktes Beantworten/Schließen von Tickets inkl. Auto-E-Mail
+// - Admin (Jens & Vertriebspartner Nico): 1-Klick-E-Mail-Freigabe, Zugangs-Verwaltung & direktes Beantworten/Schließen von Tickets inkl. Auto-E-Mail
 // - Kunde/Tester: Eigene Inbox (Antworten & Freischalt-Status) + Neues Ticket stellen (Support / Lizenz- & Sales-Anfrage)
 // - Außenauftritt & E-Mail-Signaturen dynamisch gesteuert über src/config/sonarLegalConfig.js
 
@@ -9,8 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { getActiveLegalOperator } from './config/sonarLegalConfig';
-
-const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
+import { isFullAccessSession } from './config/authRoles';
 
 export default function SupportCenterModal({
   session,
@@ -23,7 +22,7 @@ export default function SupportCenterModal({
 }) {
   const userId = session?.user?.id || null;
   const userEmail = (session?.user?.email || '').trim().toLowerCase();
-  const isOwner = userId === OWNER_USER_ID;
+  const isOwner = isFullAccessSession(session);
   const op = getActiveLegalOperator();
 
   // Navigation im Modal
@@ -122,7 +121,7 @@ export default function SupportCenterModal({
     if (!userId) return;
     loadSupportData();
 
-    const channelName = isOwner ? 'sonar_support_center_owner' : `sonar_support_center_user_${userId}`;
+    const channelName = isOwner ? `sonar_support_center_admin_${userId}` : `sonar_support_center_user_${userId}`;
     let channel = supabase.channel(channelName).on(
       'postgres_changes',
       {
@@ -340,7 +339,9 @@ export default function SupportCenterModal({
           subject: 'Ihr Testzugang für das SMART SONAR COCKPIT ist freigeschaltet',
           text: mailText,
           html: mailHtml,
-          isOwnerAccount: true,
+          isOwnerAccount: false,
+          isFullAccessAccount: true,
+          userLoginEmail: op.contactEmail,
           unsereFirma: op.supportMailSignOffCompany,
           mandantProfil: {
             firmenname: op.supportMailSignOffCompany,
@@ -462,14 +463,16 @@ export default function SupportCenterModal({
             to: op.adminNotifyEmail || op.contactEmail,
             subject: `[SONAR Support-Ticket] ${newSubject.trim()} (${userEmail})`,
             text: `Neues Ticket im SONAR Cockpit:\n\nVon: ${newName.trim() || '-'} (${userEmail})\nFirma: ${newFirma.trim() || '-'}\nKategorie: ${newTicketType === 'sales_upgrade' ? 'Vollversion / Einrichtung (Sales)' : 'Technischer Support'}\nBetreff: ${newSubject.trim()}\n\nNachricht:\n${newMessage.trim()}`,
-            isOwnerAccount: true,
+            isOwnerAccount: false,
+            isFullAccessAccount: true,
+            userLoginEmail: op.contactEmail,
             unsereFirma: op.supportMailSignOffCompany,
             skipPdfAttachment: true,
             skipOwnerCc: true
           }
         });
       } catch (_mailIgnore) {
-        // Kein Blocker für den User, falls Mail-Ping fehlschlägt
+        // Kein Blocker für den User
       }
 
       setNewSubject('');
@@ -533,7 +536,6 @@ export default function SupportCenterModal({
 
       if (updErr) throw new Error(updErr.message);
 
-      // WICHTIG: Wenn Admin antwortet -> IMMER E-Mail-Benachrichtigung an die Anmelde-E-Mail des Kunden/Testers!
       if (isOwner && activeTicket.user_email) {
         const cockpitUrl = window.location.origin;
         const salutation = activeTicket.user_name
@@ -579,7 +581,9 @@ export default function SupportCenterModal({
             subject: `Neue Antwort zu Ihrer SONAR-Anfrage: ${activeTicket.subject}`,
             text: mailText,
             html: mailHtml,
-            isOwnerAccount: true,
+            isOwnerAccount: false,
+            isFullAccessAccount: true,
+            userLoginEmail: op.contactEmail,
             unsereFirma: op.supportMailSignOffCompany,
             mandantProfil: {
               firmenname: op.supportMailSignOffCompany,
@@ -639,7 +643,6 @@ export default function SupportCenterModal({
     }
   };
 
-  // Wenn das Modal geschlossen ist, rendert die Komponente nichts im DOM (hält aber den Realtime-Badge-Listener aktiv!)
   if (!isOpen) return null;
 
   const pendingAccessList = accessRequests.filter((r) => r.status === 'pending');
@@ -747,7 +750,6 @@ export default function SupportCenterModal({
             </button>
           </div>
 
-          {/* ADMIN SUB-TABS: ZUGANGS-FREIGABEN VS. SUPPORT-TICKETS */}
           {isOwner ? (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
@@ -863,9 +865,6 @@ export default function SupportCenterModal({
             gap: '16px'
           }}
         >
-          {/* =================================================================
-              ADMIN REITER 1: ZUGANGS-FREISCHALTUNGEN (DEMO_ACCESS_REQUESTS)
-             ================================================================= */}
           {isOwner && adminTab === 'access' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -1085,12 +1084,8 @@ export default function SupportCenterModal({
             </div>
           )}
 
-          {/* =================================================================
-              TICKET-SYSTEM (FÜR ADMIN REITER 2 UND FÜR KUNDEN / TESTER)
-             ================================================================= */}
           {(!isOwner || adminTab === 'tickets') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* FORMULAR: NEUES TICKET ERSTELLEN (NUR FÜR KUNDEN/TESTER) */}
               {!isOwner && (showNewTicketForm || tickets.length === 0) && !activeTicket && (
                 <form
                   onSubmit={handleCreateTicket}
@@ -1221,7 +1216,6 @@ export default function SupportCenterModal({
                 </form>
               )}
 
-              {/* DETAIL-ANSICHT EINES AUSGEWÄHLTEN TICKETS (CHAT-VERLAUF + ANTWORTFELD) */}
               {activeTicket ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -1299,7 +1293,6 @@ export default function SupportCenterModal({
                     </div>
                   </div>
 
-                  {/* NACHRICHTENVERLAUF */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {(Array.isArray(activeTicket.messages) ? activeTicket.messages : []).map((msg, idx) => {
                       const fromAdmin = msg.sender === 'admin';
@@ -1329,7 +1322,6 @@ export default function SupportCenterModal({
                     })}
                   </div>
 
-                  {/* ANTWORT-FORMULAR */}
                   {activeTicket.status !== 'closed' && (
                     <form
                       onSubmit={handleSendReply}
@@ -1376,8 +1368,8 @@ export default function SupportCenterModal({
                             {busyAction
                               ? 'Sende...'
                               : isOwner
-                                ? 'Antwort senden & E-Mail verschicken'
-                                : 'Antwort absenden'}
+                              ? 'Antwort senden & E-Mail verschicken'
+                              : 'Antwort absenden'}
                           </span>
                         </button>
                       </div>
@@ -1385,7 +1377,6 @@ export default function SupportCenterModal({
                   )}
                 </div>
               ) : (
-                /* TICKET-LISTE */
                 tickets.length > 0 && !showNewTicketForm && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {tickets.map((tItem) => {
