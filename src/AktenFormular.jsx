@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Icon from './Icon';
 import { supabase } from './supabaseClient';
-import { syncToGithub } from './utils';
-
-// --- PDF.js Import für die clientseitige Extraktion ---
-import * as pdfjsLib from 'pdfjs-dist';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
 const MAX_DEMO_AKTEN_LIMIT = 10;
@@ -76,6 +71,7 @@ export default function AktenFormular({
   handleResendVersand,
   setActiveWarRoomDossier,
   setIsWarRoomOpen,
+  onOpenFallakte,
   emailAnhaenge,
   setEmailAnhaenge,
   briefEntwurf,
@@ -103,7 +99,15 @@ export default function AktenFormular({
   ladeDaten,
   showToast
 }) {
-  const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
+  const panelStyle = {
+    background: theme.cardBg,
+    borderRadius: '12px',
+    border: `1px solid ${theme.border}`,
+    padding: '20px',
+    width: '100%',
+    wordBreak: 'break-word',
+    boxSizing: 'border-box'
+  };
 
   // --- STRIKTE OWNER-ERKENNUNG AUSSCHLIESSLICH ÜBER LOGIN-USER-ID ---
   const isFullAccessUser = session?.user?.id === OWNER_USER_ID;
@@ -381,8 +385,8 @@ export default function AktenFormular({
   // Initialisierung, sobald ein neuer gegnerPrompt reinkommt
   useEffect(() => {
     if (gegnerPrompt) {
-      const firstId = gegnerPrompt.vorschlaege && gegnerPrompt.vorschlaege.length > 0 
-        ? String(gegnerPrompt.vorschlaege[0].id) 
+      const firstId = gegnerPrompt.vorschlaege && gegnerPrompt.vorschlaege.length > 0
+        ? String(gegnerPrompt.vorschlaege[0].id)
         : '__NEU__';
       setPromptTargetGegnerId(firstId);
 
@@ -474,41 +478,10 @@ export default function AktenFormular({
     }
   };
 
-  const extractTextFromPDF = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join(' ');
-      fullText += `--- Seite ${i} ---\n${pageText}\n\n`;
-    }
-    return fullText;
-  };
-
-  const proceedToSaveOrTriage = () => {
-    setShowUploadReminder(false);
-    if (typ === 'Eingang') {
-      setShowTriageModal(true);
-    } else {
-      speichereEintragLogik();
-    }
-  };
-
-  const localHandleSpeichernCheck = (e) => {
+  // Prüft für Demo-Tester das löschsichere 10-Vorgänge-Kontingent und delegiert danach an die zentrale Speicher- & Fallakten-Engine (useAktenActions)
+  const handleProtectedSubmit = async (e) => {
     e.preventDefault();
-    if (dateien.length === 0 && emailAnhaenge.length === 0 && !versandPdfUrl) { 
-      setShowUploadReminder(true); 
-    } else { 
-      proceedToSaveOrTriage(); 
-    }
-  };
 
-  const speichereEintragLogik = async (autoSaveOverrides = null) => {
-    setShowUploadReminder(false);
-
-    // --- LÖSCHSICHERES 10-VORGÄNGE-KONTINGENT FÜR DEMO-TESTER PRÜFEN & LOGGEN ---
     if (!isFullAccessUser && modus === 'neu') {
       try {
         const { count: aktenCount } = await supabase
@@ -537,248 +510,18 @@ export default function AktenFormular({
         console.warn('Fehler beim Prüfen des Demo-Aktenlimits:', quotaErr);
       }
     }
-    
-    if (typeof handleSpeichernCheck === 'function' && !laedt) {
-      showToast("Speichere Akten-Eintrag...", "success");
+
+    setShowTaskPanel(false);
+    setTaskBetrag('');
+    setTaskIban('');
+    setTaskVwz('');
+    setTaskNotiz('');
+    if (!isFullAccessUser) {
+      setIsLegalConfirmed(false);
     }
 
-    let alleUrls = [];
-    const zuSpeicherndeDateien = [...dateien, ...emailAnhaenge];
-    const zugewieseneFirma = unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : 'Allgemein');
-
-    if (zuSpeicherndeDateien && zuSpeicherndeDateien.length > 0) {
-      for (const f of zuSpeicherndeDateien) {
-        const isMd = f.name.toLowerCase().endsWith('.md');
-        const isPdf = f.name.toLowerCase().endsWith('.pdf');
-
-        if (isMd) {
-           const fileInhalt = await f.text(); 
-           const baseInfo = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}`; 
-           const finalDbText = `${baseInfo}\n\n${fileInhalt.substring(0, 3000)}...`;
-           
-           const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
-           const dateiName = `${Date.now()}_${sichererDateiname}`;
-           const mdBlob = new Blob([fileInhalt], { type: 'text/markdown;charset=utf-8' });
-           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
-           
-           let mdPubUrl = null;
-           if (!uploadError) {
-             const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName); 
-             mdPubUrl = linkData?.publicUrl || null;
-           }
-
-           await supabase.from('wissensdatenbank').insert([{ datei_name: f.name, firma: zugewieseneFirma, inhalt_text: finalDbText, dokument_url: mdPubUrl }]);
-           await syncToGithub(f.name, fileInhalt, null, null, showToast);
-        } else {
-           const sichererDateiname = f.name.replace(/[^a-zA-Z0-9.-]/g, '_'); 
-           const dateiName = `${Date.now()}_${sichererDateiname}`;
-           const { error: uploadError } = await supabase.storage.from('dokumente').upload(dateiName, f, { upsert: true });
-           
-           if (!uploadError) {
-             const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName); 
-             const pdfPubUrl = linkData.publicUrl;
-             alleUrls.push(pdfPubUrl);
-             
-             const hatMdGegenstueck = zuSpeicherndeDateien.some(d => d.name.toLowerCase() === f.name.toLowerCase().replace('.pdf', '.md'));
-             let extrahierterText = '';
-             let finalDbText = `Upload via Akten-Cockpit. Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}`;
-
-             if (isPdf && !hatMdGegenstueck) {
-                showToast(`Erzeuge MD-Zwilling für (${f.name})...`, 'success');
-                try {
-                   extrahierterText = await extractTextFromPDF(f);
-                } catch (err) { console.error("Fehler bei PDF-Extraktion:", err); }
-             }
-
-             const textFuerWissen = (extrahierterText && extrahierterText.trim().length > 50)
-               ? extrahierterText
-               : (rawText || briefEntwurf || '');
-
-             if (textFuerWissen) {
-               finalDbText = `Auto-Extraktion (PDF). Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}\n\n${textFuerWissen.substring(0, 3000)}...`;
-             }
-
-             // 1. PDF-Eintrag in wissensdatenbank sichern
-             await supabase.from('wissensdatenbank').insert([{
-               datei_name: f.name,
-               firma: zugewieseneFirma,
-               inhalt_text: finalDbText,
-               dokument_url: pdfPubUrl
-             }]);
-
-             // 2. Synchronen MD-Zwilling im Storage und in wissensdatenbank sichern
-             if (isPdf && !hatMdGegenstueck && textFuerWissen.trim().length > 0) {
-                const mdFileName = f.name.replace(/\.[^/.]+$/, "") + ".md";
-                const mdInhalt = `${finalDbText}\n\nOriginal-PDF: ${pdfPubUrl}\n\n${textFuerWissen}`;
-                const twinFileName = dateiName.replace(/\.[^/.]+$/, "") + ".md";
-                const twinBlob = new Blob([mdInhalt], { type: 'text/markdown;charset=utf-8' });
-                const { error: twinUpErr } = await supabase.storage.from('dokumente').upload(twinFileName, twinBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
-
-                let mdPubUrl = pdfPubUrl;
-                if (!twinUpErr) {
-                  const { data: twinLinkData } = supabase.storage.from('dokumente').getPublicUrl(twinFileName);
-                  if (twinLinkData?.publicUrl) mdPubUrl = twinLinkData.publicUrl;
-                }
-
-                await supabase.from('wissensdatenbank').insert([{
-                  datei_name: mdFileName,
-                  firma: zugewieseneFirma,
-                  inhalt_text: finalDbText,
-                  dokument_url: mdPubUrl
-                }]);
-                await syncToGithub(mdFileName, mdInhalt, pdfPubUrl, null, showToast);
-             }
-           }
-        }
-      }
-    }
-    
-    const activeVersandPdfUrl = autoSaveOverrides && autoSaveOverrides.overridePdfUrl !== undefined ? autoSaveOverrides.overridePdfUrl : versandPdfUrl;
-    const activeTyp = autoSaveOverrides && autoSaveOverrides.overrideTyp !== undefined ? autoSaveOverrides.overrideTyp : typ;
-
-    if (activeVersandPdfUrl) {
-      alleUrls.push(activeVersandPdfUrl);
-      const urlParts = decodeURIComponent(activeVersandPdfUrl).split('/');
-      const rawStoragePdfName = urlParts[urlParts.length - 1].split('?')[0];
-      const fallbackPrefix = activeTyp === 'Ausgang' ? 'Ausgang' : (activeTyp === 'Eingang' ? 'Eingang' : 'Dokument');
-      const fallbackBase = `${fallbackPrefix}_${new Date().toISOString().split('T')[0]}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}`;
-
-      const finalPdfDbName = (rawStoragePdfName && rawStoragePdfName.toLowerCase().endsWith('.pdf'))
-        ? rawStoragePdfName
-        : `${fallbackBase}.pdf`;
-      const finalMdDbName = finalPdfDbName.replace(/\.[^/.]+$/, "") + ".md";
-
-      const volltextQuelle = (rawText && rawText.trim().length > 0) ? rawText : (briefEntwurf || '');
-      const briefTxt = `${activeTyp}-Dokument. Gegner: ${gegnerName || 'Unbekannt'} | Gegenstand: ${thema || 'Ohne Gegenstand'}\n\n${volltextQuelle}`.substring(0, 3000);
-
-      // 1. PDF-Datensatz in wissensdatenbank eintragen
-      await supabase.from('wissensdatenbank').insert([{
-        datei_name: finalPdfDbName,
-        firma: zugewieseneFirma,
-        inhalt_text: briefTxt,
-        dokument_url: activeVersandPdfUrl
-      }]);
-      
-      // 2. MD-Zwilling im Storage sicherstellen & als MD-Datensatz in wissensdatenbank eintragen
-      const mdInhalt = `${activeTyp}-Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\nLink: ${activeVersandPdfUrl}\n\nDokumententext:\n${volltextQuelle}`;
-      await syncToGithub(finalMdDbName, mdInhalt, activeVersandPdfUrl, null, showToast);
-      
-      let twinMdPublicUrl = activeVersandPdfUrl.replace(/\.pdf(\?.*)?$/i, '.md');
-      try {
-         if (rawStoragePdfName) {
-           const twinFileName = rawStoragePdfName.replace(/\.[^/.]+$/, "") + ".md";
-           const twinBlob = new Blob([mdInhalt], { type: 'text/markdown;charset=utf-8' });
-           const { error: twinErr } = await supabase.storage.from('dokumente').upload(twinFileName, twinBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
-           if (!twinErr) {
-             const { data: mdLinkData } = supabase.storage.from('dokumente').getPublicUrl(twinFileName);
-             if (mdLinkData?.publicUrl) twinMdPublicUrl = mdLinkData.publicUrl;
-           }
-         }
-      } catch(e) { console.error("Twin Upload für PDF fehlgeschlagen", e); }
-
-      await supabase.from('wissensdatenbank').insert([{
-        datei_name: finalMdDbName,
-        firma: zugewieseneFirma,
-        inhalt_text: briefTxt,
-        dokument_url: twinMdPublicUrl
-      }]);
-      
-    } else if (briefEntwurf && briefEntwurf.trim() !== '') {
-      const prefix = activeTyp === 'Eingang' ? 'Eingang' : (activeTyp === 'Ausgang' ? 'Ausgang' : 'Entwurf');
-      const fileName = `${prefix}_${Date.now()}_${(thema || 'Schreiben').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.md`;
-      
-      let fileContent = `${prefix}-Dokument\nGegenstand: ${thema || 'Ohne Gegenstand'}\nGegner: ${gegnerName || 'Unbekannt'}\n\nZusammenfassung / Text:\n${briefEntwurf}`;
-      
-      if (rawText) {
-         fileContent += `\n\n--- ORIGINAL VOLLTEXT (OCR) ---\n${rawText}`;
-      }
-      
-      await syncToGithub(fileName, fileContent, null, null, showToast);
-      
-      const entBlob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
-      const { error: entError } = await supabase.storage.from('dokumente').upload(fileName, entBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
-      let entPubUrl = null;
-      if (!entError) {
-         const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(fileName);
-         entPubUrl = linkData?.publicUrl || null;
-      }
-
-      if (zuSpeicherndeDateien.length === 0) {
-        await supabase.from('wissensdatenbank').insert([{
-          datei_name: fileName,
-          firma: zugewieseneFirma,
-          inhalt_text: fileContent.substring(0, 3000),
-          dokument_url: entPubUrl
-        }]);
-      }
-    }
-
-    const dokumentUrl = alleUrls.length > 0 ? alleUrls.join(',') : null;
-    let aktuelleAkteId = selectedAkteId;
-
-    if (modus === 'neu') {
-      const { data: neueAkte, error: aktenError } = await supabase.from('akten').insert([{ user_id: session.user.id, unser_zeichen: unserZeichen || null, aktenzeichen: aktenzeichen || null, gegner_name: gegnerName || null, gegner_ansprechpartner: gegnerAnsprechpartner || null, gegner_telefon: gegnerTelefon || null, gegner_email: gegnerEmail || null, unsere_firma: unsereFirma || null, unser_ansprechpartner: unserAnsprechpartner || null, unser_telefon: unserTelefon || null, unser_email: unserEmail || null, thema: thema || null, status: 'Offen' }]).select();
-      if (aktenError) { showToast("Fehler Akte: " + aktenError.message, 'error'); return; }
-      aktuelleAkteId = neueAkte[0].id;
-    } else {
-      if (clearOldFristen && aktuelleAkteId) {
-         await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('akte_id', aktuelleAkteId);
-      }
-    }
-
-    const activeAktion = autoSaveOverrides && autoSaveOverrides.overrideAktion !== undefined ? autoSaveOverrides.overrideAktion : aktion;
-    const activeKanal = autoSaveOverrides && autoSaveOverrides.overrideKanal !== undefined ? autoSaveOverrides.overrideKanal : null;
-    const activeWv = autoSaveOverrides && autoSaveOverrides.overrideWv !== undefined ? autoSaveOverrides.overrideWv : wiedervorlage;
-
-    const { error: histError } = await supabase.from('akten_historie').insert([{ 
-      akte_id: aktuelleAkteId, 
-      user_id: session.user.id, 
-      typ: activeTyp, 
-      datum: datum || null, 
-      aktion: activeAktion || null, 
-      kanal: activeKanal || null, 
-      frist_extern: fristExtern || null, 
-      wiedervorlage: activeWv || null, 
-      dokument_url: dokumentUrl, 
-      brief_entwurf: briefEntwurf || null,
-      bezug_id: bezugId || null 
-    }]);
-
-    if (!histError) {
-      if (bezugId) {
-         await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('id', bezugId);
-      }
-
-      const preventWarRoom = autoSaveOverrides && autoSaveOverrides.preventWarRoom;
-      
-      if (activeTyp === 'Eingang' && !preventWarRoom) {
-        setActiveWarRoomDossier({
-          akte_id: aktuelleAkteId,
-          unsere_firma: unsereFirma || (tresorPrompt && tresorPrompt.typ === 'neu' ? tresorPrompt.obj.unsere_firma : ''),
-          unser_ansprechpartner: unserAnsprechpartner,
-          aktenzeichen: aktenzeichen,
-          kontakt: gegnerName,
-          thema: thema,
-          frist_extern: fristExtern,
-          brief_entwurf: briefEntwurf,
-          raw_text: rawText || briefEntwurf 
-        });
-        setIsWarRoomOpen(true);
-      }
-
-      setUnserZeichen(''); setAktenzeichen(''); setGegnerName(''); setGegnerAnsprechpartner(''); setGegnerTelefon(''); setGegnerFax(''); setGegnerEmail(''); 
-      setUnsereFirma(''); setUnserAnsprechpartner(''); setUnserTelefon(''); setUnserEmail(''); setThema(''); 
-      setAktion(''); setFristExtern(''); setWiedervorlage(''); setDateien([]); setEmailAnhaenge([]); 
-      setBriefEntwurf(''); setBezugId(''); setClearOldFristen(true);
-      setShowTaskPanel(false); setTaskBetrag(''); setTaskIban(''); setTaskVwz(''); setTaskNotiz('');
-      if (!isFullAccessUser) setIsLegalConfirmed(false);
-      
-      if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
-      if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
-      ladeDaten();
-      showToast('Akteneintrag erfolgreich gespeichert!', 'success');
-    } else {
-      showToast('Fehler beim Speichern der Historie: ' + histError.message, 'error');
+    if (typeof handleSpeichernCheck === 'function') {
+      handleSpeichernCheck(e);
     }
   };
 
@@ -794,6 +537,11 @@ export default function AktenFormular({
   const demoBehoerdenLabel = gegnerName || 'die eingetragene Behörde / Gegenpartei';
   const demoKanalLabel = pendingDemoKanal === 'email' ? 'E-Mail (Resend)' : 'E-Fax (Simple-Fax)';
   const testerLoginEmailPreview = session?.user?.email ? String(session.user.email).trim() : '';
+
+  const activeVorgaengeCount =
+    activeAkteObj && Array.isArray(activeAkteObj.akten_historie)
+      ? activeAkteObj.akten_historie.length
+      : 0;
 
   return (
     <>
@@ -982,68 +730,14 @@ export default function AktenFormular({
         </div>
       )}
 
-      {showTriageModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h3 style={{ margin: 0, color: theme.textMain, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Icon name="folder" size={24} /> Posteingang abheften
-            </h3>
-            <p style={{ color: theme.textMuted, fontSize: '14px', margin: 0 }}>
-              Wie möchtest du mit diesem Eingangsdokument weiter verfahren?
-            </p>
+      <form onSubmit={handleProtectedSubmit} style={panelStyle}>
 
-            <button onClick={() => { setShowTriageModal(false); speichereEintragLogik(); }} style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>1. Sofort antworten (War-Room)</span> <Icon name="right" size={16} />
-            </button>
-
-            <div style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, padding: '15px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-               <strong style={{ color: theme.textMain, fontSize: '14px' }}>2. Später antworten (Wiedervorlage)</strong>
-               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <input type="date" value={triageWvDate} onChange={e => setTriageWvDate(e.target.value)} style={{...inputStyle, flex: '1 1 auto', padding: '8px'}} />
-                  <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + 3); setTriageWvDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+3T</button>
-                  <button type="button" onClick={() => { const d = new Date(); d.setDate(d.getDate() + 7); setTriageWvDate(d.toISOString().split('T')[0]); }} style={quickBtnStyle}>+1W</button>
-               </div>
-               <button onClick={() => { setShowTriageModal(false); speichereEintragLogik({ overrideAktion: 'Wiedervorlage zur Beantwortung', overrideWv: triageWvDate, preventWarRoom: true }); }} style={{ background: theme.border, color: theme.textMain, border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                 Speichern & Wiedervorlage setzen
-               </button>
-            </div>
-
-            <button onClick={() => { setShowTriageModal(false); speichereEintragLogik({ overrideAktion: aktion || 'Kenntnisnahme / Abgelegt', preventWarRoom: true }); }} style={{ background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
-              3. Nur ablegen (Info/Kenntnisnahme)
-            </button>
-
-            <button onClick={() => setShowTriageModal(false)} style={{ background: 'transparent', color: theme.textMuted, border: 'none', padding: '10px', cursor: 'pointer', fontSize: '13px', marginTop: '10px' }}>
-              Abbrechen
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showUploadReminder && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: theme.cardBg, border: `1px solid ${theme.warningBorder}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-            <Icon name="alert" size={48} style={{ color: theme.warningBorder, marginBottom: '15px' }} />
-            <h3 style={{ margin: '0 0 15px 0', color: theme.textMain, fontSize: '20px' }}>Dateien vergessen?</h3>
-            <p style={{ color: theme.textMuted, fontSize: '15px', marginBottom: '25px', lineHeight: '1.5' }}>
-              Du hast aktuell <strong>keine</strong> Dokumente (PDF/MD) für den Upload in diese Akte ausgewählt.<br/><br/>
-              Möchtest du die Akte / den Eintrag wirklich <strong>ohne Dateien</strong> anlegen?
-            </p>
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={() => setShowUploadReminder(false)} style={{ padding: '12px 18px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Abbrechen & Dateien auswählen</button>
-              <button onClick={proceedToSaveOrTriage} style={{ padding: '12px 18px', background: 'transparent', color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1 1 auto' }}>Trotzdem ohne Dateien speichern</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={localHandleSpeichernCheck} style={panelStyle}>
-        
         {/* --- NEUES ZWEISTUFIGES GEGNER- & ANSPRECHPARTNER-ASSIGNMENT UI --- */}
         {gegnerPrompt && (
           <div style={{ background: theme.gegnerAccent || '#f43f5e', color: '#fff', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icon name="alert" size={16} /> 
+                <Icon name="alert" size={16} />
                 Gegner / Kontakt erkannt: "{gegnerPrompt.obj.name}" {gegnerPrompt.obj.ansprechpartner ? `(Sachbearbeiter: ${gegnerPrompt.obj.ansprechpartner})` : ''}
               </strong>
 
@@ -1053,8 +747,8 @@ export default function AktenFormular({
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px', color: 'rgba(255,255,255,0.85)' }}>
                     1. Behörde / Gegner im CRM wählen:
                   </label>
-                  <select 
-                    value={promptTargetGegnerId} 
+                  <select
+                    value={promptTargetGegnerId}
                     onChange={(e) => handlePromptGegnerChange(e.target.value)}
                     style={{ width: '100%', padding: '9px', borderRadius: '4px', border: 'none', color: '#000', fontWeight: 'bold', fontSize: '13px' }}
                   >
@@ -1084,8 +778,8 @@ export default function AktenFormular({
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px', color: 'rgba(255,255,255,0.85)' }}>
                       2. Hinterlegte Ansprechpartner / Abteilungen:
                     </label>
-                    <select 
-                      value={promptSelectedApMode} 
+                    <select
+                      value={promptSelectedApMode}
                       onChange={(e) => setPromptSelectedApMode(e.target.value)}
                       style={{ width: '100%', padding: '9px', borderRadius: '4px', border: 'none', color: '#000', fontWeight: 'bold', fontSize: '13px' }}
                     >
@@ -1112,47 +806,47 @@ export default function AktenFormular({
               {(promptTargetGegnerId === '__NEU__' || promptSelectedApMode === 'new') && (
                 <div style={{ background: 'rgba(0,0,0,0.25)', padding: '12px', borderRadius: '6px', border: '1px dashed rgba(255,255,255,0.4)' }}>
                   <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: '#fff' }}>
-                     Kontaktdaten des neuen Ansprechpartners (wird dauerhaft bei dieser Behörde im CRM gespeichert):
+                    Kontaktdaten des neuen Ansprechpartners (wird dauerhaft bei dieser Behörde im CRM gespeichert):
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '8px' }}>
                     <div>
                       <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Abteilung</label>
-                      <input 
-                        type="text" 
-                        value={promptNewAbteilung} 
-                        onChange={(e) => setPromptNewAbteilung(e.target.value)} 
-                        placeholder="z.B. Gewerbesteuer" 
-                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      <input
+                        type="text"
+                        value={promptNewAbteilung}
+                        onChange={(e) => setPromptNewAbteilung(e.target.value)}
+                        placeholder="z.B. Gewerbesteuer"
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }}
                       />
                     </div>
                     <div>
                       <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Name Sachbearbeiter</label>
-                      <input 
-                        type="text" 
-                        value={promptNewName} 
-                        onChange={(e) => setPromptNewName(e.target.value)} 
-                        placeholder="z.B. Frau Stellmach" 
-                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      <input
+                        type="text"
+                        value={promptNewName}
+                        onChange={(e) => setPromptNewName(e.target.value)}
+                        placeholder="z.B. Frau Stellmach"
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }}
                       />
                     </div>
                     <div>
                       <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Durchwahl / Telefon</label>
-                      <input 
-                        type="text" 
-                        value={promptNewTel} 
-                        onChange={(e) => setPromptNewTel(e.target.value)} 
-                        placeholder="z.B. 0351 488..." 
-                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      <input
+                        type="text"
+                        value={promptNewTel}
+                        onChange={(e) => setPromptNewTel(e.target.value)}
+                        placeholder="z.B. 0351 488..."
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }}
                       />
                     </div>
                     <div>
                       <label style={{ fontSize: '10px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>E-Mail</label>
-                      <input 
-                        type="email" 
-                        value={promptNewEmail} 
-                        onChange={(e) => setPromptNewEmail(e.target.value)} 
-                        placeholder="z.B. steueramt@..." 
-                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }} 
+                      <input
+                        type="email"
+                        value={promptNewEmail}
+                        onChange={(e) => setPromptNewEmail(e.target.value)}
+                        placeholder="z.B. steueramt@..."
+                        style={{ width: '100%', padding: '7px', borderRadius: '4px', border: 'none', color: '#000', fontSize: '13px', boxSizing: 'border-box' }}
                       />
                     </div>
                   </div>
@@ -1161,18 +855,18 @@ export default function AktenFormular({
 
               {/* AKTION-BUTTONS */}
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button 
-                  type="button" 
-                  onClick={executeGegnerPromptSubmit} 
+                <button
+                  type="button"
+                  onClick={executeGegnerPromptSubmit}
                   style={{ background: '#fff', color: theme.gegnerAccent || '#f43f5e', border: 'none', padding: '9px 18px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
-                  {promptTargetGegnerId === '__NEU__' 
-                    ? '+ Als neue Behörde im CRM anlegen & übernehmen' 
+                  {promptTargetGegnerId === '__NEU__'
+                    ? '+ Als neue Behörde im CRM anlegen & übernehmen'
                     : (promptSelectedApMode === 'new' ? '✓ Kontakt zu Behörde hinzufügen & übernehmen' : '✓ Ausgewählten Kontakt übernehmen')}
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setGegnerPrompt(null)} 
+                <button
+                  type="button"
+                  onClick={() => setGegnerPrompt(null)}
                   style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', padding: '9px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
                   Ignorieren
@@ -1187,10 +881,10 @@ export default function AktenFormular({
           <div style={{ background: theme.accent, color: '#000', padding: '18px 20px', borderRadius: '8px', marginBottom: '25px', textAlign: 'left' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <strong style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icon name="alert" size={16} /> 
+                <Icon name="alert" size={16} />
                 {tresorPrompt.typ === 'auswahl' ? `Mandant "${tresorPrompt.obj.unsere_firma}" erkannt. Bitte im Tresor zuweisen:` : `Unbekannter Mandant: "${tresorPrompt.obj.unsere_firma}" neu in den Tresor aufnehmen?`}
               </strong>
-              
+
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '5px' }}>
                 {tresorPrompt.typ === 'auswahl' ? (
                   <>
@@ -1209,10 +903,10 @@ export default function AktenFormular({
           </div>
         )}
 
-        {/* --- MODUS-WAHL: NEUE AKTE VS. ZU BESTEHENDER AKTE HINZUFÜGEN --- */}
+        {/* --- MODUS-WAHL: NEUE AKTE VS. ZU BESTEHENDER AKTE HINZUFÜGEN (+ SCHNELLÖFFNER FALLAKTE) --- */}
         <div
           data-help="akten_modus_wahl"
-          style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap' }}
+          style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', textAlign: 'left', flexWrap: 'wrap', alignItems: 'center' }}
         >
           <label style={{ fontWeight: 'bold', cursor: 'pointer', color: modus === 'neu' ? theme.accent : theme.textMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <input type="radio" checked={modus === 'neu'} onChange={() => setModus('neu')} />
@@ -1223,11 +917,34 @@ export default function AktenFormular({
             <Icon name="folder" size={16} /> Zu bestehender Akte hinzufügen
           </label>
           {modus === 'bestehend' && (
-            <div style={{ flex: '1 1 min(100%, 200px)', marginLeft: 'auto' }}>
-              <select value={selectedAkteId} onChange={handleAkteAuswahl} required style={{...inputStyle, padding: '8px', fontSize: '13px'}}>
+            <div style={{ flex: '1 1 min(100%, 260px)', marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <select value={selectedAkteId || ''} onChange={handleAkteAuswahl} required style={{ ...inputStyle, padding: '8px', fontSize: '13px', flex: '1 1 200px' }}>
                 <option value="">-- Ziel-Akte wählen --</option>
                 {sortedAktenForDropdown.map(a => <option key={a.id} value={a.id}>{getAkteDropdownText(a)}</option>)}
               </select>
+              {selectedAkteId && typeof onOpenFallakte === 'function' && (
+                <button
+                  type="button"
+                  onClick={() => onOpenFallakte(selectedAkteId)}
+                  style={{
+                    background: theme.accent,
+                    color: btnTextColor,
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 14px',
+                    fontSize: '12.5px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Komplette chronologische Fallakte dieser Akte öffnen"
+                >
+                  <Icon name="cabinet" size={15} /> Fallakte öffnen ({activeVorgaengeCount})
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1241,8 +958,8 @@ export default function AktenFormular({
                 style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
               >
                 <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                    <h4 style={{margin: 0, color: theme.textMain}}>1. Akten-Stammdaten</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
+                    <h4 style={{ margin: 0, color: theme.textMain }}>1. Akten-Stammdaten</h4>
                   </div>
                 </div>
                 <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} /></div>
@@ -1256,15 +973,15 @@ export default function AktenFormular({
                 style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
               >
                 <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                    <h4 style={{margin: 0, color: theme.textMain}}>2. Gegenpartei / Behörde</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
+                    <h4 style={{ margin: 0, color: theme.textMain }}>2. Gegenpartei / Behörde</h4>
                     {gegnerListe.length > 0 && (
-                      <select onChange={handleGegnerAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                      <select onChange={handleGegnerAuswahl} style={{ padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px' }}>
                         <option value="">+ Aus Gegner-CRM laden...</option>
                         {gegnerListe.map(g => {
                           let ansList = [];
-                          try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch(e){}
-                          if (ansList.length > 0) { return ansList.map((ans, idx) => ( <option key={`${g.id}-${idx}`} value={`${g.id}|${idx}`}>{g.name} — {ans.abteilung ? `${ans.abteilung}: ` : ''}{ans.name || 'Zentrale'}</option> )); }
+                          try { const parsed = typeof g.notizen === 'string' ? JSON.parse(g.notizen) : g.notizen; if (Array.isArray(parsed)) ansList = parsed; } catch (e) {}
+                          if (ansList.length > 0) { return ansList.map((ans, idx) => (<option key={`${g.id}-${idx}`} value={`${g.id}|${idx}`}>{g.name} — {ans.abteilung ? `${ans.abteilung}: ` : ''}{ans.name || 'Zentrale'}</option>)); }
                           return <option key={g.id} value={`${g.id}|0`}>{g.name}</option>;
                         })}
                       </select>
@@ -1284,10 +1001,10 @@ export default function AktenFormular({
                 style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: '20px' }}
               >
                 <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px'}}>
-                    <h4 style={{margin: 0, color: theme.textMain}}>3. Wir (Mandant)</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
+                    <h4 style={{ margin: 0, color: theme.textMain }}>3. Wir (Mandant)</h4>
                     {mandanten.length > 0 && (
-                      <select onChange={handleTresorAuswahl} style={{padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px'}}>
+                      <select onChange={handleTresorAuswahl} style={{ padding: '6px 10px', borderRadius: '4px', border: `1px solid ${theme.border}`, fontSize: '13px', background: theme.inputBg, color: theme.textMain, flex: '1 1 250px', maxWidth: '350px' }}>
                         <option value="">+ Aus Firmen-Tresor laden...</option>
                         {mandanten.map(m => <option key={m.id} value={m.id}>{m.firmenname}</option>)}
                       </select>
@@ -1310,7 +1027,7 @@ export default function AktenFormular({
             <div style={{ gridColumn: '1 / -1', textAlign: 'left', marginTop: '6px' }}><h4 style={h4StyleAkten}>Dokument-Eintrag / Arbeitsanweisung</h4></div>
             <div><label style={labelStyle}>Typ*</label><select value={typ} onChange={(e) => setTyp(e.target.value)} style={inputStyle}><option value="Eingang">Eingang</option><option value="Ausgang">Ausgang</option><option value="Intern">Intern</option></select></div>
             <div><label style={labelStyle}>Datum</label><input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} style={inputStyle} /></div>
-            
+
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Vorgang / Betreff / Aktion</label>
               <input type="text" value={aktion} onChange={(e) => setAktion(e.target.value)} placeholder="z.B. Rechnung Landesjustizkasse / Überweisung fällig" style={inputStyle} />
@@ -1319,14 +1036,14 @@ export default function AktenFormular({
             {activeAkteObj && activeAkteObj.akten_historie && activeAkteObj.akten_historie.length > 0 && (
               <div style={{ gridColumn: '1 / -1', padding: '12px', background: 'rgba(14, 165, 233, 0.1)', border: '1px dashed #0ea5e9', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-                  <label style={{...labelStyle, color: theme.textMain, margin: 0}}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
+                  <label style={{ ...labelStyle, color: theme.textMain, margin: 0 }}>Ist eine Antwort auf (Bezug & Auto-Kill Frist):</label>
                   {bezugId && (
                     <span style={{ fontSize: '11px', background: '#0ea5e9', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
                       ★ Bezug verknüpft
                     </span>
                   )}
                 </div>
-                <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{...inputStyle, borderColor: '#0ea5e9'}}>
+                <select value={bezugId} onChange={(e) => setBezugId(e.target.value)} style={{ ...inputStyle, borderColor: '#0ea5e9' }}>
                   <option value="">-- Kein direkter Bezug --</option>
                   {activeAkteObj.akten_historie.map(h => {
                     const briefSnippet = h.brief_entwurf ? ` | "${h.brief_entwurf.substring(0, 40).replace(/\n/g, ' ')}..."` : '';
@@ -1362,7 +1079,7 @@ export default function AktenFormular({
                 <button type="button" onClick={() => setzeWV(0, 1)} style={quickBtnStyle}>+1M</button>
               </div>
             </div>
-            
+
             {modus === 'bestehend' && (
               <div style={{ gridColumn: '1 / -1', marginTop: '2px', padding: '10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px dashed #10b981', borderRadius: '6px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: theme.textMain, fontWeight: 'bold' }}>
@@ -1376,25 +1093,25 @@ export default function AktenFormular({
 
         {/* --- VERSAND-COCKPIT & SCHREIBFENSTER --- */}
         <div style={{ background: theme.inputBg, padding: '20px', border: `1px solid ${theme.border}`, borderRadius: '8px', marginTop: '25px', textAlign: 'left' }}>
-          
+
           {/* --- EMPFÄNGER-ROUTING (E-MAIL, FAX & Z. HD.) --- */}
           <div
             data-help="akten_versand_adressen"
             style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '15px', marginBottom: '20px', padding: '15px', background: theme.cardBg, borderRadius: '8px', border: `1px dashed ${theme.border}` }}
           >
             <div>
-              <label style={{...labelStyle, color: theme.textMain}}>Versand-E-Mail (Gegner)</label>
+              <label style={{ ...labelStyle, color: theme.textMain }}>Versand-E-Mail (Gegner)</label>
               <input
                 ref={versandEmailInputRef}
                 type="email"
                 value={gegnerEmail}
                 onChange={(e) => setGegnerEmail(e.target.value)}
                 placeholder="z.B. poststelle@..."
-                style={{...inputStyle, padding: '8px'}}
+                style={{ ...inputStyle, padding: '8px' }}
               />
             </div>
             <div>
-              <label style={{...labelStyle, color: theme.textMain}}>Versand-Faxnummer (Gegner)</label>
+              <label style={{ ...labelStyle, color: theme.textMain }}>Versand-Faxnummer (Gegner)</label>
               <input
                 ref={versandFaxInputRef}
                 type="text"
@@ -1402,17 +1119,17 @@ export default function AktenFormular({
                 onChange={(e) => setGegnerFax(e.target.value)}
                 onBlur={(e) => setGegnerFax(formatRufnummer(e.target.value))}
                 placeholder="z.B. 0351 123456"
-                style={{...inputStyle, padding: '8px'}}
+                style={{ ...inputStyle, padding: '8px' }}
               />
             </div>
             <div>
-              <label style={{...labelStyle, color: theme.textMain}}>z. Hd. (Fax-Deckblatt)</label>
-              <input type="text" value={faxZhd} onChange={(e) => setFaxZhd(e.target.value)} placeholder="z.B. Frau Klemmer" style={{...inputStyle, padding: '8px'}} title="Dieser Name wird exklusiv für den Fax-Versand genutzt und überschreibt nicht das CRM." />
+              <label style={{ ...labelStyle, color: theme.textMain }}>z. Hd. (Fax-Deckblatt)</label>
+              <input type="text" value={faxZhd} onChange={(e) => setFaxZhd(e.target.value)} placeholder="z.B. Frau Klemmer" style={{ ...inputStyle, padding: '8px' }} title="Dieser Name wird exklusiv für den Fax-Versand genutzt und überschreibt nicht das CRM." />
             </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-            <label style={{...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px'}}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen / Arbeitsanweisung & Notizen</label>
+            <label style={{ ...labelStyle, color: theme.accent, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="file" size={16} /> Textentwurf / Schreiben verfassen / Arbeitsanweisung & Notizen</label>
 
             {/* --- VERPFLICHTENDE CLICK-WRAP-CHECKBOX UNMITTELBAR VOR DEN VERSAND-BUTTONS --- */}
             <div
@@ -1457,7 +1174,7 @@ export default function AktenFormular({
                 </span>
               </label>
             </div>
-            
+
             {/* --- DIE 5 AKTIONS- & VERSAND-BUTTONS (JEDER MIT EIGENEM LIVE-HILFE-ANKER) --- */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: '12px', width: '100%' }}>
               <div data-help="akten_btn_versandhistorie" style={{ width: '100%' }}>
@@ -1521,12 +1238,12 @@ export default function AktenFormular({
                   <Icon name="phone" size={16} /> E-Fax (Simple-Fax)
                 </button>
               </div>
-              
+
               {/* KONSISTENTER BUTTON: DURCHGEHEND BLAU MIT DUNKLER SCHRIFT & SCHLICHTEM LINE-ICON */}
               <div data-help="akten_btn_termin_zahlung" style={{ width: '100%' }}>
-                <button 
-                  type="button" 
-                  onClick={() => setShowTaskPanel(!showTaskPanel)} 
+                <button
+                  type="button"
+                  onClick={() => setShowTaskPanel(!showTaskPanel)}
                   style={{ width: '100%', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   title="Internen Termin, Zahlungsziel oder Aufgabe inkl. Google Kalender Push anlegen"
                 >
@@ -1538,17 +1255,21 @@ export default function AktenFormular({
                 <button type="button" onClick={() => {
                   setActiveWarRoomDossier({
                     akte_id: selectedAkteId,
+                    unser_zeichen: unserZeichen,
                     unsere_firma: unsereFirma,
                     unser_ansprechpartner: unserAnsprechpartner,
                     aktenzeichen: aktenzeichen,
                     kontakt: gegnerName,
+                    ansprechpartner: gegnerAnsprechpartner,
+                    gegner_fax: gegnerFax,
+                    gegner_email: gegnerEmail,
                     thema: thema,
                     frist_extern: fristExtern,
-                    brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Metadaten/Thema analysieren.",
-                    raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt." 
+                    brief_entwurf: briefEntwurf || "Kein Volltext hinterlegt. Bitte auf Basis der Fallakte & Metadaten analysieren.",
+                    raw_text: rawText || briefEntwurf || "Kein Volltext hinterlegt."
                   });
                   setIsWarRoomOpen(true);
-                }} style={{ width: '100%', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang zur strategischen Analyse in den War-Room schicken">
+                }} style={{ width: '100%', background: '#b91c1c', color: '#fff', border: 'none', borderRadius: '6px', padding: '12px 14px', minHeight: '44px', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Diesen Vorgang samt Fallakte zur strategischen Analyse in den War-Room schicken">
                   <Icon name="alert" size={16} /> In War-Room senden
                 </button>
               </div>
@@ -1618,16 +1339,16 @@ export default function AktenFormular({
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
-                <button 
-                  type="button" 
-                  onClick={applyTaskToForm} 
+                <button
+                  type="button"
+                  onClick={applyTaskToForm}
                   style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
                   <Icon name="check" size={16} /> In Maske & Wiedervorlage übernehmen (Typ: Intern)
                 </button>
-                <button 
-                  type="button" 
-                  onClick={pushToGoogleCalendar} 
+                <button
+                  type="button"
+                  onClick={pushToGoogleCalendar}
                   style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '10px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', flex: '1 1 220px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
                   {renderCalendarIcon(16)} Direkt im Google Kalender öffnen
@@ -1647,16 +1368,16 @@ export default function AktenFormular({
               </label>
               <label style={{ background: theme.accent, color: btnTextColor, border: 'none', padding: '8px 14px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <Icon name="paperclip" size={14} /> Datei(en) anhängen
-                <input 
-                  id="email-anhaenge-upload" 
-                  type="file" 
-                  multiple 
-                  style={{ display: 'none' }} 
+                <input
+                  id="email-anhaenge-upload"
+                  type="file"
+                  multiple
+                  style={{ display: 'none' }}
                   onChange={(e) => {
                     const files = Array.from(e.target.files);
                     setEmailAnhaenge(prev => [...prev, ...files]);
                     e.target.value = '';
-                  }} 
+                  }}
                 />
               </label>
             </div>
@@ -1665,10 +1386,10 @@ export default function AktenFormular({
                 {emailAnhaenge.map((f, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '4px 8px', fontSize: '12px', color: theme.textMain }}>
                     <span style={{ marginRight: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="paperclip" size={12} /> {f.name}</span>
-                    <button 
-                      type="button" 
-                      onClick={() => setEmailAnhaenge(prev => prev.filter((_, i) => i !== idx))} 
-                      style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '0 2px', fontWeight: 'bold' }} 
+                    <button
+                      type="button"
+                      onClick={() => setEmailAnhaenge(prev => prev.filter((_, i) => i !== idx))}
+                      style={{ background: 'transparent', border: 'none', color: theme.warningBorder, cursor: 'pointer', padding: '0 2px', fontWeight: 'bold' }}
                       title="Anhang entfernen"
                     >
                       <Icon name="x" size={12} />
@@ -1763,8 +1484,23 @@ export default function AktenFormular({
 
         {/* --- ABSCHLUSS-BUTTON: IN AKTE ABHEFTEN --- */}
         <div data-help="akten_manuell_upload_save" style={{ marginTop: '25px', width: '100%' }}>
-          <button type="submit" style={{ padding: '15px', background: theme.accent, color: btnTextColor, border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px' }}>
-            + In Akte abheften
+          <button
+            type="submit"
+            disabled={laedt}
+            style={{
+              padding: '15px',
+              background: theme.accent,
+              color: btnTextColor,
+              border: 'none',
+              borderRadius: '8px',
+              cursor: laedt ? 'wait' : 'pointer',
+              fontWeight: 'bold',
+              width: '100%',
+              fontSize: '16px',
+              opacity: laedt ? 0.75 : 1
+            }}
+          >
+            {laedt ? 'Speichere Eintrag & Fallakte...' : '+ In Akte abheften'}
           </button>
         </div>
       </form>
