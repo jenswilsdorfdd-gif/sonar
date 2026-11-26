@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Icon from './Icon';
 import { supabase } from './supabaseClient';
+import { isFullAccessSession } from './config/authRoles';
 
-const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
 const MAX_DEMO_AKTEN_LIMIT = 10;
 
 export default function AktenFormular({
@@ -109,13 +109,13 @@ export default function AktenFormular({
     boxSizing: 'border-box'
   };
 
-  // --- STRIKTE OWNER-ERKENNUNG AUSSCHLIESSLICH ÜBER LOGIN-USER-ID ---
-  const isFullAccessUser = session?.user?.id === OWNER_USER_ID;
+  // --- STRIKTE VOLLZUGANGS-ERKENNUNG (PRIMÄRER OWNER JENS + PARTNER-VOLLZUGANG NICO) ---
+  const isFullAccessUser = isFullAccessSession(session);
 
   // --- CLICK-WRAP PFLICHT-BESTÄTIGUNG VOR VERSAND (HUMAN-IN-THE-LOOP) ---
   const [isLegalConfirmed, setIsLegalConfirmed] = useState(isFullAccessUser);
 
-  // Setzt die Click-Wrap-Checkbox beim Wechsel einer Akte oder des Modus für Nicht-Owner automatisch auf false zurück
+  // Setzt die Click-Wrap-Checkbox beim Wechsel einer Akte oder des Modus für Nicht-Vollzugänge automatisch auf false zurück
   useEffect(() => {
     setIsLegalConfirmed(isFullAccessUser);
   }, [selectedAkteId, modus, isFullAccessUser]);
@@ -162,7 +162,7 @@ export default function AktenFormular({
     }
   };
 
-  // Führt den eigentlichen Versand aus (inkl. garantierter ASCII-MUSTER-Stempelung für Demo-Accounts)
+  // Führt den eigentlichen Versand aus (inkl. garantierter ASCII-MUSTER-Stempelung für reine Demo-Accounts)
   const executeActualVersand = (kanalTyp) => {
     if (!isFullAccessUser && briefEntwurf && !briefEntwurf.includes('MUSTER / UNVERBINDLICHE DEMO-ANSICHT')) {
       const stampedText = [
@@ -478,7 +478,7 @@ export default function AktenFormular({
     }
   };
 
-  // Prüft für Demo-Tester das löschsichere 10-Vorgänge-Kontingent und delegiert danach an die zentrale Speicher- & Fallakten-Engine (useAktenActions)
+  // Prüft nur für reine Demo-Tester (!isFullAccessUser) das löschsichere 10-Vorgänge-Kontingent und delegiert danach an useAktenActions
   const handleProtectedSubmit = async (e) => {
     e.preventDefault();
 
@@ -545,7 +545,7 @@ export default function AktenFormular({
 
   return (
     <>
-      {/* --- ZWEISTUFIGES SICHERHEITS-WARN-MODAL FÜR DEMO-TESTER VOR E-MAIL- / FAX-VERSAND --- */}
+      {/* --- ZWEISTUFIGES SICHERHEITS-WARN-MODAL FÜR REINE DEMO-TESTER VOR E-MAIL- / FAX-VERSAND --- */}
       {!isFullAccessUser && demoVersandWarningStep > 0 && (
         <div
           style={{
@@ -962,7 +962,7 @@ export default function AktenFormular({
                     <h4 style={{ margin: 0, color: theme.textMain }}>1. Akten-Stammdaten</h4>
                   </div>
                 </div>
-                <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-JW-Finanzamt" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Unser Zeichen</label><input type="text" value={unserZeichen} onChange={(e) => setUnserZeichen(e.target.value)} placeholder="z.B. 0001-UBN-Finanzamt" style={inputStyle} /></div>
                 <div><label style={labelStyle}>Gegenstand (Thema)*</label><input type="text" value={thema} onChange={(e) => setThema(e.target.value)} required style={inputStyle} /></div>
                 <div><label style={labelStyle}>Aktenzeichen (Behörde)</label><input type="text" value={aktenzeichen} onChange={(e) => setAktenzeichen(e.target.value)} style={inputStyle} /></div>
               </div>
@@ -1412,7 +1412,7 @@ export default function AktenFormular({
             )}
           </div>
 
-          {/* TEXTAREA MIT DIAGONALEM MUSTER-WASSERZEICHEN & HARTEM KOPIER-/MARKIER-SCHUTZ FÜR DEMO-TESTER */}
+          {/* TEXTAREA MIT DIAGONALEM MUSTER-WASSERZEICHEN & HARTEM KOPIER-/MARKIER-SCHUTZ NUR FÜR REINE DEMO-TESTER */}
           <div
             data-help="akten_textentwurf_box"
             onCopy={handleDemoCopyBlock}
