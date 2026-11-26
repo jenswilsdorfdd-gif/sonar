@@ -1,9 +1,8 @@
 // src/InteractiveHelpDock.jsx
-// ADAPTIVE FELD-FÜR-FELD LIVE-BEDIENHILFE FÜR SONAR COCKPIT
-// - Desktop & großes Tablet (> 1024px): Feststehendes (position: fixed) 1/3-Kontext-Dock rechts, das beim Scrollen immer sichtbar mitläuft + "i"-Badges
-// - Smartphone & kompakte Screens (<= 1024px): 100 % Cockpit-Breite + antippbare "i"-Badges + kompaktes 1-Ebenen-Pop-up
-// - Mitlaufender Schnellstart-Trigger: Ab leichtem Scrollen jederzeit unten rechts klickbar -> öffnet sofort das passende Feld im Sichtbereich!
-// - Automatische Overflow-Erkennung: Container mit overflow: hidden schneiden das "i"-Badge niemals ab (.sonar-help-badge-inset)
+// ADAPTIVE FELD-FÜR-FELD LIVE-BEDIENHILFE FÜR SONAR COCKPIT (INKL. OVERLAY-POP-UP-UNTERSTÜTZUNG)
+// - Desktop & großes Tablet (> 1024px): Feststehendes (position: fixed) 1/3-Kontext-Dock rechts (zIndex: 10090), das auch bei geöffneten Modals (Fallakte, Versandhistorie, War-Room) immer sichtbar bleibt
+// - Smartphone & kompakte Screens (<= 1024px): 100 % Cockpit-Breite + antippbare "i"-Badges + kompaktes Top-Layer-Pop-up (zIndex: 10120)
+// - Intelligente Modal-Priorisierung: Ist ein Pop-up (z. B. Fallakte oder Versandhistorie) geöffnet, fokussiert die Hilfe automatisch die Felder im offenen Pop-up statt des verdeckten Hintergrunds!
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SONAR_HELP_CATALOG, SONAR_GUIDED_TOUR } from './config/sonarHelpCatalog';
@@ -23,6 +22,7 @@ export default function InteractiveHelpDock({
   const [mobilePopupHelpId, setMobilePopupHelpId] = useState(null);
   const [tourIndex, setTourIndex] = useState(null);
   const [isScrolledDown, setIsScrolledDown] = useState(false);
+  const [hasOpenOverlayModal, setHasOpenOverlayModal] = useState(false);
 
   const hoverTimerRef = useRef(null);
   const pinnedRef = useRef(null);
@@ -39,16 +39,32 @@ export default function InteractiveHelpDock({
     compactRef.current = isCompactViewport;
   }, [isCompactViewport]);
 
-  // Überwacht die Scroll-Position, damit beim Runterscrollen in lange Listen (z. B. Akten) ein mitlaufender Hilfe-Trigger bereitsteht
+  // Überwacht Scroll-Position UND geöffnete Overlay-Modals (Fallakte, Versandhistorie, Triage),
+  // damit der Schnellstart-Button "Live-Hilfe hier starten" auch direkt in offenen Pop-ups bereitsteht!
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
     const handleScroll = () => {
       const y = window.scrollY || document.documentElement.scrollTop || 0;
       setIsScrolledDown(y > 160);
     };
+    const checkModalPresence = () => {
+      const modalHelpNode = document.querySelector('[data-sonar-modal-root="true"]');
+      setHasOpenOverlayModal(Boolean(modalHelpNode));
+    };
+
     handleScroll();
+    checkModalPresence();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    const domObs = new MutationObserver(checkModalPresence);
+    if (document.body) {
+      domObs.observe(document.body, { childList: true, subtree: true });
+    }
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      domObs.disconnect();
+    };
   }, []);
 
   // Merkt sich auch bei ausgeschalteter Hilfe lautlos das zuletzt fokussierte/angeklickte [data-help]-Feld
@@ -74,13 +90,27 @@ export default function InteractiveHelpDock({
     };
   }, []);
 
-  // Ermittelt intelligent das [data-help]-Feld, an dem der Nutzer gerade arbeitet bzw. das aktuell im Sichtbereich liegt
+  // Ermittelt intelligent das [data-help]-Feld (gibt geöffneten Pop-up-Modals automatisch Vorrang vor dem Hintergrund!)
   const detectVisibleContextHelpKey = useCallback(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') {
       return 'default_welcome';
     }
 
     const vh = window.innerHeight || 800;
+    const openModalRoot = document.querySelector('[data-sonar-modal-root="true"]');
+
+    // 0. Wenn gerade ein Overlay-Modal (Fallakte / Versandhistorie / Triage) offen ist -> primär darin suchen!
+    if (openModalRoot) {
+      const modalHelpNodes = openModalRoot.querySelectorAll('[data-help]');
+      for (let i = 0; i < modalHelpNodes.length; i++) {
+        const k = modalHelpNodes[i].getAttribute('data-help');
+        if (k && SONAR_HELP_CATALOG[k]) {
+          return k;
+        }
+      }
+      const rootKey = openModalRoot.getAttribute('data-help');
+      if (rootKey && SONAR_HELP_CATALOG[rootKey]) return rootKey;
+    }
 
     // 1. Direkt fokussiertes Element prüfen
     if (document.activeElement && typeof document.activeElement.closest === 'function') {
@@ -100,7 +130,7 @@ export default function InteractiveHelpDock({
       }
     }
 
-    // 3. Bestes sichtbares [data-help]-Element im aktuellen Viewport bestimmen (Spezifischere Felder vor großen Wrappern)
+    // 3. Bestes sichtbares [data-help]-Element im aktuellen Viewport bestimmen
     const centerY = vh * 0.42;
     let bestKey = null;
     let bestScore = Infinity;
@@ -117,7 +147,6 @@ export default function InteractiveHelpDock({
         ? 0
         : Math.min(Math.abs(rect.top - centerY), Math.abs(rect.bottom - centerY));
 
-      // Kleinere/spezifischere Boxen erhalten bei Überlappung Vorrang vor riesigen Gesamt-Containern
       const sizePenalty = Math.min(rect.height, 1400) * 0.12;
       const score = distToCenter + sizePenalty;
 
@@ -130,7 +159,7 @@ export default function InteractiveHelpDock({
     return bestKey || 'default_welcome';
   }, []);
 
-  // Öffnet die Live-Hilfe von jeder beliebigen Scroll-Stelle aus und lädt rechts sofort das passende Thema
+  // Öffnet die Live-Hilfe von jeder beliebigen Scroll-Stelle / jedem offenen Pop-up aus
   const handleFloatingOpen = () => {
     const contextKey = detectVisibleContextHelpKey();
     pendingInitialHelpRef.current = contextKey;
@@ -144,7 +173,6 @@ export default function InteractiveHelpDock({
     if (typeof onOpen === 'function') {
       onOpen();
     } else if (typeof document !== 'undefined') {
-      // Sicherheits-Fallback, falls onOpen noch nicht als Prop übergeben wurde
       const headerHelpBtn = document.querySelector('button[title*="Live-Bedienhilfe"]');
       if (headerHelpBtn) headerHelpBtn.click();
     }
@@ -166,14 +194,23 @@ export default function InteractiveHelpDock({
     }
   }, [isOpen, detectVisibleContextHelpKey]);
 
-  // Scrollt den Inhalt innerhalb des rechten Desktop-Docks nach oben, sobald ein neues Feld gewählt wird
+  // Wenn bei bereits eingeschalteter Desktop-Hilfe ein Pop-up (Fallakte / Versandhistorie) neu aufgeht, springt das Dock automatisch darauf!
+  useEffect(() => {
+    if (!isOpen || isCompactViewport || !hasOpenOverlayModal) return;
+    if (pinnedRef.current) return;
+    const modalContextKey = detectVisibleContextHelpKey();
+    if (modalContextKey && SONAR_HELP_CATALOG[modalContextKey]) {
+      setActiveHelpId(modalContextKey);
+    }
+  }, [hasOpenOverlayModal, isOpen, isCompactViewport, detectVisibleContextHelpKey]);
+
   const scrollDockToTop = useCallback(() => {
     if (dockAsideRef.current) {
       dockAsideRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, []);
 
-  // ESC-Taste schließt auf Mobilgeräten zuerst das Info-Pop-up (ohne den darunterliegenden War-Room zu schließen)
+  // ESC-Taste schließt auf Mobilgeräten zuerst das Hilfe-Pop-up (ohne darunterliegende Fallakte / War-Room zu schließen!)
   useEffect(() => {
     if (!isOpen || !mobilePopupHelpId) return;
     const handleKeyDown = (e) => {
@@ -249,7 +286,7 @@ export default function InteractiveHelpDock({
   }, [isOpen, isCompactViewport, scrollDockToTop]);
 
   // =========================================================================
-  // UNIVERSELLE "i"-BADGES AN ALLEN [data-help]-BEREICHEN (INKL. CLIPPING-SCHUTZ)
+  // UNIVERSELLE "i"-BADGES AN ALLEN [data-help]-BEREICHEN (INKL. POP-UPS)
   // =========================================================================
   const removeAllHelpBadges = useCallback(() => {
     if (typeof document === 'undefined') return;
@@ -312,7 +349,6 @@ export default function InteractiveHelpDock({
 
         node.appendChild(badgeBtn);
       } else {
-        // Falls sich das Overflow-Verhalten z. B. durch Resize ändert, Inset-Klasse live nachziehen
         if (clipsContent) {
           existingBadge.classList.add('sonar-help-badge-inset');
         } else {
@@ -328,7 +364,7 @@ export default function InteractiveHelpDock({
     });
   }, [isOpen, removeAllHelpBadges, scrollDockToTop]);
 
-  // Markiert das aktuell im Desktop-Dock aktive "i"-Badge optisch (Gold-Amber)
+  // Markiert das aktuell aktive "i"-Badge optisch (Gold-Amber)
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') return;
     const currentKey = isCompactViewport
@@ -374,7 +410,7 @@ export default function InteractiveHelpDock({
   }, [isOpen, activeTab, isCompactViewport, syncHelpBadges, removeAllHelpBadges]);
 
   // =========================================================================
-  // GEFÜHRTE 8-SCHRITTE-SCHNELLTOUR (FÜR DESKTOP & SMARTPHONE)
+  // GEFÜHRTE 8-SCHRITTE-SCHNELLTOUR
   // =========================================================================
   const jumpToTourStep = (idx) => {
     if (idx < 0 || idx >= SONAR_GUIDED_TOUR.length) {
@@ -410,7 +446,6 @@ export default function InteractiveHelpDock({
     }, 150);
   };
 
-  // Dynamische Reiterfarbe für den mitlaufenden Hilfe-Button (konsistent zur Header-Logik)
   const getFloatingAccentColor = () => {
     if (!theme) return '#06b6d4';
     switch (activeTab) {
@@ -430,26 +465,26 @@ export default function InteractiveHelpDock({
   };
 
   // =========================================================================
-  // WENN LIVE-HILFE AUS IST: MITLAUFENDER SCHNELLSTART-BUTTON BEIM SCROLLEN
+  // WENN LIVE-HILFE AUS IST: MITLAUFENDER SCHNELLSTART-BUTTON (AUCH IN POP-UPS!)
   // =========================================================================
   if (!isOpen) {
-    if (!isScrolledDown) return null;
+    if (!isScrolledDown && !hasOpenOverlayModal) return null;
 
     const floatColor = getFloatingAccentColor();
-    const floatBg = isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)';
+    const floatBg = isDarkMode ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)';
 
     return (
       <button
         type="button"
         data-sonar-help-ignore="true"
         onClick={handleFloatingOpen}
-        title="Live-Bedienhilfe direkt an dieser Stelle öffnen"
+        title="Live-Bedienhilfe direkt für dieses Fenster / Feld öffnen"
         aria-label="Live-Bedienhilfe direkt an dieser Stelle öffnen"
         style={{
           position: 'fixed',
           bottom: isCompactViewport ? '18px' : '24px',
           right: isCompactViewport ? '16px' : '24px',
-          zIndex: 85,
+          zIndex: 10085,
           background: floatBg,
           color: floatColor,
           border: `1.5px solid ${floatColor}`,
@@ -462,8 +497,8 @@ export default function InteractiveHelpDock({
           alignItems: 'center',
           gap: '8px',
           boxShadow: isDarkMode
-            ? '0 8px 24px rgba(0, 0, 0, 0.55)'
-            : '0 8px 24px rgba(15, 23, 42, 0.16)',
+            ? '0 8px 24px rgba(0, 0, 0, 0.65)'
+            : '0 8px 24px rgba(15, 23, 42, 0.22)',
           backdropFilter: 'blur(8px)',
           transition: 'transform 0.18s ease, box-shadow 0.18s ease'
         }}
@@ -540,6 +575,7 @@ export default function InteractiveHelpDock({
           border: 2px solid ${badgeBorderColor};
           font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
           font-size: 12px;
+          fontWeight: 900;
           font-weight: 900;
           font-style: italic;
           line-height: 1;
@@ -547,13 +583,12 @@ export default function InteractiveHelpDock({
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          z-index: 55;
+          z-index: 65;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
           padding: 0;
           user-select: none;
           transition: transform 0.15s ease, background-color 0.15s ease;
         }
-        /* Verhindert jedes Abschneiden bei Boxen mit overflow: hidden (z. B. Tresor- & Gegner-Listen) */
         .sonar-help-corner-badge.sonar-help-badge-inset {
           top: 6px;
           right: 6px;
@@ -571,11 +606,10 @@ export default function InteractiveHelpDock({
       `}</style>
 
       {/* =================================================================== */}
-      {/* MODUS A: DESKTOP (> 1024px) -> PLATZHALTER + FIXED MITLAUF-DOCK     */}
+      {/* MODUS A: DESKTOP (> 1024px) -> PLATZHALTER + FIXED TOP-LAYER-DOCK   */}
       {/* =================================================================== */}
       {!isCompactViewport && (
         <>
-          {/* Stiller 1/3-Platzhalter im Flex-Layout, damit das linke 2/3-Cockpit exakt seine Breite behält */}
           <div
             aria-hidden="true"
             style={{
@@ -586,7 +620,6 @@ export default function InteractiveHelpDock({
             }}
           />
 
-          {/* Echtes Fixed-Dock am rechten Bildschirmrand: Scrollt zu 100 % immer neben deiner aktuellen Position mit! */}
           <aside
             ref={dockAsideRef}
             data-sonar-help-ignore="true"
@@ -608,8 +641,8 @@ export default function InteractiveHelpDock({
               flexDirection: 'column',
               gap: '14px',
               textAlign: 'left',
-              zIndex: 60,
-              boxShadow: isDarkMode ? '-8px 0 28px rgba(0, 0, 0, 0.45)' : '-8px 0 24px rgba(15, 23, 42, 0.08)'
+              zIndex: 10090,
+              boxShadow: isDarkMode ? '-8px 0 28px rgba(0, 0, 0, 0.55)' : '-8px 0 24px rgba(15, 23, 42, 0.12)'
             }}
           >
             {/* Dock-Kopfzeile */}
@@ -633,7 +666,7 @@ export default function InteractiveHelpDock({
                     color: helpAccent
                   }}
                 >
-                  LIVE-HILFE (SCROLLT AUTOMATISCH MIT)
+                  LIVE-HILFE (SCROLLT & POP-UPS AKTIV)
                 </div>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: textMuted, marginTop: '2px' }}>
                   Ins Feld klicken oder kleines „i“ wählen
@@ -872,7 +905,7 @@ export default function InteractiveHelpDock({
       )}
 
       {/* =================================================================== */}
-      {/* MODUS B: SMARTPHONE / KOMPAKT (<= 1024px) -> NUR 1 KOMPAKTES POP-UP */}
+      {/* MODUS B: SMARTPHONE / KOMPAKT (<= 1024px) -> TOP-LAYER-POP-UP       */}
       {/* =================================================================== */}
       {isCompactViewport && mobilePopupHelpId && (
         <div
@@ -881,8 +914,8 @@ export default function InteractiveHelpDock({
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(2, 6, 23, 0.72)',
-            zIndex: 120,
+            backgroundColor: 'rgba(2, 6, 23, 0.76)',
+            zIndex: 10120,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -904,7 +937,7 @@ export default function InteractiveHelpDock({
               boxSizing: 'border-box',
               color: textMain,
               textAlign: 'left',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.65)',
               display: 'flex',
               flexDirection: 'column',
               gap: '10px'
@@ -985,10 +1018,7 @@ export default function InteractiveHelpDock({
 
             <button
               type="button"
-              onClick={() => {
-                setMobilePopupHelpId(null);
-                onClose();
-              }}
+              onClick={() => setMobilePopupHelpId(null)}
               style={{
                 width: '100%',
                 marginTop: '4px',
@@ -1002,7 +1032,7 @@ export default function InteractiveHelpDock({
                 cursor: 'pointer'
               }}
             >
-              Verstanden & schließen
+              Karte schließen (Live-Hilfe bleibt an)
             </button>
           </div>
         </div>
