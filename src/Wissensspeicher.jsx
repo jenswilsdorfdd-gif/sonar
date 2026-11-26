@@ -3,12 +3,11 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { syncToGithub } from './utils';
 import RssFeedHealthAlert from './RssFeedHealthAlert';
+import { PRIMARY_OWNER_USER_ID, isFullAccessIdentity } from './config/authRoles';
 
 // --- PDF.js Import für die clientseitige Extraktion ---
 import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-
-const OWNER_USER_ID = "ea175141-2c03-4f93-ba1b-392570229cb2";
 
 export default function Wissensspeicher({ theme, wissenEintraege, mandanten, gegnerListe, ladeDaten, showToast, suchbegriff }) {
   const [laedt, setLaedt] = useState(false);
@@ -20,8 +19,9 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   const [wissenAnzeigeModus, setWissenAnzeigeModus] = useState('md');
   const [visibleLimit, setVisibleLimit] = useState(50);
 
-  // --- GERICHTS-STREAM SYNC STATES & OWNER-CHECK ---
-  const [isOwnerUser, setIsOwnerUser] = useState(false);
+  // --- GERICHTS-STREAM SYNC STATES & VOLLZUGANGS-/OWNER-CHECK ---
+  const [hasFullAccessUser, setHasFullAccessUser] = useState(false);
+  const [isPrimaryOwnerUser, setIsPrimaryOwnerUser] = useState(false);
   const [rssLaedt, setRssLaedt] = useState(false);
   const [selectedGericht, setSelectedGericht] = useState('');
 
@@ -30,7 +30,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    handleResize(); // Initialer Check
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -39,15 +39,18 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     const checkUser = async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        setIsOwnerUser(data?.user?.id === OWNER_USER_ID);
+        const uid = data?.user?.id || '';
+        const uMail = data?.user?.email || '';
+        setIsPrimaryOwnerUser(uid === PRIMARY_OWNER_USER_ID);
+        setHasFullAccessUser(isFullAccessIdentity(uid, uMail));
       } catch (_e) {
-        setIsOwnerUser(false);
+        setIsPrimaryOwnerUser(false);
+        setHasFullAccessUser(false);
       }
     };
     checkUser();
   }, []);
 
-  // Bei Filter- oder Moduswechsel das sichtbare Limit sauber auf 50 zurücksetzen
   useEffect(() => {
     setVisibleLimit(50);
   }, [suchbegriff, wissenFirmaFilter, wissenGegnerFilter, wissenAnzeigeModus]);
@@ -56,9 +59,9 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
   const labelStyle = { display: 'block', textAlign: 'left', fontSize: '12px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '6px', textTransform: 'uppercase' };
   const panelStyle = { background: theme.cardBg, borderRadius: '12px', border: `1px solid ${theme.border}`, padding: '20px', width: '100%', wordBreak: 'break-word', boxSizing: 'border-box' };
 
-  // --- GERICHTS-STREAMS LIVE ABRUFEN (NUR FÜR OWNER AKTIV) ---
+  // --- GERICHTS-STREAMS LIVE ABRUFEN (FÜR VOLLZUGÄNGE AKTIV) ---
   const starteGerichtsStreamSync = async () => {
-    if (!isOwnerUser || rssLaedt) return;
+    if (!hasFullAccessUser || rssLaedt) return;
     setRssLaedt(true);
     try {
       const { data, error } = await supabase.functions.invoke('rss-knowledge-scraper', {
@@ -83,7 +86,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     }
   };
 
-  // --- HILFSFUNKTIONEN FÜR EXTRAKTION ---
   const extractTextFromPDF = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -97,7 +99,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     return fullText;
   };
 
-  // --- VOLLTEXT-VORSCHAU (LÄDT ECHTEN VOLLTEXT BIS 85.000 ZEICHEN AUS DEM BUCKET 'dokumente' ODER NUTZT DB-FALLBACK) ---
   const oeffneTextVorschau = async (eintrag) => {
     let textContent = eintrag?.inhalt_text || 'Kein Textinhalt hinterlegt.';
     try {
@@ -124,7 +125,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   };
 
-  // --- HAUPT-IMPORT FUNKTION (100% SUPABASE TWIN-STORAGE & MULTI-TENANT) ---
   const StarteBulkImport = async (e) => {
     e.preventDefault();
     if (!bulkDateien || bulkDateien.length === 0) {
@@ -137,11 +137,9 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     let currentStep = 0;
     const timestamp = Date.now();
 
-    // Sortiere Dateien in MD und den Rest (PDFs / Bilder)
     const mdFiles = bulkDateien.filter(f => f.name.toLowerCase().endsWith('.md'));
     const nonMdFiles = bulkDateien.filter(f => !f.name.toLowerCase().endsWith('.md'));
 
-    // 1. DURCHLAUF: Alle fertigen MD-Dateien direkt in Supabase Storage & wissensdatenbank laden
     for (const file of mdFiles) {
       currentStep++;
       setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `Importiere (MD): ${file.name}...` });
@@ -172,8 +170,8 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           dokument_url: mdPublicUrl
         }]);
 
-        // GitHub-Sync ausschließlich für den Owner ausführen (niemals Tester-Dateien ins Owner-Repo spiegeln)
-        if (isOwnerUser) {
+        // GitHub-Sync strikt nur für den primären System-Owner (Jens)
+        if (isPrimaryOwnerUser) {
           await syncToGithub(newFileName, mdInhalt, null, 'wissen_bulk_md', showToast);
         }
       } catch (err) {
@@ -181,7 +179,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
       }
     }
 
-    // 2. DURCHLAUF: Alle PDFs / Sonstige in Supabase Storage & wissensdatenbank laden
     for (const file of nonMdFiles) {
       currentStep++;
       setBulkStatus({ fortschritt: currentStep, gesamt: gesamt, text: `Verarbeite (PDF/Sonstiges): ${file.name}...` });
@@ -194,7 +191,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
         let extrahierterText = '';
         let needsMdGeneration = false;
 
-        // Prüfen, ob wir das PDF lokal auslesen müssen (weil keine fertige MD vom Scanner kam)
         if (isPdf) {
           const hasMatchingMd = mdFiles.some(md => md.name.substring(0, md.name.lastIndexOf('.')).replace(/[^a-zA-Z0-9.-]/g, '_') === finalBaseName);
           if (!hasMatchingMd) {
@@ -227,7 +223,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             dokument_url: pubUrl
           }]);
 
-          // Fehlendes MD-Gegenstück als Twin-Storage direkt im Supabase Bucket 'dokumente' erzeugen
           if (needsMdGeneration) {
             const mdFileName = `${finalBaseName}.md`;
             const mdStoragePath = `wissen_${timestamp}_${mdFileName}`;
@@ -251,10 +246,10 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
               dokument_url: twinMdUrl
             }]);
 
-            if (isOwnerUser) {
+            if (isPrimaryOwnerUser) {
               await syncToGithub(mdFileName, mdContent, pubUrl, 'wissen_bulk_pdf', showToast);
             }
-          } else if (isOwnerUser) {
+          } else if (isPrimaryOwnerUser) {
             await syncToGithub(`${finalBaseName}.md`, `Dokument: ${newFileName}`, pubUrl, 'wissen_bulk_pdf', showToast);
           }
         }
@@ -271,7 +266,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     showToast(`Upload abgeschlossen! Dateien wurden in den Supabase-Wissensspeicher geladen.`, 'success');
   };
 
-  // --- PRÜFUNG OB EINTRAG EIN GLOBALER GERICHTS-STREAM IST ---
   const isGlobalCourtEntry = (eintrag) => {
     if (!eintrag) return false;
     return (
@@ -280,12 +274,11 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     );
   };
 
-  // --- LÖSCHEN INKL. SUPABASE STORAGE CLEANUP (GESCHÜTZT FÜR DEMO-TESTER BEI GERICHTS-STREAMS) ---
   const loescheWissenEintrag = async (eintrag) => {
     if (!eintrag || !eintrag.id) return;
 
-    if (isGlobalCourtEntry(eintrag) && !isOwnerUser) {
-      showToast("Globale Gerichtsentscheidungen können im Demo-Modus nicht gelöscht werden.", "warning");
+    if (isGlobalCourtEntry(eintrag) && !isPrimaryOwnerUser) {
+      showToast("Globale Gerichtsentscheidungen sind schreibgeschützt.", "warning");
       return;
     }
 
@@ -309,7 +302,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
     ladeDaten();
   };
 
-  // --- FILTERUNG FÜR MD UND PDF AUS SUPABASE (MANDANTENISOLIERT + GLOBALE GERICHTS-STREAMS) ---
   const basisGefilterteWissenEintraege = wissenEintraege.filter(w => {
     const matchSuche = !suchbegriff.trim() ||
       (w.datei_name || '').toLowerCase().includes(suchbegriff.toLowerCase()) ||
@@ -347,7 +339,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
         />
       </div>
 
-      {/* --- 2. LIVE GERICHTS-STREAM PANEL (25 RECHTS-, STEUER- & BEHÖRDEN-FEEDS) --- */}
+      {/* --- 2. LIVE GERICHTS-STREAM PANEL --- */}
       <div
         data-help="wissen_court_sync"
         style={{ ...panelStyle, marginBottom: '20px', border: `1px solid ${theme.wissenAccent}`, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '15px' }}
@@ -362,7 +354,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           </div>
         </div>
 
-        {isOwnerUser ? (
+        {hasFullAccessUser ? (
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', width: isMobile ? '100%' : 'auto' }}>
             <select
               value={selectedGericht}
@@ -420,7 +412,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
         )}
       </div>
 
-      {/* --- 3. BULK-UPLOAD FÜR EIGENE ALT-DOKUMENTE (TWIN-STORAGE) --- */}
+      {/* --- 3. BULK-UPLOAD FÜR EIGENE ALT-DOKUMENTE --- */}
       <form
         data-help="wissen_bulk_upload"
         onSubmit={StarteBulkImport}
@@ -529,7 +521,6 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
           </div>
         </div>
 
-        {/* --- DESKTOP ODER MOBILE LAYOUT LOGIK --- */}
         <div style={{ borderRadius: '8px', border: `1px solid ${theme.border}`, background: theme.cardBg, overflow: 'hidden' }}>
 
           {!isMobile ? (
@@ -545,7 +536,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
                 <tbody>
                   {sichtbareListe.length > 0 ? (
                     sichtbareListe.map(w => {
-                      const darfLoeschen = isOwnerUser || !isGlobalCourtEntry(w);
+                      const darfLoeschen = isPrimaryOwnerUser || !isGlobalCourtEntry(w);
                       return (
                         <tr key={w.id} style={{ borderBottom: `1px solid ${theme.border}`, transition: 'background 0.2s' }}>
                           <td style={{ padding: '12px 15px' }}>
@@ -598,7 +589,7 @@ export default function Wissensspeicher({ theme, wissenEintraege, mandanten, geg
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {sichtbareListe.length > 0 ? (
                 sichtbareListe.map(w => {
-                  const darfLoeschen = isOwnerUser || !isGlobalCourtEntry(w);
+                  const darfLoeschen = isPrimaryOwnerUser || !isGlobalCourtEntry(w);
                   return (
                     <div key={w.id} style={{ padding: '15px', borderBottom: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {w.dokument_url ? (
