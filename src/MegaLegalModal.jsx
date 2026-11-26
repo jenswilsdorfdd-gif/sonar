@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
+import { buildCompactWarRoomIndex } from "./utils/fallakteBuilder";
 
 // --- PDF.js Import für die clientseitige Extraktion im Modal ---
 import * as pdfjsLib from 'pdfjs-dist';
@@ -248,12 +249,13 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
 
       const candidateMap = new Map();
 
-      // 1. Gezielte Suche über erkannte Rechtsnormen (§§) in inhalt_text
+      // 1. Gezielte Suche über erkannte Rechtsnormen (§§) in inhalt_text (exkl. eigene Fallakten, da diese bereits im Master-Index stecken)
       for (const norm of uniqueNorms) {
         const { data: normRows } = await supabase
           .from("wissensdatenbank")
-          .select("id, datei_name, firma, inhalt_text, dokument_url")
+          .select("id, datei_name, firma, kategorie, inhalt_text, dokument_url")
           .ilike("inhalt_text", `%${norm}%`)
+          .not("datei_name", "like", "FALLAKTE_%")
           .order("id", { ascending: false })
           .limit(3);
 
@@ -278,8 +280,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         for (const word of words) {
           const { data: wordRows } = await supabase
             .from("wissensdatenbank")
-            .select("id, datei_name, firma, inhalt_text, dokument_url")
+            .select("id, datei_name, firma, kategorie, inhalt_text, dokument_url")
             .or(`inhalt_text.ilike.%${word}%,datei_name.ilike.%${word}%`)
+            .not("datei_name", "like", "FALLAKTE_%")
             .order("id", { ascending: false })
             .limit(2);
 
@@ -324,22 +327,40 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
   };
 
-  // Lädt ALLE bisherigen Vorgänge & .md-Zwillinge der Akte als Komplett-Dossier
+  // Lädt die komplette Fallakte (strukturierter Master-Index #01..#NN + ALLE bisherigen Vorgänge & .md-Zwillinge)
   const fetchFullAkteContext = async (akteId, fallbackBestText) => {
     if (!akteId) return { fullContextText: fallbackBestText, docsCount: 1 };
 
     let docsCount = 0;
     let combinedHistoryText = "";
+    let masterFallakteHeader = "";
 
     try {
-      const { data: histList, error } = await supabase
-        .from('akten_historie')
-        .select('*')
-        .eq('akte_id', akteId)
-        .order('datum', { ascending: true });
+      const [{ data: akteMetaRow }, { data: histList, error }] = await Promise.all([
+        supabase.from('akten').select('*').eq('id', akteId).single(),
+        supabase.from('akten_historie').select('*').eq('akte_id', akteId).order('datum', { ascending: true })
+      ]);
 
       if (!error && histList && histList.length > 0) {
-        for (const h of histList) {
+        // 1. Strukturierter chronologischer Fallakten-Masterindex (#01 .. #NN) ganz oben für sofortigen KI-Überblick
+        const effectiveAkteMeta = akteMetaRow || {
+          id: akteId,
+          unser_zeichen: dossier?.unser_zeichen || '',
+          aktenzeichen: dossier?.aktenzeichen || '',
+          thema: dossier?.thema || '',
+          status: 'Offen',
+          unsere_firma: dossier?.unsere_firma || '',
+          unser_ansprechpartner: dossier?.unser_ansprechpartner || '',
+          gegner_name: dossier?.kontakt || '',
+          gegner_ansprechpartner: dossier?.ansprechpartner || '',
+          gegner_email: dossier?.gegner_email || ''
+        };
+        masterFallakteHeader = buildCompactWarRoomIndex(effectiveAkteMeta, histList) + "\n";
+
+        // 2. Chronologische Einzelvorgänge samt .md-Volltext-Zwillingen
+        for (let i = 0; i < histList.length; i++) {
+          const h = histList[i];
+          const stepCode = `#${String(i + 1).padStart(2, '0')}`;
           const hDatum = h.datum ? new Date(h.datum).toLocaleDateString('de-DE') : 'Unbekanntes Datum';
           let docTwinText = "";
 
@@ -374,8 +395,9 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
           }
 
           combinedHistoryText += `\n========================================\n`;
-          combinedHistoryText += `VORGANG VOM ${hDatum} | TYP: ${h.typ || 'Vorgang'} | AKTION: ${h.aktion || '-'}\n`;
-          if (h.frist_extern) combinedHistoryText += `BEHÖRDLICHE FRIST: ${h.frist_extern}\n`;
+          combinedHistoryText += `FALLAKTE VORGANG ${stepCode} VOM ${hDatum} | TYP: ${h.typ || 'Vorgang'} | KANAL: ${h.kanal || '-'} | AKTION: ${h.aktion || '-'}\n`;
+          if (h.frist_extern) combinedHistoryText += `AKTIVE BEHÖRDLICHE FRIST: ${h.frist_extern}\n`;
+          if (h.wiedervorlage) combinedHistoryText += `AKTIVE WIEDERVORLAGE: ${h.wiedervorlage}\n`;
           if (h.brief_entwurf) combinedHistoryText += `ZUSAMMENFASSUNG / SCHREIBENTEXT:\n${h.brief_entwurf}\n`;
           if (docTwinText) combinedHistoryText += docTwinText;
         }
@@ -385,11 +407,12 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     }
 
     if (combinedHistoryText.trim() !== "") {
+      let fullCombined = `${masterFallakteHeader}${combinedHistoryText}`;
       if (fallbackBestText && !combinedHistoryText.includes(fallbackBestText.substring(0, 100))) {
-        combinedHistoryText += `\n========================================\nAKTUELLES DOKUMENT (NEU):\n${fallbackBestText}\n`;
+        fullCombined += `\n========================================\nAKTUELLES DOKUMENT (NEU):\n${fallbackBestText}\n`;
         docsCount++;
       }
-      return { fullContextText: combinedHistoryText, docsCount: Math.max(docsCount, 1) };
+      return { fullContextText: fullCombined, docsCount: Math.max(docsCount, 1) };
     }
 
     return { fullContextText: fallbackBestText, docsCount: 1 };
@@ -419,7 +442,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       setLiveRound(round);
       setLiveStage(2);
       setLoadingPhaseText(
-        `Station 2/4 (Runde ${round}/${maxRounds}): Spiegel-Kanzlei Omega prüft den Entwurf kontradiktorisch gegen Originaldokument & Universelle Gesetze...`
+        `Station 2/4 (Runde ${round}/${maxRounds}): Spiegel-Kanzlei Omega prüft den Entwurf kontradiktorisch gegen Fallakte & Universelle Gesetze...`
       );
       addLiveLog(`Station 2 (Runde ${round}/${maxRounds}): Gegenprüfung & In-Memory-Patching durch Spiegel-Kanzlei Omega läuft...`, "OMEGA");
 
@@ -470,7 +493,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
         auditProtocolLines.push(`Runde ${round} – Spiegel-Kanzlei Omega & Revisionssenat (${audit.score || 99}/100 Punkte): FREIGABE ERTEILT – ${audit.summary}`);
         if (Array.isArray(audit.applied_patches_log) && audit.applied_patches_log.length > 0) {
           auditProtocolLines.push(
-            ...audit.applied_patches_log.map((ap, idx) => ` • Omega-Patch ${idx + 1}: ${ap}`)
+            ...audit.applied_patches_log.map((ap, idx) => `  • Omega-Patch ${idx + 1}: ${ap}`)
           );
         }
         await sleep(350);
@@ -480,7 +503,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       const vetoCount = audit.veto_points.length;
       auditProtocolLines.push(
         `Runde ${round} – Spiegel-Kanzlei Omega VETO (${audit.score || 85}/100 Punkte): ${audit.summary}\n` +
-        audit.veto_points.map((vp, idx) => ` • Veto ${idx + 1}: ${vp}`).join("\n")
+        audit.veto_points.map((vp, idx) => `  • Veto ${idx + 1}: ${vp}`).join("\n")
       );
 
       setLiveStage(3);
@@ -528,7 +551,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     return `${headerBanner}${currentDraft}`;
   };
 
-  // PHASE A: Startet die Akten-Analyse und erstellt die interaktive Kanzlei-Lagebesprechung
+  // PHASE A: Startet die Akten-Analyse und erstellt die interaktive Kanzlei-Lagebesprechung auf Basis der kompletten Fallakte
   const startFreshAnalysis = async (ownerFlag = isOwnerUser) => {
     if (!dossier) return;
     const currentRunId = ++abortRunRef.current;
@@ -546,7 +569,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       setMobileHeaderExpanded(false);
       setMobileCorrectionOpen(false);
     }
-    setLoadingPhaseText("Vorprüfung: Chefabteilung analysiert Akten-Dossier & lädt Volltext-Urteile aus dem Storage...");
+    setLoadingPhaseText("Vorprüfung: Chefabteilung liest die komplette Fallakte (#01..#NN) & lädt Volltext-Urteile aus dem Storage...");
     setErrorMsg(null);
 
     const today = new Date().toLocaleDateString('de-DE');
@@ -613,24 +636,24 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     setFullDossierContextCache(enrichedContextText);
 
     const briefingPrompt = [
-      "Analysiere dieses vollständige Akten-Dossier für unsere Mandanten-Lagebesprechung nach den Universellen Gesetzen der Juristischen Methodenlehre:",
+      "Analysiere diese vollständige, chronologisch durchnummerierte Fallakte (#01 bis aktueller Stand) für unsere Mandanten-Lagebesprechung nach den Universellen Gesetzen der Juristischen Methodenlehre:",
       "",
       `Behörde / Gegenpartei: ${dossier.kontakt || "Unbekannt"}`,
       `Aktenzeichen / Steuernummer: ${dossier.aktenzeichen || "Unbekannt"}`,
-      `Frist: ${dossier.frist_extern || "Bitte nach dem Grundsatz des sichersten Weges ab Ursprungsdokument berechnen"}`,
+      `Frist: ${dossier.frist_extern || "Siehe Fallakten-Masterindex bzw. nach dem Grundsatz des sichersten Weges ab Ursprungsdokument berechnen"}`,
       `Betreff / Thema: ${dossier.thema || "Ohne Betreff"}`,
       `Unser Mandant: ${mandantFirma} (${mandantAP})${mandantFax ? ` | Unser Telefax: ${mandantFax}` : ""}`,
       `Heutiges Datum: ${today}`,
       "",
-      "VOLLSTÄNDIGE AKTEN-HISTORIE, DOKUMENTENTEXTE (.MD-ZWILLINGE) & VOLLTEXT-ENTSCHEIDUNGEN:",
+      "VOLLSTÄNDIGE FALLAKTE (MASTER-ABLAUFPLAN, HISTORIE, .MD-ZWILLINGE & VOLLTEXT-ENTSCHEIDUNGEN):",
       enrichedContextText.substring(0, 250000),
       "",
-      "Erstelle jetzt die strukturierte Lagebesprechung des Leitenden Chefpartners nach dem SCQA-Framework (inkl. Prüfung der gesetzlichen Vertretungszwang- & Berufsträger-Weiche mandatory_counsel_required / counsel_type / counsel_reason sowie 4 glasklaren Handlungsoptionen mit Kosten, Dauer, Erfolgschance, allen entscheidungsbefugten Stellen, Widerspruchs-Check und Wirtschaftlichkeits-Abwägung) als reines JSON ohne Markdown-Backticks!"
+      "Erstelle jetzt die strukturierte Lagebesprechung des Leitenden Chefpartners nach dem SCQA-Framework (inkl. Prüfung der gesetzlichen Vertretungszwang- & Berufsträger-Weiche mandatory_counsel_required / counsel_type / counsel_reason sowie 4 glasklaren Handlungsoptionen mit Kosten, Dauer, Erfolgschance, allen entscheidungsbefugten Stellen, Widerspruchs-Check über den gesamten bisherigen Aktenverlauf und Wirtschaftlichkeits-Abwägung) als reines JSON ohne Markdown-Backticks!"
     ].join("\n");
 
     try {
       setLiveStage(2);
-      setLoadingPhaseText("Chefabteilung & Spezialisten-Board kalkulieren Verfahrensrisiko, Fristen & Erfolgschancen für Ihre Lagebesprechung...");
+      setLoadingPhaseText("Chefabteilung & Spezialisten-Board kalkulieren Verfahrensrisiko, Fristen & Erfolgschancen auf Basis der Fallakte...");
 
       const { data, error } = await invokeTriageWithRetry({
         mode: "strategy_briefing",
@@ -724,15 +747,15 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       `- Aktenzeichen / Steuernummer: ${dossier?.aktenzeichen || "Siehe Originaldokument"}`,
       `- Betreff / Thema: ${dossier?.thema || ""}`,
       "",
-      "VOLLSTÄNDIGER ORIGINAL-AKTEN-KONTEXT INKL. VOLLTEXT-ENTSCHEIDUNGEN:",
+      "VOLLSTÄNDIGE FALLAKTE INKL. CHRONOLOGISCHEM MASTER-ABLAUFPLAN & VOLLTEXT-ENTSCHEIDUNGEN:",
       rawContextToUse,
       "",
       "DEIN AUFTRAG ALS KANZLEI ALPHA (UNIVERSELLE GESETZE & REVISIONS-DOGMATIK ZWINGEND BEACHTEN):",
       "Verfasse jetzt SOFORT den vollständigen, wasserdichten und druckfertigen Schriftsatz exakt gemäß der obigen Auswahl nach dem Minto-Prinzip (BLUF + MECE, vollständig bis zur Unterschrift)!",
       "STRIKTE PFLICHT-CHECKLISTE:",
-      "1. VERFAHRENSSTADIEN-TRENNUNG & ADRESSATEN-FOKUSSIERUNG: Prüfe für jeden Streitgegenstand vorab das genaue Verfahrensstadium. Ist ein Vorverfahren bereits durch Einspruchs-/Widerspruchsentscheidung abgeschlossen, verschwende keinen eigenen Hauptabschnitt mehr an die nicht mehr abhilfebefugte Rechtsbehelfsstelle und rüge keine formell nach § 126 AO / § 45 VwVfG geheilten Begründungsmängel als formell unheilbar, sondern richte die Anträge im Rubrum und BLUF direkt an die jetzt gesetzlich entscheidungsbefugten Stellen (Erhebungs-/Erlassstelle für sachlichen UND persönlichen Billigkeitserlass samt Vollstreckungsschutz sowie Veranlagungs-/Ausgangsstelle für offene Parallel-/Folgeverfahren mit voller Aktenhoheit).",
-      "2. AUTONOME FRISTEN-MATHEMATIK & BEWEISLAST-SCHILD: Berechne den Fristablauf kalendergenau ab dem frühesten Ursprungsdokument (unter Beachtung, dass eine Teilberichtigung nach § 129 AO / § 42 VwVfG / § 319 ZPO die Frist für unveränderte Punkte nicht neu startet), nutze bei behördlichen Fristen vorrangig § 109 Abs. 1 Satz 2 AO / § 31 Abs. 7 Satz 2 VwVfG (+ § 242 BGB), stelle bei unklarem Zugang früherer Schreiben die objektive Zugangsbeweislast scharf und setze im BLUF sowie Schlussabschnitt eine einheitliche Reaktionsfrist mindestens 7 bis 10 Kalendertage VOR Ablauf der frühesten Notfrist.",
-      "3. CROSS-DOCUMENT-WIDERSPRUCHS-CHECK & BUMERANG-TECHNIK: Vergleiche Begleitschreiben und Bescheid/Vertrag Wort für Wort, zitiere etwaige Selbstwidersprüche wörtlich mit exakter Seiten- und Abschnittsangabe und drehe jedes von der Gegenseite angeführte Gerichtsurteil über die gemeinsame gesetzliche Wurzel und spezifische höchstrichterliche Leitentscheidungen als Bumerang gegen die Gegenseite.",
+      "1. VERFAHRENSSTADIEN-TRENNUNG & AKTENHOHEIT AUS DER FALLAKTE: Prüfe anhand des chronologischen Fallakten-Masterindex vorab das genaue Verfahrensstadium und welche Schreiben bereits rein- und rausgegangen sind (keine doppelten 'vorsorglichen' Rechtsbehelfe bei bereits bestätigtem Eingang!). Richte die Anträge im Rubrum und BLUF direkt an die jetzt gesetzlich entscheidungsbefugten Stellen.",
+      "2. AUTONOME FRISTEN-MATHEMATIK & BEWEISLAST-SCHILD: Berechne den Fristablauf kalendergenau ab dem frühesten Ursprungsdokument (#01 ff.), nutze bei behördlichen Fristen vorrangig § 109 Abs. 1 Satz 2 AO / § 31 Abs. 7 Satz 2 VwVfG (+ § 242 BGB), stelle bei unklarem Zugang früherer Schreiben die objektive Zugangsbeweislast scharf und setze im BLUF sowie Schlussabschnitt eine einheitliche Reaktionsfrist mindestens 7 bis 10 Kalendertage VOR Ablauf der frühesten Notfrist.",
+      "3. CROSS-DOCUMENT-WIDERSPRUCHS-CHECK & BUMERANG-TECHNIK: Vergleiche sämtliche bisherigen Vorgänge der Fallakte Wort für Wort, zitiere etwaige Selbstwidersprüche wörtlich mit Datum/Abschnittsangabe und drehe jedes von der Gegenseite angeführte Gerichtsurteil über die gemeinsame gesetzliche Wurzel und spezifische höchstrichterliche Leitentscheidungen als Bumerang gegen die Gegenseite.",
       "4. DOGMATISCH SAUBERER RECHTSSCHUTZ, KONTOSCHUTZ & ORGANHAFTUNGSSCHUTZ: Trenne die Rechtsschutzinstrumente strikt nach Verfahrensstadium (z. B. § 361 Abs. 2 AO für offene Einsprüche vs. § 258 AO für das Erlassverfahren), behaupte niemals eine automatische Fälligkeitssperre allein durch Antragstellung (vgl. § 361 Abs. 1 Satz 1 AO), kopple die Auskehrung verrechneter Guthaben direkt an den Wegfall des Rechtsgrundes (§ 37 Abs. 2 Satz 1 und 2 AO i. V. m. § 218 Abs. 2 AO) und schütze den Geschäftsführer persönlich vor Haftungsdurchgriffen.",
       "5. VERTRETUNGS-FORMEL, WIR-FORM & REINER GESCHÄFTSBRIEF-STIL: Eröffne bei Gesellschaften (GmbH, UG, AG, KG, OHG) zwingend mit der organschaftlichen Vertretungsformel in durchgängiger 'Wir'-Form. Gib AUSSCHLIESSLICH den reinen, druckfertigen Geschäftsbrief-Text aus: KEINE Vorrede, KEINE eckigen Klammern [ ], KEINE Markdown-Sternchen (**), KEINE Rauten (###) und KEINE Markdown-Tabellenstriche (|---|)!"
     ].filter(Boolean).join("\n");
@@ -797,6 +820,11 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                   lastAiMsg.content.includes("SPIEGEL-KANZLEI OMEGA")
                 )
               ) {
+                // Auch beim Wiederherstellen des Chats laden wir im Hintergrund die aktuelle Fallakte in den Cache (für Folge-Anweisungen)
+                fetchFullAkteContext(dossier.akte_id, dossier.raw_text || dossier.brief_entwurf || "").then((res) => {
+                  setFullDossierContextCache(res.fullContextText || "");
+                  setLoadedDocsCount(res.docsCount || 1);
+                });
                 setMessages(savedChat);
                 setLoadedDocsCount(1);
                 setLiveStage(5);
@@ -913,7 +941,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
     const wrappedInstruction = [
       `ZUSATZ-ANWEISUNG / ÄNDERUNGSWUNSCH DES MANDANTEN: "${userInstruction}"`,
       "",
-      "Arbeite diese Anweisung sofort unter Beachtung der Universellen Gesetze der Juristischen Methodenlehre in den Schriftsatz ein und gib AUSSCHLIESSLICH den vollständig aktualisierten, druckfertigen Schriftsatz-Text (ohne Vorrede, ohne eckige Klammern, ohne Markdown-Sternchen **, direkt im Namen des Mandanten) aus, damit er erneut der Spiegel-Kanzlei Omega und dem Revisionssenat zur Pflicht-Abnahme vorgelegt werden kann!"
+      "Arbeite diese Anweisung sofort unter Beachtung der gesamten Fallakte und der Universellen Gesetze der Juristischen Methodenlehre in den Schriftsatz ein und gib AUSSCHLIESSLICH den vollständig aktualisierten, druckfertigen Schriftsatz-Text (ohne Vorrede, ohne eckige Klammern, ohne Markdown-Sternchen **, direkt im Namen des Mandanten) aus, damit er erneut der Spiegel-Kanzlei Omega und dem Revisionssenat zur Pflicht-Abnahme vorgelegt werden kann!"
     ].join("\n");
 
     const updatedHistory = [...messages, { role: "user", content: wrappedInstruction }];
@@ -958,7 +986,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
       const combinedRaw = `${fullDossierContextCache}\n\n=== NACHGEREICHTE DATEI (${file.name}) ===\n${extractedText}`.substring(0, 250000);
       setFullDossierContextCache(combinedRaw);
 
-      const prompt = `Hier ist der nachgereichte Volltext aus der Datei "${file.name}":\n\n${extractedText.substring(0, 200000)}\n\nBitte arbeite diese neuen Fakten sofort unter Beachtung der Universellen Gesetze der Juristischen Methodenlehre in den versandfertigen Schriftsatz ein und gib den kompletten, aktualisierten Schriftsatz-Text (ohne Markdown-Sternchen **) zur erneuten Prüfung durch Spiegel-Kanzlei Omega und den Revisionssenat aus.`;
+      const prompt = `Hier ist der nachgereichte Volltext aus der Datei "${file.name}":\n\n${extractedText.substring(0, 200000)}\n\nBitte arbeite diese neuen Fakten sofort unter Beachtung der Fallakte und der Universellen Gesetze der Juristischen Methodenlehre in den versandfertigen Schriftsatz ein und gib den kompletten, aktualisierten Schriftsatz-Text (ohne Markdown-Sternchen **) zur erneuten Prüfung durch Spiegel-Kanzlei Omega und den Revisionssenat aus.`;
 
       const updatedHistory = [...messages, { role: "user", content: prompt }];
       setMessages(updatedHistory);
@@ -1043,7 +1071,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   };
 
   const handleResetChatMemory = async () => {
-    if (!window.confirm("Gespeicherten War-Room-Verlauf dieser Akte löschen und Lagebesprechung mit allen aktuellen Akten-Dokumenten komplett neu starten?")) {
+    if (!window.confirm("Gespeicherten War-Room-Verlauf dieser Akte löschen und Lagebesprechung mit der aktuellen Fallakte komplett neu starten?")) {
       return;
     }
     await startFreshAnalysis(isOwnerUser);
@@ -1083,7 +1111,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
   ];
 
   const allFourGreen = !isLoading && liveStage === 5 && isJudgeApproved;
-  const visibleChatMessages = messages.filter((m, idx) => !(idx === 0 && m.role === "user" && m.content.includes("Analysiere dieses vollständige Akten-Dossier")));
+  const visibleChatMessages = messages.filter((m, idx) => !(idx === 0 && m.role === "user" && m.content.includes("Analysiere diese vollständige")) && !(idx === 0 && m.role === "user" && m.content.includes("Analysiere dieses vollständige")));
   const hasDraftMessages = visibleChatMessages.some((m) => m.role === "assistant");
 
   const counselBadgeLabel = strategyBriefing?.counsel_type === "STEUERBERATER"
@@ -1120,7 +1148,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
             </div>
             {(!isMobileScreen || mobileHeaderExpanded) && (
               <p className={`text-[11px] sm:text-xs ${textSub} truncate`}>
-                Akte: {dossier?.aktenzeichen || "Neu"} | Gegenpartei: {dossier?.kontakt || "Behörde"} | Mandant: {displayMandantName} | Quellen: {loadedDocsCount}
+                Fallakte aktiv | AZ: {dossier?.aktenzeichen || "Neu"} | Gegenpartei: {dossier?.kontakt || "Behörde"} | Mandant: {displayMandantName} | Quellen: {loadedDocsCount}
               </p>
             )}
           </div>
@@ -1173,7 +1201,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                       isDark ? "bg-slate-900 border-slate-700 text-slate-300" : "bg-white border-slate-300 text-slate-700"
                     } select-none`}
                   >
-                    <span>Kanzlei Alpha vs. Omega AKTIV</span>
+                    <span>Fallakte + Alpha/Omega AKTIV</span>
                   </div>
                 )}
 
@@ -1348,7 +1376,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
                     CHEFABTEILUNGS-LAGEBESPRECHUNG & STRATEGIE-WAHL
                   </h3>
                   <p className={`text-xs ${textSub}`}>
-                    Vorprüfung durch das einberufene Spezialisten-Board (Mehrfachauswahl / Kombination möglich)
+                    Vorprüfung der gesamten Fallakte durch das einberufene Spezialisten-Board (Mehrfachauswahl / Kombination möglich)
                   </p>
                 </div>
                 <span className={`px-2.5 py-1 rounded text-xs font-bold border ${borderModal} ${textSub}`}>
@@ -1584,7 +1612,7 @@ export default function MegaLegalModal({ isOpen, onClose, dossier, onApplySchrif
               </div>
 
               <p className={`text-xs leading-relaxed ${isDark ? "text-slate-200" : "text-slate-800"}`}>
-                Ihr Schriftsatz wurde durch Kanzlei Alpha ausgearbeitet, von der Spiegel-Kanzlei Omega kontradiktorisch geprüft und vom Revisionssenat abgenommen. Klicken Sie jetzt auf „Ins Cockpit übergeben“, um den Entwurf in die Aktenansicht zu übernehmen.
+                Ihr Schriftsatz wurde auf Basis der Fallakte durch Kanzlei Alpha ausgearbeitet, von der Spiegel-Kanzlei Omega kontradiktorisch geprüft und vom Revisionssenat abgenommen. Klicken Sie jetzt auf „Ins Cockpit übergeben“, um den Entwurf in die Aktenansicht zu übernehmen.
               </p>
 
               <div className="flex flex-wrap gap-2.5 pt-1">
