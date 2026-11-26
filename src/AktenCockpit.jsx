@@ -11,6 +11,7 @@ import {
 import { useAktenScannerImport } from './hooks/useAktenScannerImport';
 import { useAktenActions } from './hooks/useAktenActions';
 import MegaLegalModal from './MegaLegalModal';
+import FallakteModal from './FallakteModal';
 import AktenAlarme from './AktenAlarme';
 import AktenListe from './AktenListe';
 import AktenFormular from './AktenFormular';
@@ -96,6 +97,7 @@ export default function AktenCockpit({
 
   const [isWarRoomOpen, setIsWarRoomOpen] = useState(false);
   const [activeWarRoomDossier, setActiveWarRoomDossier] = useState(null);
+  const [fallakteModalAkteId, setFallakteModalAkteId] = useState(null);
   const [duplikatNummerFilter, setDuplikatNummerFilter] = useState(null);
 
   const autoGenRef = useRef('');
@@ -290,7 +292,8 @@ export default function AktenCockpit({
     speichereEintragLogik,
     proceedToSaveOrTriage,
     handleSpeichernCheck,
-    handleResendVersand
+    handleResendVersand,
+    syncFallakteDocument
   } = useAktenActions({
     session,
     OWNER_USER_ID,
@@ -380,6 +383,39 @@ export default function AktenCockpit({
     setIsWarRoomOpen,
     autoGenRef
   });
+
+  // Öffnet den War-Room direkt aus einer bestehenden Akte / Fallakte heraus
+  const openWarRoomFromAkte = (targetAkte) => {
+    if (!targetAkte) return;
+    const histSorted = [...(targetAkte.akten_historie || [])].sort(
+      (a, b) => new Date(b.datum || b.created_at || 0) - new Date(a.datum || a.created_at || 0)
+    );
+    const latestHist = histSorted[0] || null;
+    const activeFristEntry = (targetAkte.akten_historie || []).find((h) => h.frist_extern);
+
+    let crmFax = '';
+    if (targetAkte.gegner_name) {
+      const crmMatch = gegnerListe.find((g) => g.name && g.name.toLowerCase() === targetAkte.gegner_name.toLowerCase());
+      if (crmMatch?.fax) crmFax = crmMatch.fax;
+    }
+
+    setActiveWarRoomDossier({
+      akte_id: targetAkte.id,
+      unser_zeichen: targetAkte.unser_zeichen || '',
+      unsere_firma: targetAkte.unsere_firma || '',
+      unser_ansprechpartner: targetAkte.unser_ansprechpartner || '',
+      aktenzeichen: targetAkte.aktenzeichen || '',
+      kontakt: targetAkte.gegner_name || '',
+      ansprechpartner: targetAkte.gegner_ansprechpartner || '',
+      gegner_fax: crmFax,
+      gegner_email: targetAkte.gegner_email || '',
+      thema: targetAkte.thema || '',
+      frist_extern: activeFristEntry?.frist_extern || '',
+      brief_entwurf: latestHist?.brief_entwurf || 'Siehe vollständige Akten-Historie & Fallakte.',
+      raw_text: latestHist?.brief_entwurf || ''
+    });
+    setIsWarRoomOpen(true);
+  };
 
   // Doppelte Alt-Aktennummern ermitteln (ohne Umhängen) + Filter & Sortierung
   const aktenNummernGruppen = {};
@@ -471,6 +507,7 @@ export default function AktenCockpit({
       : alleAusgaenge;
 
   const activeAkteObj = modus === 'bestehend' && selectedAkteId ? akten.find((a) => a.id === selectedAkteId) : null;
+  const fallakteModalObj = fallakteModalAkteId ? akten.find((a) => a.id === fallakteModalAkteId) || null : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
@@ -498,6 +535,19 @@ export default function AktenCockpit({
         expandedVersandId={expandedVersandId}
         setExpandedVersandId={setExpandedVersandId}
         springeZuAkteAusgang={springeZuAkteAusgang}
+      />
+
+      <FallakteModal
+        isOpen={Boolean(fallakteModalObj)}
+        onClose={() => setFallakteModalAkteId(null)}
+        akte={fallakteModalObj}
+        theme={theme}
+        isDarkMode={isDarkMode}
+        isOwnerAccount={isOwnerAccount}
+        onLoadVorgangInMaske={ladeVorgangInMaske}
+        onOpenWarRoom={openWarRoomFromAkte}
+        onSyncFallakte={syncFallakteDocument}
+        showToast={showToast}
       />
 
       {/* --- MAGIC IMPORT & KI-WEB-SCANNER --- */}
@@ -677,6 +727,7 @@ export default function AktenCockpit({
         handleResendVersand={handleResendVersand}
         setActiveWarRoomDossier={setActiveWarRoomDossier}
         setIsWarRoomOpen={setIsWarRoomOpen}
+        onOpenFallakte={(akteId) => setFallakteModalAkteId(akteId)}
         emailAnhaenge={emailAnhaenge}
         setEmailAnhaenge={setEmailAnhaenge}
         briefEntwurf={briefEntwurf}
@@ -794,6 +845,7 @@ export default function AktenCockpit({
           handleAkteStammdatenEdit={handleAkteStammdatenEdit}
           loescheAkte={loescheAkte}
           druckeAkte={druckeAkte}
+          onOpenFallakte={(akteId) => setFallakteModalAkteId(akteId)}
           mergeSourceId={mergeSourceId}
           setMergeSourceId={setMergeSourceId}
           mergeTargetId={mergeTargetId}
