@@ -1,8 +1,9 @@
 // src/AktenModals.jsx
 // AUSGELAGERTE OVERLAY-MODALS & RESPONSIVE STYLES FÜR DAS AKTEN-COCKPIT
 // Enthält: 1. Responsive Tabellen-/Grid-CSS, 2. Posteingangs-Triage-Modal, 3. Datei-Vergessen-Warnung, 4. Globale Versandhistorie
+// Inklusive Live-Bedienhilfe-Integration (data-help Anker + automatischer 2/3-Desktop-Split bei geöffneter Hilfe)
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from './Icon';
 import { extractFilename } from './utils';
 import { formatDatum, druckeSendebericht } from './utils/aktenHelpers';
@@ -32,6 +33,34 @@ export default function AktenModals({
   setExpandedVersandId,
   springeZuAkteAusgang
 }) {
+  const [desktopHelpSplitActive, setDesktopHelpSplitActive] = useState(false);
+
+  // Passt geöffnete Modals automatisch an das rechte 1/3-Live-Hilfe-Dock an
+  useEffect(() => {
+    const checkHelpSplit = () => {
+      if (typeof window === 'undefined' || typeof document === 'undefined') return;
+      setDesktopHelpSplitActive(
+        window.innerWidth > 1024 && document.body.classList.contains('sonar-live-help-desktop')
+      );
+    };
+
+    checkHelpSplit();
+    window.addEventListener('resize', checkHelpSplit);
+
+    let observer = null;
+    if (typeof document !== 'undefined' && document.body) {
+      observer = new MutationObserver(checkHelpSplit);
+      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    return () => {
+      window.removeEventListener('resize', checkHelpSplit);
+      if (observer) observer.disconnect();
+    };
+  }, [showVersandHistorie, showTriageModal, showUploadReminder]);
+
+  const overlayRightOffset = desktopHelpSplitActive ? '33.333%' : 0;
+
   return (
     <>
       <style>{`
@@ -255,10 +284,14 @@ export default function AktenModals({
         }
       `}</style>
 
-      {/* 1. POSTEINGANGS-TRIAGE-MODAL */}
+      {/* 1. POSTEINGANGS-TRIAGE-MODAL (INKL. LIVE-HILFE-ANKER) */}
       {showTriageModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: overlayRightOffset, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div
+            data-sonar-modal-root="true"
+            data-help="akten_triage_popup"
+            style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px' }}
+          >
             <h3 style={{ margin: 0, color: theme.textMain, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Icon name="folder" size={24} /> Posteingang abheften
             </h3>
@@ -348,7 +381,7 @@ export default function AktenModals({
 
       {/* 2. UPLOAD-ERINNERUNGS-MODAL */}
       {showUploadReminder && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: overlayRightOffset, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: theme.cardBg, border: `1px solid ${theme.warningBorder}`, borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
             <Icon name="alert" size={48} style={{ color: theme.warningBorder, marginBottom: '15px' }} />
             <h3 style={{ margin: '0 0 15px 0', color: theme.textMain, fontSize: '20px' }}>Dateien vergessen?</h3>
@@ -374,11 +407,19 @@ export default function AktenModals({
         </div>
       )}
 
-      {/* 3. VERSANDHISTORIE-MODAL */}
+      {/* 3. VERSANDHISTORIE-MODAL (INKL. LIVE-HILFE-ANKER & 2/3-SPLIT) */}
       {showVersandHistorie && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px' }}>
-          <div style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1200px', width: '100%', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: overlayRightOffset, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px' }}
+          onClick={() => setShowVersandHistorie(false)}
+        >
+          <div
+            data-sonar-modal-root="true"
+            data-help="versandhistorie_modal_main"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', maxWidth: '1200px', width: '100%', maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 28px 15px 20px', borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
               <h3 style={{ margin: 0, color: theme.textMain, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
                 <Icon name="send" size={18} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -574,7 +615,11 @@ export default function AktenModals({
                         </div>
 
                         {isExpanded && (
-                          <div style={{ padding: '0 20px 15px 20px', cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                          <div
+                            data-help="versandhistorie_sendebericht"
+                            style={{ padding: '0 20px 15px 20px', cursor: 'default' }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div className="vh-expanded-grid" style={{ borderTop: `1px dashed ${theme.border}`, paddingTop: '12px' }}>
                               <div style={{ gridColumn: '1 / 4', fontSize: '12px', color: theme.textMuted }}>
                                 Klicke auf Sendebericht, um einen Druckbeleg zu erzeugen, oder springe direkt zum Vorgang in der Akte.
