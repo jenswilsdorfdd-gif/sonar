@@ -1,6 +1,6 @@
 // src/hooks/useAktenActions.js
-// KAPSELT SPEICHERN (TWIN-STORAGE), RESEND-VERSAND (E-MAIL/FAX), ADMIN-SCHLOSS-LOGIK, DUPLIKAT-SCHUTZ, MERGE & NACHTRAGS-UPLOADS
-// 100 % verlustfreie Auslagerung aus AktenCockpit.jsx zur drastischen Reduktion der Dateigröße.
+// KAPSELT SPEICHERN (TWIN-STORAGE + AUTO-FALLAKTE), RESEND-VERSAND (E-MAIL/FAX), ADMIN-SCHLOSS-LOGIK, DUPLIKAT-SCHUTZ, MERGE & NACHTRAGS-UPLOADS
+// 100 % verlustfreie Auslagerung aus AktenCockpit.jsx inkl. automatischer Pflege von FALLAKTE_<Unser_Zeichen>.md.
 
 import { supabase } from '../supabaseClient';
 import { syncToGithub } from '../utils';
@@ -14,6 +14,10 @@ import {
   extractTextFromPDF,
   fileToBase64
 } from '../utils/aktenHelpers';
+import {
+  buildFallakteMarkdown,
+  getFallakteStorageFilename
+} from '../utils/fallakteBuilder';
 
 export function useAktenActions({
   session,
@@ -132,6 +136,82 @@ export function useAktenActions({
     }
 
     return true;
+  };
+
+  // --- AUTOMATISCHER & MANUELLER FALLAKTEN-GENERATOR (STORAGE + WISSENSDATENBANK + GITHUB/DRIVE) ---
+  const syncFallakteById = async (targetAkteId) => {
+    if (!targetAkteId || !session?.user?.id) return null;
+    try {
+      const { data: freshAkte, error: fetchErr } = await supabase
+        .from('akten')
+        .select('*, akten_historie (*)')
+        .eq('id', targetAkteId)
+        .single();
+
+      if (fetchErr || !freshAkte || freshAkte.is_demo_showcase) return null;
+
+      const fallakteFileName = getFallakteStorageFilename(freshAkte);
+      const mdContent = buildFallakteMarkdown(freshAkte, freshAkte.akten_historie || [], {
+        includeFullTexts: true
+      });
+
+      const mdBlob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
+      const { error: upErr } = await supabase.storage
+        .from('dokumente')
+        .upload(fallakteFileName, mdBlob, { contentType: 'text/markdown;charset=utf-8', upsert: true });
+
+      let pubUrl = null;
+      if (!upErr) {
+        const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(fallakteFileName);
+        pubUrl = linkData?.publicUrl || null;
+      }
+
+      const firmaLabel = freshAkte.unsere_firma || 'Allgemein';
+      const previewDbText = mdContent.substring(0, 7500);
+
+      // Prüfen, ob bereits ein Fallakten-Eintrag für diesen Dateinamen & User in wissensdatenbank existiert (Upsert ohne Duplikate)
+      const { data: existingRows } = await supabase
+        .from('wissensdatenbank')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('datei_name', fallakteFileName)
+        .limit(1);
+
+      if (Array.isArray(existingRows) && existingRows.length > 0) {
+        await supabase
+          .from('wissensdatenbank')
+          .update({
+            firma: firmaLabel,
+            kategorie: 'Fallakte',
+            inhalt_text: previewDbText,
+            dokument_url: pubUrl
+          })
+          .eq('id', existingRows[0].id);
+      } else {
+        await supabase.from('wissensdatenbank').insert([
+          {
+            user_id: session.user.id,
+            datei_name: fallakteFileName,
+            firma: firmaLabel,
+            kategorie: 'Fallakte',
+            inhalt_text: previewDbText,
+            dokument_url: pubUrl
+          }
+        ]);
+      }
+
+      await syncToGithub(fallakteFileName, mdContent, pubUrl, 'fallakte_sync', showToast);
+      return pubUrl;
+    } catch (err) {
+      console.warn('Hintergrund-Sync der Fallakte Hinweis:', err);
+      return null;
+    }
+  };
+
+  const syncFallakteDocument = async (akteOrId) => {
+    const id = typeof akteOrId === 'string' ? akteOrId : akteOrId?.id;
+    if (!id) return null;
+    return await syncFallakteById(id);
   };
 
   // --- NAVIGATION & MASKEN-LADEN ---
@@ -362,8 +442,17 @@ export function useAktenActions({
     if (feld === 'frist_extern' && wert) updates.wiedervorlage = null;
     if (feld === 'wiedervorlage' && wert) updates.frist_extern = null;
 
-    const { error } = await supabase.from('akten_historie').update(updates).eq('id', histId);
+    const { data: updatedRows, error } = await supabase
+      .from('akten_historie')
+      .update(updates)
+      .eq('id', histId)
+      .select('akte_id');
+
     if (!error) {
+      const parentAkteId = updatedRows?.[0]?.akte_id || null;
+      if (parentAkteId) {
+        syncFallakteById(parentAkteId);
+      }
       ladeDaten();
     } else {
       showToast('Fehler beim Speichern: ' + error.message, 'error');
@@ -427,6 +516,7 @@ export function useAktenActions({
           aktion: 'Akte durch Admin wiedereröffnet & entsperrt.'
         }
       ]);
+      await syncFallakteById(akteId);
       ladeDaten();
       showToast('Akte wurde wieder geöffnet und alle Vorgänge entsperrt.', 'success');
     } else {
@@ -466,6 +556,7 @@ export function useAktenActions({
             is_locked: true
           }
         ]);
+        await syncFallakteById(akteId);
         ladeDaten();
         showToast('Akte und alle Vorgänge versiegelt und geschlossen.', 'success');
       } else {
@@ -521,6 +612,7 @@ export function useAktenActions({
     const dbWert = typeof wert === 'boolean' ? wert : wert !== '' ? wert : null;
     const { error } = await supabase.from('akten').update({ [feld]: dbWert }).eq('id', akteId);
     if (!error) {
+      syncFallakteById(akteId);
       ladeDaten();
     } else {
       showToast('Fehler beim Speichern: ' + error.message, 'error');
@@ -530,14 +622,32 @@ export function useAktenActions({
   // --- LÖSCHEN, MERGE & NACHTRAGS-UPLOAD ---
   const loescheAkte = async (id) => {
     if (!window.confirm('Ganze Akte löschen?')) return;
+    const zielAkte = akten.find((a) => a.id === id);
     await supabase.from('akten').delete().eq('id', id);
+
+    if (zielAkte && !zielAkte.is_demo_showcase) {
+      try {
+        const fallakteName = getFallakteStorageFilename(zielAkte);
+        await supabase.storage.from('dokumente').remove([fallakteName]);
+        await supabase
+          .from('wissensdatenbank')
+          .delete()
+          .eq('user_id', session.user.id)
+          .eq('datei_name', fallakteName);
+      } catch (_e) {}
+    }
+
     ladeDaten();
     showToast('Akte komplett gelöscht.', 'success');
   };
 
   const loescheHistorieEintrag = async (histId) => {
     if (!window.confirm('Diesen gesamten Eintrag inkl. aller darin verknüpften Dateien aus der Akte löschen?')) return;
+    const { data: oldRow } = await supabase.from('akten_historie').select('akte_id').eq('id', histId).single();
     await supabase.from('akten_historie').delete().eq('id', histId);
+    if (oldRow?.akte_id) {
+      syncFallakteById(oldRow.akte_id);
+    }
     ladeDaten();
     showToast('Eintrag komplett gelöscht!', 'success');
   };
@@ -548,16 +658,21 @@ export function useAktenActions({
     const neueUrls = urlArray.filter((url) => url !== urlZumLoeschen);
     const neuerUrlString = neueUrls.length > 0 ? neueUrls.join(',') : null;
 
-    const { error: dbError } = await supabase
+    const { data: updatedRows, error: dbError } = await supabase
       .from('akten_historie')
       .update({ dokument_url: neuerUrlString })
-      .eq('id', histId);
+      .eq('id', histId)
+      .select('akte_id');
+
     if (!dbError) {
       try {
         const parts = decodeURIComponent(urlZumLoeschen).split('/');
         const fileName = parts[parts.length - 1];
         await supabase.storage.from('dokumente').remove([fileName]);
       } catch (_e) {}
+      if (updatedRows?.[0]?.akte_id) {
+        syncFallakteById(updatedRows[0].akte_id);
+      }
       ladeDaten();
       showToast('Datei erfolgreich entfernt!', 'success');
     } else {
@@ -603,10 +718,13 @@ export function useAktenActions({
       }
     ]);
 
+    await syncFallakteById(mergeTargetId);
+    await syncFallakteById(sourceId);
+
     setMergeSourceId(null);
     setMergeTargetId('');
     ladeDaten();
-    showToast('Akteninhalte erfolgreich übertragen!', 'success');
+    showToast('Akteninhalte erfolgreich übertragen & Fallakte aktualisiert!', 'success');
   };
 
   const handleNachtragUploadAkte = async (histId, currentUrls, akteFirma, akteGegner, e) => {
@@ -647,7 +765,11 @@ export function useAktenActions({
         const { data: linkData } = supabase.storage.from('dokumente').getPublicUrl(dateiName);
         const newUrl = linkData.publicUrl;
         const updatedUrls = currentUrls ? `${currentUrls},${newUrl}` : newUrl;
-        await supabase.from('akten_historie').update({ dokument_url: updatedUrls }).eq('id', histId);
+        const { data: updatedHist } = await supabase
+          .from('akten_historie')
+          .update({ dokument_url: updatedUrls })
+          .eq('id', histId)
+          .select('akte_id');
 
         let extrahierterText = '';
         if (isPdf) {
@@ -694,8 +816,12 @@ export function useAktenActions({
           await syncToGithub(file.name.replace(/\.[^/.]+$/, '') + '.md', infoTxt, newUrl, 'nachtrag_upload', showToast);
         }
 
+        if (updatedHist?.[0]?.akte_id) {
+          syncFallakteById(updatedHist[0].akte_id);
+        }
+
         ladeDaten();
-        showToast('Dokument erfolgreich angehängt!', 'success');
+        showToast('Dokument erfolgreich angehängt & Fallakte aktualisiert!', 'success');
       } else {
         showToast('Fehler beim Upload: ' + uploadError.message, 'error');
       }
@@ -704,7 +830,7 @@ export function useAktenActions({
     e.target.value = '';
   };
 
-  // --- SPEICHERN (TWIN-STORAGE + DUPLIKAT-SPERRE) & RESEND-VERSAND ---
+  // --- SPEICHERN (TWIN-STORAGE + DUPLIKAT-SPERRE + AUTO-FALLAKTE) & RESEND-VERSAND ---
   const speichereEintragLogik = async (autoSaveOverrides = null) => {
     setShowUploadReminder(false);
     setLaedt(true);
@@ -1018,6 +1144,11 @@ export function useAktenActions({
         await supabase.from('akten_historie').update({ frist_extern: null, wiedervorlage: null }).eq('id', bezugId);
       }
 
+      // Automatischer Hintergrund-Update der durchgängigen FALLAKTE_<Zeichen>.md
+      if (aktuelleAkteId) {
+        syncFallakteById(aktuelleAkteId);
+      }
+
       const preventWarRoom = autoSaveOverrides && autoSaveOverrides.preventWarRoom;
 
       if (activeTyp === 'Eingang' && !preventWarRoom) {
@@ -1066,7 +1197,7 @@ export function useAktenActions({
       if (document.getElementById('datei-upload-manuell')) document.getElementById('datei-upload-manuell').value = '';
       if (document.getElementById('email-anhaenge-upload')) document.getElementById('email-anhaenge-upload').value = '';
       ladeDaten();
-      showToast('Akteneintrag erfolgreich gespeichert!', 'success');
+      showToast('Akteneintrag & Fallakte erfolgreich gespeichert!', 'success');
     } else {
       showToast('Fehler beim Speichern der Historie: ' + histError.message, 'error');
     }
@@ -1148,12 +1279,12 @@ export function useAktenActions({
               null
           }
         : unserEmail || safeUnserAnsprechpartner
-          ? {
-              firmenname: unsereFirma || null,
-              email: unserEmail || null,
-              ansprechpartner: safeUnserAnsprechpartner || null
-            }
-          : null;
+        ? {
+            firmenname: unsereFirma || null,
+            email: unserEmail || null,
+            ansprechpartner: safeUnserAnsprechpartner || null
+          }
+        : null;
 
       const alleAnhangDateien = [...emailAnhaenge, ...dateien].filter(
         (f) => f && f.name && !f.name.toLowerCase().endsWith('.md')
@@ -1257,6 +1388,7 @@ export function useAktenActions({
     speichereEintragLogik,
     proceedToSaveOrTriage,
     handleSpeichernCheck,
-    handleResendVersand
+    handleResendVersand,
+    syncFallakteDocument
   };
 }
