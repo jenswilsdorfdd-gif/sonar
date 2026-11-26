@@ -19,6 +19,7 @@ export default function AktenListe({
   handleAkteStammdatenEdit,
   loescheAkte,
   druckeAkte,
+  onOpenFallakte,
   mergeSourceId,
   setMergeSourceId,
   mergeTargetId,
@@ -134,21 +135,22 @@ export default function AktenListe({
           const istErledigt = akte.status === 'Erledigt';
           const isShowcase = Boolean(akte.is_demo_showcase);
           const effectiveAkteLocked = Boolean(akte.is_locked || isShowcase);
+          const vorgaengeCount = Array.isArray(akte.akten_historie) ? akte.akten_historie.length : 0;
 
           // Farbliche Hervorhebung für erledigte Akten (solange nicht reaktiviert)
           const rowBackground = istFokussiert
             ? (isDarkMode ? 'rgba(0, 229, 255, 0.12)' : '#e0f2fe')
             : istErledigt
-            ? (isDarkMode ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7')
-            : 'transparent';
+              ? (isDarkMode ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7')
+              : 'transparent';
 
           const rowBorderLeft = istFokussiert
             ? `6px solid ${theme.accent}`
             : istErledigt
-            ? '6px solid #f59e0b'
-            : isShowcase
-            ? `6px solid ${theme.wissenAccent || '#a855f7'}`
-            : '6px solid transparent';
+              ? '6px solid #f59e0b'
+              : isShowcase
+                ? `6px solid ${theme.wissenAccent || '#a855f7'}`
+                : '6px solid transparent';
 
           return (
             <div
@@ -335,19 +337,41 @@ export default function AktenListe({
                   <div className="akten-actions-bar" style={{ background: theme.cardBg, border: `1px solid ${istErledigt ? '#f59e0b' : (isShowcase ? (theme.wissenAccent || '#a855f7') : theme.border)}` }}>
                     <div style={{ fontSize: '13px', color: isShowcase ? (theme.wissenAccent || '#a855f7') : (istErledigt ? '#f59e0b' : theme.textMain), fontWeight: 'bold' }}>
                       {isShowcase
-                        ? 'Musterakte (Dauerhaft schreibgeschützt – Vorgang über „Laden“ im Formular & War-Room einsehbar)'
+                        ? 'Musterakte (Dauerhaft schreibgeschützt – Fallakte & War-Room einsehbar)'
                         : istErledigt
-                        ? 'Aktions-Menü (Akte ist als ERLEDIGT archiviert & versiegelt)'
-                        : 'Aktions-Menü'}
+                          ? 'Aktions-Menü (Akte ist als ERLEDIGT archiviert & versiegelt)'
+                          : 'Aktions-Menü'}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', maxWidth: '600px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', maxWidth: '760px', justifyContent: 'flex-end' }}>
+                      {typeof onOpenFallakte === 'function' && (
+                        <button
+                          onClick={() => onOpenFallakte(akte.id)}
+                          style={{
+                            background: theme.accent,
+                            color: btnTextColor,
+                            border: 'none',
+                            padding: '6px 13px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                          title="Durchgängige chronologische Fallakte (Ablaufplan, Bezüge & alle Schreiben) öffnen"
+                        >
+                          <Icon name="cabinet" size={14} /> Fallakte ({vorgaengeCount})
+                        </button>
+                      )}
+
                       {!isShowcase && akte.status === 'Erledigt' && (
                         <button onClick={() => toggleAkteStatus(akte.id, akte.status)} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="folder" size={14} /> Akte wiedereröffnen (Reaktivieren)</button>
                       )}
                       {!isShowcase && (
                         <button onClick={() => loescheAkte(akte.id)} style={{ background: 'transparent', color: theme.warningBorder, border: `1px solid ${theme.warningBorder}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="trash" size={14} /> Akte löschen</button>
                       )}
-                      <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Akte exportieren / drucken</button>
+                      <button onClick={() => druckeAkte(akte)} style={{ background: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="print" size={14} /> Kurz-Auszug drucken</button>
 
                       {!isShowcase && (
                         mergeSourceId === akte.id ? (
@@ -518,7 +542,7 @@ export default function AktenListe({
                                     );
                                   })}
                                   {isShowcase && sichtbareDokumentUrls.length === 0 && (
-                                    <span style={{ fontSize: '11px', color: theme.textMuted }}>Text & War-Room über „Laden“ einsehbar</span>
+                                    <span style={{ fontSize: '11px', color: theme.textMuted }}>Text & War-Room über „Fallakte“ oder „Laden“ einsehbar</span>
                                   )}
                                   {!isHistLocked && !isShowcase && (
                                     uploadingHistId === hist.id ? (
