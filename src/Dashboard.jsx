@@ -11,14 +11,15 @@ import InteractiveHelpDock from './InteractiveHelpDock';
 import SupportCenterModal from './SupportCenterModal';
 import LegalModal from './LegalModal';
 import { getActiveLegalOperator } from './config/sonarLegalConfig';
+import { isFullAccessSession } from './config/authRoles';
 
 export default function Dashboard({ session }) {
-  // Haupt-Mandant (Owner) ID zum Schutz vor versehentlichem Demo-Reset
-  const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
-  const isDemoUser = session?.user?.id && session.user.id !== OWNER_USER_ID;
+  // Vollzugangs-Erkennung (Jens + Partner-Vollzugang Nico) zum Schutz vor Demo-Drosselung & Demo-Reset
+  const hasFullAccess = isFullAccessSession(session);
+  const isDemoUser = Boolean(session?.user?.id && !hasFullAccess);
   const legalOperator = getActiveLegalOperator();
 
-  // --- ZWEITE SICHERHEITS-SCHRANKE FÜR DEMO-ZUGÄNGE ---
+  // --- ZWEITE SICHERHEITS-SCHRANKE FÜR REINE DEMO-ZUGÄNGE ---
   const [approvalChecking, setApprovalChecking] = useState(Boolean(isDemoUser));
   const [approvalDenied, setApprovalDenied] = useState(false);
 
@@ -46,16 +47,16 @@ export default function Dashboard({ session }) {
       setIsMobile(window.innerWidth <= 768);
       setIsCompactViewport(window.innerWidth <= 1024);
     };
-    handleResize(); // Initialer Check
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Prüft für jeden eingeloggten Nicht-Owner, ob seine E-Mail tatsächlich in demo_access_requests freigegeben ('approved') ist
+  // Prüft für reine Demo-Nutzer (!hasFullAccess), ob ihre E-Mail tatsächlich in demo_access_requests freigegeben ('approved') ist
   useEffect(() => {
     const checkDemoGate = async () => {
       if (!session?.user?.id) return;
-      if (session.user.id === OWNER_USER_ID) {
+      if (isFullAccessSession(session)) {
         setApprovalChecking(false);
         setApprovalDenied(false);
         return;
@@ -81,7 +82,7 @@ export default function Dashboard({ session }) {
     };
 
     checkDemoGate();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, session?.user?.email]);
 
   // Setzt eine Body-Klasse für die dezente Hover-Markierung im Desktop-2/3-Modus
   useEffect(() => {
@@ -151,7 +152,7 @@ export default function Dashboard({ session }) {
     window.location.reload();
   };
 
-  // --- DEMO-DATEN BEREINIGEN (NUR FÜR NICHT-OWNER / DEMO-ACCOUNTS) ---
+  // --- DEMO-DATEN BEREINIGEN (STRIKT NUR FÜR REINE DEMO-ACCOUNTS) ---
   const handleDemoReset = async () => {
     if (!isDemoUser || !session?.user?.id) return;
     const confirmReset = window.confirm(
@@ -344,14 +345,15 @@ export default function Dashboard({ session }) {
   const ladeDaten = async () => {
     if (!session?.user?.id) return;
     const uid = session.user.id;
-    const isOwner = uid === OWNER_USER_ID;
+    const isFullUser = isFullAccessSession(session);
 
     let aktenQuery = supabase
       .from('akten')
       .select('*, akten_historie (*)')
       .order('created_at', { ascending: false });
 
-    if (isOwner) {
+    // Vollzugänge (Jens & Nico) laden jeweils strikt ihre eigenen echten Akten; Demo-Tester sehen zusätzlich die 3 Musterakten
+    if (isFullUser) {
       aktenQuery = aktenQuery.eq('user_id', uid);
     } else {
       aktenQuery = aktenQuery.or(`user_id.eq.${uid},is_demo_showcase.eq.true`);
@@ -393,6 +395,7 @@ export default function Dashboard({ session }) {
       .order('name', { ascending: true });
     if (gegnerData) setGegnerListe(gegnerData);
 
+    // Strikt mandantenisolierter Wissensspeicher (eigene Dokumente + globale Gerichts-Streams)
     const { data: wissenData, error: wissenErr } = await supabase
       .from('wissensdatenbank')
       .select('*')
@@ -484,7 +487,7 @@ export default function Dashboard({ session }) {
           bottom: '20px',
           right: isMobile ? '12px' : (desktopSplitActive ? 'calc(33.333% + 16px)' : '20px'),
           left: isMobile ? '12px' : 'auto',
-          zIndex: 9999,
+          zIndex: 10110,
           display: 'flex',
           flexDirection: 'column',
           gap: '10px',
@@ -561,7 +564,7 @@ export default function Dashboard({ session }) {
               <span>{isMobile ? (isHelpOpen ? 'Hilfe AN' : 'Hilfe') : (isHelpOpen ? 'Live-Hilfe aktiv' : 'Live-Hilfe')}</span>
             </button>
 
-            {/* OPTIONAL FÜR TESTER: DEMO ZURÜCKSETZEN */}
+            {/* OPTIONAL FÜR REINE TESTER: DEMO ZURÜCKSETZEN */}
             {isDemoUser && (
               <button
                 type="button"
