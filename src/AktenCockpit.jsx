@@ -10,6 +10,7 @@ import {
 } from './utils/aktenHelpers';
 import { useAktenScannerImport } from './hooks/useAktenScannerImport';
 import { useAktenActions } from './hooks/useAktenActions';
+import { isPrimaryOwnerSession, isFullAccessSession, PRIMARY_OWNER_USER_ID } from './config/authRoles';
 import MegaLegalModal from './MegaLegalModal';
 import FallakteModal from './FallakteModal';
 import AktenAlarme from './AktenAlarme';
@@ -29,9 +30,12 @@ export default function AktenCockpit({
   globalUrlText,
   setGlobalUrlText
 }) {
-  const OWNER_USER_ID = 'ea175141-2c03-4f93-ba1b-392570229cb2';
-  const isOwnerAccount = session?.user?.id === OWNER_USER_ID;
-  const SIGNATUR_URL = isOwnerAccount
+  const OWNER_USER_ID = PRIMARY_OWNER_USER_ID;
+  const isPrimaryOwner = isPrimaryOwnerSession(session);
+  const hasFullAccess = isFullAccessSession(session);
+
+  // STRIKT EXKLUSIV FÜR JENS WILSDORF (NIEMALS FÜR NICO ODER DRITTE!)
+  const SIGNATUR_URL = isPrimaryOwner
     ? 'https://loyzfkxkuyypgteskxkm.supabase.co/storage/v1/object/public/dokumente/jw-signum-lang-blau.png'
     : null;
 
@@ -191,7 +195,7 @@ export default function AktenCockpit({
 
   useEffect(() => {
     if (modus === 'neu' && unsereFirma && gegnerName) {
-      const mPrefix = generateMandantPrefix(unsereFirma, isOwnerAccount).toUpperCase();
+      const mPrefix = generateMandantPrefix(unsereFirma, isPrimaryOwner).toUpperCase();
       let gPrefix = gegnerName.trim().split(' ')[0].replace(/[^a-zA-ZäöüÄÖÜß0-9]/g, '');
       if (!gPrefix) gPrefix = 'Gegner';
 
@@ -213,7 +217,7 @@ export default function AktenCockpit({
         return prev;
       });
     }
-  }, [unsereFirma, gegnerName, modus, akten, isOwnerAccount]);
+  }, [unsereFirma, gegnerName, modus, akten, isPrimaryOwner]);
 
   const {
     handleWebScannerIngest,
@@ -297,7 +301,8 @@ export default function AktenCockpit({
   } = useAktenActions({
     session,
     OWNER_USER_ID,
-    isOwnerAccount,
+    isOwnerAccount: isPrimaryOwner,
+    hasFullAccess: hasFullAccess,
     SIGNATUR_URL,
     akten,
     mandanten,
@@ -543,7 +548,7 @@ export default function AktenCockpit({
         akte={fallakteModalObj}
         theme={theme}
         isDarkMode={isDarkMode}
-        isOwnerAccount={isOwnerAccount}
+        isOwnerAccount={hasFullAccess}
         onLoadVorgangInMaske={ladeVorgangInMaske}
         onOpenWarRoom={openWarRoomFromAkte}
         onSyncFallakte={syncFallakteDocument}
@@ -564,9 +569,9 @@ export default function AktenCockpit({
             value={jsonImport}
             onChange={handleJsonImport}
             placeholder={
-              isOwnerAccount
+              isPrimaryOwner
                 ? '{"typ": "Eingang", "unser_zeichen": "0001-SBS-Finanzamt", "thema": "..."}'
-                : '{"typ": "Eingang", "unser_zeichen": "0001-MANDANT-Finanzamt", "thema": "..."}'
+                : '{"typ": "Eingang", "unser_zeichen": "0001-UBN-Finanzamt", "thema": "..."}'
             }
             style={{
               ...inputStyle,
