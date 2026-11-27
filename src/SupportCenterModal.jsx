@@ -1,7 +1,7 @@
 // src/SupportCenterModal.jsx
 // ZENTRALES SUPPORT-, FREIGABE- & TICKET-CENTER (FÜR OWNER/PARTNER-ADMIN & DEMO-/KUNDEN-ACCOUNTS)
 // - Echtzeit-Badge-Berechnung via Supabase Realtime (demo_access_requests + support_tickets)
-// - Admin (Jens & Vertriebspartner Nico): 1-Klick-E-Mail-Freigabe, Zugangs-Verwaltung & direktes Beantworten/Schließen von Tickets inkl. Auto-E-Mail
+// - Admin (Jens & Vertriebspartner Nico): Direkte Passwort-Vergabe in Supabase Auth, 1-Klick-Zugangs-Mail & Ticket-Beantwortung
 // - Kunde/Tester: Eigene Inbox (Antworten & Freischalt-Status) + Neues Ticket stellen (Support / Lizenz- & Sales-Anfrage)
 // - Außenauftritt & E-Mail-Signaturen dynamisch gesteuert über src/config/sonarLegalConfig.js
 
@@ -10,6 +10,16 @@ import { supabase } from './supabaseClient';
 import Icon from './Icon';
 import { getActiveLegalOperator } from './config/sonarLegalConfig';
 import { isFullAccessSession } from './config/authRoles';
+
+// Erzeugt ein gut lesbares, sicheres Initial-Passwort ohne verwechselbare Zeichen (0/O, 1/l/I)
+function generateSecurePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  let part = '';
+  for (let i = 0; i < 8; i++) {
+    part += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `Sonar-${part}!`;
+}
 
 export default function SupportCenterModal({
   session,
@@ -33,6 +43,16 @@ export default function SupportCenterModal({
   const [accessRequests, setAccessRequests] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [selectedTicketId, setSelectedTicketId] = useState(null);
+
+  // Passwort-Verwaltung pro Eintrag (id -> passwort) + Direkt-Anlage für neue Accounts
+  const [passwordMap, setPasswordMap] = useState({});
+  const [showDirectCreate, setShowDirectCreate] = useState(false);
+  const [directEmail, setDirectEmail] = useState('');
+  const [directName, setDirectName] = useState('');
+  const [directFirma, setDirectFirma] = useState('');
+  const [directPassword, setDirectPassword] = useState(() => generateSecurePassword());
+  const [directSendMail, setDirectSendMail] = useState(true);
+  const [busyDirectCreate, setBusyDirectCreate] = useState(false);
 
   // Formular-States (Kunde/Tester: Neues Ticket)
   const [showNewTicketForm, setShowNewTicketForm] = useState(false);
@@ -65,6 +85,15 @@ export default function SupportCenterModal({
     });
   };
 
+  const getPasswordForItem = (itemId) => {
+    if (passwordMap[itemId] !== undefined) return passwordMap[itemId];
+    return '';
+  };
+
+  const setPasswordForItem = (itemId, val) => {
+    setPasswordMap((prev) => ({ ...prev, [itemId]: val }));
+  };
+
   // --- DATEN LADEN & UNREAD-BADGE BERECHNEN ---
   const loadSupportData = useCallback(async () => {
     if (!userId) return;
@@ -89,6 +118,17 @@ export default function SupportCenterModal({
 
         setAccessRequests(accList);
         setTickets(tickList);
+
+        // Offenen Anfragen direkt ein vorgeschlagenes sicheres Passwort hinterlegen, falls noch leer
+        setPasswordMap((prev) => {
+          const next = { ...prev };
+          accList.forEach((r) => {
+            if (r.status === 'pending' && !next[r.id]) {
+              next[r.id] = generateSecurePassword();
+            }
+          });
+          return next;
+        });
 
         const pendingAccessCount = accList.filter((r) => r.status === 'pending').length;
         const unreadTicketCount = tickList.filter((t) => Boolean(t.unread_by_owner)).length;
@@ -172,7 +212,7 @@ export default function SupportCenterModal({
           if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
             if (typeof showToast === 'function') {
               showToast(
-                `Neue E-Mail-Freischaltanfrage im Support-Center: ${payload.new.name || payload.new.email}`,
+                `Neue Zugangs-Anfrage im Support-Center: ${payload.new.name || payload.new.email}`,
                 'warning'
               );
             }
@@ -232,15 +272,44 @@ export default function SupportCenterModal({
     }
   };
 
-  // --- ADMIN AKTION 1: DEMO-ZUGANG FREIGEBEN + EINLADUNGS-MAIL + WILLKOMMENS-TICKET ---
-  const handleApproveAndNotify = async (reqItem) => {
-    if (!reqItem || busyAccessId) return;
-    setBusyAccessId(reqItem.id);
+  // --- ZENTRALE HELFER-FUNKTION: AUTH-USER MIT PASSWORT ANLEGEN/AKTUALISIEREN + OPTIONAL MAIL SENDEN ---
+  const provisionUserWithPassword = async ({
+    email,
+    password,
+    name,
+    firma,
+    requestRowId = null,
+    sendMail = true
+  }) => {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanPassword = String(password || '').trim();
 
-    try {
-      const nowIso = new Date().toISOString();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      throw new Error('Bitte eine gültige E-Mail-Adresse angeben.');
+    }
+    if (cleanPassword.length < 6) {
+      throw new Error('Das Passwort muss mindestens 6 Zeichen lang sein.');
+    }
 
-      // 1. In demo_access_requests auf 'approved' setzen
+    // 1. Echten Passwort-Benutzer in Supabase Auth anlegen oder aktualisieren (via Edge Function)
+    const { data: provRes, error: provErr } = await supabase.functions.invoke('sonar-send-email', {
+      body: {
+        action: 'admin_provision_user',
+        targetEmail: cleanEmail,
+        targetPassword: cleanPassword,
+        userName: name || '',
+        userFirma: firma || ''
+      }
+    });
+
+    if (provErr || provRes?.error) {
+      throw new Error(provErr?.message || provRes?.error || 'Fehler bei der Benutzer-Einrichtung in Supabase Auth.');
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // 2. Eintrag in demo_access_requests synchronisieren (auf 'approved' setzen oder neu anlegen)
+    if (requestRowId) {
       const { error: dbErr } = await supabase
         .from('demo_access_requests')
         .update({
@@ -248,61 +317,94 @@ export default function SupportCenterModal({
           approved_at: nowIso,
           rejected_at: null
         })
-        .eq('id', reqItem.id);
+        .eq('id', requestRowId);
 
       if (dbErr) throw new Error(dbErr.message);
-
-      // 2. Freischalt-Bestätigung als Willkommens-Nachricht ins In-App Support-Center legen
-      const cleanReqEmail = String(reqItem.email || '').trim().toLowerCase();
-      const existingWelcome = tickets.find(
-        (t) =>
-          t.ticket_type === 'access_request' &&
-          String(t.user_email || '').trim().toLowerCase() === cleanReqEmail
+    } else {
+      const existingReq = accessRequests.find(
+        (r) => String(r.email || '').trim().toLowerCase() === cleanEmail
       );
+      if (existingReq) {
+        await supabase
+          .from('demo_access_requests')
+          .update({
+            status: 'approved',
+            name: name || existingReq.name || null,
+            firma: firma || existingReq.firma || null,
+            approved_at: nowIso,
+            rejected_at: null
+          })
+          .eq('id', existingReq.id);
+      } else {
+        await supabase.from('demo_access_requests').insert([
+          {
+            email: cleanEmail,
+            name: name || null,
+            firma: firma || null,
+            status: 'approved',
+            approved_at: nowIso,
+            created_at: nowIso
+          }
+        ]);
+      }
+    }
 
+    // 3. Willkommens-Nachricht ins In-App Support-Center legen (falls noch nicht vorhanden)
+    const existingWelcome = tickets.find(
+      (t) =>
+        t.ticket_type === 'access_request' &&
+        String(t.user_email || '').trim().toLowerCase() === cleanEmail
+    );
+
+    if (!existingWelcome) {
       const welcomeMsgObj = {
         id: 'msg_' + Date.now(),
         sender: 'admin',
         sender_name: op.supportSenderName,
-        text: `Herzlich willkommen im SMART SONAR COCKPIT! Ihre E-Mail-Adresse (${cleanReqEmail}) wurde erfolgreich freigeschaltet. Falls Sie während Ihres Tests technische Fragen haben oder eine individuelle Unternehmens-Einrichtung wünschen, können Sie uns jederzeit direkt hier über diesen Support-Bereich schreiben.`,
+        text: `Herzlich willkommen im SMART SONAR COCKPIT! Ihr Zugang (${cleanEmail}) wurde erfolgreich eingerichtet. Falls Sie Fragen haben oder Unterstützung wünschen, können Sie uns jederzeit direkt hier über diesen Support-Bereich schreiben.`,
         created_at: nowIso
       };
 
-      if (!existingWelcome) {
-        await supabase.from('support_tickets').insert([
-          {
-            user_id: null,
-            user_email: cleanReqEmail,
-            user_name: reqItem.name || null,
-            user_firma: reqItem.firma || null,
-            ticket_type: 'access_request',
-            subject: 'Zugangs-Freischaltung & Willkommen im SONAR Cockpit',
-            status: 'answered',
-            messages: [welcomeMsgObj],
-            unread_by_owner: false,
-            unread_by_user: true,
-            created_at: nowIso,
-            updated_at: nowIso
-          }
-        ]);
-      }
+      await supabase.from('support_tickets').insert([
+        {
+          user_id: provRes?.userId || null,
+          user_email: cleanEmail,
+          user_name: name || null,
+          user_firma: firma || null,
+          ticket_type: 'access_request',
+          subject: 'Zugangs-Freischaltung & Willkommen im SONAR Cockpit',
+          status: 'answered',
+          messages: [welcomeMsgObj],
+          unread_by_owner: false,
+          unread_by_user: true,
+          created_at: nowIso,
+          updated_at: nowIso
+        }
+      ]);
+    }
 
-      // 3. Einladungs-E-Mail (ohne PDF-Anhang) mit dynamischer Betreiber-Signatur senden
+    // 4. Optional: Zugangsdaten-E-Mail mit E-Mail + Passwort für den Reiter "Mandanten-Login" senden
+    let mailWarning = null;
+    if (sendMail) {
       const cockpitUrl = window.location.origin;
-      const salutation = reqItem.name ? `Guten Tag ${reqItem.name},` : 'Guten Tag,';
+      const salutation = name ? `Guten Tag ${name},` : 'Guten Tag,';
 
       const mailText = [
         salutation,
         '',
-        'vielen Dank für Ihr Interesse an unserem KI-gestützten Kanzlei-, Behördenabwehr- & Compliance-System SMART SONAR COCKPIT.',
+        'Ihr persönlicher Zugang für das KI-gestützte Kanzlei-, Behördenabwehr- & Compliance-System SMART SONAR COCKPIT ist ab sofort aktiv.',
         '',
-        `Ihre E-Mail-Adresse (${reqItem.email}) wurde soeben für den kostenfreien Testzugang freigeschaltet!`,
+        'IHRE PERSÖNLICHEN ZUGANGSDATEN (REITER „MANDANTEN-LOGIN“):',
+        `• Cockpit-Link: ${cockpitUrl}`,
+        `• E-Mail-Adresse: ${cleanEmail}`,
+        `• Passwort: ${cleanPassword}`,
         '',
-        'SO STARTEN SIE IN 2 SCHRITTEN:',
+        'SO MELDEN SIE SICH AN:',
         `1. Öffnen Sie das Cockpit unter: ${cockpitUrl}`,
-        `2. Wählen Sie den Reiter „Testzugang (Demo)“, geben Sie Ihre E-Mail-Adresse (${reqItem.email}) ein und klicken Sie auf „Magic Link senden“.`,
+        '2. Bleiben Sie im ersten Reiter „Mandanten-Login“.',
+        '3. Geben Sie Ihre E-Mail-Adresse und Ihr oben stehendes Passwort ein und klicken Sie auf „Im Cockpit anmelden“.',
         '',
-        'Für Rückfragen steht Ihnen ab sofort direkt oben rechts im Cockpit der Button „Support“ zur Verfügung.',
+        'Für Rückfragen steht Ihnen direkt oben rechts im Cockpit jederzeit der Button „Support“ zur Verfügung.',
         '',
         'Mit freundlichen Grüßen',
         op.supportMailSignOffName,
@@ -312,18 +414,21 @@ export default function SupportCenterModal({
       const mailHtml = `
         <div style="font-family: system-ui, -apple-system, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #0f172a; max-width: 620px;">
           <p>${escapeHtml(salutation)}</p>
-          <p>vielen Dank für Ihr Interesse an unserem KI-gestützten Kanzlei-, Behördenabwehr- &amp; Compliance-System <strong>SMART SONAR COCKPIT</strong>.</p>
-          <p style="padding: 12px 16px; background: #ecfdf5; border-left: 4px solid #10b981; border-radius: 6px; font-weight: bold; color: #065f46;">
-            Ihre E-Mail-Adresse (${escapeHtml(reqItem.email)}) wurde soeben für den kostenfreien Testzugang freigeschaltet!
-          </p>
-          <p><strong>So starten Sie jetzt in 2 Schritten:</strong></p>
+          <p>Ihr persönlicher Zugang für unser KI-gestütztes Kanzlei-, Behördenabwehr- &amp; Compliance-System <strong>SMART SONAR COCKPIT</strong> ist ab sofort eingerichtet!</p>
+          <div style="padding: 14px 18px; background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #0284c7; border-radius: 8px; margin: 16px 0;">
+            <div style="font-weight: bold; color: #0f172a; margin-bottom: 8px;">Ihre Anmeldedaten (Reiter „Mandanten-Login“):</div>
+            <div><strong>E-Mail-Adresse:</strong> ${escapeHtml(cleanEmail)}</div>
+            <div style="margin-top: 4px;"><strong>Passwort:</strong> <code style="background: #e2e8f0; padding: 2px 7px; border-radius: 4px; font-size: 14px; font-weight: bold; color: #0f172a;">${escapeHtml(cleanPassword)}</code></div>
+          </div>
+          <p><strong>So melden Sie sich direkt an:</strong></p>
           <ol style="padding-left: 20px;">
             <li style="margin-bottom: 6px;">Öffnen Sie das SONAR Cockpit über den untenstehenden Button.</li>
-            <li>Wählen Sie den Reiter <strong>„Testzugang (Demo)“</strong>, tragen Sie Ihre E-Mail-Adresse <strong>${escapeHtml(reqItem.email)}</strong> ein und fordern Sie Ihren sofortigen Magic Link an.</li>
+            <li style="margin-bottom: 6px;">Nutzen Sie direkt den voreingestellten Reiter <strong>„Mandanten-Login“</strong>.</li>
+            <li>Geben Sie Ihre E-Mail-Adresse und das oben genannte Passwort ein.</li>
           </ol>
           <p style="margin: 22px 0;">
             <a href="${cockpitUrl}" style="display: inline-block; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: bold; padding: 12px 22px; border-radius: 8px;">
-              Jetzt zum SONAR Cockpit wechseln &amp; anmelden
+              Jetzt im SONAR Cockpit anmelden
             </a>
           </p>
           <p style="font-size: 12.5px; color: #475569;">
@@ -335,8 +440,8 @@ export default function SupportCenterModal({
 
       const { data: mailRes, error: mailErr } = await supabase.functions.invoke('sonar-send-email', {
         body: {
-          to: reqItem.email,
-          subject: 'Ihr Testzugang für das SMART SONAR COCKPIT ist freigeschaltet',
+          to: cleanEmail,
+          subject: 'Ihre Zugangsdaten für das SMART SONAR COCKPIT',
           text: mailText,
           html: mailHtml,
           isOwnerAccount: false,
@@ -353,17 +458,53 @@ export default function SupportCenterModal({
       });
 
       if (mailErr || mailRes?.error) {
+        mailWarning = mailErr?.message || mailRes?.error;
+      }
+    }
+
+    return { mode: provRes?.mode || 'created', mailWarning };
+  };
+
+  // --- ADMIN AKTION 1: ANFRAGE FREIGEBEN ODER PASSWORT NEU SETZEN (+ ZUGANGS-MAIL) ---
+  const handleApproveAndNotify = async (reqItem, sendMail = true) => {
+    if (!reqItem || busyAccessId) return;
+
+    const chosenPwd = (getPasswordForItem(reqItem.id) || '').trim();
+    if (chosenPwd.length < 6) {
+      showToast('Bitte gib ein Passwort mit mindestens 6 Zeichen ein (oder klicke auf „Neu“).', 'warning');
+      return;
+    }
+
+    setBusyAccessId(reqItem.id);
+
+    try {
+      const { mode, mailWarning } = await provisionUserWithPassword({
+        email: reqItem.email,
+        password: chosenPwd,
+        name: reqItem.name,
+        firma: reqItem.firma,
+        requestRowId: reqItem.id,
+        sendMail
+      });
+
+      const actionLabel = mode === 'updated' ? 'Passwort aktualisiert' : 'Zugang angelegt';
+
+      if (!sendMail) {
+        showToast(`${actionLabel} für ${reqItem.email} (ohne E-Mail-Versand).`, 'success');
+      } else if (mailWarning) {
         showToast(
-          `Zugang für ${reqItem.email} freigeschaltet (Mail-Hinweis: ${mailErr?.message || mailRes?.error}).`,
+          `${actionLabel} für ${reqItem.email} (Mail-Hinweis: ${mailWarning}).`,
           'warning'
         );
       } else {
         showToast(
-          `Zugang für ${reqItem.email} freigeschaltet & Einladungs-Mail versendet!`,
+          `${actionLabel} für ${reqItem.email} & Zugangsdaten per E-Mail versendet!`,
           'success'
         );
       }
 
+      // Passwortfeld nach erfolgreichem Setzen für bereits bearbeitete Einträge leeren
+      setPasswordMap((prev) => ({ ...prev, [reqItem.id]: '' }));
       await loadSupportData();
     } catch (err) {
       showToast('Fehler bei der Freigabe: ' + (err.message || err), 'error');
@@ -372,15 +513,78 @@ export default function SupportCenterModal({
     }
   };
 
+  // --- ADMIN AKTION 1B: NEUEN MANDANTEN / PARTNER DIREKT MIT PASSWORT ANLEGEN ---
+  const handleDirectProvisionSubmit = async (e) => {
+    e.preventDefault();
+    if (busyDirectCreate) return;
+
+    const cleanMail = directEmail.trim().toLowerCase();
+    const cleanPwd = directPassword.trim();
+
+    if (!cleanMail || !cleanMail.includes('@')) {
+      showToast('Bitte eine gültige E-Mail-Adresse eingeben.', 'warning');
+      return;
+    }
+    if (cleanPwd.length < 6) {
+      showToast('Das Passwort muss mindestens 6 Zeichen lang sein.', 'warning');
+      return;
+    }
+
+    setBusyDirectCreate(true);
+    try {
+      const { mode, mailWarning } = await provisionUserWithPassword({
+        email: cleanMail,
+        password: cleanPwd,
+        name: directName.trim(),
+        firma: directFirma.trim(),
+        requestRowId: null,
+        sendMail: directSendMail
+      });
+
+      const label = mode === 'updated' ? 'Passwort aktualisiert' : 'Konto erstellt';
+      if (!directSendMail) {
+        showToast(`${label}: ${cleanMail} kann sich sofort über „Mandanten-Login“ anmelden!`, 'success');
+      } else if (mailWarning) {
+        showToast(`${label} für ${cleanMail} (E-Mail-Hinweis: ${mailWarning}).`, 'warning');
+      } else {
+        showToast(`${label} & Zugangsdaten per E-Mail an ${cleanMail} gesendet!`, 'success');
+      }
+
+      setDirectEmail('');
+      setDirectName('');
+      setDirectFirma('');
+      setDirectPassword(generateSecurePassword());
+      setShowDirectCreate(false);
+      await loadSupportData();
+    } catch (err) {
+      showToast('Fehler bei der Konto-Anlage: ' + (err.message || err), 'error');
+    } finally {
+      setBusyDirectCreate(false);
+    }
+  };
+
   const handleRejectOrRevokeAccess = async (reqItem, isRevoke = false) => {
     if (!reqItem || busyAccessId) return;
     const confirmMsg = isRevoke
-      ? `Testzugang für „${reqItem.email}“ wieder sperren?`
-      : `Testzugangs-Anfrage von „${reqItem.email}“ ablehnen?`;
+      ? `Zugang für „${reqItem.email}“ sofort sperren (inkl. Login-Sperre in Supabase Auth)?`
+      : `Zugangs-Anfrage von „${reqItem.email}“ ablehnen?`;
     if (!window.confirm(confirmMsg)) return;
 
     setBusyAccessId(reqItem.id);
     try {
+      // Bei Sperrung eines bestehenden Zugangs auch den Auth-User in Supabase sperren
+      if (isRevoke) {
+        const { data: banRes, error: banErr } = await supabase.functions.invoke('sonar-send-email', {
+          body: {
+            action: 'admin_ban_user',
+            targetEmail: reqItem.email
+          }
+        });
+        if (banErr || banRes?.error) {
+          throw new Error(banErr?.message || banRes?.error || 'Auth-Sperre fehlgeschlagen.');
+        }
+      }
+
       const { error } = await supabase
         .from('demo_access_requests')
         .update({
@@ -391,7 +595,7 @@ export default function SupportCenterModal({
 
       if (error) throw new Error(error.message);
       showToast(
-        isRevoke ? `Zugang für ${reqItem.email} gesperrt.` : `Anfrage von ${reqItem.email} abgelehnt.`,
+        isRevoke ? `Zugang & Login für ${reqItem.email} gesperrt.` : `Anfrage von ${reqItem.email} abgelehnt.`,
         'success'
       );
       await loadSupportData();
@@ -404,7 +608,7 @@ export default function SupportCenterModal({
 
   const handleDeleteAccessEntry = async (reqItem) => {
     if (!reqItem || busyAccessId) return;
-    if (!window.confirm(`Eintrag „${reqItem.email}“ komplett aus der Zugangsliste löschen?`)) return;
+    if (!window.confirm(`Eintrag „${reqItem.email}“ aus der Zugangsliste löschen?`)) return;
     setBusyAccessId(reqItem.id);
     try {
       await supabase.from('demo_access_requests').delete().eq('id', reqItem.id);
@@ -652,12 +856,12 @@ export default function SupportCenterModal({
 
   const inputStyle = {
     width: '100%',
-    padding: '11px 13px',
+    padding: '10px 12px',
     borderRadius: '8px',
     border: `1px solid ${theme.inputBorder}`,
     background: theme.inputBg,
     color: theme.textMain,
-    fontSize: '13.5px',
+    fontSize: '13px',
     outline: 'none',
     boxSizing: 'border-box'
   };
@@ -867,21 +1071,22 @@ export default function SupportCenterModal({
         >
           {isOwner && adminTab === 'access' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* TOP ACTION BAR: INFO + DIREKT-ANLAGE + HISTORIE */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ fontSize: '13.5px', color: theme.textMuted }}>
                   {pendingAccessList.length > 0
-                    ? `${pendingAccessList.length} offene E-Mail-Anfrage(n) warten auf deine 1-Klick-Freigabe:`
+                    ? `${pendingAccessList.length} offene Anfrage(n) warten auf Passwort-Freigabe:`
                     : 'Aktuell warten keine neuen E-Mail-Adressen auf Freischaltung.'}
                 </div>
 
-                {processedAccessList.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
-                    onClick={() => setShowAccessHistory(!showAccessHistory)}
+                    onClick={() => setShowDirectCreate(!showDirectCreate)}
                     style={{
-                      background: 'transparent',
-                      border: `1px solid ${theme.border}`,
-                      color: theme.textMain,
+                      background: showDirectCreate ? 'transparent' : theme.accent,
+                      border: `1px solid ${theme.accent}`,
+                      color: showDirectCreate ? theme.accent : (isDarkMode ? '#020617' : '#ffffff'),
                       borderRadius: '6px',
                       padding: '6px 12px',
                       fontSize: '12px',
@@ -889,17 +1094,165 @@ export default function SupportCenterModal({
                       cursor: 'pointer'
                     }}
                   >
-                    {showAccessHistory
-                      ? 'Bearbeitete Zugänge ausblenden'
-                      : `Freigegebene / gesperrte Zugänge (${processedAccessList.length})`}
+                    {showDirectCreate ? 'Direkt-Anlage schließen' : '+ Zugang direkt mit Passwort anlegen'}
                   </button>
-                )}
+
+                  {processedAccessList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAccessHistory(!showAccessHistory)}
+                      style={{
+                        background: 'transparent',
+                        border: `1px solid ${theme.border}`,
+                        color: theme.textMain,
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {showAccessHistory
+                        ? 'Bearbeitete Zugänge ausblenden'
+                        : `Freigegebene / gesperrte Zugänge (${processedAccessList.length})`}
+                    </button>
+                  )}
+                </div>
               </div>
 
+              {/* DIREKT-ANLAGE FORMULAR (NEUER MANDANT / PARTNER / TESTER MIT FESTEM PASSWORT) */}
+              {showDirectCreate && (
+                <form
+                  onSubmit={handleDirectProvisionSubmit}
+                  style={{
+                    padding: '15px 16px',
+                    borderRadius: '10px',
+                    background: theme.inputBg,
+                    border: `1px solid ${theme.accent}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <strong style={{ fontSize: '13.5px', color: theme.accent }}>
+                    Mandanten- / Partner-Zugang direkt einrichten (für Reiter „Mandanten-Login“)
+                  </strong>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '4px', textTransform: 'uppercase' }}>
+                        E-Mail-Adresse*
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="mail@unternehmen.de"
+                        value={directEmail}
+                        onChange={(e) => setDirectEmail(e.target.value)}
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Name (optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="z. B. Nicolas Luca Afritsch"
+                        value={directName}
+                        onChange={(e) => setDirectName(e.target.value)}
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Firma / Kanzlei (optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="z. B. Unternehmensberatung..."
+                        value={directFirma}
+                        onChange={(e) => setDirectFirma(e.target.value)}
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: theme.textMuted, marginBottom: '4px', textTransform: 'uppercase' }}>
+                        Passwort (min. 6 Zeichen)*
+                      </label>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="text"
+                          required
+                          value={directPassword}
+                          onChange={(e) => setDirectPassword(e.target.value)}
+                          style={{ ...inputStyle, fontFamily: 'monospace', fontWeight: 'bold' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setDirectPassword(generateSecurePassword())}
+                          style={{
+                            background: theme.cardBg,
+                            border: `1px solid ${theme.border}`,
+                            color: theme.textMain,
+                            borderRadius: '8px',
+                            padding: '0 10px',
+                            fontSize: '11.5px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                          }}
+                          title="Neues sicheres Passwort generieren"
+                        >
+                          Neu
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: theme.textMain, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={directSendMail}
+                        onChange={(e) => setDirectSendMail(e.target.checked)}
+                      />
+                      <span>Zugangsdaten (E-Mail + Passwort) sofort per E-Mail zusenden</span>
+                    </label>
+
+                    <button
+                      type="submit"
+                      disabled={busyDirectCreate}
+                      style={{
+                        background: '#10b981',
+                        color: '#020617',
+                        border: 'none',
+                        padding: '9px 16px',
+                        borderRadius: '8px',
+                        fontWeight: 900,
+                        fontSize: '12.5px',
+                        cursor: busyDirectCreate ? 'wait' : 'pointer'
+                      }}
+                    >
+                      {busyDirectCreate
+                        ? 'Richte Zugang ein...'
+                        : directSendMail
+                        ? 'Zugang aktivieren & E-Mail senden'
+                        : 'Zugang aktivieren (ohne E-Mail)'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* OFFENE ZUGANGS-ANFRAGEN */}
               {pendingAccessList.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {pendingAccessList.map((req) => {
                     const isBusy = busyAccessId === req.id;
+                    const itemPwd = getPasswordForItem(req.id);
                     return (
                       <div
                         key={req.id}
@@ -910,65 +1263,115 @@ export default function SupportCenterModal({
                           border: `1px solid ${theme.border}`,
                           borderLeft: '4px solid #f59e0b',
                           display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          flexWrap: 'wrap',
+                          flexDirection: 'column',
                           gap: '12px'
                         }}
                       >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 260px' }}>
-                          <div style={{ fontSize: '14px', fontWeight: 'bold', color: theme.textMain }}>
-                            Interessent: <span style={{ color: '#f59e0b' }}>{req.name || 'Ohne Namensangabe'}</span>
-                            {req.firma ? ` (${req.firma})` : ''}
-                          </div>
-                          <div style={{ fontSize: '13px', color: theme.accent, fontWeight: 'bold', wordBreak: 'break-all' }}>
-                            {req.email}
-                          </div>
-                          <div style={{ fontSize: '11.5px', color: theme.textMuted }}>
-                            Angefragt am: {formatTs(req.created_at)}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 260px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold', color: theme.textMain }}>
+                              Interessent: <span style={{ color: '#f59e0b' }}>{req.name || 'Ohne Namensangabe'}</span>
+                              {req.firma ? ` (${req.firma})` : ''}
+                            </div>
+                            <div style={{ fontSize: '13px', color: theme.accent, fontWeight: 'bold', wordBreak: 'break-all' }}>
+                              {req.email}
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: theme.textMuted }}>
+                              Angefragt am: {formatTs(req.created_at)}
+                            </div>
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleApproveAndNotify(req)}
-                            style={{
-                              background: '#10b981',
-                              color: '#020617',
-                              border: 'none',
-                              padding: '10px 15px',
-                              borderRadius: '8px',
-                              fontWeight: 900,
-                              fontSize: '12.5px',
-                              cursor: isBusy ? 'wait' : 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}
-                          >
-                            <Icon name="check" size={15} />
-                            <span>{isBusy ? 'Sende Mail...' : 'Freigeben & Einladungs-Mail senden'}</span>
-                          </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '8px', borderTop: `1px solid ${theme.border}` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 250px', maxWidth: '360px' }}>
+                            <input
+                              type="text"
+                              placeholder="Passwort festlegen..."
+                              value={itemPwd}
+                              onChange={(e) => setPasswordForItem(req.id, e.target.value)}
+                              style={{ ...inputStyle, padding: '8px 10px', fontFamily: 'monospace', fontWeight: 'bold' }}
+                            />
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => setPasswordForItem(req.id, generateSecurePassword())}
+                              style={{
+                                background: theme.cardBg,
+                                border: `1px solid ${theme.border}`,
+                                color: theme.textMain,
+                                borderRadius: '8px',
+                                padding: '8px 10px',
+                                fontSize: '11.5px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title="Neues Passwort würfeln"
+                            >
+                              Neu
+                            </button>
+                          </div>
 
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleRejectOrRevokeAccess(req, false)}
-                            style={{
-                              background: 'transparent',
-                              color: theme.warningBorder,
-                              border: `1px solid ${theme.warningBorder}`,
-                              padding: '9px 13px',
-                              borderRadius: '8px',
-                              fontWeight: 'bold',
-                              fontSize: '12px',
-                              cursor: isBusy ? 'wait' : 'pointer'
-                            }}
-                          >
-                            Ablehnen
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleApproveAndNotify(req, true)}
+                              style={{
+                                background: '#10b981',
+                                color: '#020617',
+                                border: 'none',
+                                padding: '9px 14px',
+                                borderRadius: '8px',
+                                fontWeight: 900,
+                                fontSize: '12.5px',
+                                cursor: isBusy ? 'wait' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <Icon name="check" size={15} />
+                              <span>{isBusy ? 'Richte ein...' : 'Konto anlegen & Passwort senden'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleApproveAndNotify(req, false)}
+                              style={{
+                                background: 'transparent',
+                                color: '#10b981',
+                                border: '1px solid #10b981',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                fontWeight: 'bold',
+                                fontSize: '12px',
+                                cursor: isBusy ? 'wait' : 'pointer'
+                              }}
+                              title="Legt den Passwort-Account in Supabase an, ohne eine E-Mail zu senden"
+                            >
+                              Nur Passwort setzen
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleRejectOrRevokeAccess(req, false)}
+                              style={{
+                                background: 'transparent',
+                                color: theme.warningBorder,
+                                border: `1px solid ${theme.warningBorder}`,
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                fontWeight: 'bold',
+                                fontSize: '12px',
+                                cursor: isBusy ? 'wait' : 'pointer'
+                              }}
+                            >
+                              Ablehnen
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -976,104 +1379,154 @@ export default function SupportCenterModal({
                 </div>
               )}
 
+              {/* BEREITS BEARBEITETE ZUGÄNGE (INKL. DIREKTER PASSWORT-VERGABE FÜR BESTEHENDE EINTRÄGE WIE NICO!) */}
               {(showAccessHistory || pendingAccessList.length === 0) && processedAccessList.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
                   <strong style={{ fontSize: '12px', color: theme.textMuted, textTransform: 'uppercase' }}>
-                    Bereits bearbeitete Testzugänge ({processedAccessList.length})
+                    Bereits eingerichtete / bearbeitete Zugänge ({processedAccessList.length})
                   </strong>
                   {processedAccessList.map((item) => {
                     const isApproved = item.status === 'approved';
+                    const isBusy = busyAccessId === item.id;
+                    const itemPwd = getPasswordForItem(item.id);
+
                     return (
                       <div
                         key={item.id}
                         style={{
-                          padding: '10px 14px',
-                          borderRadius: '8px',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
                           background: theme.inputBg,
                           border: `1px solid ${theme.border}`,
                           display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          flexWrap: 'wrap',
+                          flexDirection: 'column',
                           gap: '10px',
                           fontSize: '12.5px'
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span
-                            style={{
-                              padding: '2px 7px',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              fontWeight: 'bold',
-                              textTransform: 'uppercase',
-                              border: `1px solid ${isApproved ? '#10b981' : theme.warningBorder}`,
-                              color: isApproved ? '#10b981' : theme.warningBorder
-                            }}
-                          >
-                            {isApproved ? 'Freigegeben' : 'Gesperrt'}
-                          </span>
-                          <strong style={{ color: theme.textMain }}>{item.email}</strong>
-                          {(item.name || item.firma) && (
-                            <span style={{ color: theme.textMuted }}>
-                              ({[item.name, item.firma].filter(Boolean).join(' • ')})
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span
+                              style={{
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase',
+                                border: `1px solid ${isApproved ? '#10b981' : theme.warningBorder}`,
+                                color: isApproved ? '#10b981' : theme.warningBorder
+                              }}
+                            >
+                              {isApproved ? 'Freigegeben' : 'Gesperrt'}
                             </span>
-                          )}
+                            <strong style={{ color: theme.textMain }}>{item.email}</strong>
+                            {(item.name || item.firma) && (
+                              <span style={{ color: theme.textMuted }}>
+                                ({[item.name, item.firma].filter(Boolean).join(' • ')})
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {isApproved && (
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleRejectOrRevokeAccess(item, true)}
+                                style={{
+                                  background: 'transparent',
+                                  border: `1px solid ${theme.warningBorder}`,
+                                  color: theme.warningBorder,
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 'bold',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Zugang sperren
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleDeleteAccessEntry(item)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: theme.textMuted,
+                                cursor: 'pointer',
+                                padding: '4px'
+                              }}
+                              title="Eintrag aus Liste entfernen"
+                            >
+                              <Icon name="trash" size={14} />
+                            </button>
+                          </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          {isApproved ? (
-                            <button
-                              type="button"
-                              disabled={busyAccessId === item.id}
-                              onClick={() => handleRejectOrRevokeAccess(item, true)}
-                              style={{
-                                background: 'transparent',
-                                border: `1px solid ${theme.warningBorder}`,
-                                color: theme.warningBorder,
-                                padding: '5px 10px',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              Zugang sperren
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={busyAccessId === item.id}
-                              onClick={() => handleApproveAndNotify(item)}
-                              style={{
-                                background: 'transparent',
-                                border: '1px solid #10b981',
-                                color: '#10b981',
-                                padding: '5px 10px',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              Freigeben &amp; Mail senden
-                            </button>
-                          )}
+                        {/* Direkt-Zeile zum Passwort setzen / neu senden für diesen Account */}
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', paddingTop: '8px', borderTop: `1px solid ${theme.border}` }}>
+                          <input
+                            type="text"
+                            placeholder="Neues Passwort für Mandanten-Login..."
+                            value={itemPwd}
+                            onChange={(e) => setPasswordForItem(item.id, e.target.value)}
+                            style={{ ...inputStyle, flex: '1 1 200px', maxWidth: '280px', padding: '7px 10px', fontSize: '12px', fontFamily: 'monospace' }}
+                          />
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => setPasswordForItem(item.id, generateSecurePassword())}
+                            style={{
+                              background: theme.cardBg,
+                              border: `1px solid ${theme.border}`,
+                              color: theme.textMain,
+                              borderRadius: '6px',
+                              padding: '7px 10px',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Neu
+                          </button>
 
                           <button
                             type="button"
-                            disabled={busyAccessId === item.id}
-                            onClick={() => handleDeleteAccessEntry(item)}
+                            disabled={isBusy}
+                            onClick={() => handleApproveAndNotify(item, true)}
+                            style={{
+                              background: '#10b981',
+                              color: '#020617',
+                              border: 'none',
+                              padding: '7px 12px',
+                              borderRadius: '6px',
+                              fontSize: '11.5px',
+                              fontWeight: 900,
+                              cursor: isBusy ? 'wait' : 'pointer'
+                            }}
+                          >
+                            {isBusy ? 'Speichere...' : isApproved ? 'Passwort setzen & per Mail senden' : 'Wieder freigeben & Passwort senden'}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleApproveAndNotify(item, false)}
                             style={{
                               background: 'transparent',
-                              border: 'none',
-                              color: theme.textMuted,
-                              cursor: 'pointer',
-                              padding: '4px'
+                              border: '1px solid #10b981',
+                              color: '#10b981',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
                             }}
-                            title="Eintrag entfernen"
                           >
-                            <Icon name="trash" size={14} />
+                            Nur Passwort speichern
                           </button>
                         </div>
                       </div>
