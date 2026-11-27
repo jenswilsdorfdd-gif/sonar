@@ -11,8 +11,8 @@ export default function App() {
   const [requesterFirma, setRequesterFirma] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Login-Modus ('password' | 'magic') & Status-Meldungen
-  const [loginMode, setLoginMode] = useState<'password' | 'magic'>('password')
+  // Login-Modus ('password' | 'request') & Status-Meldungen
+  const [loginMode, setLoginMode] = useState<'password' | 'request'>('password')
   const [authNotice, setAuthNotice] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
 
@@ -38,7 +38,7 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Klassischer Passwort-Login (Owner / Vollzugang)
+  // Einheitlicher Passwort-Login (Owner, Partner, Mandanten & freigeschaltete Konten)
   const handleLogin = async (e: any) => {
     e.preventDefault()
     setLoading(true)
@@ -51,13 +51,17 @@ export default function App() {
     })
 
     if (error) {
-      setAuthError(error.message)
+      if (error.message.toLowerCase().includes('invalid login credentials')) {
+        setAuthError('Ungültige Zugangsdaten: Bitte prüfe E-Mail-Adresse und Passwort (oder fordere rechts im Reiter „Zugang anfragen“ deine Zugangsdaten an).')
+      } else {
+        setAuthError(error.message)
+      }
     }
     setLoading(false)
   }
 
-  // Türsteher-geschützter Magic-Link-Login für Test- & Demo-Interessenten
-  const handleMagicLink = async (e: any) => {
+  // Reines Zugangs-Anfrageformular für neue Interessenten (ohne Magic Link!)
+  const handleRequestAccess = async (e: any) => {
     e.preventDefault()
     const cleanEmail = email.trim().toLowerCase()
     if (!cleanEmail) return
@@ -67,7 +71,6 @@ export default function App() {
     setAuthNotice(null)
 
     try {
-      // 1. Prüfen, ob E-Mail bereits freigeschaltet ist oder neue Anfrage für das Owner-Cockpit anlegen
       const { data: gateRes, error: gateErr } = await supabase.rpc('check_or_request_demo_access', {
         p_email: cleanEmail,
         p_name: requesterName.trim() || null,
@@ -75,7 +78,7 @@ export default function App() {
       })
 
       if (gateErr) {
-        throw new Error(gateErr.message || 'Freigabe-Prüfung konnte nicht durchgeführt werden.')
+        throw new Error(gateErr.message || 'Zugangs-Anfrage konnte nicht übermittelt werden.')
       }
 
       const accessStatus = gateRes?.status || 'requested'
@@ -87,14 +90,14 @@ export default function App() {
       }
 
       if (accessStatus === 'rejected') {
-        setAuthError('Für diese E-Mail-Adresse konnte leider kein Testzugang freigeschaltet werden.')
+        setAuthError('Für diese E-Mail-Adresse konnte aktuell kein Zugang freigeschaltet werden.')
         setLoading(false)
         return
       }
 
       if (accessStatus === 'requested') {
         setAuthNotice(
-          `Anfrage erfolgreich übermittelt: Wir haben deine Anfrage für ${cleanEmail} erhalten. Sobald dein kostenfreier Testzugang freigegeben ist, erhältst du eine E-Mail und kannst dich hier direkt anmelden.`
+          `Anfrage erfolgreich übermittelt: Wir haben deine Zugangs-Anfrage für ${cleanEmail} erhalten. Nach kurzer Freigabe erhältst du dein persönliches Passwort per E-Mail und kannst dich direkt unter „Mandanten-Login“ anmelden.`
         )
         setLoading(false)
         return
@@ -102,29 +105,19 @@ export default function App() {
 
       if (accessStatus === 'already_pending') {
         setAuthNotice(
-          `Deine Anfrage für ${cleanEmail} liegt uns bereits zur Prüfung vor. Sobald die Freigabe erfolgt ist, benachrichtigen wir dich umgehend per E-Mail.`
+          `Deine Anfrage für ${cleanEmail} liegt uns bereits zur Prüfung vor. Sobald dein Zugang eingerichtet ist, erhältst du deine Anmeldedaten per E-Mail.`
         )
         setLoading(false)
         return
       }
 
-      // 2. Nur wenn status === 'approved' -> echten Magic Link versenden!
-      const { error: otpErr } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      })
-
-      if (otpErr) {
-        setAuthError(otpErr.message)
-      } else {
-        setAuthNotice(
-          `Dein Zugang ist freigeschaltet – der Magic Link wurde soeben an ${cleanEmail} gesendet! Bitte klicke auf den Zugangslink in deiner E-Mail, um direkt ins Cockpit zu starten.`
-        )
-      }
+      // Falls status === 'approved' -> Direkt auf den Passwort-Reiter umschalten!
+      setLoginMode('password')
+      setAuthNotice(
+        `Die Adresse ${cleanEmail} ist bereits freigeschaltet! Bitte gib jetzt dein persönliches Passwort aus deiner Zugangs-E-Mail ein, um dich anzumelden.`
+      )
     } catch (err: any) {
-      setAuthError(err.message || 'Verbindungsfehler bei der Zugangs-Prüfung.')
+      setAuthError(err.message || 'Verbindungsfehler bei der Zugangs-Anfrage.')
     } finally {
       setLoading(false)
     }
@@ -181,7 +174,7 @@ export default function App() {
           KI-gestütztes Kanzlei- & Behörden-Abwehrsystem
         </p>
 
-        {/* Umschalter: Passwort vs. Testzugang (Magic Link) */}
+        {/* Umschalter: Mandanten-Login (Passwort) vs. Zugang anfragen */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -211,7 +204,7 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => { setLoginMode('magic'); setAuthError(null); setAuthNotice(null); }}
+            onClick={() => { setLoginMode('request'); setAuthError(null); setAuthNotice(null); }}
             style={{
               padding: '9px 10px',
               borderRadius: '7px',
@@ -219,17 +212,17 @@ export default function App() {
               cursor: 'pointer',
               fontSize: '13px',
               fontWeight: 'bold',
-              backgroundColor: loginMode === 'magic' ? '#00e5ff' : 'transparent',
-              color: loginMode === 'magic' ? '#020617' : '#94a3b8',
+              backgroundColor: loginMode === 'request' ? '#00e5ff' : 'transparent',
+              color: loginMode === 'request' ? '#020617' : '#94a3b8',
               transition: 'all 0.2s ease'
             }}
           >
-            Testzugang (Demo)
+            Zugang anfragen
           </button>
         </div>
 
         {/* Formular */}
-        <form onSubmit={loginMode === 'password' ? handleLogin : handleMagicLink} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <form onSubmit={loginMode === 'password' ? handleLogin : handleRequestAccess} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ textAlign: 'left' }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
               Geschäftliche E-Mail-Adresse*
@@ -244,14 +237,15 @@ export default function App() {
             />
           </div>
 
-          {loginMode === 'magic' && (
+          {loginMode === 'request' && (
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px', textAlign: 'left' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
-                  Ihr Name (bei Erst-Anfrage)
+                  Ihr Name*
                 </label>
                 <input
                   type="text"
+                  required
                   placeholder="z.B. Max Mustermann"
                   value={requesterName}
                   onChange={(e) => setRequesterName(e.target.value)}
@@ -341,13 +335,13 @@ export default function App() {
               ? 'Prüfe Zugang...'
               : loginMode === 'password'
                 ? 'Im Cockpit anmelden'
-                : 'Testzugang anfordern / Magic Link senden'}
+                : 'Zugangsdaten anfordern'}
           </button>
         </form>
 
-        {loginMode === 'magic' && (
+        {loginMode === 'request' && (
           <p style={{ marginTop: '16px', marginBottom: 0, fontSize: '11.5px', color: '#64748b', lineHeight: '1.45' }}>
-            Neue Interessenten werden nach kurzer Freigabe per E-Mail informiert. Bereits freigeschaltete Adressen erhalten sofort ihren Einmal-Login-Link.
+            Nach kurzer Prüfung Ihrer Anfrage erhalten Sie Ihr persönliches Passwort per E-Mail und können sich direkt unter „Mandanten-Login“ anmelden.
           </p>
         )}
       </div>
